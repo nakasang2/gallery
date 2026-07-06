@@ -1,7 +1,27 @@
 // サンプル作品データと生成アートのレンダラ
 // シード付き乱数なので、同じ作品は何度描いても同じ絵になる
 
-export function mulberry32(seed) {
+export type Rnd = () => number
+type StyleFn = (ctx: CanvasRenderingContext2D, w: number, h: number, pal: string[], rnd: Rnd) => void
+
+// デモ作品(生成アート)とユーザー出展作品(src あり)の共通型
+export interface ArtworkData {
+  id: string
+  title: string
+  artist: string
+  year: number
+  desc: string
+  tags: string[]
+  ratio: [number, number]
+  /** ユーザー出展作品の画像(dataURL または URL)。デモ作品は未設定 */
+  src?: string
+  /** 以下はデモ生成アート用 */
+  style?: string
+  palette?: keyof typeof PALETTES
+  seed?: number
+}
+
+export function mulberry32(seed: number): Rnd {
   let a = seed >>> 0
   return function () {
     a |= 0
@@ -22,7 +42,7 @@ const PALETTES = {
   sumi: ['#f4f1ea', '#dcd6c9', '#55524b', '#22201c', '#b3402e'],
 }
 
-export const ARTWORKS = [
+export const ARTWORKS: ArtworkData[] = [
   {
     id: 'a01', title: '夜明けの呼吸', artist: '蒼井ミナト', year: 2025,
     ratio: [4, 3], style: 'waves', palette: 'yoake', seed: 11,
@@ -87,7 +107,7 @@ export const ARTWORKS = [
 
 /* ---- 各スタイルの描画関数 ---- */
 
-const styles = {
+const styles: Record<string, StyleFn> = {
   waves(ctx, w, h, pal, rnd) {
     ctx.fillStyle = pal[0]
     ctx.fillRect(0, 0, w, h)
@@ -267,7 +287,7 @@ const styles = {
   fields(ctx, w, h, pal, rnd) {
     ctx.fillStyle = pal[0]
     ctx.fillRect(0, 0, w, h)
-    const zones = [
+    const zones: [number, number, number, number, string][] = [
       [0.08, 0.08, 0.84, 0.42, pal[3]],
       [0.08, 0.52, 0.84, 0.28, pal[2]],
       [0.08, 0.82, 0.84, 0.1, pal[4]],
@@ -391,20 +411,16 @@ const styles = {
   },
 }
 
-/**
- * 作品をcanvasに描画して返す
- * @param {object} art ARTWORKSの要素
- * @param {number} longSide 長辺のピクセル数
- */
-export function renderArtworkCanvas(art, longSide = 768) {
+/** 作品をcanvasに描画して返す(longSide = 長辺のピクセル数) */
+export function renderArtworkCanvas(art: ArtworkData, longSide = 768): HTMLCanvasElement {
   const [rw, rh] = art.ratio
   const w = rw >= rh ? longSide : Math.round((longSide * rw) / rh)
   const h = rw >= rh ? Math.round((longSide * rh) / rw) : longSide
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
-  const ctx = canvas.getContext('2d')
-  const rnd = mulberry32(art.seed * 7919 + 17)
-  styles[art.style](ctx, w, h, PALETTES[art.palette], rnd)
+  const ctx = canvas.getContext('2d')!
+  const rnd = mulberry32((art.seed ?? 1) * 7919 + 17)
+  styles[art.style ?? 'waves'](ctx, w, h, PALETTES[art.palette ?? 'yoake'], rnd)
   return canvas
 }

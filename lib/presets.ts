@@ -1,9 +1,58 @@
-// 空間カスタマイズのプリセット定義と、設定の保存/読み込み
-// (プロトタイプ: バックエンドの代わりに localStorage へ保存する)
+// 空間カスタマイズのプリセット定義(プロトタイプ src/config.js から移植)
+
+export interface ThemeDef {
+  label: string
+  wall: number
+  accentWall: number
+  ceiling: number
+  floorTint: number
+  ambient: number
+  hemi: number
+  spotColor: number
+  spotIntensity: number
+  stripColor: number
+  fog: number
+  titleInk: 'light' | 'dark'
+}
+
+export interface SlotDef {
+  x: number
+  z: number
+  rotY: number
+}
+
+export interface PartitionDef {
+  x: number
+  z: number
+  w: number
+  t: number
+  h: number
+}
+
+export interface LayoutDef {
+  label: string
+  hw: number
+  hd: number
+  slots: SlotDef[]
+  benches: { x: number; z: number }[]
+  partitions: PartitionDef[]
+  entry: { x: number; z: number; yaw: number }
+}
+
+export interface FrameDef {
+  label: string
+  /** mat が null のとき額なし(キャンバス張り) */
+  mat: number | null
+  bar?: number
+  gap?: number
+  color?: number
+  roughness?: number
+  metalness?: number
+}
 
 /* ================= テーマ(壁・床・照明) ================= */
 
-export const THEMES = {
+export const THEMES: Record<string, ThemeDef> = {
   chic: {
     label: 'シック',
     wall: 0xd8d2c6,
@@ -16,7 +65,7 @@ export const THEMES = {
     spotIntensity: 21,
     stripColor: 0xfff0d8,
     fog: 0x0b0a09,
-    titleInk: 'light', // アクセント壁が暗い → 白文字
+    titleInk: 'light',
   },
   whitecube: {
     label: 'ホワイトキューブ',
@@ -49,12 +98,10 @@ export const THEMES = {
 }
 
 /* ================= レイアウト(部屋の形と展示位置) ================= */
-// hw/hd: 部屋の半幅/半奥行, slots: 展示位置 {x, z, rotY}
-// partitions: 中央の自立壁 {x, z, w, t, h}(collision の対象)
 
-function wallSlots(count, span, fixed, rotY, axis) {
-  // 一辺に count 点を等間隔で並べる。axis='x' なら x を振って z 固定
-  const slots = []
+// 一辺に count 点を等間隔で並べる。axis='x' なら x を振って z 固定
+function wallSlots(count: number, span: number, fixed: number, rotY: number, axis: 'x' | 'z'): SlotDef[] {
+  const slots: SlotDef[] = []
   for (let i = 0; i < count; i++) {
     const p = count === 1 ? 0 : -span + (2 * span * i) / (count - 1)
     slots.push(axis === 'x' ? { x: p, z: fixed, rotY } : { x: fixed, z: p, rotY })
@@ -62,7 +109,7 @@ function wallSlots(count, span, fixed, rotY, axis) {
   return slots
 }
 
-export const LAYOUTS = {
+export const LAYOUTS: Record<string, LayoutDef> = {
   hall: {
     label: 'ワンルーム',
     hw: 13,
@@ -119,86 +166,14 @@ export const LAYOUTS = {
 
 /* ================= 額装 ================= */
 // bar: 枠の太さ, gap: 作品と枠内縁の間(マット紙が見える幅)
-// mat: マット紙の色(null でマット紙なし = キャンバス張り)
 
-export const FRAMES = {
-  black: {
-    label: '墨',
-    bar: 0.07,
-    gap: 0.08,
-    color: 0x141210,
-    roughness: 0.35,
-    metalness: 0.4,
-    mat: 0xf1ede4,
-  },
-  gold: {
-    label: '金',
-    bar: 0.1,
-    gap: 0.07,
-    color: 0xa8853c,
-    roughness: 0.32,
-    metalness: 1.0,
-    mat: 0xf3eee0,
-  },
-  white: {
-    label: '白',
-    bar: 0.07,
-    gap: 0.08,
-    color: 0xf4f1ea,
-    roughness: 0.6,
-    metalness: 0.05,
-    mat: 0xffffff,
-  },
-  wood: {
-    label: '木',
-    bar: 0.08,
-    gap: 0.07,
-    color: 0x7a5c3e,
-    roughness: 0.55,
-    metalness: 0.05,
-    mat: 0xf1ead9,
-  },
-  none: {
-    label: 'なし',
-    mat: null, // キャンバス張り(枠もマット紙もなし)
-  },
+export const FRAMES: Record<string, FrameDef> = {
+  black: { label: '墨', bar: 0.07, gap: 0.08, color: 0x141210, roughness: 0.35, metalness: 0.4, mat: 0xf1ede4 },
+  gold: { label: '金', bar: 0.1, gap: 0.07, color: 0xa8853c, roughness: 0.32, metalness: 1.0, mat: 0xf3eee0 },
+  white: { label: '白', bar: 0.07, gap: 0.08, color: 0xf4f1ea, roughness: 0.6, metalness: 0.05, mat: 0xffffff },
+  wood: { label: '木', bar: 0.08, gap: 0.07, color: 0x7a5c3e, roughness: 0.55, metalness: 0.05, mat: 0xf1ead9 },
+  none: { label: 'なし', mat: null },
 }
 
-/* ================= 設定の保存/読み込み ================= */
-
-const STORAGE_KEY = 'hakoniwa.settings.v1'
-
-export const DEFAULT_SETTINGS = {
-  theme: 'chic',
-  layout: 'hall',
-  frame: 'black',
-  showDemo: true,
-  artworks: [], // ユーザーが出展した作品 { id, title, artist, year, ratio: [w,h], src }
-  frameOverrides: {}, // 作品ID → 額装キー
-}
-
-export function loadSettings() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { ...DEFAULT_SETTINGS }
-    const parsed = JSON.parse(raw)
-    const s = { ...DEFAULT_SETTINGS, ...parsed }
-    // 保存後にプリセットが消えた場合に備えてフォールバック
-    if (!THEMES[s.theme]) s.theme = DEFAULT_SETTINGS.theme
-    if (!LAYOUTS[s.layout]) s.layout = DEFAULT_SETTINGS.layout
-    if (!FRAMES[s.frame]) s.frame = DEFAULT_SETTINGS.frame
-    return s
-  } catch {
-    return { ...DEFAULT_SETTINGS }
-  }
-}
-
-export function saveSettings(settings) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-    return true
-  } catch {
-    // 容量超過(アップロード画像が多すぎる場合など)
-    return false
-  }
-}
+export const CEIL_H = 5.2
+export const EYE = 1.6
