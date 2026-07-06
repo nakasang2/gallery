@@ -84,7 +84,7 @@ export const THEMES: Record<string, ThemeDef> = {
     titleInk: 'light',
     fogDensity: 0.018,
     coneOpacity: 0.05,
-    mistLevel: 0.05,
+    mistLevel: 0.1,
     mistColor: 0xbdb6a8,
   },
   whitecube: {
@@ -103,7 +103,7 @@ export const THEMES: Record<string, ThemeDef> = {
     skylight: true,
     fogDensity: 0.013,
     coneOpacity: 0.028,
-    mistLevel: 0.04,
+    mistLevel: 0.08,
     mistColor: 0xece7dc,
   },
   noir: {
@@ -121,7 +121,7 @@ export const THEMES: Record<string, ThemeDef> = {
     titleInk: 'light',
     fogDensity: 0.024,
     coneOpacity: 0.095,
-    mistLevel: 0.09,
+    mistLevel: 0.18,
     mistColor: 0x5a5650,
     mistAdditive: true,
   },
