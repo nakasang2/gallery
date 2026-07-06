@@ -12,6 +12,7 @@ import Room from './Room'
 import Exhibit from './Exhibit'
 import TitleWall from './TitleWall'
 import Dust from './Dust'
+import Mist from './Mist'
 import WalkControls from './WalkControls'
 import Effects from './Effects'
 import { VideoPlaybackManager } from './VideoArt'
@@ -29,6 +30,7 @@ export default function GalleryScene() {
     // プロトタイプ用デバッグ
     ;(window as unknown as Record<string, unknown>).__scene = scene
     ;(window as unknown as Record<string, unknown>).__gl = gl
+    ;(window as unknown as Record<string, unknown>).__camObj = camera
     return () => {
       camera.remove(listener)
     }
@@ -92,6 +94,7 @@ export default function GalleryScene() {
       ))}
       <TitleWall theme={theme} layout={layout} />
       <Dust layout={layout} />
+      <Mist theme={theme} layout={layout} />
       <WalkControls layout={layout} list={list} />
       <VideoPlaybackManager />
       {!LOW_POWER && <Effects />}

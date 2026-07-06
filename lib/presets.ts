@@ -19,6 +19,12 @@ export interface ThemeDef {
   fogDensity: number
   /** スポットライトの光錐(フェイクボリューメトリック)の濃さ */
   coneOpacity: number
+  /** 空間に漂う霧(ミスト)の濃さ。0で無効 */
+  mistLevel: number
+  /** ミストの色(加算合成なので暗すぎると見えない) */
+  mistColor: number
+  /** ミストを加算合成にするか(暗いテーマ向け) */
+  mistAdditive?: boolean
 }
 
 export interface SlotDef {
@@ -78,6 +84,8 @@ export const THEMES: Record<string, ThemeDef> = {
     titleInk: 'light',
     fogDensity: 0.018,
     coneOpacity: 0.05,
+    mistLevel: 0.05,
+    mistColor: 0xbdb6a8,
   },
   whitecube: {
     label: 'ホワイトキューブ',
@@ -95,6 +103,8 @@ export const THEMES: Record<string, ThemeDef> = {
     skylight: true,
     fogDensity: 0.013,
     coneOpacity: 0.028,
+    mistLevel: 0.04,
+    mistColor: 0xece7dc,
   },
   noir: {
     label: 'ノワール',
@@ -111,6 +121,9 @@ export const THEMES: Record<string, ThemeDef> = {
     titleInk: 'light',
     fogDensity: 0.024,
     coneOpacity: 0.095,
+    mistLevel: 0.09,
+    mistColor: 0x5a5650,
+    mistAdditive: true,
   },
 }
 
