@@ -102,10 +102,13 @@ export const ARTWORKS: ArtworkData[] = [
     tags: ['ジェネラティブ', 'ミニマル'],
   },
   {
+    // デモ唯一の映像作品(音付き)。近づくと雨音と遠雷が聞こえてくる
+    // style/palette はLPのサムネイル生成用に残している
     id: 'a10', title: '遠雷', artist: '月島ルイ', year: 2025,
-    ratio: [3, 4], style: 'rain', palette: 'shinkai', seed: 33,
-    desc: '夕立の直前、空気が縦に流れはじめる。あの数秒の緊張だけを取り出したかった。',
-    tags: ['デジタル', '抽象'],
+    ratio: [9, 16], style: 'rain', palette: 'shinkai', seed: 33,
+    kind: 'video', src: '/demo-works/enrai.webm', poster: '/demo-works/enrai-poster.jpg',
+    desc: '夕立の直前、空気が縦に流れはじめる。あの数秒の緊張だけを取り出したかった。近づくと、雨の音がする。',
+    tags: ['映像', 'サウンド'],
   },
 ]
 
