@@ -9,6 +9,7 @@ import { artSize } from '@/lib/exhibition'
 import { walkRef, LOW_POWER } from '@/lib/controller'
 import { getArtTexture, makePlaqueTexture, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
+import { useVideoArt } from './VideoArt'
 
 // 面取り付きの額縁(中央をくり抜いた枠をベベル付きで押し出す)
 function makeFrameGeo(w: number, h: number, bar: number, gap: number) {
@@ -53,7 +54,11 @@ export default function Exhibit({
 }) {
   const gl = useThree((s) => s.gl)
   const { width, height } = artSize(art.ratio)
-  const artTex = getArtTexture(art)
+
+  // 動画作品: VideoTexture + 空間オーディオ(画像作品は従来どおりキャッシュ)
+  const artWorldPos = useMemo(() => new THREE.Vector3(slot.x, 1.62, slot.z), [slot])
+  const videoArt = useVideoArt(art, artWorldPos)
+  const artTex = videoArt.texture ?? getArtTexture(art)
 
   const plaqueTex = useMemo(() => makePlaqueTexture(art, index), [art, index])
   useEffect(() => () => disposeAll([plaqueTex]), [plaqueTex])
@@ -107,7 +112,15 @@ export default function Exhibit({
             <meshStandardMaterial attach="material-1" color={0x28241f} roughness={0.8} />
             <meshStandardMaterial attach="material-2" color={0x28241f} roughness={0.8} />
             <meshStandardMaterial attach="material-3" color={0x28241f} roughness={0.8} />
-            <meshStandardMaterial attach="material-4" map={artTex} roughness={0.75} envMapIntensity={0.35} />
+            <meshStandardMaterial
+              attach="material-4"
+              map={artTex}
+              roughness={0.75}
+              envMapIntensity={0.35}
+              emissiveMap={videoArt.texture ? artTex : null}
+              emissive={videoArt.texture ? 0xffffff : 0x000000}
+              emissiveIntensity={videoArt.texture ? 0.7 : 0}
+            />
             <meshStandardMaterial attach="material-5" color={0x1a1713} roughness={0.9} />
           </mesh>
         ) : (
@@ -127,10 +140,20 @@ export default function Exhibit({
             </mesh>
             <mesh position={[0, 0, 0.04]} onClick={onClick} onPointerOver={onOver} onPointerOut={onOut}>
               <planeGeometry args={[width, height]} />
-              <meshStandardMaterial map={artTex} roughness={0.7} envMapIntensity={0.4} />
+              <meshStandardMaterial
+                map={artTex}
+                roughness={0.7}
+                envMapIntensity={0.4}
+                emissiveMap={videoArt.texture ? artTex : null}
+                emissive={videoArt.texture ? 0xffffff : 0x000000}
+                emissiveIntensity={videoArt.texture ? 0.7 : 0}
+              />
             </mesh>
           </>
         )}
+
+        {/* 動画作品の空間オーディオ(近づくと大きく聞こえる) */}
+        {videoArt.audio && <primitive object={videoArt.audio} position={[0, 0, 0.1]} />}
 
         {/* 銘板(作品の右横) */}
         <mesh position={[halfW + 0.42, -height / 2 + 0.28, 0.02]}>

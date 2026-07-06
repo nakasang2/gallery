@@ -8,6 +8,7 @@ import { useExhibitionList } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
 import { walkRef, LOW_POWER } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
+import { unlockVideoAudio } from '@/lib/videohub'
 import GalleryScene from './GalleryScene'
 import { HudTop, HudActions, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
@@ -65,9 +66,12 @@ export default function GalleryApp() {
     useGallery.getState().initAuth()
   }, [])
 
-  // 環境音はブラウザの自動再生制限のため、最初の操作で開始する
+  // 環境音・動画音声はブラウザの自動再生制限のため、最初の操作で開始する
   useEffect(() => {
-    const unlock = () => galleryAudio.unlock()
+    const unlock = () => {
+      galleryAudio.unlock()
+      unlockVideoAudio()
+    }
     window.addEventListener('pointerdown', unlock, { once: true })
     window.addEventListener('keydown', unlock, { once: true })
     return () => {

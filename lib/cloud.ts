@@ -14,6 +14,7 @@ interface ArtworkRow {
   year: number | null
   tags: string[]
   created_at: string
+  kind?: 'image' | 'video'
 }
 
 function publicUrl(path: string): string {
@@ -21,15 +22,18 @@ function publicUrl(path: string): string {
 }
 
 export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
+  const video = row.kind === 'video'
   return {
     id: row.id,
     title: row.title,
     artist: artistName,
     year: row.year ?? new Date(row.created_at).getFullYear(),
     desc: row.description,
-    tags: row.tags.length ? row.tags : ['出展作品'],
+    tags: row.tags.length ? row.tags : [video ? '映像作品' : '出展作品'],
     ratio: [row.width, row.height],
-    src: publicUrl(`${row.storage_path}/display.jpg`),
+    kind: video ? 'video' : 'image',
+    src: publicUrl(`${row.storage_path}/${video ? 'video' : 'display.jpg'}`),
+    poster: video ? publicUrl(`${row.storage_path}/thumb.jpg`) : undefined,
   }
 }
 
@@ -96,10 +100,54 @@ export async function uploadArtwork(params: {
   }
 }
 
+/** 動画作品: 動画本体 + ポスター2サイズを保存(要 0002 マイグレーション) */
+export async function uploadVideoArtwork(params: {
+  ownerId: string
+  file: File
+  posterDataUrl: string
+  title: string
+  w: number
+  h: number
+}): Promise<void> {
+  const sb = supabase!
+  const id = crypto.randomUUID()
+  const basePath = `${params.ownerId}/${id}`
+
+  const contentType = params.file.type || 'video/mp4'
+  const upV = await sb.storage.from('artworks').upload(`${basePath}/video`, params.file, { contentType })
+  if (upV.error) throw upV.error
+  const thumb = await dataUrlToJpegBlob(params.posterDataUrl, 400)
+  const upT = await sb.storage.from('artworks').upload(`${basePath}/thumb.jpg`, thumb, {
+    contentType: 'image/jpeg',
+  })
+  if (upT.error) throw upT.error
+
+  const { error } = await sb.from('artworks').insert({
+    id,
+    owner_id: params.ownerId,
+    storage_path: basePath,
+    width: params.w,
+    height: params.h,
+    title: params.title,
+    kind: 'video',
+  })
+  if (error) {
+    await sb.storage.from('artworks').remove([`${basePath}/video`, `${basePath}/thumb.jpg`])
+    throw error
+  }
+}
+
 export async function deleteArtwork(ownerId: string, artworkId: string): Promise<void> {
   const sb = supabase!
   const basePath = `${ownerId}/${artworkId}`
   const { error } = await sb.from('artworks').delete().eq('id', artworkId)
   if (error) throw error
-  await sb.storage.from('artworks').remove([`${basePath}/display.jpg`, `${basePath}/thumb.jpg`])
+  // 画像/動画どちらのファイル構成でも掃除できるよう全候補を渡す(存在しないキーは無視される)
+  await sb.storage
+    .from('artworks')
+    .remove([
+      `${basePath}/display.jpg`,
+      `${basePath}/thumb.jpg`,
+      `${basePath}/video`,
+    ])
 }

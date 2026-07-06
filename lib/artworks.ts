@@ -13,8 +13,12 @@ export interface ArtworkData {
   desc: string
   tags: string[]
   ratio: [number, number]
-  /** ユーザー出展作品の画像(dataURL または URL)。デモ作品は未設定 */
+  /** ユーザー出展作品のメディア(dataURL または URL)。デモ作品は未設定 */
   src?: string
+  /** メディア種別(未設定は image) */
+  kind?: 'image' | 'video'
+  /** 動画のポスター画像URL(一覧サムネイル・OGP・再生開始前の表示に使う) */
+  poster?: string
   /** 以下はデモ生成アート用 */
   style?: string
   palette?: keyof typeof PALETTES

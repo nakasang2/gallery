@@ -33,6 +33,46 @@ export async function fileToDataUrl(
   }
 }
 
+export const VIDEO_MAX_BYTES = 40 * 1024 * 1024 // Supabase無料枠に合わせた上限
+
+/** 動画ファイルから寸法とポスター画像(最初のフレーム)を取り出す */
+export function videoFileMeta(
+  file: File
+): Promise<{ w: number; h: number; duration: number; posterDataUrl: string }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const video = document.createElement('video')
+    video.muted = true
+    video.playsInline = true
+    video.preload = 'auto'
+    video.src = url
+    const fail = (e: unknown) => {
+      URL.revokeObjectURL(url)
+      reject(e)
+    }
+    video.onerror = fail
+    video.onloadeddata = () => {
+      // 冒頭の黒フレームを避けて少し進める
+      video.currentTime = Math.min(0.1, (video.duration || 1) / 2)
+    }
+    video.onseeked = () => {
+      try {
+        const c = document.createElement('canvas')
+        c.width = video.videoWidth
+        c.height = video.videoHeight
+        c.getContext('2d')!.drawImage(video, 0, 0)
+        const posterDataUrl = c.toDataURL('image/jpeg', 0.8)
+        const out = { w: video.videoWidth, h: video.videoHeight, duration: video.duration, posterDataUrl }
+        URL.revokeObjectURL(url)
+        video.src = ''
+        resolve(out)
+      } catch (e) {
+        fail(e)
+      }
+    }
+  })
+}
+
 export function newArtworkEntry(params: {
   title: string
   artist: string

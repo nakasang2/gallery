@@ -5,7 +5,9 @@
 ## 1. スキーマの適用(必須・1回だけ)
 
 1. [SQL Editor](https://supabase.com/dashboard/project/ncffdcvsksiutsjerpeb/sql/new) を開く
-2. `supabase/migrations/0001_init.sql` の全文を貼り付けて **Run**
+2. `supabase/migrations/` のSQLを**番号順に**全文貼り付けて **Run**
+   - `0001_init.sql` — テーブル・RLS・ストレージ(適用済み)
+   - `0002_video.sql` — 動画作品対応(kindカラム追加)
 3. 「Success. No rows returned」が出れば完了
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、

@@ -28,7 +28,8 @@ export async function generateMetadata({
   const title = `${ex.title} | ${ex.ownerName} — HAKONIWA`
   const description =
     ex.statement || `${ex.ownerName} の3Dギャラリー。${ex.artworks.length}点の作品を歩いて鑑賞できます。`
-  const firstImage = ex.artworks[0]?.src
+  const first = ex.artworks[0]
+  const firstImage = first ? (first.kind === 'video' ? first.poster : first.src) : undefined
   return {
     title,
     description,

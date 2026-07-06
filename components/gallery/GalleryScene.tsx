@@ -14,10 +14,25 @@ import TitleWall from './TitleWall'
 import Dust from './Dust'
 import WalkControls from './WalkControls'
 import Effects from './Effects'
+import { VideoPlaybackManager } from './VideoArt'
+import { getListener } from '@/lib/videohub'
 
 export default function GalleryScene() {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
+  const camera = useThree((s) => s.camera)
+
+  // 空間オーディオのリスナー(耳)をカメラに付ける
+  useEffect(() => {
+    const listener = getListener()
+    camera.add(listener)
+    // プロトタイプ用デバッグ
+    ;(window as unknown as Record<string, unknown>).__scene = scene
+    ;(window as unknown as Record<string, unknown>).__gl = gl
+    return () => {
+      camera.remove(listener)
+    }
+  }, [camera, scene])
 
   const settings = useSettings()
   // 公開データのキーが古い可能性に備えてフォールバック
@@ -44,13 +59,23 @@ export default function GalleryScene() {
     scene.fog = new THREE.FogExp2(theme.fog, 0.016)
   }, [scene, theme])
 
-  // シーンは静的なので、構成が変わったときに一度だけ影を焼き直す
+  // シーンは静的なので、構成が変わったときに一度だけ影を焼き直す。
+  // あわせて全マテリアルを再コンパイルさせる: 展示の入れ替えでシャドウ付きライトが
+  // 作り直されると、ライト数が同じ場合に three がプログラムを再利用し、古い
+  // シャドウサンプラと新しいシャドウマップの型不整合で描画が全滅するため
+  // (GL_INVALID_OPERATION: Mismatch between texture format and sampler type)
   useEffect(() => {
     const id = requestAnimationFrame(() => {
+      scene.traverse((o) => {
+        const mesh = o as THREE.Mesh
+        if (!mesh.material) return
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+        for (const m of mats) m.needsUpdate = true
+      })
       gl.shadowMap.needsUpdate = true
     })
     return () => cancelAnimationFrame(id)
-  }, [gl, settings.theme, settings.layout, settings.frame, settings.frameOverrides, list])
+  }, [gl, scene, settings.theme, settings.layout, settings.frame, settings.frameOverrides, list])
 
   return (
     <>
@@ -68,6 +93,7 @@ export default function GalleryScene() {
       <TitleWall theme={theme} layout={layout} />
       <Dust layout={layout} />
       <WalkControls layout={layout} list={list} />
+      <VideoPlaybackManager />
       {!LOW_POWER && <Effects />}
     </>
   )

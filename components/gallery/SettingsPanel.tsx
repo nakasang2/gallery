@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from 'react'
 import { THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
 import { overflowCount, useOwnArtworks } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
-import { fileToDataUrl, loadImage, newArtworkEntry } from '@/lib/upload'
+import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
 import { supabase } from '@/lib/supabase'
-import { uploadArtwork, deleteArtwork } from '@/lib/cloud'
+import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
 import { USERNAME_RE, setUsername, publishGallery, getMyGallery } from '@/lib/publish'
 import type { ArtworkData } from '@/lib/artworks'
 
@@ -279,13 +279,49 @@ export default function SettingsPanel() {
     }
   }
 
+  async function onVideoFile(file: File, title: string) {
+    // 動画は localStorage に収まらないためクラウド出展のみ
+    if (!user) {
+      alert('動画作品の出展にはログインが必要です(アカウント欄からどうぞ)。')
+      return
+    }
+    if (file.size > VIDEO_MAX_BYTES) {
+      alert(`動画は${Math.floor(VIDEO_MAX_BYTES / 1024 / 1024)}MBまでです(「${file.name}」は${Math.ceil(file.size / 1024 / 1024)}MB)。`)
+      return
+    }
+    setUploading(true)
+    try {
+      const meta = await videoFileMeta(file)
+      await uploadVideoArtwork({
+        ownerId: user.id,
+        file,
+        posterDataUrl: meta.posterDataUrl,
+        title,
+        w: meta.w,
+        h: meta.h,
+      })
+      await refreshCloud()
+    } catch (e) {
+      alert(
+        `動画のアップロードに失敗しました: ${e instanceof Error ? e.message : e}\n` +
+          'supabase/migrations/0002_video.sql を適用済みか確認してください。'
+      )
+    } finally {
+      setUploading(false)
+    }
+  }
+
   async function onFiles(files: FileList | null) {
     if (!files?.length) return
     const entries = []
     for (const file of Array.from(files)) {
+      const title = titleRef.current.value.trim() || file.name.replace(/\.[^.]+$/, '') || '無題'
+      if (file.type.startsWith('video/')) {
+        await onVideoFile(file, title)
+        continue
+      }
       try {
         const { dataUrl, w, h } = await fileToDataUrl(file, 1600)
-        const title = titleRef.current.value.trim() || file.name.replace(/\.[^.]+$/, '') || '無題'
         entries.push({ title, dataUrl, w, h })
       } catch {
         alert(`「${file.name}」を読み込めませんでした。`)
@@ -393,10 +429,10 @@ export default function SettingsPanel() {
           <input ref={artistRef} type="text" placeholder="作家名(省略可)" disabled={!!user} />
         </div>
         <label className="btn-line file-btn" aria-disabled={uploading}>
-          {uploading ? 'アップロード中…' : '画像をアップロード'}
+          {uploading ? 'アップロード中…' : '画像・動画をアップロード'}
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,video/mp4,video/webm,video/quicktime"
             multiple
             hidden
             disabled={uploading}
@@ -406,6 +442,9 @@ export default function SettingsPanel() {
             }}
           />
         </label>
+        <p className="settings-note">
+          動画(リール等)は40MBまで・要ログイン。展示ではループ再生され、近づくと音が聞こえます。
+        </p>
         <div className="field-row">
           <input ref={urlRef} type="url" placeholder="画像URLを貼り付け" />
           <button className="btn-line" onClick={() => void onAddUrl()}>追加</button>
@@ -415,8 +454,8 @@ export default function SettingsPanel() {
             {ownArtworks.map((art) => (
               <li key={art.id}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={art.src} alt="" />
-                <span>{art.title}</span>
+                <img src={art.poster ?? art.src} alt="" />
+                <span>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</span>
                 <button aria-label={`${art.title} を取り下げる`} onClick={() => void removeArtwork(art)}>×</button>
               </li>
             ))}
