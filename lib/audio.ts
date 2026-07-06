@@ -3,6 +3,19 @@
 
 const STORAGE_KEY = 'hakoniwa.audio.v1'
 
+/* ---- 音量・フェードの調整はここ ---- */
+/** ルームトーン(空調)の音量。作品の音を邪魔しないよう控えめに */
+const ROOM_TONE_LEVEL = 0.028
+/** ルームトーンの立ち上がり(秒) */
+const ROOM_TONE_FADE_IN = 1.6
+/** 足音の基本音量と歩速による上乗せ */
+const STEP_BASE = 0.04
+const STEP_SPEED_GAIN = 0.08
+/** 足音の残響(ウェット)量 */
+const STEP_REVERB_WET = 0.4
+/** 環境音トグルON/OFFのフェード(秒) */
+const TOGGLE_FADE = 0.35
+
 class GalleryAudio {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
@@ -34,7 +47,7 @@ class GalleryAudio {
     if (this.ctx && this.master) {
       const t = this.ctx.currentTime
       this.master.gain.cancelScheduledValues(t)
-      this.master.gain.setTargetAtTime(this.enabled ? 1 : 0, t, 0.25)
+      this.master.gain.setTargetAtTime(this.enabled ? 1 : 0, t, TOGGLE_FADE)
     }
     return this.enabled
   }
@@ -57,7 +70,7 @@ class GalleryAudio {
     this.convolver = ctx.createConvolver()
     this.convolver.buffer = ir
     const wet = ctx.createGain()
-    wet.gain.value = 0.45
+    wet.gain.value = STEP_REVERB_WET
     this.convolver.connect(wet)
     wet.connect(this.master)
 
@@ -82,7 +95,7 @@ class GalleryAudio {
     roomGain.connect(this.master)
     room.start()
     // ふわっと立ち上げる
-    roomGain.gain.setTargetAtTime(0.035, ctx.currentTime, 1.2)
+    roomGain.gain.setTargetAtTime(ROOM_TONE_LEVEL, ctx.currentTime, ROOM_TONE_FADE_IN)
 
     /* ---- 足音バス(ドライ + 残響) ---- */
     this.stepBus = ctx.createGain()
@@ -109,7 +122,7 @@ class GalleryAudio {
     band.frequency.value = 170 + Math.random() * 60
     band.Q.value = 0.9
     const g = ctx.createGain()
-    g.gain.value = 0.05 + 0.09 * Math.min(1, intensity) * (0.85 + Math.random() * 0.3)
+    g.gain.value = STEP_BASE + STEP_SPEED_GAIN * Math.min(1, intensity) * (0.85 + Math.random() * 0.3)
     src.connect(band)
     band.connect(g)
     g.connect(this.stepBus)

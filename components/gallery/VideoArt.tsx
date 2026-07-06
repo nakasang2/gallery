@@ -63,6 +63,7 @@ export function useVideoArt(art: ArtworkData, worldPos: THREE.Vector3) {
     a.setRefDistance(1.7) // この距離で等倍、離れると減衰
     a.setRolloffFactor(1.6)
     a.setDistanceModel('inverse')
+    a.gain.gain.value = 0.0001 // 初回はフェードインで立ち上げる(videohub が制御)
     return a
   }, [video])
 
@@ -74,7 +75,7 @@ export function useVideoArt(art: ArtworkData, worldPos: THREE.Vector3) {
     if (!video) return
     const onPlaying = () => setPlaying(true)
     video.addEventListener('playing', onPlaying)
-    const unregister = registerVideo({ id: art.id, position: worldPos, video })
+    const unregister = registerVideo({ id: art.id, position: worldPos, video, audio })
     return () => {
       unregister()
       video.removeEventListener('playing', onPlaying)
