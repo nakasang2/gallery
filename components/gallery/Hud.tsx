@@ -1,8 +1,9 @@
 'use client'
-// 上部HUD(戻る/タイトル)と右下アクション(順路ツアー/空間を編集)、操作ヒント
+// 上部HUD(戻る/タイトル)と右下アクション(順路ツアー/空間を編集/環境音)、操作ヒント
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useGallery } from '@/lib/store'
+import { galleryAudio } from '@/lib/audio'
 
 export function HudTop() {
   const visitor = useGallery((s) => s.visitor)
@@ -25,9 +26,20 @@ export function HudActions() {
   const settingsOpen = useGallery((s) => s.settingsOpen)
   const setSettingsOpen = useGallery((s) => s.setSettingsOpen)
   const visitor = useGallery((s) => s.visitor)
+  const [audioOn, setAudioOn] = useState(galleryAudio.enabled)
 
   return (
     <div className="hud-actions">
+      <button
+        id="btn-audio"
+        className={`hud-btn${audioOn ? ' active' : ''}`}
+        onClick={() => {
+          galleryAudio.unlock()
+          setAudioOn(galleryAudio.toggle())
+        }}
+      >
+        {audioOn ? '♪ 環境音 ON' : '♪ 環境音 OFF'}
+      </button>
       <button
         id="btn-tour"
         className={`hud-btn${tourActive ? ' active' : ''}`}

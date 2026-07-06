@@ -137,6 +137,19 @@ export default function Exhibit({
           <planeGeometry args={[0.42, 0.246]} />
           <meshStandardMaterial map={plaqueTex} roughness={0.9} />
         </mesh>
+
+        {/* ピクチャーレールからの吊りワイヤー(美術館らしさのディテール) */}
+        {!slot.noWire && [-1, 1].map((side) => {
+          const topY = CEIL_H - 0.36 - 1.62 // レール位置(ローカル座標)
+          const wireLen = topY - height / 2
+          if (wireLen <= 0.05) return null
+          return (
+            <mesh key={side} position={[side * width * 0.3, height / 2 + wireLen / 2, 0.012]}>
+              <cylinderGeometry args={[0.0045, 0.0045, wireLen, 6]} />
+              <meshStandardMaterial color={0x2a2622} roughness={0.4} metalness={0.6} />
+            </mesh>
+          )
+        })}
       </group>
 
       {/* スポットライト(額縁が壁に落とす影も焼き込む) */}

@@ -7,6 +7,14 @@ import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { walkRef } from '@/lib/controller'
 import { getFloorTextures, getPlasterBump, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
+
+// RectAreaLight(天窓)を使うための一度きりの初期化
+let rectAreaInited = false
+if (typeof window !== 'undefined' && !rectAreaInited) {
+  RectAreaLightUniformsLib.init()
+  rectAreaInited = true
+}
 
 const TRIM_COLOR = 0x0e0c0a
 
@@ -177,6 +185,39 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
           <meshStandardMaterial color={0x000000} emissive={theme.stripColor} emissiveIntensity={2.4} />
         </mesh>
       ))}
+
+      {/* ピクチャーレール(額の吊りワイヤーを受ける細いレール) */}
+      {(
+        [
+          [hw * 2, 0, -hd + 0.05, 0],
+          [hw * 2, 0, hd - 0.05, 0],
+          [hd * 2, hw - 0.05, 0, Math.PI / 2],
+          [hd * 2, -hw + 0.05, 0, Math.PI / 2],
+        ] as [number, number, number, number][]
+      ).map(([w, x, z, rotY], i) => (
+        <mesh key={`rail-${i}`} position={[x, h - 0.34, z]} rotation-y={rotY}>
+          <boxGeometry args={[w, 0.05, 0.035]} />
+          <meshStandardMaterial color={0x1c1916} roughness={0.5} metalness={0.3} />
+        </mesh>
+      ))}
+
+      {/* 天窓(ホワイトキューブ): 柔らかい自然光の面光源 */}
+      {theme.skylight && (
+        <group position={[0, h - 0.012, 0]}>
+          <mesh rotation-x={Math.PI / 2}>
+            <planeGeometry args={[Math.min(7, hw), Math.min(3.4, hd * 0.8)]} />
+            <meshStandardMaterial color={0x000000} emissive={0xf3f6ff} emissiveIntensity={1.5} />
+          </mesh>
+          <mesh position={[0, 0.005, 0]}>
+            <boxGeometry args={[Math.min(7, hw) + 0.16, 0.06, Math.min(3.4, hd * 0.8) + 0.16]} />
+            <meshStandardMaterial color={0xdcd8d0} roughness={0.9} />
+          </mesh>
+          <rectAreaLight
+            args={[0xf3f6ff, 3.2, Math.min(7, hw), Math.min(3.4, hd * 0.8)]}
+            rotation-x={-Math.PI / 2}
+          />
+        </group>
+      )}
 
       {/* ベンチ */}
       {layout.benches.map((b) => (

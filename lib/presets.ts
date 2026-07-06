@@ -13,12 +13,16 @@ export interface ThemeDef {
   stripColor: number
   fog: number
   titleInk: 'light' | 'dark'
+  /** 天窓(柔らかい自然光の演出)を出すか */
+  skylight?: boolean
 }
 
 export interface SlotDef {
   x: number
   z: number
   rotY: number
+  /** 中央壁など、天井のピクチャーレールが届かない位置では吊りワイヤーを出さない */
+  noWire?: boolean
 }
 
 export interface PartitionDef {
@@ -80,6 +84,7 @@ export const THEMES: Record<string, ThemeDef> = {
     stripColor: 0xffffff,
     fog: 0x141312,
     titleInk: 'dark',
+    skylight: true,
   },
   noir: {
     label: 'ノワール',
@@ -150,10 +155,10 @@ export const LAYOUTS: Record<string, LayoutDef> = {
       ...wallSlots(3, 7, -7 + 0.05, 0, 'x'), // 北面
       ...wallSlots(3, 7, 7 - 0.05, Math.PI, 'x'), // 南面
       // 中央壁の両面
-      { x: -1.9, z: -0.26, rotY: Math.PI },
-      { x: 1.9, z: -0.26, rotY: Math.PI },
-      { x: -1.9, z: 0.26, rotY: 0 },
-      { x: 1.9, z: 0.26, rotY: 0 },
+      { x: -1.9, z: -0.26, rotY: Math.PI, noWire: true },
+      { x: 1.9, z: -0.26, rotY: Math.PI, noWire: true },
+      { x: -1.9, z: 0.26, rotY: 0, noWire: true },
+      { x: 1.9, z: 0.26, rotY: 0, noWire: true },
     ],
     benches: [
       { x: -6.8, z: 0 },

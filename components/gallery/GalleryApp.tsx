@@ -7,6 +7,7 @@ import { LAYOUTS } from '@/lib/presets'
 import { useExhibitionList } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
 import { walkRef, LOW_POWER } from '@/lib/controller'
+import { galleryAudio } from '@/lib/audio'
 import GalleryScene from './GalleryScene'
 import { HudTop, HudActions, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
@@ -62,6 +63,17 @@ export default function GalleryApp() {
   useEffect(() => {
     ;(window as unknown as Record<string, unknown>).__hakoniwa = { store: useGallery, walkRef }
     useGallery.getState().initAuth()
+  }, [])
+
+  // 環境音はブラウザの自動再生制限のため、最初の操作で開始する
+  useEffect(() => {
+    const unlock = () => galleryAudio.unlock()
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
   }, [])
 
   // 設定の復元は、canvasに文字を描くフォントの読み込みを待ってから(最大1.5秒)

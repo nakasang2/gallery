@@ -8,6 +8,7 @@ import { EYE, type LayoutDef } from '@/lib/presets'
 import { artSize, getSolids } from '@/lib/exhibition'
 import { walkRef, joyState } from '@/lib/controller'
 import { useGallery } from '@/lib/store'
+import { galleryAudio } from '@/lib/audio'
 import type { ArtworkData } from '@/lib/artworks'
 
 interface Tween {
@@ -37,6 +38,12 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     dragMoved: 0,
     lastX: 0,
     lastY: 0,
+    // 歩行の体感(ヘッドボブと足音)
+    bobPhase: 0,
+    bobAmp: 0,
+    lastPos: new THREE.Vector3(),
+    stepDist: 0,
+    introPlayed: false,
   })
   const tweens = useRef<Tween[]>([])
 
@@ -144,6 +151,18 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     camera.position.set(entry.x, EYE, entry.z)
     state.current.yaw = entry.yaw
     state.current.pitch = 0
+
+    // 初回だけ、入口からゆっくり歩み入る演出
+    if (!state.current.introPlayed) {
+      state.current.introPlayed = true
+      const dir = new THREE.Vector3(-Math.sin(entry.yaw), 0, -Math.cos(entry.yaw))
+      const from = clampToRoom(camera.position.clone().addScaledVector(dir, -1.3))
+      const to = camera.position.clone()
+      camera.position.copy(from)
+      tween(2.4, (t) => {
+        camera.position.lerpVectors(from, to, easeInOut(t))
+      })
+    }
   }
 
   // UI(パネル・ツアー・ジョイスティック)から呼べるように公開
@@ -263,6 +282,21 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     if (s.vel.lengthSq() > 1e-6) {
       camera.position.addScaledVector(s.vel, dt)
       clampToRoom(camera.position)
+    }
+
+    // 歩行の体感: 実際の移動量からヘッドボブと足音を作る(キー/タップ/ツアーすべてに効く)
+    const moved = Math.hypot(camera.position.x - s.lastPos.x, camera.position.z - s.lastPos.z)
+    s.lastPos.copy(camera.position)
+    const speed = dt > 0 ? moved / dt : 0
+    const targetAmp = THREE.MathUtils.clamp(speed / 3.1, 0, 1)
+    s.bobAmp += (targetAmp - s.bobAmp) * Math.min(1, dt * 8)
+    if (s.bobAmp > 0.02) s.bobPhase += dt * (7.5 + speed * 1.2)
+    camera.position.y = EYE + Math.sin(s.bobPhase) * 0.02 * s.bobAmp
+
+    s.stepDist += moved
+    if (s.stepDist > 0.72 && speed > 0.4) {
+      s.stepDist = 0
+      galleryAudio.step(targetAmp)
     }
 
     camera.rotation.set(s.pitch, s.yaw, 0)
