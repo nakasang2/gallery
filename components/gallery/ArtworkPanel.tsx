@@ -1,7 +1,7 @@
 'use client'
 // 作品情報パネル(鑑賞中の作品の解説と、その作品だけの額装変更)
 import { FRAMES } from '@/lib/presets'
-import { currentExhibitionList, frameKeyFor } from '@/lib/exhibition'
+import { useExhibitionList, frameKeyFor } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 
 export default function ArtworkPanel() {
@@ -11,7 +11,7 @@ export default function ArtworkPanel() {
   const updateSettings = useGallery((s) => s.updateSettings)
   const settings = useSettings()
 
-  const list = currentExhibitionList(settings)
+  const list = useExhibitionList()
   const art = focusedIndex >= 0 ? list[focusedIndex] : null
   const open = !!art
 

@@ -1,8 +1,17 @@
 // ギャラリーの設定(永続化)と UI 状態。プロトタイプの localStorage 形式と互換
+// ログイン時は出展作品がクラウド(Supabase)になり、未ログインは従来どおり localStorage
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import type { ArtworkData } from './artworks'
 import { THEMES, LAYOUTS, FRAMES } from './presets'
+import { supabase } from './supabase'
+import { listMyArtworks } from './cloud'
+
+export interface AuthUser {
+  id: string
+  email: string | null
+  displayName: string
+}
 
 export interface Settings {
   theme: string
@@ -23,6 +32,7 @@ export const DEFAULT_SETTINGS: Settings = {
 }
 
 const STORAGE_KEY = 'hakoniwa.settings.v1'
+let authInitialized = false // React Strict Mode の二重実行で購読が重複しないように
 
 export function loadSettings(): Settings {
   if (typeof window === 'undefined') return { ...DEFAULT_SETTINGS }
@@ -57,7 +67,15 @@ interface GalleryStore extends Settings {
   /** フォント読み込みと設定復元が済んだか */
   ready: boolean
 
+  /** ログイン中のユーザー(null = ゲスト) */
+  user: AuthUser | null
+  /** ログインユーザーのクラウド出展作品 */
+  cloudArtworks: ArtworkData[]
+
   hydrate(): void
+  initAuth(): void
+  refreshCloudArtworks(): Promise<void>
+  signOut(): Promise<void>
   updateSettings(partial: Partial<Settings>): void
   setFocused(i: number): void
   setSettingsOpen(open: boolean): void
@@ -70,9 +88,51 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   settingsOpen: false,
   tourActive: false,
   ready: false,
+  user: null,
+  cloudArtworks: [],
 
   hydrate() {
     set({ ...loadSettings(), ready: true })
+  },
+
+  initAuth() {
+    if (!supabase || authInitialized) return
+    authInitialized = true
+    supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user
+      if (!u) {
+        set({ user: null, cloudArtworks: [] })
+        return
+      }
+      const displayName =
+        (u.user_metadata?.name as string | undefined) || u.email?.split('@')[0] || 'あなた'
+      set({ user: { id: u.id, email: u.email ?? null, displayName } })
+      void get().refreshCloudArtworks()
+    })
+  },
+
+  async refreshCloudArtworks() {
+    const user = get().user
+    if (!supabase || !user) return
+    try {
+      // 銘板の作家名にはプロフィールの表示名を使う
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('id', user.id)
+        .maybeSingle()
+      const artist = profile?.display_name || user.displayName
+      set({ cloudArtworks: await listMyArtworks(artist) })
+    } catch (e) {
+      console.error(e)
+      alert(
+        'クラウドの作品を読み込めませんでした。supabase/migrations/0001_init.sql を適用済みか確認してください。'
+      )
+    }
+  },
+
+  async signOut() {
+    await supabase?.auth.signOut()
   },
 
   updateSettings(partial) {

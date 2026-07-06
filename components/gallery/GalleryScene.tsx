@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
-import { currentExhibitionList, frameKeyFor } from '@/lib/exhibition'
+import { useExhibitionList, frameKeyFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
 import { LOW_POWER } from '@/lib/controller'
 import Room from './Room'
@@ -22,7 +22,7 @@ export default function GalleryScene() {
   const settings = useSettings()
   const theme = THEMES[settings.theme]
   const layout = LAYOUTS[settings.layout]
-  const list = currentExhibitionList(settings)
+  const list = useExhibitionList()
 
   // 環境マップ: 床のツヤや額縁の金属部分に室内の光がうっすら映り込む
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function GalleryScene() {
       gl.shadowMap.needsUpdate = true
     })
     return () => cancelAnimationFrame(id)
-  }, [gl, settings.theme, settings.layout, settings.frame, settings.showDemo, settings.artworks, settings.frameOverrides])
+  }, [gl, settings.theme, settings.layout, settings.frame, settings.frameOverrides, list])
 
   return (
     <>

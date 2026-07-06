@@ -1,18 +1,34 @@
 // 展示リストの導出ロジック(3Dシーンと UI パネルの両方が同じ結果を参照する)
+import { useMemo } from 'react'
 import { ARTWORKS, type ArtworkData } from './artworks'
 import { LAYOUTS, FRAMES, type LayoutDef } from './presets'
-import type { Settings } from './store'
+import { useGallery, useSettings, type Settings } from './store'
 
-export function currentExhibitionList(s: Settings): ArtworkData[] {
+export function buildExhibitionList(s: Settings, own: ArtworkData[]): ArtworkData[] {
   const layout = LAYOUTS[s.layout]
-  const list = [...s.artworks, ...(s.showDemo ? ARTWORKS : [])]
+  const list = [...own, ...(s.showDemo ? ARTWORKS : [])]
   return list.slice(0, layout.slots.length)
 }
 
-export function overflowCount(s: Settings): number {
+export function overflowCount(s: Settings, ownCount: number): number {
   const layout = LAYOUTS[s.layout]
-  const total = s.artworks.length + (s.showDemo ? ARTWORKS.length : 0)
+  const total = ownCount + (s.showDemo ? ARTWORKS.length : 0)
   return Math.max(0, total - layout.slots.length)
+}
+
+/** 自分の出展作品(ログイン時はクラウド、ゲスト時は localStorage) */
+export function useOwnArtworks(): ArtworkData[] {
+  const user = useGallery((s) => s.user)
+  const cloud = useGallery((s) => s.cloudArtworks)
+  const local = useGallery((s) => s.artworks)
+  return user ? cloud : local
+}
+
+/** いま展示されている作品リスト(スロット数で頭打ち) */
+export function useExhibitionList(): ArtworkData[] {
+  const settings = useSettings()
+  const own = useOwnArtworks()
+  return useMemo(() => buildExhibitionList(settings, own), [settings, own])
 }
 
 export function frameKeyFor(s: Settings, art: ArtworkData): string {

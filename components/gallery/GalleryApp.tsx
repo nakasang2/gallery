@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
 import { LAYOUTS } from '@/lib/presets'
-import { currentExhibitionList } from '@/lib/exhibition'
-import { useGallery, useSettings } from '@/lib/store'
+import { useExhibitionList } from '@/lib/exhibition'
+import { useGallery } from '@/lib/store'
 import { walkRef, LOW_POWER } from '@/lib/controller'
 import GalleryScene from './GalleryScene'
 import { HudTop, HudActions, Hint } from './Hud'
@@ -28,8 +28,7 @@ function LoadingOverlay({ done }: { done: boolean }) {
 // 順路ツアー: 作品を順にフォーカスし、鑑賞の間を置いて次へ
 function useTour() {
   const tourActive = useGallery((s) => s.tourActive)
-  const settings = useSettings()
-  const count = currentExhibitionList(settings).length
+  const count = useExhibitionList().length
 
   useEffect(() => {
     if (!tourActive) return
@@ -62,6 +61,7 @@ export default function GalleryApp() {
   // プロトタイプ用: コンソールから内部状態を確認できるようにしておく
   useEffect(() => {
     ;(window as unknown as Record<string, unknown>).__hakoniwa = { store: useGallery, walkRef }
+    useGallery.getState().initAuth()
   }, [])
 
   // 設定の復元は、canvasに文字を描くフォントの読み込みを待ってから(最大1.5秒)
