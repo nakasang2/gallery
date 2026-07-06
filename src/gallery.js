@@ -1,21 +1,39 @@
 import * as THREE from 'three'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
+import { N8AOPass } from 'n8ao'
 import { ARTWORKS, renderArtworkCanvas } from './artworks.js'
 
 /* ================= 基本セットアップ ================= */
 
 const ROOM = { hw: 13, hd: 8, h: 5.2 } // 半幅 / 半奥行 / 高さ
 const EYE = 1.6
+// タッチ端末はポストプロセスを切り、影の解像度を落として30fpsを守る
+const LOW_POWER = window.matchMedia('(pointer: coarse)').matches
 
 const canvas = document.getElementById('stage')
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75))
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW_POWER ? 1.5 : 1.75))
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.15
+renderer.toneMappingExposure = 1.1
+// シーンは静的なので影は一度だけ焼く(起動後の描画コストはゼロ)
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFShadowMap
+renderer.shadowMap.autoUpdate = false
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x0b0a09)
 scene.fog = new THREE.FogExp2(0x0b0a09, 0.016)
+
+// 環境マップ: 床のツヤや額縁の金属部分に室内の光がうっすら映り込む
+const pmrem = new THREE.PMREMGenerator(renderer)
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+scene.environmentIntensity = 0.3
+pmrem.dispose()
 
 // 入場位置: 南東の角からタイトルウォール(西面)を望む
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100)
@@ -27,14 +45,88 @@ camera.position.set(8.5, EYE, 4.5)
 const room = new THREE.Group()
 scene.add(room)
 
-const wallMat = new THREE.MeshStandardMaterial({ color: 0xdad4c8, roughness: 0.92 })
-const accentWallMat = new THREE.MeshStandardMaterial({ color: 0x2b2620, roughness: 0.9 })
-const floorMat = new THREE.MeshStandardMaterial({ color: 0x554d42, roughness: 0.35, metalness: 0.15 })
-const ceilMat = new THREE.MeshStandardMaterial({ color: 0x453d34, roughness: 0.95 })
+/* ---- テクスチャ ---- */
+
+const texLoader = new THREE.TextureLoader()
+function loadTex(url, { srgb = false, repeat = null } = {}) {
+  const t = texLoader.load(url)
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  if (repeat) t.repeat.set(repeat[0], repeat[1])
+  t.anisotropy = 8
+  return t
+}
+
+// 漆喰のざらつき(手続き生成のバンプマップ — 外部素材不要)
+function makePlasterBump(size = 512) {
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')
+  ctx.fillStyle = '#808080'
+  ctx.fillRect(0, 0, size, size)
+  const img = ctx.getImageData(0, 0, size, size)
+  const d = img.data
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (Math.random() - 0.5) * 30
+    d[i] += n
+    d[i + 1] += n
+    d[i + 2] += n
+  }
+  ctx.putImageData(img, 0, 0)
+  // 大きめの薄い塗りムラ
+  for (let i = 0; i < 70; i++) {
+    const x = Math.random() * size
+    const y = Math.random() * size
+    const r = 30 + Math.random() * 90
+    const v = Math.random() > 0.5 ? 255 : 0
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r)
+    g.addColorStop(0, `rgba(${v},${v},${v},0.05)`)
+    g.addColorStop(1, 'rgba(128,128,128,0)')
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  return t
+}
+
+const plasterBump = makePlasterBump()
+
+function makeWallMat(color, repeatX) {
+  const bump = plasterBump.clone()
+  bump.repeat.set(repeatX, repeatX * (ROOM.h / (ROOM.hw * 2)) * 2)
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.95,
+    bumpMap: bump,
+    bumpScale: 0.5,
+    envMapIntensity: 0.25,
+  })
+}
+
+const wallMat = makeWallMat(0xd8d2c6, 8)
+const sideWallMat = makeWallMat(0xd8d2c6, 5)
+const accentWallMat = makeWallMat(0x2b2620, 5)
+
+const floorRepeat = [4.9, 6]
+const floorMat = new THREE.MeshPhysicalMaterial({
+  map: loadTex('/textures/hardwood2_diffuse.jpg', { srgb: true, repeat: floorRepeat }),
+  bumpMap: loadTex('/textures/hardwood2_bump.jpg', { repeat: floorRepeat }),
+  bumpScale: 0.5,
+  roughnessMap: loadTex('/textures/hardwood2_roughness.jpg', { repeat: floorRepeat }),
+  roughness: 0.85,
+  clearcoat: 0.45,
+  clearcoatRoughness: 0.35,
+  envMapIntensity: 1.1,
+})
+const ceilMat = new THREE.MeshStandardMaterial({ color: 0x3a332c, roughness: 0.95 })
 
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.hw * 2, ROOM.hd * 2), floorMat)
 floor.rotation.x = -Math.PI / 2
 floor.userData.floor = true
+floor.receiveShadow = true
 room.add(floor)
 
 const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.hw * 2, ROOM.hd * 2), ceilMat)
@@ -43,14 +135,16 @@ ceiling.position.y = ROOM.h
 room.add(ceiling)
 
 function makeWall(w, mat) {
-  return new THREE.Mesh(new THREE.PlaneGeometry(w, ROOM.h), mat)
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, ROOM.h), mat)
+  m.receiveShadow = true
+  return m
 }
 const north = makeWall(ROOM.hw * 2, wallMat)
 north.position.set(0, ROOM.h / 2, -ROOM.hd)
 const south = makeWall(ROOM.hw * 2, wallMat)
 south.position.set(0, ROOM.h / 2, ROOM.hd)
 south.rotation.y = Math.PI
-const east = makeWall(ROOM.hd * 2, wallMat)
+const east = makeWall(ROOM.hd * 2, sideWallMat)
 east.position.set(ROOM.hw, ROOM.h / 2, 0)
 east.rotation.y = -Math.PI / 2
 const west = makeWall(ROOM.hd * 2, accentWallMat)
@@ -71,8 +165,24 @@ baseboard(ROOM.hw * 2, 0, ROOM.hd - 0.02, 0)
 baseboard(ROOM.hd * 2, ROOM.hw - 0.02, 0, Math.PI / 2)
 baseboard(ROOM.hd * 2, -ROOM.hw + 0.02, 0, Math.PI / 2)
 
-// 天井の間接照明ライン(発光するだけの飾り)
-const stripMat = new THREE.MeshBasicMaterial({ color: 0xfff0d8 })
+// 廻り縁(天井際の見切り)
+function crown(w, x, z, rotY) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.18, 0.07), baseMat)
+  m.position.set(x, ROOM.h - 0.09, z)
+  m.rotation.y = rotY
+  room.add(m)
+}
+crown(ROOM.hw * 2, 0, -ROOM.hd + 0.035, 0)
+crown(ROOM.hw * 2, 0, ROOM.hd - 0.035, 0)
+crown(ROOM.hd * 2, ROOM.hw - 0.035, 0, Math.PI / 2)
+crown(ROOM.hd * 2, -ROOM.hw + 0.035, 0, Math.PI / 2)
+
+// 天井の間接照明ライン(HDRで発光させてブルームに乗せる)
+const stripMat = new THREE.MeshStandardMaterial({
+  color: 0x000000,
+  emissive: 0xfff0d8,
+  emissiveIntensity: 2.4,
+})
 for (const z of [-4, 0, 4]) {
   const strip = new THREE.Mesh(new THREE.BoxGeometry(ROOM.hw * 1.6, 0.02, 0.09), stripMat)
   strip.position.set(0, ROOM.h - 0.02, z)
@@ -91,6 +201,10 @@ function bench(x, z) {
   leg1.position.set(-0.85, 0.22, 0)
   const leg2 = new THREE.Mesh(legGeo, baseMat)
   leg2.position.set(0.85, 0.22, 0)
+  for (const m of [top, leg1, leg2]) {
+    m.castShadow = true
+    m.receiveShadow = true
+  }
   g.add(top, leg1, leg2)
   g.position.set(x, 0, z)
   room.add(g)
@@ -124,7 +238,8 @@ function makeTitleWall() {
   tex.anisotropy = 8
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(9.6, 4.8),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true })
+    // ライティングに馴染むようスポットライトの光を受けるマテリアルにする
+    new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.9 })
   )
   mesh.position.set(-ROOM.hw + 0.03, 2.55, 0)
   mesh.rotation.y = Math.PI / 2
@@ -150,8 +265,41 @@ const SLOTS = [
   { pos: [ROOM.hw - 0.05, 4], rotY: -Math.PI / 2, side: true },
 ]
 
-const frameMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.4, metalness: 0.3 })
+const frameMat = new THREE.MeshStandardMaterial({
+  color: 0x141210,
+  roughness: 0.35,
+  metalness: 0.4,
+  envMapIntensity: 0.9,
+})
 const matBoardMat = new THREE.MeshStandardMaterial({ color: 0xf1ede4, roughness: 0.9 })
+
+// 面取り付きの額縁(中央をくり抜いた枠をベベル付きで押し出す)
+function makeFrameGeo(w, h) {
+  const outerW = w / 2 + 0.15
+  const outerH = h / 2 + 0.15
+  const innerW = w / 2 + 0.08
+  const innerH = h / 2 + 0.08
+  const shape = new THREE.Shape()
+  shape.moveTo(-outerW, -outerH)
+  shape.lineTo(outerW, -outerH)
+  shape.lineTo(outerW, outerH)
+  shape.lineTo(-outerW, outerH)
+  shape.closePath()
+  const hole = new THREE.Path()
+  hole.moveTo(-innerW, -innerH)
+  hole.lineTo(-innerW, innerH)
+  hole.lineTo(innerW, innerH)
+  hole.lineTo(innerW, -innerH)
+  hole.closePath()
+  shape.holes.push(hole)
+  return new THREE.ExtrudeGeometry(shape, {
+    depth: 0.05,
+    bevelEnabled: true,
+    bevelThickness: 0.018,
+    bevelSize: 0.014,
+    bevelSegments: 3,
+  })
+}
 const clickables = []
 const exhibits = [] // { art, group, center, normal, width, height }
 
@@ -177,7 +325,7 @@ function makePlaque(art, index) {
   tex.colorSpace = THREE.SRGBColorSpace
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(0.42, 0.246),
-    new THREE.MeshBasicMaterial({ map: tex })
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 })
   )
   return mesh
 }
@@ -195,14 +343,16 @@ function placeArtworks() {
 
     const group = new THREE.Group()
 
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(width + 0.3, height + 0.3, 0.08), frameMat)
+    const frame = new THREE.Mesh(makeFrameGeo(width, height), frameMat)
+    frame.position.z = 0.02
+    frame.castShadow = true
     const matBoard = new THREE.Mesh(new THREE.PlaneGeometry(width + 0.18, height + 0.18), matBoardMat)
-    matBoard.position.z = 0.041
+    matBoard.position.z = 0.035
     const artMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(width, height),
-      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 })
+      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, envMapIntensity: 0.4 })
     )
-    artMesh.position.z = 0.045
+    artMesh.position.z = 0.04
     artMesh.userData.exhibitIndex = i
     group.add(frame, matBoard, artMesh)
 
@@ -220,12 +370,16 @@ function placeArtworks() {
     clickables.push(artMesh)
     exhibits.push({ art, group, center: group.position.clone(), normal, width, height, index: i })
 
-    // スポットライト
-    const spot = new THREE.SpotLight(0xffe9c4, 26, 0, 0.46, 0.65, 1.1)
+    // スポットライト(額縁が壁に落とす影も焼き込む)
+    const spot = new THREE.SpotLight(0xffe9c4, 21, 0, 0.46, 0.65, 1.1)
     const lightPos = group.position.clone().add(normal.clone().multiplyScalar(2.1))
     lightPos.y = ROOM.h - 0.15
     spot.position.copy(lightPos)
     spot.target = group
+    spot.castShadow = true
+    spot.shadow.mapSize.setScalar(LOW_POWER ? 512 : 1024)
+    spot.shadow.bias = -0.0003
+    spot.shadow.camera.near = 0.5
     room.add(spot)
 
     // 照明器具(見た目だけ)
@@ -243,15 +397,24 @@ function placeArtworks() {
 
 /* ================= 照明(全体) ================= */
 
-scene.add(new THREE.AmbientLight(0xfff4e0, 0.5))
-const hemi = new THREE.HemisphereLight(0xfff8ea, 0x4a4136, 0.9)
+// 環境光は控えめにして、影とスポットライトのコントラストを立たせる
+scene.add(new THREE.AmbientLight(0xfff4e0, 0.32))
+const hemi = new THREE.HemisphereLight(0xfff8ea, 0x4a4136, 0.55)
 scene.add(hemi)
 
-// 部屋の中ほどに柔らかい光だまりを作る
+// 部屋の中ほどのダウンライト(ベンチの接地影を落とす)
 for (const x of [-6.5, 6.5]) {
-  const p = new THREE.PointLight(0xffedd2, 9, 0, 1.7)
-  p.position.set(x, 3.9, 0)
-  scene.add(p)
+  const down = new THREE.SpotLight(0xffedd2, 16, 0, 1.05, 0.9, 1.6)
+  down.position.set(x, ROOM.h - 0.1, 0)
+  const target = new THREE.Object3D()
+  target.position.set(x, 0, 0)
+  scene.add(target)
+  down.target = target
+  down.castShadow = true
+  down.shadow.mapSize.setScalar(1024)
+  down.shadow.bias = -0.0003
+  down.shadow.camera.near = 0.5
+  scene.add(down)
 }
 
 // タイトルウォールを照らす
@@ -262,6 +425,26 @@ titleTarget.position.set(-ROOM.hw, 2.5, 0)
 scene.add(titleTarget)
 titleSpot.target = titleTarget
 scene.add(titleSpot)
+
+/* ================= ポストプロセス ================= */
+
+// AO(接地感)+ 控えめなブルーム + SMAA。タッチ端末では素のレンダリングに落とす
+let composer = null
+if (!LOW_POWER) {
+  composer = new EffectComposer(renderer)
+  const n8ao = new N8AOPass(scene, camera, window.innerWidth, window.innerHeight)
+  n8ao.configuration.aoRadius = 1.2
+  n8ao.configuration.distanceFalloff = 2.5
+  n8ao.configuration.intensity = 2.4
+  n8ao.configuration.gammaCorrection = false // 色変換は後段のOutputPassに任せる
+  n8ao.setQualityMode('Medium')
+  composer.addPass(n8ao)
+  composer.addPass(
+    new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.22, 0.55, 0.85)
+  )
+  composer.addPass(new OutputPass())
+  composer.addPass(new SMAAPass(window.innerWidth, window.innerHeight))
+}
 
 /* ================= 漂う塵(空気感) ================= */
 
@@ -502,11 +685,12 @@ document.getElementById('panel-close').addEventListener('click', closePanel)
 /* ================= メインループ ================= */
 
 let dust
-const clock = new THREE.Clock()
+const timer = new THREE.Timer()
 
 function animate() {
   requestAnimationFrame(animate)
-  const dt = Math.min(clock.getDelta(), 0.05)
+  timer.update()
+  const dt = Math.min(timer.getDelta(), 0.05)
 
   // トゥイーン
   for (let i = tweens.length - 1; i >= 0; i--) {
@@ -551,13 +735,15 @@ function animate() {
     pos.needsUpdate = true
   }
 
-  renderer.render(scene, camera)
+  if (composer) composer.render()
+  else renderer.render(scene, camera)
 }
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
+  if (composer) composer.setSize(window.innerWidth, window.innerHeight)
 })
 
 /* ================= 起動 ================= */
@@ -571,6 +757,7 @@ async function start() {
   makeTitleWall()
   placeArtworks()
   dust = makeDust()
+  renderer.shadowMap.needsUpdate = true // 静的な影をここで一度だけ焼く
   animate()
   setTimeout(() => document.getElementById('loading').classList.add('done'), 500)
 }
