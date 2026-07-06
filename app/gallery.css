@@ -407,6 +407,48 @@ body.gallery-mode {
 }
 .my-works button:hover { border-color: #c0564a; color: #c0564a; }
 
+/* 並び替え番号・タイトル・上下ボタン */
+.works-no {
+  flex: none;
+  width: 1.4em;
+  font-size: 0.7rem;
+  color: var(--gold);
+  text-align: center;
+}
+.works-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+.works-move {
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 0.6rem !important;
+  color: var(--muted) !important;
+}
+.works-move:hover:not(:disabled) { border-color: var(--gold) !important; color: var(--gold) !important; }
+.works-move:disabled { opacity: 0.25; cursor: default; }
+
+/* プロフィール編集 */
+.profile-edit { margin: 0.8rem 0; }
+.bio-input {
+  flex: 1;
+  min-width: 0;
+  resize: vertical;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.06);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 0.55em 0.8em;
+  line-height: 1.6;
+}
+.bio-input:focus { outline: none; border-color: var(--gold); }
+
 .toggle {
   display: flex;
   align-items: center;

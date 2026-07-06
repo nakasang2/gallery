@@ -32,6 +32,29 @@ export async function setUsername(userId: string, username: string): Promise<voi
   }
 }
 
+export interface ProfileFields {
+  displayName: string
+  bio: string
+}
+
+export async function getProfile(userId: string): Promise<ProfileFields> {
+  const { data, error } = await supabase!
+    .from('profiles')
+    .select('display_name, bio')
+    .eq('id', userId)
+    .maybeSingle()
+  if (error) throw error
+  return { displayName: data?.display_name ?? '', bio: data?.bio ?? '' }
+}
+
+export async function saveProfile(userId: string, fields: ProfileFields): Promise<void> {
+  const { error } = await supabase!
+    .from('profiles')
+    .update({ display_name: fields.displayName.trim() || null, bio: fields.bio.trim() })
+    .eq('id', userId)
+  if (error) throw error
+}
+
 /** 現在の空間設定と出展作品を galleries / placements に反映する(slugは当面 'main' 固定) */
 export async function publishGallery(params: {
   userId: string

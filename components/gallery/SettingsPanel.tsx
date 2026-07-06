@@ -8,8 +8,71 @@ import { useGallery, useSettings } from '@/lib/store'
 import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
 import { supabase } from '@/lib/supabase'
 import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
-import { USERNAME_RE, setUsername, publishGallery, getMyGallery } from '@/lib/publish'
+import { USERNAME_RE, setUsername, publishGallery, getMyGallery, getProfile, saveProfile } from '@/lib/publish'
 import type { ArtworkData } from '@/lib/artworks'
+
+// プロフィール編集(表示名 + 自己紹介)。表示名は銘板の作家名にも使われる
+function ProfileEditor() {
+  const user = useGallery((s) => s.user)!
+  const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const [displayName, setDisplayName] = useState('')
+  const [bio, setBio] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    getProfile(user.id)
+      .then((p) => {
+        if (!alive) return
+        setDisplayName(p.displayName)
+        setBio(p.bio)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [user.id])
+
+  async function save() {
+    setBusy(true)
+    try {
+      await saveProfile(user.id, { displayName, bio })
+      await refreshCloud() // 銘板の作家名を更新
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1600)
+    } catch (e) {
+      alert(`プロフィールの保存に失敗しました: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="profile-edit">
+      <div className="field-row">
+        <input
+          type="text"
+          placeholder="表示名(作家名)"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+        />
+      </div>
+      <div className="field-row">
+        <textarea
+          className="bio-input"
+          placeholder="自己紹介・ステートメント(任意)"
+          rows={2}
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+        />
+      </div>
+      <button className="btn-line" disabled={busy} onClick={() => void save()}>
+        {saved ? '保存しました' : 'プロフィールを保存'}
+      </button>
+    </div>
+  )
+}
 
 function ChipRow({
   defs,
@@ -49,6 +112,7 @@ function AccountSection() {
           <b>{user.email ?? user.displayName}</b> でログイン中。出展した作品はクラウドに保存され、
           どの端末からでも同じ展示になります。
         </p>
+        <ProfileEditor />
         <button className="btn-line" onClick={() => void signOut()}>ログアウト</button>
       </>
     )
@@ -378,6 +442,8 @@ export default function SettingsPanel() {
     }
   }
 
+  const reorder = useGallery((s) => s.reorderOwnArtworks)
+
   const over = overflowCount(settings, ownArtworks.length)
   const slots = LAYOUTS[settings.layout].slots.length
 
@@ -450,16 +516,36 @@ export default function SettingsPanel() {
           <button className="btn-line" onClick={() => void onAddUrl()}>追加</button>
         </div>
         {ownArtworks.length > 0 && (
-          <ul className="my-works">
-            {ownArtworks.map((art) => (
-              <li key={art.id}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={art.poster ?? art.src} alt="" />
-                <span>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</span>
-                <button aria-label={`${art.title} を取り下げる`} onClick={() => void removeArtwork(art)}>×</button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="settings-note">▲▼ で展示の並び順(スロット)を入れ替えられます。</p>
+            <ul className="my-works">
+              {ownArtworks.map((art, i) => (
+                <li key={art.id}>
+                  <span className="works-no">{i + 1}</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={art.poster ?? art.src} alt="" />
+                  <span className="works-title">{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</span>
+                  <button
+                    className="works-move"
+                    aria-label={`${art.title} を前へ`}
+                    disabled={i === 0}
+                    onClick={() => void reorder(i, i - 1)}
+                  >
+                    ▲
+                  </button>
+                  <button
+                    className="works-move"
+                    aria-label={`${art.title} を後ろへ`}
+                    disabled={i === ownArtworks.length - 1}
+                    onClick={() => void reorder(i, i + 1)}
+                  >
+                    ▼
+                  </button>
+                  <button aria-label={`${art.title} を取り下げる`} onClick={() => void removeArtwork(art)}>×</button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
         {over > 0 && (
           <p className="settings-note">

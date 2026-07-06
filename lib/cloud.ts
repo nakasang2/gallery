@@ -41,6 +41,7 @@ export async function listMyArtworks(artistName: string): Promise<ArtworkData[]>
   const { data, error } = await supabase!
     .from('artworks')
     .select('*')
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
   if (error) throw error
   return (data as ArtworkRow[]).map((r) => rowToArtwork(r, artistName))
@@ -135,6 +136,17 @@ export async function uploadVideoArtwork(params: {
     await sb.storage.from('artworks').remove([`${basePath}/video`, `${basePath}/thumb.jpg`])
     throw error
   }
+}
+
+/** 作品の並び順を保存する(idの配列で受け取り、その順に sort_order を振る) */
+export async function reorderArtworks(orderedIds: string[]): Promise<void> {
+  const sb = supabase!
+  // 個別 update を並列実行(件数は最大でも数十なので十分軽い)
+  const results = await Promise.all(
+    orderedIds.map((id, i) => sb.from('artworks').update({ sort_order: i }).eq('id', id))
+  )
+  const failed = results.find((r) => r.error)
+  if (failed?.error) throw failed.error
 }
 
 export async function deleteArtwork(ownerId: string, artworkId: string): Promise<void> {

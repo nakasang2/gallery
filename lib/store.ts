@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import type { ArtworkData } from './artworks'
 import { THEMES, LAYOUTS, FRAMES } from './presets'
 import { supabase } from './supabase'
-import { listMyArtworks } from './cloud'
+import { listMyArtworks, reorderArtworks } from './cloud'
 import type { PublicExhibition } from './publish'
 
 export interface AuthUser {
@@ -82,6 +82,8 @@ interface GalleryStore extends Settings {
   refreshCloudArtworks(): Promise<void>
   signOut(): Promise<void>
   updateSettings(partial: Partial<Settings>): void
+  /** 出展作品の並び替え(from の作品を to の位置へ)。ゲストはローカル、ログインはクラウド永続化 */
+  reorderOwnArtworks(from: number, to: number): Promise<void>
   setFocused(i: number): void
   setSettingsOpen(open: boolean): void
   setTourActive(active: boolean): void
@@ -146,6 +148,28 @@ export const useGallery = create<GalleryStore>((set, get) => ({
     set(partial)
     if (!saveSettings(get())) {
       alert('ブラウザの保存容量を超えました。出展作品を減らすか、小さめの画像でお試しください。')
+    }
+  },
+
+  async reorderOwnArtworks(from, to) {
+    const s = get()
+    const list = s.user ? s.cloudArtworks : s.artworks
+    if (from < 0 || to < 0 || from >= list.length || to >= list.length || from === to) return
+    const next = [...list]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    if (s.user) {
+      // 先に画面を更新し、裏でクラウドへ順序を保存
+      set({ cloudArtworks: next })
+      try {
+        await reorderArtworks(next.map((a) => a.id))
+      } catch (e) {
+        console.error(e)
+        alert('並び順の保存に失敗しました。0003_order_profile.sql を適用済みか確認してください。')
+        void get().refreshCloudArtworks()
+      }
+    } else {
+      get().updateSettings({ artworks: next })
     }
   },
 
