@@ -145,6 +145,79 @@ export function getFloorTextures() {
   return floorBase
 }
 
+/* ---- 額縁の仕上げ質感(手続き生成、種類ごとにキャッシュ) ---- */
+// 「完全に均一なラフネス」がプラスチックに見える原因なので、微細なムラを与える
+
+export type FrameFinish = 'wood' | 'metal' | 'paint'
+
+const finishCache = new Map<FrameFinish, { bumpMap: THREE.CanvasTexture; roughnessMap: THREE.CanvasTexture }>()
+
+export function getFrameFinish(kind: FrameFinish) {
+  const cached = finishCache.get(kind)
+  if (cached) return cached
+
+  const size = 256
+  const make = (draw: (ctx: CanvasRenderingContext2D) => void) => {
+    const c = document.createElement('canvas')
+    c.width = c.height = size
+    const ctx = c.getContext('2d')!
+    ctx.fillStyle = '#808080'
+    ctx.fillRect(0, 0, size, size)
+    draw(ctx)
+    const t = new THREE.CanvasTexture(c)
+    t.wrapS = t.wrapT = THREE.RepeatWrapping
+    return t
+  }
+
+  const streaks = (ctx: CanvasRenderingContext2D, horizontal: boolean, count: number, alpha: number) => {
+    for (let i = 0; i < count; i++) {
+      const p = Math.random() * size
+      const v = Math.random() > 0.5 ? 255 : 0
+      ctx.strokeStyle = `rgba(${v},${v},${v},${alpha * (0.4 + Math.random())})`
+      ctx.lineWidth = 0.5 + Math.random() * 1.6
+      ctx.beginPath()
+      if (horizontal) {
+        ctx.moveTo(0, p)
+        // 木目のゆらぎ
+        for (let x = 0; x <= size; x += 16) ctx.lineTo(x, p + Math.sin(x * 0.05 + i) * 2.5)
+      } else {
+        ctx.moveTo(p, 0)
+        ctx.lineTo(p + (Math.random() - 0.5) * 4, size)
+      }
+      ctx.stroke()
+    }
+  }
+
+  const speckle = (ctx: CanvasRenderingContext2D, count: number, alpha: number) => {
+    for (let i = 0; i < count; i++) {
+      const v = Math.random() > 0.5 ? 255 : 0
+      ctx.fillStyle = `rgba(${v},${v},${v},${alpha})`
+      ctx.fillRect(Math.random() * size, Math.random() * size, 1.4, 1.4)
+    }
+  }
+
+  let bumpMap: THREE.CanvasTexture
+  let roughnessMap: THREE.CanvasTexture
+  if (kind === 'wood') {
+    bumpMap = make((ctx) => streaks(ctx, true, 90, 0.16))
+    roughnessMap = make((ctx) => {
+      streaks(ctx, true, 60, 0.22)
+      speckle(ctx, 900, 0.06)
+    })
+  } else if (kind === 'metal') {
+    // ブラシ研磨の細い筋
+    bumpMap = make((ctx) => streaks(ctx, true, 220, 0.07))
+    roughnessMap = make((ctx) => streaks(ctx, true, 320, 0.2))
+  } else {
+    // 塗装のゆず肌
+    bumpMap = make((ctx) => speckle(ctx, 2600, 0.1))
+    roughnessMap = make((ctx) => speckle(ctx, 2000, 0.14))
+  }
+  const out = { bumpMap, roughnessMap }
+  finishCache.set(kind, out)
+  return out
+}
+
 /** useMemo + アンマウント時 dispose の小道具 */
 export function disposeAll(objs: Array<{ dispose(): void } | null | undefined>) {
   for (const o of objs) o?.dispose()

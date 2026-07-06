@@ -7,8 +7,9 @@ import type { ArtworkData } from '@/lib/artworks'
 import { CEIL_H, type FrameDef, type SlotDef, type ThemeDef } from '@/lib/presets'
 import { artSize } from '@/lib/exhibition'
 import { walkRef, LOW_POWER } from '@/lib/controller'
-import { getArtTexture, makePlaqueTexture, disposeAll } from './textures'
+import { getArtTexture, makePlaqueTexture, getFrameFinish, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
+import LightCone from './LightCone'
 import { useVideoArt } from './VideoArt'
 
 // 面取り付きの額縁(中央をくり抜いた枠をベベル付きで押し出す)
@@ -126,11 +127,14 @@ export default function Exhibit({
         ) : (
           <>
             <mesh geometry={frameGeo!} position={[0, 0, 0.02]} castShadow>
+              {/* 均一な艶はプラスチックに見えるので、仕上げごとの微細なムラを与える */}
               <meshStandardMaterial
                 color={frameDef.color}
                 roughness={frameDef.roughness}
                 metalness={frameDef.metalness}
                 envMapIntensity={0.9}
+                {...(frameDef.finish ? getFrameFinish(frameDef.finish) : {})}
+                bumpScale={0.35}
               />
             </mesh>
             {/* マット紙 */}
@@ -186,6 +190,15 @@ export default function Exhibit({
         decay={1.1}
         castShadow
         shadowMapSize={LOW_POWER ? 512 : 1024}
+      />
+
+      {/* 光のシャフト(フェイクボリューメトリック) */}
+      <LightCone
+        from={lightPos}
+        to={artWorldPos}
+        angle={0.46}
+        color={theme.spotColor}
+        opacity={theme.coneOpacity}
       />
 
       {/* 照明器具(見た目だけ) */}

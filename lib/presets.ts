@@ -15,6 +15,10 @@ export interface ThemeDef {
   titleInk: 'light' | 'dark'
   /** 天窓(柔らかい自然光の演出)を出すか */
   skylight?: boolean
+  /** 霧の濃度(空気遠近感。濃いほど遠くが沈む) */
+  fogDensity: number
+  /** スポットライトの光錐(フェイクボリューメトリック)の濃さ */
+  coneOpacity: number
 }
 
 export interface SlotDef {
@@ -52,6 +56,8 @@ export interface FrameDef {
   color?: number
   roughness?: number
   metalness?: number
+  /** 仕上げの質感(木目/ブラシ研磨/塗装のゆず肌) */
+  finish?: 'wood' | 'metal' | 'paint'
 }
 
 /* ================= テーマ(壁・床・照明) ================= */
@@ -70,6 +76,8 @@ export const THEMES: Record<string, ThemeDef> = {
     stripColor: 0xfff0d8,
     fog: 0x0b0a09,
     titleInk: 'light',
+    fogDensity: 0.018,
+    coneOpacity: 0.05,
   },
   whitecube: {
     label: 'ホワイトキューブ',
@@ -85,6 +93,8 @@ export const THEMES: Record<string, ThemeDef> = {
     fog: 0x141312,
     titleInk: 'dark',
     skylight: true,
+    fogDensity: 0.013,
+    coneOpacity: 0.028,
   },
   noir: {
     label: 'ノワール',
@@ -99,6 +109,8 @@ export const THEMES: Record<string, ThemeDef> = {
     stripColor: 0xffd9a0,
     fog: 0x050404,
     titleInk: 'light',
+    fogDensity: 0.024,
+    coneOpacity: 0.095,
   },
 }
 
@@ -173,10 +185,10 @@ export const LAYOUTS: Record<string, LayoutDef> = {
 // bar: 枠の太さ, gap: 作品と枠内縁の間(マット紙が見える幅)
 
 export const FRAMES: Record<string, FrameDef> = {
-  black: { label: '墨', bar: 0.07, gap: 0.08, color: 0x141210, roughness: 0.35, metalness: 0.4, mat: 0xf1ede4 },
-  gold: { label: '金', bar: 0.1, gap: 0.07, color: 0xa8853c, roughness: 0.32, metalness: 1.0, mat: 0xf3eee0 },
-  white: { label: '白', bar: 0.07, gap: 0.08, color: 0xf4f1ea, roughness: 0.6, metalness: 0.05, mat: 0xffffff },
-  wood: { label: '木', bar: 0.08, gap: 0.07, color: 0x7a5c3e, roughness: 0.55, metalness: 0.05, mat: 0xf1ead9 },
+  black: { label: '墨', bar: 0.07, gap: 0.08, color: 0x141210, roughness: 0.42, metalness: 0.35, mat: 0xf1ede4, finish: 'wood' },
+  gold: { label: '金', bar: 0.1, gap: 0.07, color: 0xa8853c, roughness: 0.34, metalness: 1.0, mat: 0xf3eee0, finish: 'metal' },
+  white: { label: '白', bar: 0.07, gap: 0.08, color: 0xf4f1ea, roughness: 0.62, metalness: 0.05, mat: 0xffffff, finish: 'paint' },
+  wood: { label: '木', bar: 0.08, gap: 0.07, color: 0x7a5c3e, roughness: 0.58, metalness: 0.05, mat: 0xf1ead9, finish: 'wood' },
   none: { label: 'なし', mat: null },
 }
 

@@ -2,10 +2,12 @@
 // タイトルウォール(西面のアクセント壁に展覧会名を表示)
 // 公開ギャラリー(来場者モード)では展覧会タイトルと作家名に差し替わる
 import { useEffect, useMemo } from 'react'
+import * as THREE from 'three'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { useGallery } from '@/lib/store'
 import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
+import LightCone from './LightCone'
 
 export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: LayoutDef }) {
   const visitor = useGallery((s) => s.visitor)
@@ -43,6 +45,13 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
         angle={0.75}
         penumbra={0.7}
         decay={1.1}
+      />
+      <LightCone
+        from={new THREE.Vector3(-layout.hw + 3.4, CEIL_H - 0.2, 0)}
+        to={new THREE.Vector3(-layout.hw, 2.5, 0)}
+        angle={0.75}
+        color={theme.spotColor}
+        opacity={theme.coneOpacity * 0.8}
       />
     </>
   )

@@ -53,10 +53,10 @@ export default function GalleryScene() {
     }
   }, [gl, scene])
 
-  // 背景と霧
+  // 背景と霧(テーマ別の濃度で空気遠近感を出す)
   useEffect(() => {
     scene.background = new THREE.Color(theme.fog)
-    scene.fog = new THREE.FogExp2(theme.fog, 0.016)
+    scene.fog = new THREE.FogExp2(theme.fog, theme.fogDensity)
   }, [scene, theme])
 
   // シーンは静的なので、構成が変わったときに一度だけ影を焼き直す。

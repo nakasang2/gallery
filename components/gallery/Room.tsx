@@ -43,7 +43,15 @@ function Wall({
   return (
     <mesh position={position} rotation-y={rotationY} receiveShadow>
       <planeGeometry args={[width, CEIL_H]} />
-      <meshStandardMaterial color={color} roughness={0.95} bumpMap={bump} bumpScale={0.5} envMapIntensity={0.25} />
+      {/* roughnessMap にも同じムラを使い、漆喰の微細な艶ムラを出す */}
+      <meshStandardMaterial
+        color={color}
+        roughness={0.93}
+        bumpMap={bump}
+        bumpScale={0.5}
+        roughnessMap={bump}
+        envMapIntensity={0.25}
+      />
     </mesh>
   )
 }
@@ -58,11 +66,18 @@ function Trim({ w, x, z, rotY, y, h, d }: { w: number; x: number; z: number; rot
 }
 
 function Bench({ x, z, theme }: { x: number; z: number; theme: ThemeDef }) {
+  // 座面は床と同じ木目テクスチャを濃い色味で使い回す
+  const topTex = useMemo(() => {
+    const t = getFloorTextures().map.clone()
+    t.repeat.set(0.5, 0.14)
+    return t
+  }, [])
+  useEffect(() => () => disposeAll([topTex]), [topTex])
   return (
     <group position={[x, 0, z]}>
       <mesh position={[0, 0.44, 0]} castShadow receiveShadow>
         <boxGeometry args={[2.1, 0.09, 0.55]} />
-        <meshStandardMaterial color={0x4a3b2c} roughness={0.7} />
+        <meshStandardMaterial map={topTex} color={0x8a6a4a} roughness={0.62} />
       </mesh>
       {[-0.85, 0.85].map((lx) => (
         <mesh key={lx} position={[lx, 0.22, 0]} castShadow receiveShadow>
