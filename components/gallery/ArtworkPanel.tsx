@@ -9,6 +9,7 @@ export default function ArtworkPanel() {
   const setFocused = useGallery((s) => s.setFocused)
   const setTourActive = useGallery((s) => s.setTourActive)
   const updateSettings = useGallery((s) => s.updateSettings)
+  const visitor = useGallery((s) => s.visitor)
   const settings = useSettings()
 
   const list = useExhibitionList()
@@ -38,20 +39,23 @@ export default function ArtworkPanel() {
               <span key={t}>{t}</span>
             ))}
           </div>
-          <div className="panel-frame">
-            <div className="panel-frame-label">この作品の額装</div>
-            <div className="chips">
-              {Object.entries(FRAMES).map(([key, def]) => (
-                <button
-                  key={key}
-                  className={`chip${frameKeyFor(settings, art) === key ? ' active' : ''}`}
-                  onClick={() => updateSettings({ frameOverrides: { ...settings.frameOverrides, [art.id]: key } })}
-                >
-                  {def.label}
-                </button>
-              ))}
+          {/* 来場者モードでは額装は変えられない */}
+          {!visitor && (
+            <div className="panel-frame">
+              <div className="panel-frame-label">この作品の額装</div>
+              <div className="chips">
+                {Object.entries(FRAMES).map(([key, def]) => (
+                  <button
+                    key={key}
+                    className={`chip${frameKeyFor(settings, art) === key ? ' active' : ''}`}
+                    onClick={() => updateSettings({ frameOverrides: { ...settings.frameOverrides, [art.id]: key } })}
+                  >
+                    {def.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </aside>

@@ -16,12 +16,13 @@ export function overflowCount(s: Settings, ownCount: number): number {
   return Math.max(0, total - layout.slots.length)
 }
 
-/** 自分の出展作品(ログイン時はクラウド、ゲスト時は localStorage) */
+/** 自分の出展作品(来場者モード = 公開データ、ログイン時 = クラウド、ゲスト時 = localStorage) */
 export function useOwnArtworks(): ArtworkData[] {
+  const visitorArts = useGallery((s) => s.visitor?.artworks)
   const user = useGallery((s) => s.user)
   const cloud = useGallery((s) => s.cloudArtworks)
   const local = useGallery((s) => s.artworks)
-  return user ? cloud : local
+  return visitorArts ?? (user ? cloud : local)
 }
 
 /** いま展示されている作品リスト(スロット数で頭打ち) */

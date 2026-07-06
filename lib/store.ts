@@ -6,6 +6,7 @@ import type { ArtworkData } from './artworks'
 import { THEMES, LAYOUTS, FRAMES } from './presets'
 import { supabase } from './supabase'
 import { listMyArtworks } from './cloud'
+import type { PublicExhibition } from './publish'
 
 export interface AuthUser {
   id: string
@@ -71,6 +72,10 @@ interface GalleryStore extends Settings {
   user: AuthUser | null
   /** ログインユーザーのクラウド出展作品 */
   cloudArtworks: ArtworkData[]
+  /** プロフィールのユーザー名(公開URLに使う。未設定は null) */
+  profileUsername: string | null
+  /** 来場者モード: 公開ページでは編集不可の展示データで上書きされる */
+  visitor: PublicExhibition | null
 
   hydrate(): void
   initAuth(): void
@@ -90,6 +95,8 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   ready: false,
   user: null,
   cloudArtworks: [],
+  profileUsername: null,
+  visitor: null,
 
   hydrate() {
     set({ ...loadSettings(), ready: true })
@@ -118,11 +125,11 @@ export const useGallery = create<GalleryStore>((set, get) => ({
       // 銘板の作家名にはプロフィールの表示名を使う
       const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name')
+        .select('display_name, username')
         .eq('id', user.id)
         .maybeSingle()
       const artist = profile?.display_name || user.displayName
-      set({ cloudArtworks: await listMyArtworks(artist) })
+      set({ cloudArtworks: await listMyArtworks(artist), profileUsername: profile?.username ?? null })
     } catch (e) {
       console.error(e)
       alert(
@@ -153,16 +160,30 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   },
 }))
 
-/** 永続化対象の設定だけを浅い比較で購読する */
+// useShallow は値を参照比較するため、毎回生成される配列を返すと無限再レンダリングになる
+const EMPTY_ARTWORKS: ArtworkData[] = []
+
+/** 有効な空間設定を浅い比較で購読する(来場者モードでは公開データが優先) */
 export function useSettings(): Settings {
   return useGallery(
-    useShallow((s) => ({
-      theme: s.theme,
-      layout: s.layout,
-      frame: s.frame,
-      showDemo: s.showDemo,
-      artworks: s.artworks,
-      frameOverrides: s.frameOverrides,
-    }))
+    useShallow((s) =>
+      s.visitor
+        ? {
+            theme: s.visitor.theme,
+            layout: s.visitor.layout,
+            frame: s.visitor.frame,
+            showDemo: false,
+            artworks: EMPTY_ARTWORKS,
+            frameOverrides: s.visitor.frameOverrides,
+          }
+        : {
+            theme: s.theme,
+            layout: s.layout,
+            frame: s.frame,
+            showDemo: s.showDemo,
+            artworks: s.artworks,
+            frameOverrides: s.frameOverrides,
+          }
+    )
   )
 }

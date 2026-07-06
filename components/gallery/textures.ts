@@ -83,7 +83,21 @@ export function makePlaqueTexture(art: ArtworkData, index: number): THREE.Canvas
 
 /* ---- タイトルウォール ---- */
 
-export function makeTitleTexture(dark: boolean): THREE.CanvasTexture {
+export interface TitleWallText {
+  main: string
+  sub: string
+  note1: string
+  note2: string
+}
+
+export const DEFAULT_TITLE_TEXT: TitleWallText = {
+  main: 'HAKONIWA',
+  sub: '― 10人の作家による常設展 ―',
+  note1: 'タイムラインで流れて消える一枚を、歩いて出会う一枚へ。',
+  note2: 'ここは、あなたの箱庭になる予定の場所です。',
+}
+
+export function makeTitleTexture(dark: boolean, text: TitleWallText = DEFAULT_TITLE_TEXT): THREE.CanvasTexture {
   const c = document.createElement('canvas')
   c.width = 2048
   c.height = 1024
@@ -91,16 +105,19 @@ export function makeTitleTexture(dark: boolean): THREE.CanvasTexture {
   ctx.textAlign = 'center'
   ctx.fillStyle = '#d4a24e'
   ctx.font = '500 40px "Zen Kaku Gothic New", sans-serif'
-  ctx.fillText('P E R M A N E N T   E X H I B I T I O N', 1024, 210)
+  ctx.fillText('E X H I B I T I O N', 1024, 210)
   ctx.fillStyle = dark ? '#22201c' : '#ece7de'
+  // タイトルが長い場合は幅に収まるよう縮める
   ctx.font = '500 190px "Shippori Mincho", serif'
-  ctx.fillText('HAKONIWA', 1024, 450)
+  const mainWidth = ctx.measureText(text.main).width
+  if (mainWidth > 1800) ctx.font = `500 ${Math.max(80, Math.floor(190 * (1800 / mainWidth)))}px "Shippori Mincho", serif`
+  ctx.fillText(text.main, 1024, 450)
   ctx.font = '500 74px "Shippori Mincho", serif'
-  ctx.fillText('― 10人の作家による常設展 ―', 1024, 600)
+  ctx.fillText(text.sub, 1024, 600)
   ctx.fillStyle = dark ? '#6b665e' : '#9a938a'
   ctx.font = '300 44px "Zen Kaku Gothic New", sans-serif'
-  ctx.fillText('タイムラインで流れて消える一枚を、歩いて出会う一枚へ。', 1024, 750)
-  ctx.fillText('ここは、あなたの箱庭になる予定の場所です。', 1024, 830)
+  ctx.fillText(text.note1, 1024, 750)
+  ctx.fillText(text.note2, 1024, 830)
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   tex.anisotropy = 8

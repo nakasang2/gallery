@@ -1,12 +1,29 @@
 'use client'
 // タイトルウォール(西面のアクセント壁に展覧会名を表示)
+// 公開ギャラリー(来場者モード)では展覧会タイトルと作家名に差し替わる
 import { useEffect, useMemo } from 'react'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
-import { makeTitleTexture, disposeAll } from './textures'
+import { useGallery } from '@/lib/store'
+import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 
 export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: LayoutDef }) {
-  const tex = useMemo(() => makeTitleTexture(theme.titleInk === 'dark'), [theme.titleInk])
+  const visitor = useGallery((s) => s.visitor)
+  const tex = useMemo(
+    () =>
+      makeTitleTexture(
+        theme.titleInk === 'dark',
+        visitor
+          ? {
+              main: visitor.title,
+              sub: `― ${visitor.ownerName} ―`,
+              note1: visitor.statement || `@${visitor.username}`,
+              note2: visitor.statement ? `@${visitor.username}` : '',
+            }
+          : DEFAULT_TITLE_TEXT
+      ),
+    [theme.titleInk, visitor]
+  )
   useEffect(() => () => disposeAll([tex]), [tex])
 
   const w = Math.min(9.6, layout.hd * 2 - 1.4)

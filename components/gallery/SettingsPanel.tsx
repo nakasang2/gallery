@@ -1,13 +1,14 @@
 'use client'
 // 空間設定パネル(テーマ/レイアウト/額装の切替、アカウント、作品の出展)
 // 出展先はログイン状態で切り替わる: ゲスト = localStorage / ログイン = Supabase
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
 import { overflowCount, useOwnArtworks } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { fileToDataUrl, loadImage, newArtworkEntry } from '@/lib/upload'
 import { supabase } from '@/lib/supabase'
 import { uploadArtwork, deleteArtwork } from '@/lib/cloud'
+import { USERNAME_RE, setUsername, publishGallery, getMyGallery } from '@/lib/publish'
 import type { ArtworkData } from '@/lib/artworks'
 
 function ChipRow({
@@ -100,6 +101,138 @@ function AccountSection() {
         ログインすると出展作品がクラウドに保存され、URL公開(開発中)の対象になります。
         未ログインでも出展はこのブラウザ内で試せます。
       </p>
+    </>
+  )
+}
+
+// 公開: username 設定 → 現在の空間と作品を galleries/placements に反映して固有URLを発行
+function PublishSection() {
+  const user = useGallery((s) => s.user)!
+  const username = useGallery((s) => s.profileUsername)
+  const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const settings = useSettings()
+  const ownArtworks = useOwnArtworks()
+
+  const [nameInput, setNameInput] = useState('')
+  const [galleryTitle, setGalleryTitle] = useState('私のギャラリー')
+  const [isPublic, setIsPublic] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  // 既存の公開状態を読み込む
+  useEffect(() => {
+    let alive = true
+    getMyGallery(user.id)
+      .then((g) => {
+        if (alive && g) {
+          setGalleryTitle(g.title)
+          setIsPublic(g.is_public)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [user.id])
+
+  async function saveUsername() {
+    const name = nameInput.trim().toLowerCase()
+    if (!USERNAME_RE.test(name)) {
+      alert('ユーザー名は英小文字・数字・_ の3〜20文字にしてください')
+      return
+    }
+    setBusy(true)
+    try {
+      await setUsername(user.id, name)
+      await refreshCloud()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function publish(nextPublic: boolean) {
+    setBusy(true)
+    try {
+      await publishGallery({
+        userId: user.id,
+        title: galleryTitle.trim() || '私のギャラリー',
+        isPublic: nextPublic,
+        settings,
+        ownArtworks,
+      })
+      setIsPublic(nextPublic)
+    } catch (e) {
+      alert(`公開処理に失敗しました: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!username) {
+    return (
+      <>
+        <p className="settings-note">公開URLに使うユーザー名を決めてください(英小文字・数字・_)。</p>
+        <div className="field-row">
+          <input
+            type="text"
+            placeholder="username"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+          />
+          <button className="btn-line" disabled={busy} onClick={() => void saveUsername()}>保存</button>
+        </div>
+      </>
+    )
+  }
+
+  const publicUrl = typeof window !== 'undefined' ? `${location.origin}/@${username}/main` : ''
+
+  return (
+    <>
+      <div className="field-row">
+        <input
+          type="text"
+          placeholder="展覧会タイトル"
+          value={galleryTitle}
+          onChange={(e) => setGalleryTitle(e.target.value)}
+        />
+      </div>
+      <div className="field-row">
+        <button className="btn-line" disabled={busy || ownArtworks.length === 0} onClick={() => void publish(true)}>
+          {isPublic ? '公開情報を更新' : 'ギャラリーを公開する'}
+        </button>
+        {isPublic && (
+          <button className="btn-line" disabled={busy} onClick={() => void publish(false)}>
+            非公開にする
+          </button>
+        )}
+      </div>
+      {ownArtworks.length === 0 && (
+        <p className="settings-note">公開するには作品を1点以上出展してください。</p>
+      )}
+      {isPublic && (
+        <p className="settings-note">
+          公開中:{' '}
+          <a href={publicUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>
+            {publicUrl}
+          </a>{' '}
+          <button
+            className="chip"
+            onClick={() => {
+              void navigator.clipboard.writeText(publicUrl).then(() => {
+                setCopied(true)
+                setTimeout(() => setCopied(false), 1600)
+              })
+            }}
+          >
+            {copied ? 'コピーしました' : 'URLをコピー'}
+          </button>
+          <br />
+          展示中の作品・テーマ・額装のスナップショットが公開されます。変更したら「公開情報を更新」を押してください。
+        </p>
+      )}
     </>
   )
 }
@@ -238,6 +371,13 @@ export default function SettingsPanel() {
         <h3>アカウント</h3>
         <AccountSection />
       </section>
+
+      {user && (
+        <section className="settings-section">
+          <h3>公開</h3>
+          <PublishSection />
+        </section>
+      )}
 
       <section className="settings-section">
         <h3>作品を出展</h3>

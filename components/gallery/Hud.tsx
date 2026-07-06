@@ -5,12 +5,15 @@ import Link from 'next/link'
 import { useGallery } from '@/lib/store'
 
 export function HudTop() {
+  const visitor = useGallery((s) => s.visitor)
   return (
     <header className="hud-top">
       <Link className="hud-back" href="/">← HAKONIWA</Link>
       <div className="hud-title">
-        <span className="hud-title-main">HAKONIWA COLLECTION</span>
-        <span className="hud-title-sub">10人の作家による常設展</span>
+        <span className="hud-title-main">{visitor ? visitor.title : 'HAKONIWA COLLECTION'}</span>
+        <span className="hud-title-sub">
+          {visitor ? `${visitor.ownerName} — @${visitor.username}` : '10人の作家による常設展'}
+        </span>
       </div>
     </header>
   )
@@ -21,6 +24,7 @@ export function HudActions() {
   const setTourActive = useGallery((s) => s.setTourActive)
   const settingsOpen = useGallery((s) => s.settingsOpen)
   const setSettingsOpen = useGallery((s) => s.setSettingsOpen)
+  const visitor = useGallery((s) => s.visitor)
 
   return (
     <div className="hud-actions">
@@ -31,9 +35,12 @@ export function HudActions() {
       >
         {tourActive ? '■ ツアーを止める' : '▶ 順路ツアー'}
       </button>
-      <button id="btn-settings" className="hud-btn" onClick={() => setSettingsOpen(!settingsOpen)}>
-        空間を編集
-      </button>
+      {/* 来場者モードでは編集させない */}
+      {!visitor && (
+        <button id="btn-settings" className="hud-btn" onClick={() => setSettingsOpen(!settingsOpen)}>
+          空間を編集
+        </button>
+      )}
     </div>
   )
 }

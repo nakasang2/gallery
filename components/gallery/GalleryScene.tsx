@@ -20,8 +20,9 @@ export default function GalleryScene() {
   const scene = useThree((s) => s.scene)
 
   const settings = useSettings()
-  const theme = THEMES[settings.theme]
-  const layout = LAYOUTS[settings.layout]
+  // 公開データのキーが古い可能性に備えてフォールバック
+  const theme = THEMES[settings.theme] ?? THEMES.chic
+  const layout = LAYOUTS[settings.layout] ?? LAYOUTS.hall
   const list = useExhibitionList()
 
   // 環境マップ: 床のツヤや額縁の金属部分に室内の光がうっすら映り込む
