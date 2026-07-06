@@ -1,0 +1,427 @@
+:root {
+  --bg: #0b0a09;
+  --ink: #ece7de;
+  --muted: #9a938a;
+  --gold: #d4a24e;
+  --hairline: rgba(236, 231, 222, 0.14);
+  --serif: 'Shippori Mincho', serif;
+  --sans: 'Zen Kaku Gothic New', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* /demo ページでは body に .gallery-mode が付く(LPのスクロールを妨げないためのスコープ) */
+body.gallery-mode {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* R3F の Canvas ラッパー */
+.stage-root {
+  position: fixed !important;
+  inset: 0;
+  cursor: grab;
+}
+.stage-root canvas { touch-action: none; }
+
+#stage {
+  position: fixed;
+  inset: 0;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+#stage.dragging { cursor: grabbing; }
+#stage.pointing { cursor: pointer; }
+
+/* ---- ローディング ---- */
+#loading {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  transition: opacity 0.9s ease, visibility 0.9s;
+}
+#loading.done { opacity: 0; visibility: hidden; }
+.loading-inner { text-align: center; }
+.loading-logo {
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  letter-spacing: 0.55em;
+  text-indent: 0.55em;
+  margin-bottom: 1.6rem;
+}
+.loading-bar {
+  width: 180px;
+  height: 1px;
+  margin: 0 auto 1rem;
+  background: var(--hairline);
+  overflow: hidden;
+}
+.loading-bar span {
+  display: block;
+  height: 100%;
+  width: 40%;
+  background: var(--gold);
+  animation: load 1.2s ease-in-out infinite;
+}
+@keyframes load {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(450%); }
+}
+.loading-text {
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+}
+
+/* ---- HUD ---- */
+.hud-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 1.4rem;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(11, 10, 9, 0.75), transparent);
+}
+.hud-back {
+  pointer-events: auto;
+  color: var(--ink);
+  text-decoration: none;
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  letter-spacing: 0.18em;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+.hud-back:hover { opacity: 1; color: var(--gold); }
+.hud-title { text-align: right; }
+.hud-title-main {
+  display: block;
+  font-family: var(--serif);
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
+}
+.hud-title-sub {
+  display: block;
+  font-size: 0.65rem;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  margin-top: 0.3rem;
+}
+
+/* ---- 操作ヒント ---- */
+.hint {
+  position: fixed;
+  bottom: 1.3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 1.6rem;
+  padding: 0.7rem 1.4rem;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  background: rgba(11, 10, 9, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  transition: opacity 0.8s ease;
+  white-space: nowrap;
+}
+.hint.faded { opacity: 0; pointer-events: none; }
+.hint b { color: var(--ink); font-weight: 500; margin-right: 0.4em; }
+
+/* ---- 作品情報パネル ---- */
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  width: min(380px, 88vw);
+  padding: 5rem 2.2rem 2.2rem;
+  background: rgba(15, 14, 12, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-left: 1px solid var(--hairline);
+  transform: translateX(105%);
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow-y: auto;
+}
+.panel.open { transform: translateX(0); }
+.panel-close {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.2rem;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.panel-close:hover { border-color: var(--gold); color: var(--gold); }
+.panel-no {
+  font-size: 0.68rem;
+  letter-spacing: 0.3em;
+  color: var(--gold);
+  margin-bottom: 1rem;
+}
+.panel-title {
+  font-family: var(--serif);
+  font-size: 1.7rem;
+  font-weight: 500;
+  line-height: 1.35;
+  margin-bottom: 0.7rem;
+}
+.panel-artist {
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  padding-bottom: 1.4rem;
+  margin-bottom: 1.4rem;
+  border-bottom: 1px solid var(--hairline);
+}
+.panel-desc {
+  font-size: 0.88rem;
+  line-height: 2;
+  color: #cdc7bd;
+  margin-bottom: 1.6rem;
+}
+.panel-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.panel-tags span {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  padding: 0.32em 0.9em;
+}
+
+/* ---- HUD アクション ---- */
+.hud-actions {
+  position: fixed;
+  right: 1.2rem;
+  bottom: 1.2rem;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  align-items: flex-end;
+}
+.hud-btn {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+  background: rgba(11, 10, 9, 0.6);
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  padding: 0.6em 1.3em;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.hud-btn:hover { border-color: var(--gold); color: var(--gold); }
+.hud-btn.active { border-color: var(--gold); color: var(--gold); }
+
+/* ---- バーチャルジョイスティック ---- */
+.joy {
+  display: none;
+  position: fixed;
+  left: 1.4rem;
+  bottom: 4.6rem;
+  z-index: 15;
+  width: 108px;
+  height: 108px;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: rgba(11, 10, 9, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  touch-action: none;
+}
+.joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border-radius: 50%;
+  background: rgba(236, 231, 222, 0.28);
+  border: 1px solid rgba(236, 231, 222, 0.4);
+  pointer-events: none;
+}
+@media (pointer: coarse) {
+  .joy { display: block; }
+}
+
+/* ---- チップ(テーマ/レイアウト/額装の選択) ---- */
+.chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.chip {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  padding: 0.45em 1.1em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.chip:hover { border-color: var(--gold); color: var(--gold); }
+.chip.active { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.1); }
+
+.panel-frame { margin-top: 1.6rem; padding-top: 1.4rem; border-top: 1px solid var(--hairline); }
+.panel-frame-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  color: var(--muted);
+  margin-bottom: 0.7rem;
+}
+
+/* ---- 空間設定パネル ---- */
+.settings {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  width: min(400px, 92vw);
+  padding: 4.6rem 2rem 2rem;
+  background: rgba(15, 14, 12, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-left: 1px solid var(--hairline);
+  transform: translateX(105%);
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow-y: auto;
+}
+.settings.open { transform: translateX(0); }
+.settings-title {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 500;
+  margin-bottom: 1.6rem;
+}
+.settings-section { margin-bottom: 1.8rem; }
+.settings-section h3 {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  color: var(--gold);
+  margin-bottom: 0.75rem;
+}
+.settings-note {
+  font-size: 0.7rem;
+  line-height: 1.8;
+  color: var(--muted);
+  margin-top: 0.7rem;
+}
+
+.btn-line {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 0.6em 1.1em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-line:hover { border-color: var(--gold); color: var(--gold); }
+.file-btn { margin-top: 0.7rem; }
+
+.field-row { display: flex; gap: 0.5rem; margin-top: 0.7rem; }
+.field-row input[type='text'],
+.field-row input[type='url'] {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.06);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 0.55em 0.8em;
+}
+.field-row input:focus { outline: none; border-color: var(--gold); }
+
+.my-works { list-style: none; margin-top: 0.9rem; }
+.my-works li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.my-works img {
+  width: 44px;
+  height: 33px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: rgba(236, 231, 222, 0.08);
+}
+.my-works span {
+  flex: 1;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.my-works button {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.my-works button:hover { border-color: #c0564a; color: #c0564a; }
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 1rem;
+  font-size: 0.78rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+.toggle input { accent-color: var(--gold); }
+
+@media (max-width: 640px) {
+  .hint { gap: 0.9rem; padding: 0.6rem 1rem; font-size: 0.62rem; }
+  .hud-title-main { font-size: 0.72rem; }
+  .panel { padding: 4.4rem 1.6rem 2rem; }
+  .hud-actions { bottom: 4.4rem; }
+  .settings { width: 100vw; border-left: none; }
+}

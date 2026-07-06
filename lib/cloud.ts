@@ -1,0 +1,105 @@
+// クラウド出展(ログイン時): 画像は Storage、メタデータは artworks テーブルへ
+import { supabase } from './supabase'
+import type { ArtworkData } from './artworks'
+import { loadImage } from './upload'
+
+interface ArtworkRow {
+  id: string
+  owner_id: string
+  storage_path: string
+  width: number
+  height: number
+  title: string
+  description: string
+  year: number | null
+  tags: string[]
+  created_at: string
+}
+
+function publicUrl(path: string): string {
+  return supabase!.storage.from('artworks').getPublicUrl(path).data.publicUrl
+}
+
+export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
+  return {
+    id: row.id,
+    title: row.title,
+    artist: artistName,
+    year: row.year ?? new Date(row.created_at).getFullYear(),
+    desc: row.description,
+    tags: row.tags.length ? row.tags : ['出展作品'],
+    ratio: [row.width, row.height],
+    src: publicUrl(`${row.storage_path}/display.jpg`),
+  }
+}
+
+export async function listMyArtworks(artistName: string): Promise<ArtworkData[]> {
+  const { data, error } = await supabase!
+    .from('artworks')
+    .select('*')
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data as ArtworkRow[]).map((r) => rowToArtwork(r, artistName))
+}
+
+async function dataUrlToJpegBlob(dataUrl: string, maxSide: number): Promise<Blob> {
+  const img = await loadImage(dataUrl)
+  const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+  const c = document.createElement('canvas')
+  c.width = Math.round(img.width * scale)
+  c.height = Math.round(img.height * scale)
+  const ctx = c.getContext('2d')!
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, c.width, c.height)
+  ctx.drawImage(img, 0, 0, c.width, c.height)
+  return new Promise((resolve, reject) =>
+    c.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/jpeg', 0.85)
+  )
+}
+
+export async function uploadArtwork(params: {
+  ownerId: string
+  dataUrl: string
+  title: string
+  w: number
+  h: number
+}): Promise<void> {
+  const sb = supabase!
+  const id = crypto.randomUUID()
+  const basePath = `${params.ownerId}/${id}`
+
+  // 表示用(長辺1600)とサムネイル(長辺400)の2サイズ(docs/ARCHITECTURE.md 5章)
+  const display = await dataUrlToJpegBlob(params.dataUrl, 1600)
+  const thumb = await dataUrlToJpegBlob(params.dataUrl, 400)
+
+  const up1 = await sb.storage.from('artworks').upload(`${basePath}/display.jpg`, display, {
+    contentType: 'image/jpeg',
+  })
+  if (up1.error) throw up1.error
+  const up2 = await sb.storage.from('artworks').upload(`${basePath}/thumb.jpg`, thumb, {
+    contentType: 'image/jpeg',
+  })
+  if (up2.error) throw up2.error
+
+  const { error } = await sb.from('artworks').insert({
+    id,
+    owner_id: params.ownerId,
+    storage_path: basePath,
+    width: params.w,
+    height: params.h,
+    title: params.title,
+  })
+  if (error) {
+    // メタデータ登録に失敗したら画像は残さない
+    await sb.storage.from('artworks').remove([`${basePath}/display.jpg`, `${basePath}/thumb.jpg`])
+    throw error
+  }
+}
+
+export async function deleteArtwork(ownerId: string, artworkId: string): Promise<void> {
+  const sb = supabase!
+  const basePath = `${ownerId}/${artworkId}`
+  const { error } = await sb.from('artworks').delete().eq('id', artworkId)
+  if (error) throw error
+  await sb.storage.from('artworks').remove([`${basePath}/display.jpg`, `${basePath}/thumb.jpg`])
+}
