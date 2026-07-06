@@ -40,6 +40,74 @@ export function getPlasterBump(size = 512): THREE.CanvasTexture {
   return plasterBump
 }
 
+/* ---- 漆喰のノーマルマップ(手続き生成) ----
+   バンプ(高さ近似)より、ノーマルマップの方が斜めから当たる光を正しく拾うため
+   「平らなプラスチック壁」感が消える。多重ノイズの高さ場を Sobel で法線化する */
+
+let plasterNormal: THREE.CanvasTexture | null = null
+
+export function getPlasterNormal(size = 512): THREE.CanvasTexture {
+  if (plasterNormal) return plasterNormal
+
+  // 1) 多重オクターブのノイズで高さ場を作る(細かい粒 + 大きなうねり)
+  const height = new Float32Array(size * size)
+  const rand = (n: number) => {
+    // 決定的でなくてよいので Math.random で層を重ねる
+    const cell = document.createElement('canvas')
+    cell.width = cell.height = n
+    const cx = cell.getContext('2d')!
+    const img = cx.createImageData(n, n)
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = Math.random() * 255
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v
+      img.data[i + 3] = 255
+    }
+    cx.putImageData(img, 0, 0)
+    // size に引き伸ばして双一次補間(ブラウザの drawImage が補間する)
+    const big = document.createElement('canvas')
+    big.width = big.height = size
+    const bx = big.getContext('2d')!
+    bx.imageSmoothingEnabled = true
+    bx.drawImage(cell, 0, 0, size, size)
+    return bx.getImageData(0, 0, size, size).data
+  }
+  // オクターブ: [解像度セル数, 振幅]
+  const octaves: [number, number][] = [
+    [8, 0.5], // 大きなうねり(壁の凹凸)
+    [32, 0.3],
+    [128, 0.15],
+    [size, 0.08], // 細かいざらつき
+  ]
+  for (const [cells, amp] of octaves) {
+    const d = rand(cells)
+    for (let i = 0; i < height.length; i++) height[i] += (d[i * 4] / 255) * amp
+  }
+
+  // 2) Sobel で法線を求めて RGB に符号化
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')!
+  const out = ctx.createImageData(size, size)
+  const at = (x: number, y: number) => height[((y + size) % size) * size + ((x + size) % size)]
+  const strength = 2.2
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (at(x - 1, y) - at(x + 1, y)) * strength
+      const dy = (at(x, y - 1) - at(x, y + 1)) * strength
+      const len = Math.hypot(dx, dy, 1)
+      const i = (y * size + x) * 4
+      out.data[i] = ((dx / len) * 0.5 + 0.5) * 255
+      out.data[i + 1] = ((dy / len) * 0.5 + 0.5) * 255
+      out.data[i + 2] = (1 / len) * 0.5 * 255 + 127
+      out.data[i + 3] = 255
+    }
+  }
+  ctx.putImageData(out, 0, 0)
+  plasterNormal = new THREE.CanvasTexture(c)
+  plasterNormal.wrapS = plasterNormal.wrapT = THREE.RepeatWrapping
+  return plasterNormal
+}
+
 /* ---- 作品テクスチャ(再構築をまたいで使い回す) ---- */
 
 const texLoader = new THREE.TextureLoader()

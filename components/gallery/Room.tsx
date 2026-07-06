@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import type { ThreeEvent } from '@react-three/fiber'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { walkRef } from '@/lib/controller'
-import { getFloorTextures, getPlasterBump, disposeAll } from './textures'
+import { getFloorTextures, getPlasterBump, getPlasterNormal, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 
@@ -18,14 +18,18 @@ if (typeof window !== 'undefined' && !rectAreaInited) {
 
 const TRIM_COLOR = 0x0e0c0a
 
-function useWallBump(widthM: number) {
-  const bump = useMemo(() => {
-    const b = getPlasterBump().clone()
-    b.repeat.set(widthM / 3.2, CEIL_H / 3.2)
-    return b
+// 壁の漆喰マップ(ノーマル + 艶ムラ用ラフネス)。実寸に合わせてタイリング
+function useWallMaps(widthM: number) {
+  const maps = useMemo(() => {
+    const rep: [number, number] = [widthM / 3.2, CEIL_H / 3.2]
+    const normalMap = getPlasterNormal().clone()
+    normalMap.repeat.set(...rep)
+    const roughnessMap = getPlasterBump().clone()
+    roughnessMap.repeat.set(...rep)
+    return { normalMap, roughnessMap }
   }, [widthM])
-  useEffect(() => () => disposeAll([bump]), [bump])
-  return bump
+  useEffect(() => () => disposeAll([maps.normalMap, maps.roughnessMap]), [maps])
+  return maps
 }
 
 function Wall({
@@ -39,17 +43,17 @@ function Wall({
   position: [number, number, number]
   rotationY: number
 }) {
-  const bump = useWallBump(width)
+  const { normalMap, roughnessMap } = useWallMaps(width)
   return (
     <mesh position={position} rotation-y={rotationY} receiveShadow>
       <planeGeometry args={[width, CEIL_H]} />
-      {/* roughnessMap にも同じムラを使い、漆喰の微細な艶ムラを出す */}
+      {/* ノーマルマップで斜めからの光を拾い、ラフネスマップで艶ムラを出す */}
       <meshStandardMaterial
         color={color}
         roughness={0.93}
-        bumpMap={bump}
-        bumpScale={0.5}
-        roughnessMap={bump}
+        normalMap={normalMap}
+        normalScale={new THREE.Vector2(0.6, 0.6)}
+        roughnessMap={roughnessMap}
         envMapIntensity={0.25}
       />
     </mesh>
@@ -117,7 +121,7 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
   }, [hw, hd])
   useEffect(() => () => disposeAll(Object.values(floorTex)), [floorTex])
 
-  const partitionBump = useWallBump(8)
+  const partitionMaps = useWallMaps(8)
 
   const onFloorClick = (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > 8) return // ドラッグだった
@@ -181,8 +185,9 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
             <meshStandardMaterial
               color={theme.accentWall}
               roughness={0.95}
-              bumpMap={partitionBump}
-              bumpScale={0.5}
+              normalMap={partitionMaps.normalMap}
+              normalScale={new THREE.Vector2(0.6, 0.6)}
+              roughnessMap={partitionMaps.roughnessMap}
               envMapIntensity={0.25}
             />
           </mesh>
