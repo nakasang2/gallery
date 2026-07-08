@@ -1,5 +1,5 @@
-// ギャラリーの設定(永続化)と UI 状態。プロトタイプの localStorage 形式と互換
-// ログイン時は出展作品がクラウド(Supabase)になり、未ログインは従来どおり localStorage
+// Gallery settings (persisted) and UI state. Compatible with the prototype's localStorage format
+// When signed in, exhibited works live in the cloud (Supabase); when signed out, they stay in localStorage as before
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import type { ArtworkData } from './artworks'
@@ -33,7 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
 }
 
 const STORAGE_KEY = 'hakoniwa.settings.v1'
-let authInitialized = false // React Strict Mode の二重実行で購読が重複しないように
+let authInitialized = false // Prevents duplicate subscriptions from React Strict Mode's double invocation
 
 export function loadSettings(): Settings {
   if (typeof window === 'undefined') return { ...DEFAULT_SETTINGS }
@@ -61,20 +61,20 @@ function saveSettings(s: Settings): boolean {
 }
 
 interface GalleryStore extends Settings {
-  /** 鑑賞中の展示 index(-1 = なし) */
+  /** Index of the exhibit being viewed (-1 = none) */
   focusedIndex: number
   settingsOpen: boolean
   tourActive: boolean
-  /** フォント読み込みと設定復元が済んだか */
+  /** Whether fonts have loaded and settings have been restored */
   ready: boolean
 
-  /** ログイン中のユーザー(null = ゲスト) */
+  /** The signed-in user (null = guest) */
   user: AuthUser | null
-  /** ログインユーザーのクラウド出展作品 */
+  /** The signed-in user's cloud-hosted exhibited works */
   cloudArtworks: ArtworkData[]
-  /** プロフィールのユーザー名(公開URLに使う。未設定は null) */
+  /** Profile username (used in the public URL; null if unset) */
   profileUsername: string | null
-  /** 来場者モード: 公開ページでは編集不可の展示データで上書きされる */
+  /** Visitor mode: overridden with read-only exhibition data on public pages */
   visitor: PublicExhibition | null
 
   hydrate(): void
@@ -82,7 +82,7 @@ interface GalleryStore extends Settings {
   refreshCloudArtworks(): Promise<void>
   signOut(): Promise<void>
   updateSettings(partial: Partial<Settings>): void
-  /** 出展作品の並び替え(from の作品を to の位置へ)。ゲストはローカル、ログインはクラウド永続化 */
+  /** Reorder exhibited works (move the item at `from` to `to`). Guests persist locally, signed-in users to the cloud */
   reorderOwnArtworks(from: number, to: number): Promise<void>
   setFocused(i: number): void
   setSettingsOpen(open: boolean): void
@@ -114,7 +114,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         return
       }
       const displayName =
-        (u.user_metadata?.name as string | undefined) || u.email?.split('@')[0] || 'あなた'
+        (u.user_metadata?.name as string | undefined) || u.email?.split('@')[0] || 'You'
       set({ user: { id: u.id, email: u.email ?? null, displayName } })
       void get().refreshCloudArtworks()
     })
@@ -124,7 +124,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
     const user = get().user
     if (!supabase || !user) return
     try {
-      // 銘板の作家名にはプロフィールの表示名を使う
+      // Use the profile's display name as the artist name on name plates
       const { data: profile } = await supabase
         .from('profiles')
         .select('display_name, username')
@@ -135,7 +135,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
     } catch (e) {
       console.error(e)
       alert(
-        'クラウドの作品を読み込めませんでした。supabase/migrations/0001_init.sql を適用済みか確認してください。'
+        'Could not load your works from the cloud. Check that supabase/migrations/0001_init.sql has been applied.'
       )
     }
   },
@@ -147,7 +147,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   updateSettings(partial) {
     set(partial)
     if (!saveSettings(get())) {
-      alert('ブラウザの保存容量を超えました。出展作品を減らすか、小さめの画像でお試しください。')
+      alert('Browser storage is full. Remove some works or try smaller images.')
     }
   },
 
@@ -159,13 +159,13 @@ export const useGallery = create<GalleryStore>((set, get) => ({
     const [moved] = next.splice(from, 1)
     next.splice(to, 0, moved)
     if (s.user) {
-      // 先に画面を更新し、裏でクラウドへ順序を保存
+      // Update the view first, then save the order to the cloud in the background
       set({ cloudArtworks: next })
       try {
         await reorderArtworks(next.map((a) => a.id))
       } catch (e) {
         console.error(e)
-        alert('並び順の保存に失敗しました。0003_order_profile.sql を適用済みか確認してください。')
+        alert('Could not save the new order. Check that 0003_order_profile.sql has been applied.')
         void get().refreshCloudArtworks()
       }
     } else {
@@ -184,10 +184,10 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   },
 }))
 
-// useShallow は値を参照比較するため、毎回生成される配列を返すと無限再レンダリングになる
+// useShallow compares values by reference, so returning a freshly created array each time would cause infinite re-renders
 const EMPTY_ARTWORKS: ArtworkData[] = []
 
-/** 有効な空間設定を浅い比較で購読する(来場者モードでは公開データが優先) */
+/** Subscribe to the effective space settings with shallow comparison (public data takes priority in visitor mode) */
 export function useSettings(): Settings {
   return useGallery(
     useShallow((s) =>

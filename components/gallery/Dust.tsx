@@ -1,5 +1,5 @@
 'use client'
-// 漂う塵(空気感)
+// Drifting dust (atmosphere)
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
@@ -23,7 +23,7 @@ export default function Dust({ layout }: { layout: LayoutDef }) {
   }, [layout])
 
   const tex = useMemo(() => {
-    // 丸くぼかしたスプライト(四角いピクセルにならないように)
+    // Soft round sprite (so it doesn't render as square pixels)
     const c = document.createElement('canvas')
     c.width = c.height = 64
     const ctx = c.getContext('2d')!

@@ -1,5 +1,5 @@
 'use client'
-// 上部HUD(戻る/タイトル)と右下アクション(順路ツアー/空間を編集/環境音)、操作ヒント
+// Top HUD (back/title), bottom-right actions (guided tour / edit space / ambience), and control hints
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useGallery } from '@/lib/store'
@@ -13,7 +13,7 @@ export function HudTop() {
       <div className="hud-title">
         <span className="hud-title-main">{visitor ? visitor.title : 'HAKONIWA COLLECTION'}</span>
         <span className="hud-title-sub">
-          {visitor ? `${visitor.ownerName} — @${visitor.username}` : '10人の作家による常設展'}
+          {visitor ? `${visitor.ownerName} — @${visitor.username}` : 'A permanent collection — ten artists'}
         </span>
       </div>
     </header>
@@ -38,19 +38,19 @@ export function HudActions() {
           setAudioOn(galleryAudio.toggle())
         }}
       >
-        {audioOn ? '♪ 環境音 ON' : '♪ 環境音 OFF'}
+        {audioOn ? '♪ Ambience on' : '♪ Ambience off'}
       </button>
       <button
         id="btn-tour"
         className={`hud-btn${tourActive ? ' active' : ''}`}
         onClick={() => setTourActive(!tourActive)}
       >
-        {tourActive ? '■ ツアーを止める' : '▶ 順路ツアー'}
+        {tourActive ? '■ End tour' : '▶ Guided tour'}
       </button>
-      {/* 来場者モードでは編集させない */}
+      {/* No editing in visitor mode */}
       {!visitor && (
         <button id="btn-settings" className="hud-btn" onClick={() => setSettingsOpen(!settingsOpen)}>
-          空間を編集
+          Edit space
         </button>
       )}
     </div>
@@ -77,9 +77,9 @@ export function Hint() {
 
   return (
     <div id="hint" className={`hint${faded ? ' faded' : ''}`}>
-      <div className="hint-row"><b>ドラッグ</b> 見回す</div>
-      <div className="hint-row"><b>W A S D / 床タップ</b> 移動</div>
-      <div className="hint-row"><b>作品クリック</b> 鑑賞</div>
+      <div className="hint-row"><b>Drag</b> look</div>
+      <div className="hint-row"><b>WASD / tap floor</b> move</div>
+      <div className="hint-row"><b>Click a work</b> view</div>
     </div>
   )
 }

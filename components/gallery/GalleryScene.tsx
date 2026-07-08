@@ -1,5 +1,5 @@
 'use client'
-// シーン全体の組み立て(テーマ/レイアウト/展示リストの反映と静的シャドウの焼き込み)
+// Assembles the whole scene (applies theme/layout/exhibit list and bakes static shadows)
 import { useEffect } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
@@ -22,11 +22,11 @@ export default function GalleryScene() {
   const scene = useThree((s) => s.scene)
   const camera = useThree((s) => s.camera)
 
-  // 空間オーディオのリスナー(耳)をカメラに付ける
+  // Attach the spatial-audio listener (ears) to the camera
   useEffect(() => {
     const listener = getListener()
     camera.add(listener)
-    // プロトタイプ用デバッグ
+    // Prototype debugging
     ;(window as unknown as Record<string, unknown>).__scene = scene
     ;(window as unknown as Record<string, unknown>).__gl = gl
     ;(window as unknown as Record<string, unknown>).__camObj = camera
@@ -36,12 +36,12 @@ export default function GalleryScene() {
   }, [camera, scene])
 
   const settings = useSettings()
-  // 公開データのキーが古い可能性に備えてフォールバック
+  // Fall back in case the published data keys are outdated
   const theme = THEMES[settings.theme] ?? THEMES.chic
   const layout = LAYOUTS[settings.layout] ?? LAYOUTS.hall
   const list = useExhibitionList()
 
-  // 環境マップ: 床のツヤや額縁の金属部分に室内の光がうっすら映り込む
+  // Environment map: faint room light reflects in the floor sheen and metal frame parts
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl)
     const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
@@ -54,16 +54,16 @@ export default function GalleryScene() {
     }
   }, [gl, scene])
 
-  // 背景と霧(テーマ別の濃度で空気遠近感を出す)
+  // Background and fog (per-theme density gives atmospheric perspective)
   useEffect(() => {
     scene.background = new THREE.Color(theme.fog)
     scene.fog = new THREE.FogExp2(theme.fog, theme.fogDensity)
   }, [scene, theme])
 
-  // シーンは静的なので、構成が変わったときに一度だけ影を焼き直す。
-  // あわせて全マテリアルを再コンパイルさせる: 展示の入れ替えでシャドウ付きライトが
-  // 作り直されると、ライト数が同じ場合に three がプログラムを再利用し、古い
-  // シャドウサンプラと新しいシャドウマップの型不整合で描画が全滅するため
+  // The scene is static, so re-bake shadows only once when the composition changes.
+  // Also force all materials to recompile: when swapping exhibits recreates shadowed
+  // lights and the light count is unchanged, three reuses the program, and the type
+  // mismatch between the old shadow sampler and the new shadow map wipes out rendering
   // (GL_INVALID_OPERATION: Mismatch between texture format and sampler type)
   useEffect(() => {
     const id = requestAnimationFrame(() => {

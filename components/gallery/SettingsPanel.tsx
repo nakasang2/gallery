@@ -1,6 +1,6 @@
 'use client'
-// 空間設定パネル(テーマ/レイアウト/額装の切替、アカウント、作品の出展)
-// 出展先はログイン状態で切り替わる: ゲスト = localStorage / ログイン = Supabase
+// Space settings panel (theme/layout/framing switches, account, and exhibiting works)
+// Where works are exhibited depends on sign-in state: guest = localStorage / signed in = Supabase
 import { useEffect, useRef, useState } from 'react'
 import { THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
 import { overflowCount, useOwnArtworks } from '@/lib/exhibition'
@@ -11,7 +11,7 @@ import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
 import { USERNAME_RE, setUsername, publishGallery, getMyGallery, getProfile, saveProfile } from '@/lib/publish'
 import type { ArtworkData } from '@/lib/artworks'
 
-// プロフィール編集(表示名 + 自己紹介)。表示名は銘板の作家名にも使われる
+// Profile editor (display name + bio). The display name is also used as the artist name on labels
 function ProfileEditor() {
   const user = useGallery((s) => s.user)!
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
@@ -38,11 +38,11 @@ function ProfileEditor() {
     setBusy(true)
     try {
       await saveProfile(user.id, { displayName, bio })
-      await refreshCloud() // 銘板の作家名を更新
+      await refreshCloud() // Update the artist name on labels
       setSaved(true)
       setTimeout(() => setSaved(false), 1600)
     } catch (e) {
-      alert(`プロフィールの保存に失敗しました: ${e instanceof Error ? e.message : e}`)
+      alert(`Could not save your profile: ${e instanceof Error ? e.message : e}`)
     } finally {
       setBusy(false)
     }
@@ -53,7 +53,7 @@ function ProfileEditor() {
       <div className="field-row">
         <input
           type="text"
-          placeholder="表示名(作家名)"
+          placeholder="Display name (artist name)"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
         />
@@ -61,14 +61,14 @@ function ProfileEditor() {
       <div className="field-row">
         <textarea
           className="bio-input"
-          placeholder="自己紹介・ステートメント(任意)"
+          placeholder="Bio / statement (optional)"
           rows={2}
           value={bio}
           onChange={(e) => setBio(e.target.value)}
         />
       </div>
       <button className="btn-line" disabled={busy} onClick={() => void save()}>
-        {saved ? '保存しました' : 'プロフィールを保存'}
+        {saved ? 'Saved' : 'Save profile'}
       </button>
     </div>
   )
@@ -102,18 +102,18 @@ function AccountSection() {
   const [busy, setBusy] = useState(false)
 
   if (!supabase) {
-    return <p className="settings-note">クラウド保存は未設定です(.env.local に Supabase のキーが必要)。</p>
+    return <p className="settings-note">Cloud storage is not configured (Supabase keys required in .env.local).</p>
   }
 
   if (user) {
     return (
       <>
         <p className="settings-note">
-          <b>{user.email ?? user.displayName}</b> でログイン中。出展した作品はクラウドに保存され、
-          どの端末からでも同じ展示になります。
+          Signed in as <b>{user.email ?? user.displayName}</b>. Exhibited works are stored in the cloud,
+          so your show looks the same on every device.
         </p>
         <ProfileEditor />
-        <button className="btn-line" onClick={() => void signOut()}>ログアウト</button>
+        <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
       </>
     )
   }
@@ -129,7 +129,7 @@ function AccountSection() {
       if (error) throw error
       setSent(true)
     } catch (e) {
-      alert(`ログインリンクを送れませんでした: ${e instanceof Error ? e.message : e}`)
+      alert(`Could not send the sign-in link: ${e instanceof Error ? e.message : e}`)
     } finally {
       setBusy(false)
     }
@@ -140,7 +140,7 @@ function AccountSection() {
       provider: 'google',
       options: { redirectTo: `${location.origin}/demo` },
     })
-    if (error) alert(`Googleログインを開始できませんでした: ${error.message}`)
+    if (error) alert(`Could not start Google sign-in: ${error.message}`)
   }
 
   return (
@@ -148,28 +148,28 @@ function AccountSection() {
       <div className="field-row">
         <input
           type="email"
-          placeholder="メールアドレス"
+          placeholder="Email address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void sendMagicLink()}
         />
         <button className="btn-line" disabled={busy} onClick={() => void sendMagicLink()}>
-          リンク送信
+          Send link
         </button>
       </div>
-      {sent && <p className="settings-note">ログインリンクを送りました。メールを確認してください。</p>}
+      {sent && <p className="settings-note">Sign-in link sent. Check your inbox.</p>}
       <div className="field-row">
-        <button className="btn-line" onClick={() => void googleLogin()}>Google でログイン</button>
+        <button className="btn-line" onClick={() => void googleLogin()}>Sign in with Google</button>
       </div>
       <p className="settings-note">
-        ログインすると出展作品がクラウドに保存され、URL公開(開発中)の対象になります。
-        未ログインでも出展はこのブラウザ内で試せます。
+        Signing in stores your exhibited works in the cloud and enables the public URL.
+        Without an account, you can still exhibit inside this browser.
       </p>
     </>
   )
 }
 
-// 公開: username 設定 → 現在の空間と作品を galleries/placements に反映して固有URLを発行
+// Publish: set username → write the current space and works to galleries/placements and issue a unique URL
 function PublishSection() {
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
@@ -178,12 +178,12 @@ function PublishSection() {
   const ownArtworks = useOwnArtworks()
 
   const [nameInput, setNameInput] = useState('')
-  const [galleryTitle, setGalleryTitle] = useState('私のギャラリー')
+  const [galleryTitle, setGalleryTitle] = useState('My Gallery')
   const [isPublic, setIsPublic] = useState(false)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  // 既存の公開状態を読み込む
+  // Load the existing publish state
   useEffect(() => {
     let alive = true
     getMyGallery(user.id)
@@ -202,7 +202,7 @@ function PublishSection() {
   async function saveUsername() {
     const name = nameInput.trim().toLowerCase()
     if (!USERNAME_RE.test(name)) {
-      alert('ユーザー名は英小文字・数字・_ の3〜20文字にしてください')
+      alert('Usernames are 3–20 characters: lowercase letters, digits and _')
       return
     }
     setBusy(true)
@@ -221,14 +221,14 @@ function PublishSection() {
     try {
       await publishGallery({
         userId: user.id,
-        title: galleryTitle.trim() || '私のギャラリー',
+        title: galleryTitle.trim() || 'My Gallery',
         isPublic: nextPublic,
         settings,
         ownArtworks,
       })
       setIsPublic(nextPublic)
     } catch (e) {
-      alert(`公開処理に失敗しました: ${e instanceof Error ? e.message : e}`)
+      alert(`Publishing failed: ${e instanceof Error ? e.message : e}`)
     } finally {
       setBusy(false)
     }
@@ -237,7 +237,7 @@ function PublishSection() {
   if (!username) {
     return (
       <>
-        <p className="settings-note">公開URLに使うユーザー名を決めてください(英小文字・数字・_)。</p>
+        <p className="settings-note">Choose a username for your public URL (lowercase letters, digits, _).</p>
         <div className="field-row">
           <input
             type="text"
@@ -245,7 +245,7 @@ function PublishSection() {
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
           />
-          <button className="btn-line" disabled={busy} onClick={() => void saveUsername()}>保存</button>
+          <button className="btn-line" disabled={busy} onClick={() => void saveUsername()}>Save</button>
         </div>
       </>
     )
@@ -258,27 +258,27 @@ function PublishSection() {
       <div className="field-row">
         <input
           type="text"
-          placeholder="展覧会タイトル"
+          placeholder="Exhibition title"
           value={galleryTitle}
           onChange={(e) => setGalleryTitle(e.target.value)}
         />
       </div>
       <div className="field-row">
         <button className="btn-line" disabled={busy || ownArtworks.length === 0} onClick={() => void publish(true)}>
-          {isPublic ? '公開情報を更新' : 'ギャラリーを公開する'}
+          {isPublic ? 'Update the public page' : 'Open to the public'}
         </button>
         {isPublic && (
           <button className="btn-line" disabled={busy} onClick={() => void publish(false)}>
-            非公開にする
+            Make private
           </button>
         )}
       </div>
       {ownArtworks.length === 0 && (
-        <p className="settings-note">公開するには作品を1点以上出展してください。</p>
+        <p className="settings-note">Exhibit at least one work before publishing.</p>
       )}
       {isPublic && (
         <p className="settings-note">
-          公開中:{' '}
+          Live at:{' '}
           <a href={publicUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>
             {publicUrl}
           </a>{' '}
@@ -291,10 +291,11 @@ function PublishSection() {
               })
             }}
           >
-            {copied ? 'コピーしました' : 'URLをコピー'}
+            {copied ? 'Copied' : 'Copy URL'}
           </button>
           <br />
-          展示中の作品・テーマ・額装のスナップショットが公開されます。変更したら「公開情報を更新」を押してください。
+          The public page is a snapshot of the current works, theme and framing. After making changes,
+          press “Update the public page”.
         </p>
       )}
     </>
@@ -318,7 +319,7 @@ export default function SettingsPanel() {
 
   async function addEntries(entries: { title: string; dataUrl: string; w: number; h: number }[]) {
     if (user) {
-      // クラウド出展(Storage + DB)
+      // Cloud exhibit (Storage + DB)
       setUploading(true)
       try {
         for (const e of entries) {
@@ -327,14 +328,14 @@ export default function SettingsPanel() {
         await refreshCloud()
       } catch (e) {
         alert(
-          `アップロードに失敗しました: ${e instanceof Error ? e.message : e}\n` +
-            'supabase/migrations/0001_init.sql を適用済みか確認してください。'
+          `Upload failed: ${e instanceof Error ? e.message : e}\n` +
+            'Check that supabase/migrations/0001_init.sql has been applied.'
         )
       } finally {
         setUploading(false)
       }
     } else {
-      // ゲスト出展(localStorage)
+      // Guest exhibit (localStorage)
       const artist = artistRef.current.value.trim()
       const items: ArtworkData[] = entries.map((e) =>
         newArtworkEntry({ title: e.title, artist, src: e.dataUrl, w: e.w, h: e.h })
@@ -344,13 +345,13 @@ export default function SettingsPanel() {
   }
 
   async function onVideoFile(file: File, title: string) {
-    // 動画は localStorage に収まらないためクラウド出展のみ
+    // Videos are too large for localStorage, so cloud exhibit only
     if (!user) {
-      alert('動画作品の出展にはログインが必要です(アカウント欄からどうぞ)。')
+      alert('Exhibiting video works requires an account — see the Account section.')
       return
     }
     if (file.size > VIDEO_MAX_BYTES) {
-      alert(`動画は${Math.floor(VIDEO_MAX_BYTES / 1024 / 1024)}MBまでです(「${file.name}」は${Math.ceil(file.size / 1024 / 1024)}MB)。`)
+      alert(`Videos are limited to ${Math.floor(VIDEO_MAX_BYTES / 1024 / 1024)}MB (“${file.name}” is ${Math.ceil(file.size / 1024 / 1024)}MB).`)
       return
     }
     setUploading(true)
@@ -367,8 +368,8 @@ export default function SettingsPanel() {
       await refreshCloud()
     } catch (e) {
       alert(
-        `動画のアップロードに失敗しました: ${e instanceof Error ? e.message : e}\n` +
-          'supabase/migrations/0002_video.sql を適用済みか確認してください。'
+        `Video upload failed: ${e instanceof Error ? e.message : e}\n` +
+          'Check that supabase/migrations/0002_video.sql has been applied.'
       )
     } finally {
       setUploading(false)
@@ -379,7 +380,7 @@ export default function SettingsPanel() {
     if (!files?.length) return
     const entries = []
     for (const file of Array.from(files)) {
-      const title = titleRef.current.value.trim() || file.name.replace(/\.[^.]+$/, '') || '無題'
+      const title = titleRef.current.value.trim() || file.name.replace(/\.[^.]+$/, '') || 'Untitled'
       if (file.type.startsWith('video/')) {
         await onVideoFile(file, title)
         continue
@@ -388,7 +389,7 @@ export default function SettingsPanel() {
         const { dataUrl, w, h } = await fileToDataUrl(file, 1600)
         entries.push({ title, dataUrl, w, h })
       } catch {
-        alert(`「${file.name}」を読み込めませんでした。`)
+        alert(`Could not read “${file.name}”.`)
       }
     }
     titleRef.current.value = ''
@@ -399,11 +400,11 @@ export default function SettingsPanel() {
     const url = urlRef.current.value.trim()
     if (!url) return
     try {
-      // WebGLテクスチャにはCORS許可が必要なので、ここで検証を兼ねて読み込む
+      // WebGL textures require CORS permission, so load here to validate at the same time
       const img = await loadImage(url, true)
-      const title = titleRef.current.value.trim() || '無題'
+      const title = titleRef.current.value.trim() || 'Untitled'
       if (user) {
-        // クラウドには自前でコピーを保存する(参照切れ防止)
+        // Store our own copy in the cloud (to avoid broken references)
         const c = document.createElement('canvas')
         c.width = img.width
         c.height = img.height
@@ -420,7 +421,7 @@ export default function SettingsPanel() {
       titleRef.current.value = ''
       urlRef.current.value = ''
     } catch {
-      alert('画像を読み込めませんでした。配信元がCORSを許可していない可能性があります(その場合はアップロードをご利用ください)。')
+      alert('Could not load the image. The host may not allow CORS — try uploading the file instead.')
     }
   }
 
@@ -430,7 +431,7 @@ export default function SettingsPanel() {
         await deleteArtwork(user.id, art.id)
         await refreshCloud()
       } catch (e) {
-        alert(`取り下げに失敗しました: ${e instanceof Error ? e.message : e}`)
+        alert(`Could not remove the work: ${e instanceof Error ? e.message : e}`)
       }
     } else {
       const overrides = { ...settings.frameOverrides }
@@ -449,53 +450,53 @@ export default function SettingsPanel() {
 
   return (
     <aside id="settings" className={`settings${open ? ' open' : ''}`} aria-hidden={!open}>
-      <button className="panel-close" aria-label="閉じる" onClick={() => setOpen(false)}>×</button>
-      <h2 className="settings-title">空間を編集</h2>
+      <button className="panel-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
+      <h2 className="settings-title">Edit space</h2>
 
       <section className="settings-section">
-        <h3>テーマ</h3>
+        <h3>Theme</h3>
         <ChipRow defs={THEMES} current={settings.theme} onPick={(theme) => updateSettings({ theme })} />
       </section>
 
       <section className="settings-section">
-        <h3>レイアウト</h3>
+        <h3>Layout</h3>
         <ChipRow defs={LAYOUTS} current={settings.layout} onPick={(layout) => updateSettings({ layout })} />
       </section>
 
       <section className="settings-section">
-        <h3>額装(全体)</h3>
-        {/* 全体変更は作品ごとの指定もリセット */}
+        <h3>Framing — all works</h3>
+        {/* Changing the overall framing also resets any per-work overrides */}
         <ChipRow defs={FRAMES} current={settings.frame} onPick={(frame) => updateSettings({ frame, frameOverrides: {} })} />
-        <p className="settings-note">作品ごとに変えたいときは、作品を鑑賞中のパネルから。</p>
+        <p className="settings-note">To change a single work, open it and use the panel.</p>
       </section>
 
       <section className="settings-section">
-        <h3>アカウント</h3>
+        <h3>Account</h3>
         <AccountSection />
       </section>
 
       {user && (
         <section className="settings-section">
-          <h3>公開</h3>
+          <h3>Publish</h3>
           <PublishSection />
         </section>
       )}
 
       <section className="settings-section">
-        <h3>作品を出展</h3>
-        <button className="btn-line" onClick={() => setIgNote(!igNote)}>Instagram から選ぶ</button>
+        <h3>Exhibit your work</h3>
+        <button className="btn-line" onClick={() => setIgNote(!igNote)}>Pick from Instagram</button>
         {igNote && (
           <p className="settings-note">
-            公式連携には Instagram Graph API(ビジネス/クリエイターアカウント)が必要なため、プロトタイプではモックです。
-            下のアップロードか画像URLで出展できます。
+            Official integration requires the Instagram Graph API (business/creator accounts), so this is a mock
+            in the prototype. Use the upload or image URL below instead.
           </p>
         )}
         <div className="field-row">
-          <input ref={titleRef} type="text" placeholder="タイトル(省略可)" />
-          <input ref={artistRef} type="text" placeholder="作家名(省略可)" disabled={!!user} />
+          <input ref={titleRef} type="text" placeholder="Title (optional)" />
+          <input ref={artistRef} type="text" placeholder="Artist (optional)" disabled={!!user} />
         </div>
         <label className="btn-line file-btn" aria-disabled={uploading}>
-          {uploading ? 'アップロード中…' : '画像・動画をアップロード'}
+          {uploading ? 'Uploading…' : 'Upload image / video'}
           <input
             type="file"
             accept="image/*,video/mp4,video/webm,video/quicktime"
@@ -509,15 +510,15 @@ export default function SettingsPanel() {
           />
         </label>
         <p className="settings-note">
-          動画(リール等)は40MBまで・要ログイン。展示ではループ再生され、近づくと音が聞こえます。
+          Videos (reels etc.) up to 40MB, account required. They loop in the room and become audible as you approach.
         </p>
         <div className="field-row">
-          <input ref={urlRef} type="url" placeholder="画像URLを貼り付け" />
-          <button className="btn-line" onClick={() => void onAddUrl()}>追加</button>
+          <input ref={urlRef} type="url" placeholder="Paste an image URL" />
+          <button className="btn-line" onClick={() => void onAddUrl()}>Add</button>
         </div>
         {ownArtworks.length > 0 && (
           <>
-            <p className="settings-note">▲▼ で展示の並び順(スロット)を入れ替えられます。</p>
+            <p className="settings-note">Use ▲▼ to reorder your exhibited works (slots).</p>
             <ul className="my-works">
               {ownArtworks.map((art, i) => (
                 <li key={art.id}>
@@ -527,7 +528,7 @@ export default function SettingsPanel() {
                   <span className="works-title">{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</span>
                   <button
                     className="works-move"
-                    aria-label={`${art.title} を前へ`}
+                    aria-label={`Move ${art.title} up`}
                     disabled={i === 0}
                     onClick={() => void reorder(i, i - 1)}
                   >
@@ -535,13 +536,13 @@ export default function SettingsPanel() {
                   </button>
                   <button
                     className="works-move"
-                    aria-label={`${art.title} を後ろへ`}
+                    aria-label={`Move ${art.title} down`}
                     disabled={i === ownArtworks.length - 1}
                     onClick={() => void reorder(i, i + 1)}
                   >
                     ▼
                   </button>
-                  <button aria-label={`${art.title} を取り下げる`} onClick={() => void removeArtwork(art)}>×</button>
+                  <button aria-label={`Remove ${art.title}`} onClick={() => void removeArtwork(art)}>×</button>
                 </li>
               ))}
             </ul>
@@ -549,7 +550,8 @@ export default function SettingsPanel() {
         )}
         {over > 0 && (
           <p className="settings-note">
-            このレイアウトの展示枠は{slots}点です。{over}点は表示されていません(レイアウト変更かデモ非表示で枠が空きます)。
+            This layout has {slots} slots — {over} work{over > 1 ? 's are' : ' is'} currently not shown.
+            Change the layout or hide the demo works to free up space.
           </p>
         )}
         <label className="toggle">
@@ -558,12 +560,12 @@ export default function SettingsPanel() {
             checked={settings.showDemo}
             onChange={(e) => updateSettings({ showDemo: e.target.checked })}
           />
-          デモ作品も展示する
+          Show the demo collection
         </label>
       </section>
 
       <p className="settings-note">
-        空間の設定はこのブラウザに保存されます。出展作品は{user ? 'クラウド' : 'このブラウザ'}に保存されます。
+        Space settings are saved in this browser. Exhibited works are stored {user ? 'in the cloud' : 'in this browser'}.
       </p>
     </aside>
   )

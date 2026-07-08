@@ -1,6 +1,6 @@
 'use client'
-// 一人称の移動・視点操作(ドラッグ/WASD/床タップ/ジョイスティック/作品フォーカス)
-// 毎フレーム更新される値は ref に置き、React の再レンダリングに載せない
+// First-person movement and view control (drag / WASD / floor tap / joystick / artwork focus)
+// Values updated every frame live in refs and stay off React's re-render path
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -38,7 +38,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     dragMoved: 0,
     lastX: 0,
     lastY: 0,
-    // 歩行の体感(ヘッドボブと足音)
+    // Walking feel (head bob and footsteps)
     bobPhase: 0,
     bobAmp: 0,
     lastPos: new THREE.Vector3(),
@@ -47,7 +47,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
   })
   const tweens = useRef<Tween[]>([])
 
-  // 展示のフォーカス計算に使うメタ情報(位置・法線・サイズ)
+  // Metadata used to compute exhibit focus (position, normal, size)
   const exhibitsMeta = useMemo(
     () =>
       list.map((art, i) => {
@@ -75,7 +75,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     const { hw, hd } = layoutRef.current
     v.x = THREE.MathUtils.clamp(v.x, -hw + 1.0, hw - 1.0)
     v.z = THREE.MathUtils.clamp(v.z, -hd + 1.0, hd - 1.0)
-    // ベンチ・中央壁には入り込まない
+    // Don't let the camera enter benches or central walls
     for (const b of solidsRef.current) {
       const inX = Math.abs(v.x - b.x) < b.hw + 0.35
       const inZ = Math.abs(v.z - b.z) < b.hd + 0.35
@@ -116,9 +116,9 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     if (!ex) return
     cancelTweens()
 
-    // 額縁ごと画面に収まる距離(縦横の大きい方に合わせる)
+    // Distance that fits the whole frame on screen (based on the larger of width/height)
     const viewDist = Math.max(2.4, (ex.width + 0.3) * 2.0, (ex.height + 0.3) * 1.7)
-    // 情報パネルが右側に出るので、作品が画面左寄りに見えるよう横にずらす
+    // The info panel appears on the right, so shift sideways to keep the artwork left of center
     const side = new THREE.Vector3(ex.normal.z, 0, -ex.normal.x)
     const shift = window.innerWidth > 700 ? viewDist * 0.2 : 0
     const to = clampToRoom(
@@ -127,7 +127,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     to.y = EYE
     const from = camera.position.clone()
 
-    // 壁に正対する向き
+    // Orientation facing the wall head-on
     const targetYaw = Math.atan2(ex.normal.x, ex.normal.z)
     const fromYaw = state.current.yaw
     const fromPitch = state.current.pitch
@@ -152,7 +152,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     state.current.yaw = entry.yaw
     state.current.pitch = 0
 
-    // 初回だけ、入口からゆっくり歩み入る演出
+    // On the first time only, a slow walk-in from the entrance
     if (!state.current.introPlayed) {
       state.current.introPlayed = true
       const dir = new THREE.Vector3(-Math.sin(entry.yaw), 0, -Math.cos(entry.yaw))
@@ -165,7 +165,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     }
   }
 
-  // UI(パネル・ツアー・ジョイスティック)から呼べるように公開
+  // Expose so the UI (panel, tour, joystick) can call it
   useEffect(() => {
     walkRef.current = { focusExhibit, walkTo, cancel: cancelTweens, resetToEntry }
     return () => {
@@ -173,13 +173,13 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     }
   })
 
-  // レイアウト変更時は入場位置へ(初回マウント含む)
+  // On layout change, return to the entry position (including first mount)
   useEffect(() => {
     resetToEntry()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout])
 
-  // ポインタ(ドラッグで見回す)とキーボード
+  // Pointer (drag to look around) and keyboard
   useEffect(() => {
     const el = gl.domElement
     const s = state.current
@@ -194,7 +194,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       try {
         el.setPointerCapture(e.pointerId)
       } catch {
-        // 合成イベントなどでpointerIdが無効な場合は無視
+        // Ignore when pointerId is invalid, e.g. for synthetic events
       }
     }
     const onPointerMove = (e: PointerEvent) => {
@@ -213,7 +213,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return // 設定パネルの入力中は無視
+      if (e.target instanceof HTMLInputElement) return // ignore while typing in the settings panel
       const k = e.key.toLowerCase()
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
         s.keys.add(k)
@@ -249,7 +249,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     const dt = Math.min(delta, 0.05)
     const s = state.current
 
-    // トゥイーン
+    // Tweens
     for (let i = tweens.current.length - 1; i >= 0; i--) {
       const tw = tweens.current[i]
       tw.t += dt
@@ -261,7 +261,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       }
     }
 
-    // キー / ジョイスティック移動
+    // Key / joystick movement
     let forward =
       (s.keys.has('w') || s.keys.has('arrowup') ? 1 : 0) - (s.keys.has('s') || s.keys.has('arrowdown') ? 1 : 0)
     let strafe =
@@ -284,7 +284,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       clampToRoom(camera.position)
     }
 
-    // 歩行の体感: 実際の移動量からヘッドボブと足音を作る(キー/タップ/ツアーすべてに効く)
+    // Walking feel: derive head bob and footsteps from actual movement (applies to keys/tap/tour alike)
     const moved = Math.hypot(camera.position.x - s.lastPos.x, camera.position.z - s.lastPos.z)
     s.lastPos.copy(camera.position)
     const speed = dt > 0 ? moved / dt : 0

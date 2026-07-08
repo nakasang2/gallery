@@ -1,11 +1,11 @@
-// 公開ギャラリー: hakoniwa.app/@username/slug
-// サーバー側で展示データを取得して OGP を付与し、3D表示はクライアントに任せる
+// Public gallery: hakoniwa.app/@username/slug
+// Fetch the exhibition data server-side to attach OGP tags; leave the 3D rendering to the client
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { fetchPublicExhibition } from '@/lib/publish'
 import VisitorGallery from '@/components/gallery/VisitorGallery'
 
-// Supabase から毎回最新を取得する(公開直後に反映されるように)
+// Always fetch the latest from Supabase (so changes appear right after publishing)
 export const dynamic = 'force-dynamic'
 
 async function resolveParams(params: Promise<{ handle: string; slug: string }>) {
@@ -27,7 +27,7 @@ export async function generateMetadata({
   if (!ex) return {}
   const title = `${ex.title} | ${ex.ownerName} — HAKONIWA`
   const description =
-    ex.statement || `${ex.ownerName} の3Dギャラリー。${ex.artworks.length}点の作品を歩いて鑑賞できます。`
+    ex.statement || `A 3D gallery by ${ex.ownerName}. Walk through ${ex.artworks.length} works in your browser.`
   const first = ex.artworks[0]
   const firstImage = first ? (first.kind === 'video' ? first.poster : first.src) : undefined
   return {

@@ -1,7 +1,8 @@
 'use client'
-// 連続的なハイトフォグ(ポストプロセス): 深度バッファから各ピクセルのワールド座標を
-// 復元し、カメラからの距離 × 高さ減衰で霧を積む。ピクセル単位で連続なので、
-// スプライト方式のような「層のカクつき」が原理的に出ない。フルスクリーン1パスで軽量
+// Continuous height fog (post-process): reconstruct each pixel's world position from
+// the depth buffer and accumulate fog by distance from camera x height falloff. Being
+// per-pixel continuous, it can't show the "layer stepping" of sprite-based fog. A single
+// full-screen pass, so it's cheap
 import { forwardRef, useLayoutEffect, useMemo } from 'react'
 import { useThree } from '@react-three/fiber'
 import { Effect, EffectAttribute } from 'postprocessing'
@@ -9,23 +10,23 @@ import { Uniform, Matrix4, Color, type Camera } from 'three'
 
 const fragmentShader = /* glsl */ `
   uniform vec3 uColor;
-  uniform float uDensity;   // 距離あたりの霧の濃さ
-  uniform float uFalloff;   // 高さ方向の減衰(大きいほど低い所に溜まる)
-  uniform float uFloor;     // 霧が最も濃くなる高さ(床)
-  uniform float uIntensity; // 全体の強さ
+  uniform float uDensity;   // fog thickness per unit distance
+  uniform float uFalloff;   // falloff along height (higher = pools lower down)
+  uniform float uFloor;     // height where the fog is thickest (floor)
+  uniform float uIntensity; // overall strength
   uniform mat4 uProjInv;
   uniform mat4 uCamWorld;
 
   void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth, out vec4 outputColor) {
-    // 深度 → クリップ → ビュー空間座標を復元
+    // depth -> clip -> reconstruct view-space position
     vec4 clip = vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
     vec4 view = uProjInv * clip;
     view.xyz /= view.w;
-    float dist = length(view.xyz); // カメラからの距離
-    // ワールド座標(高さの評価に使う)
+    float dist = length(view.xyz); // distance from camera
+    // world position (used to evaluate height)
     vec4 world = uCamWorld * vec4(view.xyz, 1.0);
     vec3 camPos = uCamWorld[3].xyz;
-    // カメラとピクセルの平均高さで密度を決める(低いほど濃い)
+    // Set density from the average height of camera and pixel (lower = thicker)
     float avgY = (camPos.y + world.y) * 0.5;
     float heightAtten = exp(-max(avgY - uFloor, 0.0) * uFalloff);
     float fog = 1.0 - exp(-dist * uDensity * heightAtten);

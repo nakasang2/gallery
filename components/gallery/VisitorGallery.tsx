@@ -1,5 +1,5 @@
 'use client'
-// 公開ギャラリーの来場者ビュー: store を visitor モードにして GalleryApp を読み取り専用で表示
+// Visitor view of a public gallery: put the store in visitor mode and render GalleryApp read-only
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useGallery } from '@/lib/store'
@@ -12,7 +12,7 @@ const GalleryApp = dynamic(() => import('@/components/gallery/GalleryApp'), {
       <div className="loading-inner">
         <div className="loading-logo">HAKONIWA</div>
         <div className="loading-bar"><span></span></div>
-        <div className="loading-text">ギャラリーを準備しています…</div>
+        <div className="loading-text">Preparing the gallery…</div>
       </div>
     </div>
   ),

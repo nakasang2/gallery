@@ -1,6 +1,6 @@
 'use client'
-// タイトルウォール(西面のアクセント壁に展覧会名を表示)
-// 公開ギャラリー(来場者モード)では展覧会タイトルと作家名に差し替わる
+// Title wall (shows the exhibition name on the west accent wall)
+// In the public gallery (visitor mode) it's swapped for the exhibition title and artist name
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
@@ -18,7 +18,7 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
         visitor
           ? {
               main: visitor.title,
-              sub: `― ${visitor.ownerName} ―`,
+              sub: `— ${visitor.ownerName} —`,
               note1: visitor.statement || `@${visitor.username}`,
               note2: visitor.statement ? `@${visitor.username}` : '',
             }
@@ -34,7 +34,7 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
     <>
       <mesh position={[-layout.hw + 0.03, 2.55, 0]} rotation-y={Math.PI / 2}>
         <planeGeometry args={[w, w / 2]} />
-        {/* ライティングに馴染むようスポットライトの光を受けるマテリアルにする */}
+        {/* Use a material that catches the spotlight so it blends with the lighting */}
         <meshStandardMaterial map={tex} transparent roughness={0.9} />
       </mesh>
       <SpotWithTarget

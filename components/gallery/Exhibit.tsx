@@ -1,5 +1,5 @@
 'use client'
-// 1点の展示(額装 + 作品 + 銘板 + スポットライト + 照明器具)
+// A single exhibit (frame + artwork + plaque + spotlight + light fixture)
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
@@ -12,7 +12,7 @@ import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
 import { useVideoArt } from './VideoArt'
 
-// 面取り付きの額縁(中央をくり抜いた枠をベベル付きで押し出す)
+// Beveled frame (extrude a hollowed-out border shape with a bevel)
 function makeFrameGeo(w: number, h: number, bar: number, gap: number) {
   const outerW = w / 2 + gap + bar
   const outerH = h / 2 + gap + bar
@@ -56,7 +56,7 @@ export default function Exhibit({
   const gl = useThree((s) => s.gl)
   const { width, height } = artSize(art.ratio)
 
-  // 動画作品: VideoTexture + 空間オーディオ(画像作品は従来どおりキャッシュ)
+  // Video artworks: VideoTexture + spatial audio (image artworks are cached as before)
   const artWorldPos = useMemo(() => new THREE.Vector3(slot.x, 1.62, slot.z), [slot])
   const videoArt = useVideoArt(art, artWorldPos)
   const artTex = videoArt.texture ?? getArtTexture(art)
@@ -75,13 +75,13 @@ export default function Exhibit({
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
-    if (e.delta > 8) return // ドラッグだった
+    if (e.delta > 8) return // it was a drag
     walkRef.current?.focusExhibit(index)
   }
   const onOver = () => (gl.domElement.style.cursor = 'pointer')
   const onOut = () => (gl.domElement.style.cursor = '')
 
-  // スポットライトの位置(壁の法線方向へ2.1m、天井際)
+  // Spotlight position (2.1m along the wall normal, near the ceiling)
   const normal = useMemo(
     () => new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), slot.rotY),
     [slot.rotY]
@@ -100,7 +100,7 @@ export default function Exhibit({
     <>
       <group position={[slot.x, 1.62, slot.z]} rotation-y={slot.rotY}>
         {frameless ? (
-          // キャンバス張り: 枠なしで側面に厚みだけ見せる
+          // Stretched canvas: no frame, just showing the thickness on the sides
           <mesh
             position={[0, 0, 0.028]}
             castShadow
@@ -127,7 +127,7 @@ export default function Exhibit({
         ) : (
           <>
             <mesh geometry={frameGeo!} position={[0, 0, 0.02]} castShadow>
-              {/* 均一な艶はプラスチックに見えるので、仕上げごとの微細なムラを与える */}
+              {/* Uniform sheen reads as plastic, so add subtle unevenness per finish */}
               <meshStandardMaterial
                 color={frameDef.color}
                 roughness={frameDef.roughness}
@@ -137,7 +137,7 @@ export default function Exhibit({
                 bumpScale={0.35}
               />
             </mesh>
-            {/* マット紙 */}
+            {/* Mat board */}
             <mesh position={[0, 0, 0.035]}>
               <planeGeometry args={[width + frameDef.gap! * 2 + 0.02, height + frameDef.gap! * 2 + 0.02]} />
               <meshStandardMaterial color={frameDef.mat!} roughness={0.9} />
@@ -156,18 +156,18 @@ export default function Exhibit({
           </>
         )}
 
-        {/* 動画作品の空間オーディオ(近づくと大きく聞こえる) */}
+        {/* Spatial audio for video artworks (louder as you get closer) */}
         {videoArt.audio && <primitive object={videoArt.audio} position={[0, 0, 0.1]} />}
 
-        {/* 銘板(作品の右横) */}
+        {/* Plaque (to the right of the artwork) */}
         <mesh position={[halfW + 0.42, -height / 2 + 0.28, 0.02]}>
           <planeGeometry args={[0.42, 0.246]} />
           <meshStandardMaterial map={plaqueTex} roughness={0.9} />
         </mesh>
 
-        {/* ピクチャーレールからの吊りワイヤー(美術館らしさのディテール) */}
+        {/* Hanging wires from the picture rail (a museum-like detail) */}
         {!slot.noWire && [-1, 1].map((side) => {
-          const topY = CEIL_H - 0.36 - 1.62 // レール位置(ローカル座標)
+          const topY = CEIL_H - 0.36 - 1.62 // rail position (local coordinates)
           const wireLen = topY - height / 2
           if (wireLen <= 0.05) return null
           return (
@@ -179,7 +179,7 @@ export default function Exhibit({
         })}
       </group>
 
-      {/* スポットライト(額縁が壁に落とす影も焼き込む) */}
+      {/* Spotlight (also bakes the shadow the frame casts on the wall) */}
       <SpotWithTarget
         position={[lightPos.x, lightPos.y, lightPos.z]}
         targetPosition={[slot.x, 1.62, slot.z]}
@@ -192,7 +192,7 @@ export default function Exhibit({
         shadowMapSize={LOW_POWER ? 512 : 1024}
       />
 
-      {/* 光のシャフト(フェイクボリューメトリック) */}
+      {/* Light shaft (fake volumetric) */}
       <LightCone
         from={lightPos}
         to={artWorldPos}
@@ -201,7 +201,7 @@ export default function Exhibit({
         opacity={theme.coneOpacity}
       />
 
-      {/* 照明器具(見た目だけ) */}
+      {/* Light fixture (visual only) */}
       <mesh position={[lightPos.x, CEIL_H - 0.11, lightPos.z]} quaternion={fixtureQuat}>
         <cylinderGeometry args={[0.055, 0.075, 0.22, 12]} />
         <meshStandardMaterial color={0x0c0b0a} roughness={0.5} />

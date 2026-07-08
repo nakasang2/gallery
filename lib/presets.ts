@@ -1,4 +1,4 @@
-// 空間カスタマイズのプリセット定義(プロトタイプ src/config.js から移植)
+// Preset definitions for space customization (ported from the prototype src/config.js).
 
 export interface ThemeDef {
   label: string
@@ -13,19 +13,19 @@ export interface ThemeDef {
   stripColor: number
   fog: number
   titleInk: 'light' | 'dark'
-  /** 天窓(柔らかい自然光の演出)を出すか */
+  /** Whether to cast a skylight (a soft natural-light effect). */
   skylight?: boolean
-  /** 霧の濃度(空気遠近感。濃いほど遠くが沈む) */
+  /** Fog density (aerial perspective; the denser it is, the more distant objects recede). */
   fogDensity: number
-  /** スポットライトの光錐(フェイクボリューメトリック)の濃さ */
+  /** Opacity of the spotlight's light cone (fake volumetric). */
   coneOpacity: number
-  /** ハイトフォグ(連続ミスト)の全体の強さ。0で無効 */
+  /** Overall strength of the height fog (continuous mist). 0 disables it. */
   mistLevel: number
-  /** ミストの色 */
+  /** Mist colour. */
   mistColor: number
-  /** 距離あたりの霧の濃さ */
+  /** Fog density per unit of distance. */
   mistDensity: number
-  /** 高さ方向の減衰(大きいほど低い所に溜まる) */
+  /** Falloff along the vertical axis (higher values pool the mist lower down). */
   mistFalloff: number
 }
 
@@ -33,7 +33,7 @@ export interface SlotDef {
   x: number
   z: number
   rotY: number
-  /** 中央壁など、天井のピクチャーレールが届かない位置では吊りワイヤーを出さない */
+  /** Where the ceiling picture rail can't reach (e.g. a center wall), don't draw a hanging wire. */
   noWire?: boolean
 }
 
@@ -57,22 +57,22 @@ export interface LayoutDef {
 
 export interface FrameDef {
   label: string
-  /** mat が null のとき額なし(キャンバス張り) */
+  /** When mat is null there is no frame (stretched canvas). */
   mat: number | null
   bar?: number
   gap?: number
   color?: number
   roughness?: number
   metalness?: number
-  /** 仕上げの質感(木目/ブラシ研磨/塗装のゆず肌) */
+  /** Surface finish (wood grain / brushed metal / paint's orange-peel texture). */
   finish?: 'wood' | 'metal' | 'paint'
 }
 
-/* ================= テーマ(壁・床・照明) ================= */
+/* ================= Themes (walls, floor, lighting) ================= */
 
 export const THEMES: Record<string, ThemeDef> = {
   chic: {
-    label: 'シック',
+    label: 'Chic',
     wall: 0xd8d2c6,
     accentWall: 0x2b2620,
     ceiling: 0x3a332c,
@@ -92,7 +92,7 @@ export const THEMES: Record<string, ThemeDef> = {
     mistFalloff: 0.32,
   },
   whitecube: {
-    label: 'ホワイトキューブ',
+    label: 'White Cube',
     wall: 0xf0eee9,
     accentWall: 0xe9e6df,
     ceiling: 0xe8e4dd,
@@ -113,7 +113,7 @@ export const THEMES: Record<string, ThemeDef> = {
     mistFalloff: 0.38,
   },
   noir: {
-    label: 'ノワール',
+    label: 'Noir',
     wall: 0x262320,
     accentWall: 0x15130f,
     ceiling: 0x14120f,
@@ -134,9 +134,9 @@ export const THEMES: Record<string, ThemeDef> = {
   },
 }
 
-/* ================= レイアウト(部屋の形と展示位置) ================= */
+/* ================= Layouts (room shape and hanging positions) ================= */
 
-// 一辺に count 点を等間隔で並べる。axis='x' なら x を振って z 固定
+// Place count points evenly along one side. When axis='x', vary x and fix z.
 function wallSlots(count: number, span: number, fixed: number, rotY: number, axis: 'x' | 'z'): SlotDef[] {
   const slots: SlotDef[] = []
   for (let i = 0; i < count; i++) {
@@ -148,13 +148,13 @@ function wallSlots(count: number, span: number, fixed: number, rotY: number, axi
 
 export const LAYOUTS: Record<string, LayoutDef> = {
   hall: {
-    label: 'ワンルーム',
+    label: 'Single Hall',
     hw: 13,
     hd: 8,
     slots: [
-      ...wallSlots(4, 9.4, -8 + 0.05, 0, 'x'), // 北面
-      ...wallSlots(4, 9.4, 8 - 0.05, Math.PI, 'x'), // 南面
-      { x: 13 - 0.05, z: -4, rotY: -Math.PI / 2 }, // 東面
+      ...wallSlots(4, 9.4, -8 + 0.05, 0, 'x'), // North wall
+      ...wallSlots(4, 9.4, 8 - 0.05, Math.PI, 'x'), // South wall
+      { x: 13 - 0.05, z: -4, rotY: -Math.PI / 2 }, // East wall
       { x: 13 - 0.05, z: 4, rotY: -Math.PI / 2 },
     ],
     benches: [
@@ -165,12 +165,12 @@ export const LAYOUTS: Record<string, LayoutDef> = {
     entry: { x: 8.5, z: 4.5, yaw: 1.37 },
   },
   corridor: {
-    label: '回廊',
+    label: 'Corridor',
     hw: 17,
     hd: 4.5,
     slots: [
-      ...wallSlots(5, 13.5, -4.5 + 0.05, 0, 'x'), // 北面
-      ...wallSlots(5, 13.5, 4.5 - 0.05, Math.PI, 'x'), // 南面
+      ...wallSlots(5, 13.5, -4.5 + 0.05, 0, 'x'), // North wall
+      ...wallSlots(5, 13.5, 4.5 - 0.05, Math.PI, 'x'), // South wall
     ],
     benches: [
       { x: -8, z: 0 },
@@ -180,13 +180,13 @@ export const LAYOUTS: Record<string, LayoutDef> = {
     entry: { x: 13.5, z: 1.8, yaw: 1.45 },
   },
   island: {
-    label: '中央壁',
+    label: 'Center Wall',
     hw: 11,
     hd: 7,
     slots: [
-      ...wallSlots(3, 7, -7 + 0.05, 0, 'x'), // 北面
-      ...wallSlots(3, 7, 7 - 0.05, Math.PI, 'x'), // 南面
-      // 中央壁の両面
+      ...wallSlots(3, 7, -7 + 0.05, 0, 'x'), // North wall
+      ...wallSlots(3, 7, 7 - 0.05, Math.PI, 'x'), // South wall
+      // Both faces of the center wall.
       { x: -1.9, z: -0.26, rotY: Math.PI, noWire: true },
       { x: 1.9, z: -0.26, rotY: Math.PI, noWire: true },
       { x: -1.9, z: 0.26, rotY: 0, noWire: true },
@@ -201,15 +201,15 @@ export const LAYOUTS: Record<string, LayoutDef> = {
   },
 }
 
-/* ================= 額装 ================= */
-// bar: 枠の太さ, gap: 作品と枠内縁の間(マット紙が見える幅)
+/* ================= Framing ================= */
+// bar: frame thickness, gap: space between the work and the inner edge of the frame (the visible width of the mat).
 
 export const FRAMES: Record<string, FrameDef> = {
-  black: { label: '墨', bar: 0.07, gap: 0.08, color: 0x141210, roughness: 0.42, metalness: 0.35, mat: 0xf1ede4, finish: 'wood' },
-  gold: { label: '金', bar: 0.1, gap: 0.07, color: 0xa8853c, roughness: 0.34, metalness: 1.0, mat: 0xf3eee0, finish: 'metal' },
-  white: { label: '白', bar: 0.07, gap: 0.08, color: 0xf4f1ea, roughness: 0.62, metalness: 0.05, mat: 0xffffff, finish: 'paint' },
-  wood: { label: '木', bar: 0.08, gap: 0.07, color: 0x7a5c3e, roughness: 0.58, metalness: 0.05, mat: 0xf1ead9, finish: 'wood' },
-  none: { label: 'なし', mat: null },
+  black: { label: 'Black', bar: 0.07, gap: 0.08, color: 0x141210, roughness: 0.42, metalness: 0.35, mat: 0xf1ede4, finish: 'wood' },
+  gold: { label: 'Gold', bar: 0.1, gap: 0.07, color: 0xa8853c, roughness: 0.34, metalness: 1.0, mat: 0xf3eee0, finish: 'metal' },
+  white: { label: 'White', bar: 0.07, gap: 0.08, color: 0xf4f1ea, roughness: 0.62, metalness: 0.05, mat: 0xffffff, finish: 'paint' },
+  wood: { label: 'Oak', bar: 0.08, gap: 0.07, color: 0x7a5c3e, roughness: 0.58, metalness: 0.05, mat: 0xf1ead9, finish: 'wood' },
+  none: { label: 'None', mat: null },
 }
 
 export const CEIL_H = 5.2

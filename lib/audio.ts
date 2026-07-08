@@ -1,19 +1,19 @@
-// ギャラリーの環境音と足音(全てWebAudioで生成 — 音源ファイル不要)
-// ブラウザの自動再生制限のため、最初のユーザー操作で unlock() を呼ぶ
+// Gallery ambient sound and footsteps (all generated with WebAudio — no audio files needed)
+// Because of the browser's autoplay restriction, call unlock() on the first user interaction
 
 const STORAGE_KEY = 'hakoniwa.audio.v1'
 
-/* ---- 音量・フェードの調整はここ ---- */
-/** ルームトーン(空調)の音量。作品の音を邪魔しないよう控えめに */
+/* ---- Tune volume and fades here ---- */
+/** Room-tone (HVAC) volume. Kept low so it doesn't interfere with the works' audio */
 const ROOM_TONE_LEVEL = 0.028
-/** ルームトーンの立ち上がり(秒) */
+/** Room-tone ramp-up (seconds) */
 const ROOM_TONE_FADE_IN = 1.6
-/** 足音の基本音量と歩速による上乗せ */
+/** Base footstep volume and the extra added by walking speed */
 const STEP_BASE = 0.04
 const STEP_SPEED_GAIN = 0.08
-/** 足音の残響(ウェット)量 */
+/** Footstep reverb (wet) amount */
 const STEP_REVERB_WET = 0.4
-/** 環境音トグルON/OFFのフェード(秒) */
+/** Fade for toggling ambient sound on/off (seconds) */
 const TOGGLE_FADE = 0.35
 
 class GalleryAudio {
@@ -30,14 +30,14 @@ class GalleryAudio {
     }
   }
 
-  /** 最初のポインタ/キー操作で呼ぶ(以後は何度呼んでも無害) */
+  /** Call on the first pointer/key interaction (harmless to call repeatedly afterward) */
   unlock() {
     if (this.unlocked || typeof window === 'undefined') return
     this.unlocked = true
     try {
       this.build()
     } catch {
-      // WebAudio非対応環境では無音のまま
+      // Stays silent in environments without WebAudio support
     }
   }
 
@@ -59,7 +59,7 @@ class GalleryAudio {
     this.master.gain.value = this.enabled ? 1 : 0
     this.master.connect(ctx.destination)
 
-    /* ---- 残響(生成したインパルス応答による静かなホールの響き) ---- */
+    /* ---- Reverb (a quiet hall resonance from a generated impulse response) ---- */
     const ir = ctx.createBuffer(2, ctx.sampleRate * 1.4, ctx.sampleRate)
     for (let ch = 0; ch < 2; ch++) {
       const d = ir.getChannelData(ch)
@@ -74,7 +74,7 @@ class GalleryAudio {
     this.convolver.connect(wet)
     wet.connect(this.master)
 
-    /* ---- ルームトーン(空調のような低いノイズ) ---- */
+    /* ---- Room tone (a low, HVAC-like noise) ---- */
     const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate)
     const nd = noiseBuf.getChannelData(0)
     let brown = 0
@@ -94,17 +94,17 @@ class GalleryAudio {
     lowpass.connect(roomGain)
     roomGain.connect(this.master)
     room.start()
-    // ふわっと立ち上げる
+    // Ease it in gently
     roomGain.gain.setTargetAtTime(ROOM_TONE_LEVEL, ctx.currentTime, ROOM_TONE_FADE_IN)
 
-    /* ---- 足音バス(ドライ + 残響) ---- */
+    /* ---- Footstep bus (dry + reverb) ---- */
     this.stepBus = ctx.createGain()
     this.stepBus.gain.value = 1
     this.stepBus.connect(this.master)
     this.stepBus.connect(this.convolver)
   }
 
-  /** 一歩ぶんの足音(intensity: 0〜1 歩く速さ) */
+  /** A single footstep (intensity: 0–1 walking speed) */
   step(intensity = 1) {
     const ctx = this.ctx
     if (!ctx || !this.stepBus || !this.enabled) return

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
-// three の SpotLight は target が Object3D 参照なので、宣言的に扱うための小さなラッパー
+// three's SpotLight uses an Object3D reference for its target, so this is a small wrapper to handle it declaratively
 export default function SpotWithTarget({
   position,
   targetPosition,

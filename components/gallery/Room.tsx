@@ -1,5 +1,5 @@
 'use client'
-// 部屋(床・天井・壁・巾木・廻り縁・中央壁・照明ライン・ベンチ・全体照明)
+// Room (floor, ceiling, walls, baseboards, crown molding, central walls, light strips, benches, overall lighting)
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { ThreeEvent } from '@react-three/fiber'
@@ -9,7 +9,7 @@ import { getFloorTextures, getPlasterBump, getPlasterNormal, disposeAll } from '
 import SpotWithTarget from './SpotWithTarget'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 
-// RectAreaLight(天窓)を使うための一度きりの初期化
+// One-time initialization needed to use RectAreaLight (skylight)
 let rectAreaInited = false
 if (typeof window !== 'undefined' && !rectAreaInited) {
   RectAreaLightUniformsLib.init()
@@ -18,7 +18,7 @@ if (typeof window !== 'undefined' && !rectAreaInited) {
 
 const TRIM_COLOR = 0x0e0c0a
 
-// 壁の漆喰マップ(ノーマル + 艶ムラ用ラフネス)。実寸に合わせてタイリング
+// Wall plaster maps (normal + roughness for sheen variation). Tiled to real-world scale
 function useWallMaps(widthM: number) {
   const maps = useMemo(() => {
     const rep: [number, number] = [widthM / 3.2, CEIL_H / 3.2]
@@ -47,7 +47,7 @@ function Wall({
   return (
     <mesh position={position} rotation-y={rotationY} receiveShadow>
       <planeGeometry args={[width, CEIL_H]} />
-      {/* ノーマルマップで斜めからの光を拾い、ラフネスマップで艶ムラを出す */}
+      {/* The normal map catches grazing light and the roughness map gives uneven sheen */}
       <meshStandardMaterial
         color={color}
         roughness={0.93}
@@ -70,7 +70,7 @@ function Trim({ w, x, z, rotY, y, h, d }: { w: number; x: number; z: number; rot
 }
 
 function Bench({ x, z, theme }: { x: number; z: number; theme: ThemeDef }) {
-  // 座面は床と同じ木目テクスチャを濃い色味で使い回す
+  // The seat reuses the same floor wood-grain texture in a darker tint
   const topTex = useMemo(() => {
     const t = getFloorTextures().map.clone()
     t.repeat.set(0.5, 0.14)
@@ -89,7 +89,7 @@ function Bench({ x, z, theme }: { x: number; z: number; theme: ThemeDef }) {
           <meshStandardMaterial color={TRIM_COLOR} roughness={0.6} />
         </mesh>
       ))}
-      {/* ベンチ直上のダウンライト(接地影を落とす) */}
+      {/* Downlight directly above the bench (casts a contact shadow) */}
       <SpotWithTarget
         position={[0, CEIL_H - 0.1, 0]}
         targetPosition={[0, 0, 0]}
@@ -108,7 +108,7 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
   const { hw, hd } = layout
   const h = CEIL_H
 
-  // 床: 板目の実寸を保つ(1タイルあたり約5.3m × 2.7m)
+  // Floor: keep the plank grain at real scale (about 5.3m x 2.7m per tile)
   const floorTex = useMemo(() => {
     const base = getFloorTextures()
     const out = {
@@ -124,11 +124,11 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
   const partitionMaps = useWallMaps(8)
 
   const onFloorClick = (e: ThreeEvent<MouseEvent>) => {
-    if (e.delta > 8) return // ドラッグだった
+    if (e.delta > 8) return // it was a drag
     walkRef.current?.walkTo(e.point)
   }
 
-  // 天井の間接照明ラインの本数(部屋の奥行きに応じて)
+  // Number of ceiling indirect-light strips (based on room depth)
   const stripZs = useMemo(() => {
     const n = Math.max(1, Math.floor(hd / 2.5))
     return Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * 4)
@@ -136,7 +136,7 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
 
   return (
     <group>
-      {/* 床 */}
+      {/* Floor */}
       <mesh rotation-x={-Math.PI / 2} receiveShadow onClick={onFloorClick}>
         <planeGeometry args={[hw * 2, hd * 2]} />
         <meshPhysicalMaterial
@@ -150,19 +150,19 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
         />
       </mesh>
 
-      {/* 天井 */}
+      {/* Ceiling */}
       <mesh rotation-x={Math.PI / 2} position={[0, h, 0]}>
         <planeGeometry args={[hw * 2, hd * 2]} />
         <meshStandardMaterial color={theme.ceiling} roughness={0.95} />
       </mesh>
 
-      {/* 壁(西面はタイトルウォール用のアクセント色) */}
+      {/* Walls (the west face uses the accent color for the title wall) */}
       <Wall width={hw * 2} color={theme.wall} position={[0, h / 2, -hd]} rotationY={0} />
       <Wall width={hw * 2} color={theme.wall} position={[0, h / 2, hd]} rotationY={Math.PI} />
       <Wall width={hd * 2} color={theme.wall} position={[hw, h / 2, 0]} rotationY={-Math.PI / 2} />
       <Wall width={hd * 2} color={theme.accentWall} position={[-hw, h / 2, 0]} rotationY={Math.PI / 2} />
 
-      {/* 巾木と廻り縁 */}
+      {/* Baseboards and crown molding */}
       {(
         [
           [hw * 2, 0, -hd + 0.02, 0],
@@ -177,7 +177,7 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
         </group>
       ))}
 
-      {/* 中央の自立壁(レイアウトによる) */}
+      {/* Central free-standing walls (depending on layout) */}
       {layout.partitions.map((p, i) => (
         <group key={i}>
           <mesh position={[p.x, p.h / 2, p.z]} castShadow receiveShadow>
@@ -198,7 +198,7 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
         </group>
       ))}
 
-      {/* 天井の間接照明ライン(HDRで発光させてブルームに乗せる) */}
+      {/* Ceiling indirect-light strips (emissive in HDR so they pick up bloom) */}
       {stripZs.map((z) => (
         <mesh key={z} position={[0, h - 0.02, z]}>
           <boxGeometry args={[hw * 1.6, 0.02, 0.09]} />
@@ -206,7 +206,7 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
         </mesh>
       ))}
 
-      {/* ピクチャーレール(額の吊りワイヤーを受ける細いレール) */}
+      {/* Picture rail (thin rail that holds the frame hanging wires) */}
       {(
         [
           [hw * 2, 0, -hd + 0.05, 0],
@@ -221,7 +221,7 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
         </mesh>
       ))}
 
-      {/* 天窓(ホワイトキューブ): 柔らかい自然光の面光源 */}
+      {/* Skylight (white cube): a soft natural-light area light */}
       {theme.skylight && (
         <group position={[0, h - 0.012, 0]}>
           <mesh rotation-x={Math.PI / 2}>
@@ -239,12 +239,12 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
         </group>
       )}
 
-      {/* ベンチ */}
+      {/* Benches */}
       {layout.benches.map((b) => (
         <Bench key={`${b.x},${b.z}`} x={b.x} z={b.z} theme={theme} />
       ))}
 
-      {/* 環境光は控えめにして、影とスポットライトのコントラストを立たせる */}
+      {/* Keep ambient light low to bring out shadow and spotlight contrast */}
       <ambientLight color={0xfff4e0} intensity={theme.ambient} />
       <hemisphereLight color={0xfff8ea} groundColor={0x4a4136} intensity={theme.hemi} />
     </group>

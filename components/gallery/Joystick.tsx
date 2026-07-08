@@ -1,5 +1,5 @@
 'use client'
-// バーチャルジョイスティック(タッチ端末のみ CSS で表示)
+// Virtual joystick (shown via CSS on touch devices only)
 import { useEffect, useRef } from 'react'
 import { joyState, walkRef } from '@/lib/controller'
 import { useGallery } from '@/lib/store'
@@ -37,7 +37,7 @@ export default function Joystick() {
       try {
         el.setPointerCapture(e.pointerId)
       } catch {
-        // 合成イベントなどでpointerIdが無効な場合は無視
+        // Ignore when pointerId is invalid, e.g. for synthetic events
       }
       move(e)
     }

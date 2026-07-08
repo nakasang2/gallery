@@ -1,4 +1,4 @@
-// クラウド出展(ログイン時): 画像は Storage、メタデータは artworks テーブルへ
+// Cloud exhibition (when signed in): images go to Storage, metadata to the artworks table
 import { supabase } from './supabase'
 import type { ArtworkData } from './artworks'
 import { loadImage } from './upload'
@@ -29,7 +29,7 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
     artist: artistName,
     year: row.year ?? new Date(row.created_at).getFullYear(),
     desc: row.description,
-    tags: row.tags.length ? row.tags : [video ? '映像作品' : '出展作品'],
+    tags: row.tags.length ? row.tags : [video ? 'Video' : 'Exhibited'],
     ratio: [row.width, row.height],
     kind: video ? 'video' : 'image',
     src: publicUrl(`${row.storage_path}/${video ? 'video' : 'display.jpg'}`),
@@ -73,7 +73,7 @@ export async function uploadArtwork(params: {
   const id = crypto.randomUUID()
   const basePath = `${params.ownerId}/${id}`
 
-  // 表示用(長辺1600)とサムネイル(長辺400)の2サイズ(docs/ARCHITECTURE.md 5章)
+  // Two sizes: a display image (long edge 1600) and a thumbnail (long edge 400) (docs/ARCHITECTURE.md ch. 5)
   const display = await dataUrlToJpegBlob(params.dataUrl, 1600)
   const thumb = await dataUrlToJpegBlob(params.dataUrl, 400)
 
@@ -95,13 +95,13 @@ export async function uploadArtwork(params: {
     title: params.title,
   })
   if (error) {
-    // メタデータ登録に失敗したら画像は残さない
+    // If metadata insertion fails, don't leave the images behind
     await sb.storage.from('artworks').remove([`${basePath}/display.jpg`, `${basePath}/thumb.jpg`])
     throw error
   }
 }
 
-/** 動画作品: 動画本体 + ポスター2サイズを保存(要 0002 マイグレーション) */
+/** Video work: store the video itself plus a poster in two sizes (requires the 0002 migration) */
 export async function uploadVideoArtwork(params: {
   ownerId: string
   file: File
@@ -138,10 +138,10 @@ export async function uploadVideoArtwork(params: {
   }
 }
 
-/** 作品の並び順を保存する(idの配列で受け取り、その順に sort_order を振る) */
+/** Save the display order of works (takes an array of ids and assigns sort_order in that order) */
 export async function reorderArtworks(orderedIds: string[]): Promise<void> {
   const sb = supabase!
-  // 個別 update を並列実行(件数は最大でも数十なので十分軽い)
+  // Run the individual updates in parallel (at most a few dozen, so plenty light)
   const results = await Promise.all(
     orderedIds.map((id, i) => sb.from('artworks').update({ sort_order: i }).eq('id', id))
   )
@@ -154,7 +154,7 @@ export async function deleteArtwork(ownerId: string, artworkId: string): Promise
   const basePath = `${ownerId}/${artworkId}`
   const { error } = await sb.from('artworks').delete().eq('id', artworkId)
   if (error) throw error
-  // 画像/動画どちらのファイル構成でも掃除できるよう全候補を渡す(存在しないキーは無視される)
+  // Pass every candidate path so we clean up both image and video layouts (nonexistent keys are ignored)
   await sb.storage
     .from('artworks')
     .remove([

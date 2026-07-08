@@ -1,4 +1,4 @@
-// 出展フロー: 画像の読み込みとリサイズ(要件 8-2)
+// Exhibition flow: loading and resizing images (requirement 8-2)
 import type { ArtworkData } from './artworks'
 
 export function loadImage(src: string, crossOrigin = false): Promise<HTMLImageElement> {
@@ -11,7 +11,7 @@ export function loadImage(src: string, crossOrigin = false): Promise<HTMLImageEl
   })
 }
 
-// localStorage に収まるよう長辺を抑えて JPEG 化する
+// Cap the long edge and encode as JPEG so it fits in localStorage
 export async function fileToDataUrl(
   file: File,
   maxSide = 1280
@@ -24,7 +24,7 @@ export async function fileToDataUrl(
     c.width = Math.round(img.width * scale)
     c.height = Math.round(img.height * scale)
     const ctx = c.getContext('2d')!
-    ctx.fillStyle = '#fff' // 透過PNG対策
+    ctx.fillStyle = '#fff' // Guard against transparent PNGs
     ctx.fillRect(0, 0, c.width, c.height)
     ctx.drawImage(img, 0, 0, c.width, c.height)
     return { dataUrl: c.toDataURL('image/jpeg', 0.85), w: c.width, h: c.height }
@@ -33,9 +33,9 @@ export async function fileToDataUrl(
   }
 }
 
-export const VIDEO_MAX_BYTES = 40 * 1024 * 1024 // Supabase無料枠に合わせた上限
+export const VIDEO_MAX_BYTES = 40 * 1024 * 1024 // Limit tuned to Supabase's free tier
 
-/** 動画ファイルから寸法とポスター画像(最初のフレーム)を取り出す */
+/** Extract dimensions and a poster image (first frame) from a video file */
 export function videoFileMeta(
   file: File
 ): Promise<{ w: number; h: number; duration: number; posterDataUrl: string }> {
@@ -52,7 +52,7 @@ export function videoFileMeta(
     }
     video.onerror = fail
     video.onloadeddata = () => {
-      // 冒頭の黒フレームを避けて少し進める
+      // Skip ahead slightly to avoid the black frame at the start
       video.currentTime = Math.min(0.1, (video.duration || 1) / 2)
     }
     video.onseeked = () => {
@@ -83,10 +83,10 @@ export function newArtworkEntry(params: {
   return {
     id: 'u' + Date.now() + Math.random().toString(36).slice(2, 6),
     title: params.title,
-    artist: params.artist || 'あなた',
+    artist: params.artist || 'You',
     year: new Date().getFullYear(),
     desc: '',
-    tags: ['出展作品'],
+    tags: ['Exhibited'],
     ratio: [params.w, params.h],
     src: params.src,
   }

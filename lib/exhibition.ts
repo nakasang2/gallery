@@ -1,4 +1,4 @@
-// 展示リストの導出ロジック(3Dシーンと UI パネルの両方が同じ結果を参照する)
+// Logic for deriving the exhibition list (both the 3D scene and the UI panel read the same result)
 import { useMemo } from 'react'
 import { ARTWORKS, type ArtworkData } from './artworks'
 import { LAYOUTS, FRAMES, type LayoutDef } from './presets'
@@ -16,7 +16,7 @@ export function overflowCount(s: Settings, ownCount: number): number {
   return Math.max(0, total - layout.slots.length)
 }
 
-/** 自分の出展作品(来場者モード = 公開データ、ログイン時 = クラウド、ゲスト時 = localStorage) */
+/** Your own exhibited works (visitor mode = public data, signed in = cloud, guest = localStorage) */
 export function useOwnArtworks(): ArtworkData[] {
   const visitorArts = useGallery((s) => s.visitor?.artworks)
   const user = useGallery((s) => s.user)
@@ -25,7 +25,7 @@ export function useOwnArtworks(): ArtworkData[] {
   return visitorArts ?? (user ? cloud : local)
 }
 
-/** いま展示されている作品リスト(スロット数で頭打ち) */
+/** The list of currently exhibited works (capped at the number of slots) */
 export function useExhibitionList(): ArtworkData[] {
   const settings = useSettings()
   const own = useOwnArtworks()
@@ -37,13 +37,13 @@ export function frameKeyFor(s: Settings, art: ArtworkData): string {
   return key && FRAMES[key] ? key : s.frame
 }
 
-// アスペクト比から展示サイズを決める(横長は幅、縦長は高さを基準に)
+// Determine display size from aspect ratio (landscape keys off width, portrait off height)
 export function artSize(ratio: [number, number]): { width: number; height: number } {
   const [rw, rh] = ratio
   let height = rw >= rh ? 1.3 : 1.6
   let width = (height * rw) / rh
   if (width > 2.6) {
-    // 極端なパノラマは幅で頭打ちにする
+    // Cap extreme panoramas by width
     width = 2.6
     height = (width * rh) / rw
   }
@@ -57,7 +57,7 @@ export interface Solid {
   hd: number
 }
 
-// 歩行の当たり判定(ベンチ・中央壁)
+// Collision volumes for walking (benches, central partitions)
 export function getSolids(layout: LayoutDef): Solid[] {
   return [
     ...layout.benches.map((b) => ({ x: b.x, z: b.z, hw: 1.25, hd: 0.5 })),
