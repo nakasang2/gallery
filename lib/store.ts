@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import type { ArtworkData } from './artworks'
-import { THEMES, LAYOUTS, FRAMES } from './presets'
+import { THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS } from './presets'
 import { supabase } from './supabase'
 import { listMyArtworks, reorderArtworks } from './cloud'
 import type { PublicExhibition } from './publish'
@@ -18,6 +18,10 @@ export interface Settings {
   theme: string
   layout: string
   frame: string
+  /** How frames are affixed to the wall (key into HANGINGS) */
+  hanging: string
+  /** How the name plate is shown (key into CAPTIONS) */
+  caption: string
   showDemo: boolean
   artworks: ArtworkData[]
   frameOverrides: Record<string, string>
@@ -27,6 +31,8 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'chic',
   layout: 'hall',
   frame: 'black',
+  hanging: 'wire',
+  caption: 'side',
   showDemo: true,
   artworks: [],
   frameOverrides: {},
@@ -44,6 +50,8 @@ export function loadSettings(): Settings {
     if (!THEMES[s.theme]) s.theme = DEFAULT_SETTINGS.theme
     if (!LAYOUTS[s.layout]) s.layout = DEFAULT_SETTINGS.layout
     if (!FRAMES[s.frame]) s.frame = DEFAULT_SETTINGS.frame
+    if (!HANGINGS[s.hanging]) s.hanging = DEFAULT_SETTINGS.hanging
+    if (!CAPTIONS[s.caption]) s.caption = DEFAULT_SETTINGS.caption
     return s
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -52,8 +60,11 @@ export function loadSettings(): Settings {
 
 function saveSettings(s: Settings): boolean {
   try {
-    const { theme, layout, frame, showDemo, artworks, frameOverrides } = s
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ theme, layout, frame, showDemo, artworks, frameOverrides }))
+    const { theme, layout, frame, hanging, caption, showDemo, artworks, frameOverrides } = s
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ theme, layout, frame, hanging, caption, showDemo, artworks, frameOverrides })
+    )
     return true
   } catch {
     return false
@@ -196,6 +207,8 @@ export function useSettings(): Settings {
             theme: s.visitor.theme,
             layout: s.visitor.layout,
             frame: s.visitor.frame,
+            hanging: s.visitor.hanging,
+            caption: s.visitor.caption,
             showDemo: false,
             artworks: EMPTY_ARTWORKS,
             frameOverrides: s.visitor.frameOverrides,
@@ -204,6 +217,8 @@ export function useSettings(): Settings {
             theme: s.theme,
             layout: s.layout,
             frame: s.frame,
+            hanging: s.hanging,
+            caption: s.caption,
             showDemo: s.showDemo,
             artworks: s.artworks,
             frameOverrides: s.frameOverrides,

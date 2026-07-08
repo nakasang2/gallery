@@ -4,7 +4,7 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
 import type { ArtworkData } from '@/lib/artworks'
-import { CEIL_H, type FrameDef, type SlotDef, type ThemeDef } from '@/lib/presets'
+import { CEIL_H, type CaptionDef, type FrameDef, type HangingDef, type SlotDef, type ThemeDef } from '@/lib/presets'
 import { artSize } from '@/lib/exhibition'
 import { walkRef, LOW_POWER } from '@/lib/controller'
 import { getArtTexture, makePlaqueTexture, getFrameFinish, disposeAll } from './textures'
@@ -46,12 +46,16 @@ export default function Exhibit({
   slot,
   theme,
   frameDef,
+  hangingDef,
+  captionDef,
 }: {
   art: ArtworkData
   index: number
   slot: SlotDef
   theme: ThemeDef
   frameDef: FrameDef
+  hangingDef: HangingDef
+  captionDef: CaptionDef
 }) {
   const gl = useThree((s) => s.gl)
   const { width, height } = artSize(art.ratio)
@@ -72,6 +76,7 @@ export default function Exhibit({
   useEffect(() => () => disposeAll([frameGeo]), [frameGeo])
 
   const halfW = frameless ? width / 2 : width / 2 + frameDef.gap! + frameDef.bar!
+  const halfH = frameless ? height / 2 : height / 2 + frameDef.gap! + frameDef.bar!
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
@@ -159,24 +164,42 @@ export default function Exhibit({
         {/* Spatial audio for video artworks (louder as you get closer) */}
         {videoArt.audio && <primitive object={videoArt.audio} position={[0, 0, 0.1]} />}
 
-        {/* Plaque (to the right of the artwork) */}
-        <mesh position={[halfW + 0.42, -height / 2 + 0.28, 0.02]}>
-          <planeGeometry args={[0.42, 0.246]} />
-          <meshStandardMaterial map={plaqueTex} roughness={0.9} />
-        </mesh>
+        {/* Name plate — beside the work, below it, or hidden */}
+        {captionDef.place !== 'none' && (
+          <mesh
+            position={
+              captionDef.place === 'under'
+                ? [0, -halfH - 0.2, 0.02]
+                : [halfW + 0.42, -height / 2 + 0.28, 0.02]
+            }
+          >
+            <planeGeometry args={[0.42, 0.246]} />
+            <meshStandardMaterial map={plaqueTex} roughness={0.9} />
+          </mesh>
+        )}
 
-        {/* Hanging wires from the picture rail (a museum-like detail) */}
-        {!slot.noWire && [-1, 1].map((side) => {
-          const topY = CEIL_H - 0.36 - 1.62 // rail position (local coordinates)
-          const wireLen = topY - height / 2
-          if (wireLen <= 0.05) return null
-          return (
-            <mesh key={side} position={[side * width * 0.3, height / 2 + wireLen / 2, 0.012]}>
-              <cylinderGeometry args={[0.0045, 0.0045, wireLen, 6]} />
-              <meshStandardMaterial color={0x2a2622} roughness={0.4} metalness={0.6} />
-            </mesh>
-          )
-        })}
+        {/* Hanging hardware. wire = twin cords to the picture rail; ledge = a shelf
+            the work rests on; flush = nothing. Center walls have no rail, so wire
+            falls back to no hardware there (slot.noWire). */}
+        {hangingDef.kind === 'wire' &&
+          !slot.noWire &&
+          [-1, 1].map((side) => {
+            const topY = CEIL_H - 0.36 - 1.62 // rail position (local coordinates)
+            const wireLen = topY - height / 2
+            if (wireLen <= 0.05) return null
+            return (
+              <mesh key={side} position={[side * width * 0.3, height / 2 + wireLen / 2, 0.012]}>
+                <cylinderGeometry args={[0.0045, 0.0045, wireLen, 6]} />
+                <meshStandardMaterial color={0x2a2622} roughness={0.4} metalness={0.6} />
+              </mesh>
+            )
+          })}
+        {hangingDef.kind === 'ledge' && (
+          <mesh position={[0, -halfH - 0.02, 0.1]} castShadow>
+            <boxGeometry args={[halfW * 2 + 0.12, 0.035, 0.16]} />
+            <meshStandardMaterial color={0x1c1916} roughness={0.5} metalness={0.3} />
+          </mesh>
+        )}
       </group>
 
       {/* Spotlight (also bakes the shadow the frame casts on the wall) */}

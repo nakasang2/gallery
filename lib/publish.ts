@@ -15,6 +15,8 @@ export interface PublicExhibition {
   theme: string
   layout: string
   frame: string
+  hanging: string
+  caption: string
   frameOverrides: Record<string, string>
   artworks: ArtworkData[]
 }
@@ -77,6 +79,8 @@ export async function publishGallery(params: {
         theme: settings.theme,
         layout: settings.layout,
         frame_default: settings.frame,
+        hanging_default: settings.hanging,
+        caption_default: settings.caption,
         is_public: params.isPublic,
       },
       { onConflict: 'owner_id,slug' }
@@ -141,7 +145,7 @@ async function fetchPublicExhibitionInner(
 
   const { data: gallery } = await supabase!
     .from('galleries')
-    .select('id, title, statement, theme, layout, frame_default, is_public')
+    .select('id, title, statement, theme, layout, frame_default, hanging_default, caption_default, is_public')
     .eq('owner_id', profile.id)
     .eq('slug', slug)
     .eq('is_public', true)
@@ -173,6 +177,9 @@ async function fetchPublicExhibitionInner(
     theme: gallery.theme,
     layout: gallery.layout,
     frame: gallery.frame_default,
+    // Older galleries predate these columns; fall back to sensible defaults
+    hanging: gallery.hanging_default ?? 'wire',
+    caption: gallery.caption_default ?? 'side',
     frameOverrides,
     artworks,
   }

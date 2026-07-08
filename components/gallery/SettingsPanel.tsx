@@ -2,7 +2,7 @@
 // Space settings panel (theme/layout/framing switches, account, and exhibiting works)
 // Where works are exhibited depends on sign-in state: guest = localStorage / signed in = Supabase
 import { useEffect, useRef, useState } from 'react'
-import { THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
+import { THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS, TEMPLATES } from '@/lib/presets'
 import { overflowCount, useOwnArtworks } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
@@ -448,14 +448,52 @@ export default function SettingsPanel() {
   const over = overflowCount(settings, ownArtworks.length)
   const slots = LAYOUTS[settings.layout].slots.length
 
+  // Highlight a template only while every axis still matches its bundle
+  const activeTemplate =
+    Object.entries(TEMPLATES).find(
+      ([, t]) =>
+        t.theme === settings.theme &&
+        t.layout === settings.layout &&
+        t.frame === settings.frame &&
+        t.hanging === settings.hanging &&
+        t.caption === settings.caption
+    )?.[0] ?? ''
+
   return (
     <aside id="settings" className={`settings${open ? ' open' : ''}`} aria-hidden={!open}>
       <button className="panel-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
       <h2 className="settings-title">Edit space</h2>
 
       <section className="settings-section">
+        <h3>Template</h3>
+        {/* A template sets every axis below in one go, as a starting point */}
+        <ChipRow
+          defs={TEMPLATES}
+          current={activeTemplate}
+          onPick={(key) => {
+            const t = TEMPLATES[key]
+            updateSettings({
+              theme: t.theme,
+              layout: t.layout,
+              frame: t.frame,
+              hanging: t.hanging,
+              caption: t.caption,
+              frameOverrides: {},
+            })
+          }}
+        />
+        <p className="settings-note">A curated starting point. Fine-tune any axis below afterwards.</p>
+      </section>
+
+      <section className="settings-section">
         <h3>Theme</h3>
-        <ChipRow defs={THEMES} current={settings.theme} onPick={(theme) => updateSettings({ theme })} />
+        {/* Each theme carries recommended framing / hanging / caption; picking one applies them */}
+        <ChipRow
+          defs={THEMES}
+          current={settings.theme}
+          onPick={(theme) => updateSettings({ theme, ...THEMES[theme].recommends, frameOverrides: {} })}
+        />
+        <p className="settings-note">Switching theme applies its recommended framing; adjust below to taste.</p>
       </section>
 
       <section className="settings-section">
@@ -468,6 +506,16 @@ export default function SettingsPanel() {
         {/* Changing the overall framing also resets any per-work overrides */}
         <ChipRow defs={FRAMES} current={settings.frame} onPick={(frame) => updateSettings({ frame, frameOverrides: {} })} />
         <p className="settings-note">To change a single work, open it and use the panel.</p>
+      </section>
+
+      <section className="settings-section">
+        <h3>Hanging</h3>
+        <ChipRow defs={HANGINGS} current={settings.hanging} onPick={(hanging) => updateSettings({ hanging })} />
+      </section>
+
+      <section className="settings-section">
+        <h3>Caption</h3>
+        <ChipRow defs={CAPTIONS} current={settings.caption} onPick={(caption) => updateSettings({ caption })} />
       </section>
 
       <section className="settings-section">
