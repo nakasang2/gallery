@@ -289,12 +289,12 @@ body.gallery-mode {
 }
 .step-sep { opacity: 0.5; margin: 0 0.1em; }
 
-/* ---- バーチャルジョイスティック ---- */
+/* ---- バーチャルジョイスティック(PCはマウス、スマホはタッチで操作) ---- */
 .joy {
-  display: none;
+  display: block;
   position: fixed;
   left: 1.4rem;
-  bottom: 4.6rem;
+  bottom: 1.6rem;
   z-index: 15;
   width: 108px;
   height: 108px;
@@ -318,7 +318,8 @@ body.gallery-mode {
   pointer-events: none;
 }
 @media (pointer: coarse) {
-  .joy { display: block; }
+  /* Lift above the mobile browser chrome / gesture bar */
+  .joy { bottom: 4.6rem; }
 }
 
 /* ---- チップ(テーマ/レイアウト/額装の選択) ---- */
