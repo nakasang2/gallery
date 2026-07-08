@@ -26,9 +26,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* canvasテクスチャ(銘板等)にも使うため next/font ではなく実行時読み込み */}
+        {/* canvasテクスチャ(銘板等)にも使うため next/font ではなく実行時読み込み。
+            和文(ギャラリー) + 欧文(ランディング/3Dパネル)の両方を読み込む。 */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600;800&family=Zen+Kaku+Gothic+New:wght@300;400;500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600;800&family=Zen+Kaku+Gothic+New:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
       </head>

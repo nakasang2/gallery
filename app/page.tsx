@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import LandingEffects from '@/components/landing/LandingEffects'
+import HeroCanvas from '@/components/landing/HeroCanvas'
 
 export default function LandingPage() {
   return (
@@ -9,103 +10,92 @@ export default function LandingPage() {
       <nav className="nav" id="nav">
         <Link className="nav-logo" href="/">HAKONIWA</Link>
         <div className="nav-links">
-          <a href="#concept">コンセプト</a>
-          <a href="#features">できること</a>
-          <a href="#flow">使い方</a>
-          <a href="#pricing">料金</a>
+          <a href="#concept">Concept</a>
+          <a href="#features">Features</a>
+          <a href="#flow">How it works</a>
+          <a href="#pricing">Pricing</a>
         </div>
-        <Link className="btn btn-small" href="/demo">デモを歩く</Link>
+        <Link className="btn btn-small" href="/demo">Enter demo</Link>
       </nav>
 
-      {/* ============ HERO ============ */}
-      <header className="hero">
+      {/* ============ HERO — immersive entry ============ */}
+      <header className="hero" id="hero">
+        {/* 3D非対応/モバイル時のフォールバックとしてCSSの額装壁を残す */}
         <div className="hero-floats" id="hero-floats" aria-hidden="true"></div>
-        <div className="hero-inner">
-          <p className="hero-eyebrow">VIRTUAL ART GALLERY PLATFORM</p>
-          <h1 className="hero-title">
-            <span className="line">あなたの作品が、</span>
-            <span className="line"><em>空間</em>になる。</span>
-          </h1>
-          <p className="hero-lead">
-            タイムラインで流れて消える一枚を、歩いて出会う一枚へ。<br />
-            HAKONIWAは、アートを3Dギャラリーとして展示・公開できるプラットフォームです。
-          </p>
-          <div className="hero-cta">
-            <Link className="btn btn-primary" href="/demo">ギャラリーを歩いてみる</Link>
-            <a className="btn btn-ghost" href="#concept">コンセプトを読む</a>
-          </div>
+        {/* 固定背景の3D美術館(グレードも内包)。ヒーロー〜廊下を通して常駐 */}
+        <HeroCanvas />
+
+        {/* 入口のミニマルなクローム(ナビはスクロールで初めて現れる) */}
+        <div className="hero-chrome">
+          <Link className="hero-mark" href="/">HAKONIWA</Link>
+          <Link className="hero-enter" href="/demo">Enter the gallery →</Link>
         </div>
-        <div className="hero-scroll" aria-hidden="true"><span></span>SCROLL</div>
+
+        <div className="hero-lead-wrap">
+          <p className="hero-eyebrow">An exhibition of one</p>
+          <h1 className="hero-title">Step into your own light.</h1>
+          <p className="hero-sub">
+            A permanent room for your work — walked, not scrolled.
+          </p>
+          <Link className="hero-cta" href="/demo">Walk the gallery</Link>
+        </div>
+
+        <div className="hero-scroll" aria-hidden="true">Scroll to enter</div>
       </header>
+
+      {/* ============ CORRIDOR — walk the hall; features hang on the 3D walls ============ */}
+      {/* 3D対応時はこの区間で背景の廊下をスクロールで進む(パネルは3D側に掲示)。
+          非対応/モバイルでは下の縦積みカードにフォールバックする。 */}
+      <section className="corridor" id="features" aria-label="Features">
+        <div className="corridor-cue" aria-hidden="true">
+          <span className="section-eyebrow">Features</span>
+          <p>Walk the hall — six things the room can do, hung along the wall.</p>
+        </div>
+        <div className="corridor-fallback">
+          <div className="section-head">
+            <p className="section-eyebrow">Features</p>
+            <h2 className="section-title">What the room can do.</h2>
+          </div>
+          <div className="cfeat"><span className="cfeat-no">01</span><div><h3>A solo show in the browser</h3><p>No apps, no plugins. One link opens the gallery, and visitors walk it on desktop or phone.</p></div></div>
+          <div className="cfeat"><span className="cfeat-no">02</span><div><h3>Hang works by drag &amp; drop</h3><p>Upload an image and place it on a wall. Height, spacing and sightlines snap to the template.</p></div></div>
+          <div className="cfeat"><span className="cfeat-no">03</span><div><h3>Light and stage every piece</h3><p>Spotlights, wall colour and flooring set the mood. Each work gets its own presentation.</p></div></div>
+          <div className="cfeat"><span className="cfeat-no">04</span><div><h3>One address, open worldwide</h3><p><code>hakoniwa.app/@you</code> — a permanent URL for your practice, made for any bio or portfolio.</p></div></div>
+          <div className="cfeat"><span className="cfeat-no">05</span><div><h3>Captions that carry the story</h3><p>Title, year and statement are mounted beside each work, the way a museum label would be.</p></div></div>
+          <div className="cfeat"><span className="cfeat-no">06</span><div><h3>Guestbook &amp; reactions</h3><p>Footprints, notes, quiet appreciation — feedback that behaves like an exhibition, not a comment feed.</p></div></div>
+        </div>
+      </section>
 
       {/* ============ MARQUEE ============ */}
       <div className="marquee" aria-hidden="true">
         <div className="marquee-track">
-          <span>ILLUSTRATION&ensp;·&ensp;PHOTOGRAPHY&ensp;·&ensp;PAINTING&ensp;·&ensp;SUMI-E&ensp;·&ensp;GENERATIVE&ensp;·&ensp;3DCG&ensp;·&ensp;COLLAGE&ensp;·&ensp;GRAPHIC&ensp;·&ensp;</span>
-          <span>ILLUSTRATION&ensp;·&ensp;PHOTOGRAPHY&ensp;·&ensp;PAINTING&ensp;·&ensp;SUMI-E&ensp;·&ensp;GENERATIVE&ensp;·&ensp;3DCG&ensp;·&ensp;COLLAGE&ensp;·&ensp;GRAPHIC&ensp;·&ensp;</span>
+          <span>Illustration&ensp;·&ensp;Photography&ensp;·&ensp;Painting&ensp;·&ensp;Ink&ensp;·&ensp;Generative&ensp;·&ensp;3DCG&ensp;·&ensp;Collage&ensp;·&ensp;Graphic&ensp;·&ensp;</span>
+          <span>Illustration&ensp;·&ensp;Photography&ensp;·&ensp;Painting&ensp;·&ensp;Ink&ensp;·&ensp;Generative&ensp;·&ensp;3DCG&ensp;·&ensp;Collage&ensp;·&ensp;Graphic&ensp;·&ensp;</span>
         </div>
       </div>
 
-      {/* ============ CONCEPT ============ */}
+      {/* ============ CONCEPT — a moment in the walk ============ */}
       <section className="concept" id="concept">
-        <div className="concept-vertical" aria-hidden="true">箱庭 — じぶんだけの世界を、つくりこむ。</div>
-        <div className="concept-body reveal">
-          <p className="section-eyebrow">CONCEPT</p>
-          <h2 className="section-title">「投稿」ではなく、<br />「展覧会」として見せる。</h2>
-          <p className="concept-text">
-            SNSのグリッドに並んだ瞬間、作品は他の何万枚かのうちの一枚になります。
-            本来その一枚には、見せたい順番があり、余白があり、照明があり、
-            足を止めてほしい距離があるはずです。
-          </p>
-          <p className="concept-text">
-            HAKONIWAは、ブラウザの中にあなた専用のギャラリー空間をつくります。
-            来場者は部屋を歩き、立ち止まり、近づいて、あなたが設計した文脈のなかで作品と出会う。
-            URLをひとつ送るだけで、世界中どこからでも入場できる個展です。
-          </p>
-          <div className="concept-stats">
-            <div className="stat"><b>3分</b><span>で個展をオープン</span></div>
-            <div className="stat"><b>0円</b><span>から始められる</span></div>
-            <div className="stat"><b>URL1つ</b><span>で世界に公開</span></div>
+        <div className="concept-inner">
+          <p className="section-eyebrow reveal">Concept</p>
+          <h2 className="concept-statement" data-parallax="30">
+            An exhibition,<br /><em>not a feed.</em>
+          </h2>
+          <div className="concept-cols" data-parallax="-14">
+            <p>
+              The moment a work lands in a grid, it becomes one of a million thumbnails.
+              But every piece has an intended order, a distance, a lighting — a silence
+              it deserves around it.
+            </p>
+            <p>
+              HAKONIWA builds a private gallery inside the browser. Visitors walk the room,
+              stop, lean in, and meet your work in the context you designed. One link opens
+              your show to the world.
+            </p>
           </div>
-        </div>
-      </section>
-
-      {/* ============ FEATURES ============ */}
-      <section className="features" id="features">
-        <div className="section-head reveal">
-          <p className="section-eyebrow">FEATURES</p>
-          <h2 className="section-title">できること</h2>
-        </div>
-        <div className="feature-grid">
-          <div className="feature-card reveal">
-            <div className="feature-no">01</div>
-            <h3>ブラウザだけで、個展</h3>
-            <p>アプリもプラグインも不要。リンクを開けばそこがギャラリーの入口。PC・スマホどちらでも歩けます。</p>
-          </div>
-          <div className="feature-card reveal">
-            <div className="feature-no">02</div>
-            <h3>ドラッグ&ドロップで展示</h3>
-            <p>画像をアップロードして、壁面へ配置するだけ。高さや間隔、順路はテンプレートが美しく整えます。</p>
-          </div>
-          <div className="feature-card reveal">
-            <div className="feature-no">03</div>
-            <h3>照明と空間の演出</h3>
-            <p>スポットライト・壁色・床材で作品の世界観を演出。一枚ごとに「見せ方」まで設計できます。</p>
-          </div>
-          <div className="feature-card reveal">
-            <div className="feature-no">04</div>
-            <h3>URLひとつで招待</h3>
-            <p><code>hakoniwa.app/@you</code> — 固有URLを発行。SNSのプロフィールに置けば、常設のポートフォリオに。</p>
-          </div>
-          <div className="feature-card reveal">
-            <div className="feature-no">05</div>
-            <h3>キャプションと物語</h3>
-            <p>タイトル・制作年・ステートメントを銘板として展示。作品の背景まで、来場者に届きます。</p>
-          </div>
-          <div className="feature-card reveal">
-            <div className="feature-no">06</div>
-            <h3>芳名帳とリアクション <small>SOON</small></h3>
-            <p>来場の足跡、感想、いいね。展覧会らしい静かなコミュニケーションを設計中です。</p>
+          <div className="concept-stats reveal">
+            <div className="stat"><b>3 min</b><span>from upload to opening</span></div>
+            <div className="stat"><b>Free</b><span>to start, nothing to install</span></div>
+            <div className="stat"><b>1 URL</b><span>to invite the world</span></div>
           </div>
         </div>
       </section>
@@ -113,24 +103,24 @@ export default function LandingPage() {
       {/* ============ FLOW ============ */}
       <section className="flow" id="flow">
         <div className="section-head reveal">
-          <p className="section-eyebrow">HOW IT WORKS</p>
-          <h2 className="section-title">個展まで、3ステップ</h2>
+          <p className="section-eyebrow">How it works</p>
+          <h2 className="section-title">Three steps to opening night.</h2>
         </div>
         <ol className="flow-steps">
           <li className="reveal">
             <span className="flow-no">01</span>
-            <h3>作品をアップロード</h3>
-            <p>JPG / PNG / WebPに対応。タイトルや説明を添えて、あなたのコレクションに登録します。</p>
+            <h3>Upload your work</h3>
+            <p>JPG, PNG or WebP — with a title, year and notes for your collection.</p>
           </li>
           <li className="reveal">
             <span className="flow-no">02</span>
-            <h3>空間に配置する</h3>
-            <p>ギャラリーテンプレートを選び、壁面に作品をレイアウト。照明と順路を整えます。</p>
+            <h3>Compose the room</h3>
+            <p>Pick a template, arrange the walls, tune the light and the route.</p>
           </li>
           <li className="reveal">
             <span className="flow-no">03</span>
-            <h3>URLで公開する</h3>
-            <p>公開ボタンを押せば、あなたの個展が開幕。リンクを共有して来場者を迎えましょう。</p>
+            <h3>Publish the URL</h3>
+            <p>Press open, send the link, and receive visitors from anywhere.</p>
           </li>
         </ol>
       </section>
@@ -138,15 +128,16 @@ export default function LandingPage() {
       {/* ============ DEMO ============ */}
       <section className="demo reveal" id="demo">
         <div className="demo-card">
-          <div className="demo-art" id="demo-art" aria-hidden="true"></div>
+          <div className="demo-art" id="demo-art" data-parallax="40" aria-hidden="true"></div>
           <div className="demo-body">
-            <p className="section-eyebrow">DEMO EXHIBITION</p>
-            <h2 className="section-title">まずは、<br />歩いてみてください。</h2>
+            <p className="section-eyebrow">Demo Exhibition</p>
+            <h2 className="section-title">First,<br />take a walk.</h2>
             <p>
-              10人の作家(架空)による常設展「HAKONIWA COLLECTION」を公開中。
-              ドラッグで見回し、床をタップして歩き、気になる作品をクリックしてください。
+              The permanent collection shows ten (fictional) artists.
+              Drag to look around, tap the floor to move, and click any work
+              to read its label.
             </p>
-            <Link className="btn btn-primary" href="/demo">デモギャラリーに入場する — 無料</Link>
+            <Link className="btn btn-primary" href="/demo">Enter the demo gallery — free</Link>
           </div>
         </div>
       </section>
@@ -154,44 +145,63 @@ export default function LandingPage() {
       {/* ============ PRICING ============ */}
       <section className="pricing" id="pricing">
         <div className="section-head reveal">
-          <p className="section-eyebrow">PRICING(構想)</p>
-          <h2 className="section-title">料金プラン</h2>
+          <p className="section-eyebrow">Pricing — concept</p>
+          <h2 className="section-title">Plans</h2>
         </div>
         <div className="pricing-grid">
           <div className="price-card reveal">
             <h3>Free</h3>
-            <div className="price"><b>¥0</b><span>/ 月</span></div>
+            <div className="price"><b>¥0</b><span>/ month</span></div>
             <ul>
-              <li>ギャラリー 1室</li>
-              <li>作品 10点まで</li>
-              <li>固有URLで公開</li>
-              <li>スマホ対応ビューア</li>
+              <li>One gallery room</li>
+              <li>Up to 10 works</li>
+              <li>Public URL</li>
+              <li>Mobile-ready viewer</li>
             </ul>
           </div>
           <div className="price-card price-card--pro reveal">
-            <div className="price-badge">FOR ARTISTS</div>
+            <div className="price-badge">For Artists</div>
             <h3>Pro</h3>
-            <div className="price"><b>¥980</b><span>/ 月</span></div>
+            <div className="price"><b>¥980</b><span>/ month</span></div>
             <ul>
-              <li>ギャラリー無制限</li>
-              <li>作品数無制限</li>
-              <li>空間カスタマイズ(壁・床・照明・BGM)</li>
-              <li>来場者アナリティクス</li>
-              <li>独自ドメイン接続</li>
+              <li>Unlimited galleries</li>
+              <li>Unlimited works</li>
+              <li>Space customisation — walls, floor, light, sound</li>
+              <li>Visitor analytics</li>
+              <li>Custom domain</li>
             </ul>
           </div>
         </div>
-        <p className="pricing-note reveal">※ 本サービスはプロトタイプ段階です。料金は要件定義上の構想であり、課金は実装されていません。</p>
+        <p className="pricing-note reveal">HAKONIWA is a prototype. Pricing is part of the product concept — billing is not implemented.</p>
+      </section>
+
+      {/* ============ CLOSING — the invitation ============ */}
+      <section className="closing" id="closing">
+        <div className="closing-inner reveal">
+          <p className="section-eyebrow">Your turn</p>
+          <h2 className="closing-title">Open your<br /><em>own room.</em></h2>
+          <p className="closing-sub">
+            Upload your work, compose the space, and send a single link to the world.
+          </p>
+          <Link className="hero-cta" href="/demo">Walk the gallery</Link>
+        </div>
       </section>
 
       {/* ============ FOOTER ============ */}
       <footer className="footer">
         <div className="footer-logo">HAKONIWA</div>
-        <p>あなたの作品が、空間になる。</p>
+        <p>Your work, given space.</p>
+        <nav className="footer-links" aria-label="Footer">
+          <a href="#concept">Concept</a>
+          <a href="#features">Features</a>
+          <a href="#pricing">Pricing</a>
+          <Link href="/demo">Demo</Link>
+        </nav>
         <div className="footer-meta">
-          <span>Prototype v0.3</span>
-          <span>要件定義: REQUIREMENTS.md</span>
-          <Link href="/demo">デモギャラリー →</Link>
+          <span>Prototype v0.4</span>
+          <span>Privacy</span>
+          <span>Terms</span>
+          <span>© 2026 HAKONIWA</span>
         </div>
       </footer>
     </>
