@@ -100,9 +100,9 @@ export function Hint() {
 
   return (
     <div id="hint" className={`hint${faded ? ' faded' : ''}`}>
-      <div className="hint-row"><b>Drag</b> look</div>
-      <div className="hint-row"><b>WASD / tap floor</b> move</div>
-      <div className="hint-row"><b>‹ › or , .</b> next work</div>
+      <div className="hint-row"><b>W/S · joystick</b> walk & steer</div>
+      <div className="hint-row"><b>Drag</b> look · <b>tap floor</b> go</div>
+      <div className="hint-row"><b>‹ › / , .</b> next work</div>
     </div>
   )
 }

@@ -18,6 +18,9 @@ interface Tween {
   onDone?: () => void
 }
 
+// Steering (auto-heading) turn rate at full input, radians per second
+const TURN_SPEED = 2.0
+
 function easeInOut(t: number) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 }
@@ -111,8 +114,16 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     const dist = from.distanceTo(to)
     if (dist < 0.3) return
     useGallery.getState().setFocused(-1)
+    // Auto-heading: turn to face the direction of travel as we walk there
+    const heading = to.clone().sub(from)
+    const targetYaw = Math.atan2(-heading.x, -heading.z)
+    const fromYaw = state.current.yaw
+    const dYaw = shortestAngle(targetYaw - fromYaw)
     tween(Math.min(2.2, 0.45 + dist * 0.22), (t) => {
-      camera.position.lerpVectors(from, to, easeInOut(t))
+      const k = easeInOut(t)
+      camera.position.lerpVectors(from, to, k)
+      // Finish the turn a little before arriving so we're already facing forward
+      state.current.yaw = fromYaw + dYaw * Math.min(1, k * 1.8)
     })
   }
 
@@ -298,21 +309,23 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       }
     }
 
-    // Key / joystick movement
+    // Steer-based movement (auto-heading): forward walks along the facing,
+    // left/right turns the view so you're always facing where you go.
     let forward =
       (s.keys.has('w') || s.keys.has('arrowup') ? 1 : 0) - (s.keys.has('s') || s.keys.has('arrowdown') ? 1 : 0)
-    let strafe =
+    let turn =
       (s.keys.has('d') || s.keys.has('arrowright') ? 1 : 0) - (s.keys.has('a') || s.keys.has('arrowleft') ? 1 : 0)
     if (joyState.active) {
       forward += -joyState.y
-      strafe += joyState.x
+      turn += joyState.x
     }
-    if (forward || strafe) {
+    forward = THREE.MathUtils.clamp(forward, -1, 1)
+    turn = THREE.MathUtils.clamp(turn, -1, 1)
+    // Turn the heading (skip while a drag-look is active so the two don't fight)
+    if (turn && !s.dragging) s.yaw -= turn * TURN_SPEED * dt
+    if (forward) {
       const dir = new THREE.Vector3(-Math.sin(s.yaw), 0, -Math.cos(s.yaw))
-      const right = new THREE.Vector3(-dir.z, 0, dir.x)
-      const move = dir.multiplyScalar(forward).add(right.multiplyScalar(strafe))
-      if (move.lengthSq() > 1) move.normalize()
-      s.vel.lerp(move.multiplyScalar(3.1), 1 - Math.pow(0.0008, dt))
+      s.vel.lerp(dir.multiplyScalar(forward * 3.1), 1 - Math.pow(0.0008, dt))
     } else {
       s.vel.lerp(new THREE.Vector3(), 1 - Math.pow(0.0001, dt))
     }
