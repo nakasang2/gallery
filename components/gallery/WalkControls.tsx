@@ -44,6 +44,9 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     lastPos: new THREE.Vector3(),
     stepDist: 0,
     introPlayed: false,
+    // Which work the prev/next stepper is anchored to (-1 = free-walking).
+    // Tracked here (not from the store) so rapid taps step correctly before the glide finishes.
+    targetIndex: -1,
   })
   const tweens = useRef<Tween[]>([])
 
@@ -69,6 +72,8 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
 
   function cancelTweens() {
     tweens.current.length = 0
+    // Any glide being cancelled means we're no longer anchored to a work
+    state.current.targetIndex = -1
   }
 
   function clampToRoom(v: THREE.Vector3) {
@@ -115,6 +120,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     const ex = metaRef.current[i]
     if (!ex) return
     cancelTweens()
+    state.current.targetIndex = i // anchor the stepper here (cancelTweens cleared it)
 
     // Distance that fits the whole frame on screen (based on the larger of width/height)
     const viewDist = Math.max(2.4, (ex.width + 0.3) * 2.0, (ex.height + 0.3) * 1.7)
@@ -145,6 +151,34 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     )
   }
 
+  // Index of the work whose center is closest to the camera on the floor plane
+  function nearestIndex() {
+    const meta = metaRef.current
+    let best = 0
+    let bestD = Infinity
+    for (let i = 0; i < meta.length; i++) {
+      const dx = meta[i].center.x - camera.position.x
+      const dz = meta[i].center.z - camera.position.z
+      const d = dx * dx + dz * dz
+      if (d < bestD) {
+        bestD = d
+        best = i
+      }
+    }
+    return best
+  }
+
+  // One action = glide to the next/previous work AND face it (reuses focusExhibit).
+  // From free-walking, the first step goes to the nearest work.
+  function focusStep(dir: number) {
+    const meta = metaRef.current
+    if (!meta.length) return
+    useGallery.getState().setTourActive(false)
+    const cur = state.current.targetIndex
+    const i = cur < 0 ? nearestIndex() : (cur + dir + meta.length) % meta.length
+    focusExhibit(i)
+  }
+
   function resetToEntry() {
     cancelTweens()
     const entry = layoutRef.current.entry
@@ -167,7 +201,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
 
   // Expose so the UI (panel, tour, joystick) can call it
   useEffect(() => {
-    walkRef.current = { focusExhibit, walkTo, cancel: cancelTweens, resetToEntry }
+    walkRef.current = { focusExhibit, focusStep, walkTo, cancel: cancelTweens, resetToEntry }
     return () => {
       walkRef.current = null
     }
@@ -225,6 +259,9 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
         g.setFocused(-1)
         g.setSettingsOpen(false)
       }
+      // Step through the exhibition (move + face the next/previous work)
+      if (k === '.' || k === '>') focusStep(1)
+      if (k === ',' || k === '<') focusStep(-1)
     }
     const onKeyUp = (e: KeyboardEvent) => s.keys.delete(e.key.toLowerCase())
 

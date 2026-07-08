@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useGallery } from '@/lib/store'
+import { useExhibitionList } from '@/lib/exhibition'
+import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 
 export function HudTop() {
@@ -57,6 +59,27 @@ export function HudActions() {
   )
 }
 
+// Self-paced viewer nav: one tap moves to the next/previous work AND faces it
+export function HudStepper() {
+  const count = useExhibitionList().length
+  const focusedIndex = useGallery((s) => s.focusedIndex)
+  if (count === 0) return null
+  const current = focusedIndex >= 0 ? String(focusedIndex + 1).padStart(2, '0') : '–'
+  return (
+    <div className="hud-stepper">
+      <button className="step-btn" aria-label="Previous work" onClick={() => walkRef.current?.focusStep(-1)}>
+        ‹
+      </button>
+      <span className="step-count">
+        {current} <span className="step-sep">/</span> {String(count).padStart(2, '0')}
+      </span>
+      <button className="step-btn" aria-label="Next work" onClick={() => walkRef.current?.focusStep(1)}>
+        ›
+      </button>
+    </div>
+  )
+}
+
 export function Hint() {
   const [faded, setFaded] = useState(false)
 
@@ -79,7 +102,7 @@ export function Hint() {
     <div id="hint" className={`hint${faded ? ' faded' : ''}`}>
       <div className="hint-row"><b>Drag</b> look</div>
       <div className="hint-row"><b>WASD / tap floor</b> move</div>
-      <div className="hint-row"><b>Click a work</b> view</div>
+      <div className="hint-row"><b>‹ › or , .</b> next work</div>
     </div>
   )
 }
