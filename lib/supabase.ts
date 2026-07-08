@@ -1,4 +1,4 @@
-// Supabase クライアント(未設定の環境では null になり、アプリはゲストモードのみで動く)
+// Supabase client (null when not configured, in which case the app runs in guest mode only)
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL

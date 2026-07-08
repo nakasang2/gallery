@@ -1,5 +1,5 @@
 'use client'
-// 3Dギャラリーの本体: R3F Canvas + HUD/パネル類 + 順路ツアー
+// 3D gallery core: R3F Canvas + HUD/panels + guided tour
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
@@ -21,13 +21,13 @@ function LoadingOverlay({ done }: { done: boolean }) {
       <div className="loading-inner">
         <div className="loading-logo">HAKONIWA</div>
         <div className="loading-bar"><span></span></div>
-        <div className="loading-text">ギャラリーを準備しています…</div>
+        <div className="loading-text">Preparing the gallery…</div>
       </div>
     </div>
   )
 }
 
-// 順路ツアー: 作品を順にフォーカスし、鑑賞の間を置いて次へ
+// Guided tour: focus works in order, pausing to view each before moving on
 function useTour() {
   const tourActive = useGallery((s) => s.tourActive)
   const count = useExhibitionList().length
@@ -60,13 +60,13 @@ export default function GalleryApp() {
 
   useTour()
 
-  // プロトタイプ用: コンソールから内部状態を確認できるようにしておく
+  // Prototype: expose internal state on the console for inspection
   useEffect(() => {
     ;(window as unknown as Record<string, unknown>).__hakoniwa = { store: useGallery, walkRef }
     useGallery.getState().initAuth()
   }, [])
 
-  // 環境音・動画音声はブラウザの自動再生制限のため、最初の操作で開始する
+  // Ambient and video audio start on first interaction due to browser autoplay limits
   useEffect(() => {
     const unlock = () => {
       galleryAudio.unlock()
@@ -80,7 +80,7 @@ export default function GalleryApp() {
     }
   }, [])
 
-  // 設定の復元は、canvasに文字を描くフォントの読み込みを待ってから(最大1.5秒)
+  // Restore settings only after the canvas text fonts have loaded (up to 1.5s)
   useEffect(() => {
     let alive = true
     Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(() => {
@@ -106,7 +106,7 @@ export default function GalleryApp() {
             camera.rotation.order = 'YXZ'
             gl.toneMapping = THREE.ACESFilmicToneMapping
             gl.toneMappingExposure = 1.1
-            // シーンは静的なので影は焼き込み方式(GalleryScene が needsUpdate を立てる)
+            // The scene is static, so shadows are baked (GalleryScene sets needsUpdate)
             gl.shadowMap.enabled = true
             gl.shadowMap.type = THREE.PCFShadowMap
             gl.shadowMap.autoUpdate = false

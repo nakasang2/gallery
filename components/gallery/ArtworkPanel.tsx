@@ -1,5 +1,5 @@
 'use client'
-// 作品情報パネル(鑑賞中の作品の解説と、その作品だけの額装変更)
+// Artwork info panel (details for the focused work, plus per-work framing)
 import { FRAMES } from '@/lib/presets'
 import { useExhibitionList, frameKeyFor } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
@@ -20,7 +20,7 @@ export default function ArtworkPanel() {
     <aside id="panel" className={`panel${open ? ' open' : ''}`} aria-hidden={!open}>
       <button
         className="panel-close"
-        aria-label="閉じる"
+        aria-label="Close"
         onClick={() => {
           setTourActive(false)
           setFocused(-1)
@@ -39,10 +39,10 @@ export default function ArtworkPanel() {
               <span key={t}>{t}</span>
             ))}
           </div>
-          {/* 来場者モードでは額装は変えられない */}
+          {/* Framing cannot be changed in visitor mode */}
           {!visitor && (
             <div className="panel-frame">
-              <div className="panel-frame-label">この作品の額装</div>
+              <div className="panel-frame-label">Framing — this work</div>
               <div className="chips">
                 {Object.entries(FRAMES).map(([key, def]) => (
                   <button

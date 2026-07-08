@@ -1,8 +1,8 @@
-// canvas 生成テクスチャと共有キャッシュ(プロトタイプ gallery.js から移植)
+// Canvas-generated textures and shared cache (ported from the gallery.js prototype)
 import * as THREE from 'three'
 import { renderArtworkCanvas, type ArtworkData } from '@/lib/artworks'
 
-/* ---- 漆喰のざらつき(手続き生成のバンプマップ — 外部素材不要) ---- */
+/* ---- Plaster grain (procedural bump map — no external assets needed) ---- */
 
 let plasterBump: THREE.CanvasTexture | null = null
 
@@ -40,19 +40,20 @@ export function getPlasterBump(size = 512): THREE.CanvasTexture {
   return plasterBump
 }
 
-/* ---- 漆喰のノーマルマップ(手続き生成) ----
-   バンプ(高さ近似)より、ノーマルマップの方が斜めから当たる光を正しく拾うため
-   「平らなプラスチック壁」感が消える。多重ノイズの高さ場を Sobel で法線化する */
+/* ---- Plaster normal map (procedural) ----
+   A normal map picks up grazing light more correctly than a bump map (a height
+   approximation), which kills the "flat plastic wall" look. We build a height
+   field from multi-octave noise and convert it to normals with a Sobel filter. */
 
 let plasterNormal: THREE.CanvasTexture | null = null
 
 export function getPlasterNormal(size = 512): THREE.CanvasTexture {
   if (plasterNormal) return plasterNormal
 
-  // 1) 多重オクターブのノイズで高さ場を作る(細かい粒 + 大きなうねり)
+  // 1) Build a height field from multi-octave noise (fine grain + large swells)
   const height = new Float32Array(size * size)
   const rand = (n: number) => {
-    // 決定的でなくてよいので Math.random で層を重ねる
+    // No need to be deterministic, so we stack layers with Math.random
     const cell = document.createElement('canvas')
     cell.width = cell.height = n
     const cx = cell.getContext('2d')!
@@ -63,7 +64,7 @@ export function getPlasterNormal(size = 512): THREE.CanvasTexture {
       img.data[i + 3] = 255
     }
     cx.putImageData(img, 0, 0)
-    // size に引き伸ばして双一次補間(ブラウザの drawImage が補間する)
+    // Stretch to size with bilinear interpolation (the browser's drawImage interpolates)
     const big = document.createElement('canvas')
     big.width = big.height = size
     const bx = big.getContext('2d')!
@@ -71,19 +72,19 @@ export function getPlasterNormal(size = 512): THREE.CanvasTexture {
     bx.drawImage(cell, 0, 0, size, size)
     return bx.getImageData(0, 0, size, size).data
   }
-  // オクターブ: [解像度セル数, 振幅]
+  // Octaves: [cell resolution, amplitude]
   const octaves: [number, number][] = [
-    [8, 0.5], // 大きなうねり(壁の凹凸)
+    [8, 0.5], // large swells (wall undulation)
     [32, 0.3],
     [128, 0.15],
-    [size, 0.08], // 細かいざらつき
+    [size, 0.08], // fine grain
   ]
   for (const [cells, amp] of octaves) {
     const d = rand(cells)
     for (let i = 0; i < height.length; i++) height[i] += (d[i * 4] / 255) * amp
   }
 
-  // 2) Sobel で法線を求めて RGB に符号化
+  // 2) Derive normals with a Sobel filter and encode them into RGB
   const c = document.createElement('canvas')
   c.width = c.height = size
   const ctx = c.getContext('2d')!
@@ -108,7 +109,7 @@ export function getPlasterNormal(size = 512): THREE.CanvasTexture {
   return plasterNormal
 }
 
-/* ---- 作品テクスチャ(再構築をまたいで使い回す) ---- */
+/* ---- Artwork textures (reused across scene rebuilds) ---- */
 
 const texLoader = new THREE.TextureLoader()
 const artTexCache = new Map<string, THREE.Texture>()
@@ -124,7 +125,7 @@ export function getArtTexture(art: ArtworkData): THREE.Texture {
   return tex
 }
 
-/* ---- 銘板 ---- */
+/* ---- Plaque ---- */
 
 export function makePlaqueTexture(art: ArtworkData, index: number): THREE.CanvasTexture {
   const c = document.createElement('canvas')
@@ -134,22 +135,22 @@ export function makePlaqueTexture(art: ArtworkData, index: number): THREE.Canvas
   ctx.fillStyle = '#efece4'
   ctx.fillRect(0, 0, 512, 300)
   ctx.fillStyle = '#b3402e'
-  ctx.font = '500 26px "Zen Kaku Gothic New", sans-serif'
-  ctx.fillText(`No. ${String(index + 1).padStart(2, '0')}`, 42, 66)
+  ctx.font = '500 26px "Geist", sans-serif'
+  ctx.fillText(`NO. ${String(index + 1).padStart(2, '0')}`, 42, 66)
   ctx.fillStyle = '#22201c'
-  ctx.font = '600 44px "Shippori Mincho", serif'
+  ctx.font = '400 44px "Instrument Serif", serif'
   ctx.fillText(art.title, 42, 130)
   ctx.fillStyle = '#55524b'
-  ctx.font = '400 30px "Zen Kaku Gothic New", sans-serif'
+  ctx.font = '400 30px "Geist", sans-serif'
   ctx.fillText(`${art.artist} / ${art.year}`, 42, 190)
-  ctx.font = '300 24px "Zen Kaku Gothic New", sans-serif'
-  ctx.fillText((art.tags || []).join(' ・ '), 42, 244)
+  ctx.font = '300 24px "Geist", sans-serif'
+  ctx.fillText((art.tags || []).join(' · '), 42, 244)
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
 }
 
-/* ---- タイトルウォール ---- */
+/* ---- Title wall ---- */
 
 export interface TitleWallText {
   main: string
@@ -160,9 +161,9 @@ export interface TitleWallText {
 
 export const DEFAULT_TITLE_TEXT: TitleWallText = {
   main: 'HAKONIWA',
-  sub: '― 10人の作家による常設展 ―',
-  note1: 'タイムラインで流れて消える一枚を、歩いて出会う一枚へ。',
-  note2: 'ここは、あなたの箱庭になる予定の場所です。',
+  sub: '— A Permanent Collection of Ten Artists —',
+  note1: 'From a feed that scrolls past, to a room you walk through.',
+  note2: 'This space is waiting to become yours.',
 }
 
 export function makeTitleTexture(dark: boolean, text: TitleWallText = DEFAULT_TITLE_TEXT): THREE.CanvasTexture {
@@ -172,18 +173,18 @@ export function makeTitleTexture(dark: boolean, text: TitleWallText = DEFAULT_TI
   const ctx = c.getContext('2d')!
   ctx.textAlign = 'center'
   ctx.fillStyle = '#d4a24e'
-  ctx.font = '500 40px "Zen Kaku Gothic New", sans-serif'
+  ctx.font = '500 40px "Geist", sans-serif'
   ctx.fillText('E X H I B I T I O N', 1024, 210)
   ctx.fillStyle = dark ? '#22201c' : '#ece7de'
-  // タイトルが長い場合は幅に収まるよう縮める
-  ctx.font = '500 190px "Shippori Mincho", serif'
+  // Shrink the title to fit the width when it's too long
+  ctx.font = '400 190px "Instrument Serif", serif'
   const mainWidth = ctx.measureText(text.main).width
-  if (mainWidth > 1800) ctx.font = `500 ${Math.max(80, Math.floor(190 * (1800 / mainWidth)))}px "Shippori Mincho", serif`
+  if (mainWidth > 1800) ctx.font = `400 ${Math.max(80, Math.floor(190 * (1800 / mainWidth)))}px "Instrument Serif", serif`
   ctx.fillText(text.main, 1024, 450)
-  ctx.font = '500 74px "Shippori Mincho", serif'
+  ctx.font = '400 74px "Instrument Serif", serif'
   ctx.fillText(text.sub, 1024, 600)
   ctx.fillStyle = dark ? '#6b665e' : '#9a938a'
-  ctx.font = '300 44px "Zen Kaku Gothic New", sans-serif'
+  ctx.font = '300 44px "Geist", sans-serif'
   ctx.fillText(text.note1, 1024, 750)
   ctx.fillText(text.note2, 1024, 830)
   const tex = new THREE.CanvasTexture(c)
@@ -192,7 +193,7 @@ export function makeTitleTexture(dark: boolean, text: TitleWallText = DEFAULT_TI
   return tex
 }
 
-/* ---- 床の木目(three.js 公式サンプル素材 / MIT) ---- */
+/* ---- Floor wood grain (three.js official sample assets / MIT) ---- */
 
 let floorBase: { map: THREE.Texture; bumpMap: THREE.Texture; roughnessMap: THREE.Texture } | null = null
 
@@ -213,8 +214,8 @@ export function getFloorTextures() {
   return floorBase
 }
 
-/* ---- 額縁の仕上げ質感(手続き生成、種類ごとにキャッシュ) ---- */
-// 「完全に均一なラフネス」がプラスチックに見える原因なので、微細なムラを与える
+/* ---- Frame finish texture (procedural, cached per kind) ---- */
+// Perfectly uniform roughness is what reads as plastic, so we add subtle unevenness
 
 export type FrameFinish = 'wood' | 'metal' | 'paint'
 
@@ -246,7 +247,7 @@ export function getFrameFinish(kind: FrameFinish) {
       ctx.beginPath()
       if (horizontal) {
         ctx.moveTo(0, p)
-        // 木目のゆらぎ
+        // Wood-grain wobble
         for (let x = 0; x <= size; x += 16) ctx.lineTo(x, p + Math.sin(x * 0.05 + i) * 2.5)
       } else {
         ctx.moveTo(p, 0)
@@ -273,11 +274,11 @@ export function getFrameFinish(kind: FrameFinish) {
       speckle(ctx, 900, 0.06)
     })
   } else if (kind === 'metal') {
-    // ブラシ研磨の細い筋
+    // Fine brushed-polish lines
     bumpMap = make((ctx) => streaks(ctx, true, 220, 0.07))
     roughnessMap = make((ctx) => streaks(ctx, true, 320, 0.2))
   } else {
-    // 塗装のゆず肌
+    // Orange-peel texture of paint
     bumpMap = make((ctx) => speckle(ctx, 2600, 0.1))
     roughnessMap = make((ctx) => speckle(ctx, 2000, 0.14))
   }
@@ -286,7 +287,7 @@ export function getFrameFinish(kind: FrameFinish) {
   return out
 }
 
-/** useMemo + アンマウント時 dispose の小道具 */
+/** Helper for useMemo + dispose on unmount */
 export function disposeAll(objs: Array<{ dispose(): void } | null | undefined>) {
   for (const o of objs) o?.dispose()
 }

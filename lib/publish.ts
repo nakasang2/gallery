@@ -1,5 +1,5 @@
-// ギャラリーの公開(galleries + placements への書き込み)と、公開ページ用の読み出し
-// 読み出しはサーバーコンポーネント(OGP生成)とクライアントの両方から使う
+// Publishing a gallery (writing to galleries + placements) and reading it for the public page
+// The read path is used by both the server component (OGP generation) and the client
 import { supabase } from './supabase'
 import { rowToArtwork } from './cloud'
 import type { ArtworkData } from './artworks'
@@ -27,7 +27,7 @@ export async function setUsername(userId: string, username: string): Promise<voi
     .update({ username })
     .eq('id', userId)
   if (error) {
-    if (error.code === '23505') throw new Error('このユーザー名は既に使われています')
+    if (error.code === '23505') throw new Error('This username is already taken')
     throw error
   }
 }
@@ -55,13 +55,13 @@ export async function saveProfile(userId: string, fields: ProfileFields): Promis
   if (error) throw error
 }
 
-/** 現在の空間設定と出展作品を galleries / placements に反映する(slugは当面 'main' 固定) */
+/** Apply the current space settings and exhibited works to galleries / placements (slug is fixed to 'main' for now) */
 export async function publishGallery(params: {
   userId: string
   title: string
   isPublic: boolean
   settings: Settings
-  /** いま展示中の自分の作品(表示順) */
+  /** Your currently exhibited works (in display order) */
   ownArtworks: ArtworkData[]
 }): Promise<void> {
   const sb = supabase!
@@ -85,7 +85,7 @@ export async function publishGallery(params: {
     .single()
   if (gErr) throw gErr
 
-  // 配置を作り直す(スロット数で頭打ち)
+  // Rebuild the placements (capped at the number of slots)
   const slots = LAYOUTS[settings.layout].slots.length
   const shown = params.ownArtworks.slice(0, slots)
   const { error: dErr } = await sb.from('placements').delete().eq('gallery_id', gallery.id)
@@ -102,7 +102,7 @@ export async function publishGallery(params: {
   }
 }
 
-/** 自分の公開状態を取得(設定パネル表示用) */
+/** Get your own publish status (for the settings panel) */
 export async function getMyGallery(userId: string) {
   const { data, error } = await supabase!
     .from('galleries')
@@ -114,7 +114,7 @@ export async function getMyGallery(userId: string) {
   return data
 }
 
-/** 公開ページ用: username + slug から展示一式を取得(非公開・不存在・取得失敗は null) */
+/** For the public page: fetch the full exhibition from username + slug (null if private, missing, or the fetch fails) */
 export async function fetchPublicExhibition(
   username: string,
   slug: string

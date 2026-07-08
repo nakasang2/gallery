@@ -3,14 +3,14 @@ import './landing.css'
 import './gallery.css'
 
 export const metadata: Metadata = {
-  title: 'HAKONIWA — あなたの作品が、空間になる。',
+  title: 'HAKONIWA — Your work, given space.',
   description:
-    'HAKONIWAは、あなたのアートを3Dギャラリーとして公開できるプラットフォーム。作品をアップロードして空間に配置し、URLひとつで世界に個展を開けます。',
+    'HAKONIWA turns your portfolio into a walkable 3D exhibition. Upload your work, compose the room, and open your show to the world with a single URL.',
   openGraph: {
-    title: 'HAKONIWA — あなたの作品が、空間になる。',
-    description: 'アートを3Dギャラリーとして展示・公開できるプラットフォーム。',
+    title: 'HAKONIWA — Your work, given space.',
+    description: 'A platform for exhibiting art as walkable 3D galleries.',
     siteName: 'HAKONIWA',
-    locale: 'ja_JP',
+    locale: 'en_US',
     type: 'website',
   },
 }
@@ -22,14 +22,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja">
+    <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* canvasテクスチャ(銘板等)にも使うため next/font ではなく実行時読み込み。
-            和文(ギャラリー) + 欧文(ランディング/3Dパネル)の両方を読み込む。 */}
+        {/* Loaded at runtime rather than via next/font because these fonts are also used for canvas textures (name plates, etc.) */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600;800&family=Zen+Kaku+Gothic+New:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
       </head>

@@ -1,10 +1,10 @@
-// サンプル作品データと生成アートのレンダラ
-// シード付き乱数なので、同じ作品は何度描いても同じ絵になる
+// Sample artwork data and the generative-art renderer.
+// A seeded PRNG means the same work always renders to the same image.
 
 export type Rnd = () => number
 type StyleFn = (ctx: CanvasRenderingContext2D, w: number, h: number, pal: string[], rnd: Rnd) => void
 
-// デモ作品(生成アート)とユーザー出展作品(src あり)の共通型
+// Shared type for demo works (generative art) and user-submitted works (with src).
 export interface ArtworkData {
   id: string
   title: string
@@ -13,13 +13,13 @@ export interface ArtworkData {
   desc: string
   tags: string[]
   ratio: [number, number]
-  /** ユーザー出展作品のメディア(dataURL または URL)。デモ作品は未設定 */
+  /** Media for user-submitted works (dataURL or URL). Unset for demo works. */
   src?: string
-  /** メディア種別(未設定は image) */
+  /** Media type (image when unset). */
   kind?: 'image' | 'video'
-  /** 動画のポスター画像URL(一覧サムネイル・OGP・再生開始前の表示に使う) */
+  /** Poster image URL for video (used for list thumbnails, OGP, and the pre-play frame). */
   poster?: string
-  /** 以下はデモ生成アート用 */
+  /** The following are for demo generative art. */
   style?: string
   palette?: keyof typeof PALETTES
   seed?: number
@@ -48,71 +48,71 @@ const PALETTES = {
 
 export const ARTWORKS: ArtworkData[] = [
   {
-    id: 'a01', title: '夜明けの呼吸', artist: '蒼井ミナト', year: 2025,
+    id: 'a01', title: 'Breathing at Dawn', artist: 'Minato Aoi', year: 2025,
     ratio: [4, 3], style: 'waves', palette: 'yoake', seed: 11,
-    desc: '眠りと目覚めの境目にある数分間を、幾重にも折り重なる稜線として描いたシリーズの一枚。',
-    tags: ['ペインティング', '抽象'],
+    desc: 'From a series that renders the few minutes between sleep and waking as layer upon layer of folded ridgelines.',
+    tags: ['Painting', 'Abstract'],
   },
   {
-    id: 'a02', title: '深海からの手紙', artist: '曳野ハル', year: 2024,
+    id: 'a02', title: 'Letters from the Deep', artist: 'Haru Hikino', year: 2024,
     ratio: [3, 4], style: 'orbs', palette: 'shinkai', seed: 27,
-    desc: '光の届かない場所から浮かび上がってくる気泡を、届くはずのない手紙に見立てて。',
-    tags: ['デジタル', '抽象'],
+    desc: 'Air bubbles rising from where no light reaches, read as letters that were never meant to arrive.',
+    tags: ['Digital', 'Abstract'],
   },
   {
-    id: 'a03', title: '金色の残響', artist: 'KAEDE', year: 2025,
+    id: 'a03', title: 'Golden Reverb', artist: 'KAEDE', year: 2025,
     ratio: [1, 1], style: 'thread', palette: 'hihou', seed: 42,
-    desc: '鳴り終わった音は消えるのではなく、空間に糸として残り続ける——そんな仮説のドローイング。',
-    tags: ['ジェネラティブ'],
+    desc: 'A drawing built on one hypothesis: a sound that has ended does not vanish — it stays in the room as thread.',
+    tags: ['Generative'],
   },
   {
-    id: 'a04', title: '祭りのあと', artist: '月島ルイ', year: 2023,
+    id: 'a04', title: 'After the Festival', artist: 'Rui Tsukishima', year: 2023,
     ratio: [3, 4], style: 'bauhaus', palette: 'matsuri', seed: 8,
-    desc: '屋台が畳まれた深夜の境内に残る色の記憶を、幾何学の断片として再構成した。',
-    tags: ['グラフィック', '幾何学'],
+    desc: 'The colours left in a shrine courtyard after the stalls have been folded away, reassembled as geometric fragments.',
+    tags: ['Graphic', 'Geometry'],
   },
   {
-    id: 'a05', title: '森の輪郭', artist: '白石このみ', year: 2025,
+    id: 'a05', title: 'Outline of a Forest', artist: 'Konomi Shiraishi', year: 2025,
     ratio: [4, 3], style: 'mosaic', palette: 'mori', seed: 63,
-    desc: '一枚の葉ではなく「森」というまとまりが立ち上がる瞬間を、色面の集積で探る。',
-    tags: ['ペインティング', '風景'],
+    desc: 'Not a single leaf, but the moment a “forest” emerges as a whole — traced through an accumulation of colour fields.',
+    tags: ['Painting', 'Landscape'],
   },
   {
-    id: 'a06', title: '空の重さ', artist: '蒼井ミナト', year: 2024,
+    id: 'a06', title: 'The Weight of Sky', artist: 'Minato Aoi', year: 2024,
     ratio: [3, 2], style: 'horizon', palette: 'sora', seed: 5,
-    desc: '晴れた日の空にも質量がある。地平線に積もっていく青のグラデーションの観察記録。',
-    tags: ['風景', '抽象'],
+    desc: 'Even a clear sky has mass. A field study of blue gradients settling onto the horizon.',
+    tags: ['Landscape', 'Abstract'],
   },
   {
-    id: 'a07', title: '静かな熱', artist: '遠野アキ', year: 2025,
+    id: 'a07', title: 'Quiet Heat', artist: 'Aki Tono', year: 2025,
     ratio: [3, 4], style: 'fields', palette: 'hihou', seed: 91,
-    desc: '感情が言葉になる前の、輪郭のない温度。色面の境界をあえて滲ませている。',
-    tags: ['ペインティング', 'カラーフィールド'],
+    desc: 'The shapeless temperature of a feeling before it finds words. The edges of each colour field are left to bleed.',
+    tags: ['Painting', 'Color Field'],
   },
   {
-    id: 'a08', title: '墨の庭', artist: '硯たまき', year: 2024,
+    id: 'a08', title: 'Ink Garden', artist: 'Tamaki Suzuri', year: 2024,
     ratio: [3, 4], style: 'ink', palette: 'sumi', seed: 19,
-    desc: '筆を置いてから紙が乾くまでの偶然を庭に見立てた、一発描きの連作より。',
-    tags: ['水墨', 'ドローイング'],
+    desc: 'From a series of single-stroke works that treat the accident between brush and drying paper as a garden.',
+    tags: ['Ink', 'Drawing'],
   },
   {
-    id: 'a09', title: 'うつろい', artist: 'KAEDE', year: 2025,
+    id: 'a09', title: 'Transience', artist: 'KAEDE', year: 2025,
     ratio: [1, 1], style: 'arcs', palette: 'sora', seed: 74,
-    desc: '同心円は時計の代わり。中心から外へ向かうほど、時間は速く流れていく。',
-    tags: ['ジェネラティブ', 'ミニマル'],
+    desc: 'Concentric circles in place of a clock. The further from the centre, the faster time runs.',
+    tags: ['Generative', 'Minimal'],
   },
   {
-    // デモ唯一の映像作品(音付き)。近づくと雨音と遠雷が聞こえてくる
-    // style/palette はLPのサムネイル生成用に残している
-    id: 'a10', title: '遠雷', artist: '月島ルイ', year: 2025,
+    // The only video work in the demo (with sound). As you approach, rain and distant thunder become audible.
+    // style/palette are kept for generating the landing-page thumbnail.
+    id: 'a10', title: 'Distant Thunder', artist: 'Rui Tsukishima', year: 2025,
     ratio: [9, 16], style: 'rain', palette: 'shinkai', seed: 33,
     kind: 'video', src: '/demo-works/enrai.webm', poster: '/demo-works/enrai-poster.jpg',
-    desc: '夕立の直前、空気が縦に流れはじめる。あの数秒の緊張だけを取り出したかった。近づくと、雨の音がする。',
-    tags: ['映像', 'サウンド'],
+    desc: 'Just before a downpour, the air begins to move vertically. I wanted to isolate only those few seconds of tension. As you come closer, you hear the rain.',
+    tags: ['Video', 'Sound'],
   },
 ]
 
-/* ---- 各スタイルの描画関数 ---- */
+/* ---- Draw functions for each style ---- */
 
 const styles: Record<string, StyleFn> = {
   waves(ctx, w, h, pal, rnd) {
@@ -247,7 +247,7 @@ const styles: Record<string, StyleFn> = {
     const rows = Math.ceil(h / cw)
     for (let gy = 0; gy < rows; gy++) {
       for (let gx = 0; gx < n; gx++) {
-        // 中央ほど濃い色が出やすい、ゆるい島のかたち
+        // A loose island shape, darker colours tending to appear toward the centre.
         const dx = (gx / n - 0.5) * 2
         const dy = (gy / rows - 0.5) * 2
         const d = Math.sqrt(dx * dx + dy * dy)
@@ -269,7 +269,7 @@ const styles: Record<string, StyleFn> = {
       ctx.fillStyle = g
       ctx.fillRect(0, y0 - 1, w, h / bands + 2)
     }
-    // 太陽
+    // Sun
     const sx = w * (0.3 + rnd() * 0.4)
     const sy = h * (0.28 + rnd() * 0.2)
     const sr = w * 0.09
@@ -279,7 +279,7 @@ const styles: Record<string, StyleFn> = {
     ctx.arc(sx, sy, sr, 0, Math.PI * 2)
     ctx.fill()
     ctx.globalAlpha = 1
-    // 地平線のかすかな起伏
+    // Faint undulation along the horizon.
     ctx.fillStyle = pal[0]
     ctx.beginPath()
     ctx.moveTo(0, h)
@@ -300,7 +300,7 @@ const styles: Record<string, StyleFn> = {
       [0.08, 0.82, 0.84, 0.1, pal[4]],
     ]
     for (const [zx, zy, zw, zh, color] of zones) {
-      // ふちの滲み: 半透明の矩形を少しずつずらして重ねる
+      // Bleeding edges: overlay translucent rectangles, each nudged slightly.
       for (let i = 0; i < 14; i++) {
         const jx = (rnd() - 0.5) * w * 0.02
         const jy = (rnd() - 0.5) * h * 0.015
@@ -315,14 +315,14 @@ const styles: Record<string, StyleFn> = {
   ink(ctx, w, h, pal, rnd) {
     ctx.fillStyle = pal[0]
     ctx.fillRect(0, 0, w, h)
-    // 紙の質感
+    // Paper texture.
     for (let i = 0; i < 900; i++) {
       ctx.globalAlpha = 0.04
       ctx.fillStyle = pal[1]
       ctx.fillRect(rnd() * w, rnd() * h, 1.5, 1.5)
     }
     ctx.globalAlpha = 1
-    // 筆致(ランダムウォーク)
+    // Brushstrokes (random walk).
     const strokes = 7
     for (let s = 0; s < strokes; s++) {
       let x = w * (0.2 + rnd() * 0.6)
@@ -349,7 +349,7 @@ const styles: Record<string, StyleFn> = {
       }
     }
     ctx.globalAlpha = 1
-    // 落款(らっかん)
+    // Artist's seal.
     const seal = w * 0.06
     ctx.fillStyle = pal[4]
     ctx.fillRect(w * 0.84, h * 0.82, seal, seal * 1.4)
@@ -389,7 +389,7 @@ const styles: Record<string, StyleFn> = {
     g.addColorStop(1, pal[2])
     ctx.fillStyle = g
     ctx.fillRect(0, 0, w, h)
-    // 遠雷のにじみ
+    // Bloom of distant thunder.
     for (let i = 0; i < 4; i++) {
       const x = rnd() * w
       const y = rnd() * h * 0.4
@@ -401,7 +401,7 @@ const styles: Record<string, StyleFn> = {
       ctx.fillStyle = grad
       ctx.fillRect(x - r, y - r, r * 2, r * 2)
     }
-    // 縦の雨脚
+    // Vertical streaks of rain.
     for (let i = 0; i < 240; i++) {
       const x = rnd() * w
       const y = rnd() * h
@@ -418,7 +418,7 @@ const styles: Record<string, StyleFn> = {
   },
 }
 
-/** 作品をcanvasに描画して返す(longSide = 長辺のピクセル数) */
+/** Render a work to a canvas and return it (longSide = pixel length of the longer edge). */
 export function renderArtworkCanvas(art: ArtworkData, longSide = 768): HTMLCanvasElement {
   const [rw, rh] = art.ratio
   const w = rw >= rh ? longSide : Math.round((longSide * rw) / rh)

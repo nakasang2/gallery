@@ -1,13 +1,13 @@
 'use client'
-// フェイク・ボリューメトリックライト: スポットライトの光のシャフトを
-// 加算合成の円錐で描く。レイマーチング不要でほぼ無コスト、塵と合わさると
-// 「光の中を塵が舞う」美術館の空気感になる
+// Fake volumetric light: draw a spotlight's light shaft as an additively blended
+// cone. No ray marching, so it's nearly free, and combined with the dust it gives
+// the museum atmosphere of "dust drifting through the light"
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { disposeAll } from './textures'
 
 const vertexShader = /* glsl */ `
-  varying float vAxis;      // 1 = 光源側, 0 = 先端
+  varying float vAxis;      // 1 = light source side, 0 = tip
   varying vec3 vNormal;
   varying vec3 vViewDir;
   void main() {
@@ -26,7 +26,7 @@ const fragmentShader = /* glsl */ `
   varying vec3 vNormal;
   varying vec3 vViewDir;
   void main() {
-    // 光源側ほど濃く、正面から見た中心ほど濃く(縁は視線と法線が直交して消える)
+    // Denser toward the source and toward the center seen head-on (edges fade where the view and normal are perpendicular)
     float axial = pow(vAxis, 1.7);
     float edge = pow(abs(dot(normalize(vNormal), normalize(vViewDir))), 1.4);
     float a = axial * edge * uOpacity;
@@ -49,11 +49,11 @@ export default function LightCone({
 }) {
   const { geometry, position, quaternion, material } = useMemo(() => {
     const dir = to.clone().sub(from)
-    const length = dir.length() * 0.94 // 作品の少し手前で消える
+    const length = dir.length() * 0.94 // fades out just short of the artwork
     dir.normalize()
     const radiusEnd = Math.tan(angle * 0.8) * length
     const geo = new THREE.CylinderGeometry(0.05, radiusEnd, length, 20, 1, true)
-    geo.translate(0, -length / 2, 0) // 原点=光源、-Y方向に伸びる
+    geo.translate(0, -length / 2, 0) // origin = light source, extends along -Y
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir)
     const mat = new THREE.ShaderMaterial({
       vertexShader,
