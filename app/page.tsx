@@ -16,7 +16,10 @@ export default function LandingPage() {
           <a href="#pricing">Pricing</a>
           <Link href="/signin">Sign in</Link>
         </div>
-        <Link className="btn btn-small" href="/demo">Enter demo</Link>
+        <div className="nav-actions">
+          <Link className="btn btn-small nav-demo" href="/demo">Enter demo</Link>
+          <Link className="btn btn-small btn-gold" href="/signup">Start free</Link>
+        </div>
       </nav>
 
       {/* ============ HERO — immersive entry ============ */}
@@ -39,6 +42,9 @@ export default function LandingPage() {
             A permanent room for your work — walked, not scrolled.
           </p>
           <Link className="hero-cta" href="/demo">Walk the gallery</Link>
+          <p className="hero-alt">
+            <Link href="/signup">or create your own — free →</Link>
+          </p>
         </div>
 
         <div className="hero-scroll" aria-hidden="true">Scroll to enter</div>

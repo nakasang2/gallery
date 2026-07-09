@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 import { rowToArtwork } from './cloud'
 import type { ArtworkData } from './artworks'
 import type { Settings } from './store'
-import { rebuildPlacements } from './galleries'
+import { getMyGalleryRow, rebuildPlacements } from './galleries'
 import { normalizeLayoutParams, type CustomLayoutParams } from './presets'
 
 export interface PublicExhibition {
@@ -69,7 +69,9 @@ export async function saveProfile(
   if (error) throw error
 }
 
-/** Apply the current space settings and exhibited works to galleries / placements (slug is fixed to 'main' for now) */
+/** Apply the current space settings and exhibited works to galleries / placements.
+ *  Updates the user's EXISTING hakoniwa row whatever its slug is (a dashboard URL
+ *  change must not fork a second gallery); only creates a row when none exists. */
 export async function publishGallery(params: {
   userId: string
   title: string
@@ -81,28 +83,34 @@ export async function publishGallery(params: {
   const sb = supabase!
   const { settings } = params
 
-  const { data: gallery, error: gErr } = await sb
-    .from('galleries')
-    .upsert(
-      {
-        owner_id: params.userId,
-        slug: 'main',
-        title: params.title,
-        theme: settings.theme,
-        layout: settings.layout,
-        layout_params: settings.layout === 'custom' ? settings.layoutParams : {},
-        frame_default: settings.frame,
-        hanging_default: settings.hanging,
-        caption_default: settings.caption,
-        is_public: params.isPublic,
-      },
-      { onConflict: 'owner_id,slug' }
-    )
-    .select('id')
-    .single()
-  if (gErr) throw gErr
+  const fields = {
+    title: params.title,
+    theme: settings.theme,
+    layout: settings.layout,
+    layout_params: settings.layout === 'custom' ? settings.layoutParams : {},
+    frame_default: settings.frame,
+    hanging_default: settings.hanging,
+    caption_default: settings.caption,
+    is_public: params.isPublic,
+  }
 
-  await rebuildPlacements(gallery.id, settings, params.ownArtworks)
+  const existing = await getMyGalleryRow(params.userId)
+  let galleryId: string
+  if (existing) {
+    const { error } = await sb.from('galleries').update(fields).eq('id', existing.id)
+    if (error) throw error
+    galleryId = existing.id
+  } else {
+    const { data, error } = await sb
+      .from('galleries')
+      .insert({ owner_id: params.userId, slug: 'main', ...fields })
+      .select('id')
+      .single()
+    if (error) throw error
+    galleryId = data.id
+  }
+
+  await rebuildPlacements(galleryId, settings, params.ownArtworks)
 }
 
 /** Get your own publish status (for the settings panel) */

@@ -522,7 +522,7 @@ function AccountCard() {
     if (!confirm('This cannot be undone. Really delete everything?')) return
     setBusy(true)
     try {
-      await deleteMyAccount()
+      await deleteMyAccount(user.id)
       location.href = '/'
     } catch (e) {
       alert(

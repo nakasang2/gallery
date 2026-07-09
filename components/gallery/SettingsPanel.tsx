@@ -138,6 +138,7 @@ function AccountSection() {
 function PublishSection() {
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
+  const myGallery = useGallery((s) => s.myGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const settings = useSettings()
@@ -219,7 +220,9 @@ function PublishSection() {
     )
   }
 
-  const publicUrl = typeof window !== 'undefined' ? `${location.origin}/@${username}/main` : ''
+  // Use the actual slug (the dashboard can change it) — never assume 'main'
+  const publicUrl =
+    typeof window !== 'undefined' ? `${location.origin}/@${username}/${myGallery?.slug ?? 'main'}` : ''
 
   return (
     <>

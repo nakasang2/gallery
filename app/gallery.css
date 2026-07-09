@@ -591,5 +591,7 @@ body.gallery-mode {
   .panel-close { top: 0.8rem; right: 0.9rem; }
   .panel-title { font-size: 1.45rem; }
   .hud-actions { bottom: 4.4rem; }
+  /* While the bottom sheet is open, the pager rides just above it (sheet is max 50vh) */
+  .hud-stepper.lifted { bottom: calc(50vh + 0.8rem); z-index: 21; }
   .settings { width: 100vw; border-left: none; }
 }

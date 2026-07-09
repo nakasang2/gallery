@@ -220,31 +220,37 @@ export async function artworkPlacementCount(artworkId: string): Promise<number> 
   return count ?? 0
 }
 
-/** Remove every stored file belonging to this user (account deletion; DB rows cascade separately) */
-async function deleteAllMyStorage(): Promise<void> {
-  const { data, error } = await supabase!.from('artworks').select('storage_path')
-  if (error) throw error
+/**
+ * Delete the account and everything in it (REQUIREMENTS 10.1).
+ *
+ * Order matters: the delete_my_account RPC (0007) goes FIRST so that a failure
+ * (unapplied migration, network) leaves the account fully intact and retryable.
+ * Storage cleanup runs after, best-effort with the still-valid JWT — a failure
+ * there only orphans files (a cost concern), never harms the user.
+ */
+export async function deleteMyAccount(ownerId: string): Promise<void> {
+  const sb = supabase!
+  // Collect the file paths up front — the DB rows are gone after the RPC cascades
+  const { data } = await sb.from('artworks').select('storage_path').eq('owner_id', ownerId)
   const paths = (data ?? []).flatMap((r) => [
     `${r.storage_path}/display.jpg`,
     `${r.storage_path}/thumb.jpg`,
     `${r.storage_path}/video`,
   ])
-  // Storage remove() takes batches; nonexistent keys are ignored
-  for (let i = 0; i < paths.length; i += 100) {
-    await supabase!.storage.from('artworks').remove(paths.slice(i, i + 100))
-  }
-}
+  paths.push(`${ownerId}/avatar.jpg`)
 
-/**
- * Delete the account and everything in it (REQUIREMENTS 10.1).
- * Storage files first (they don't cascade), then the auth user via the
- * delete_my_account RPC (0007) — profiles/artworks/galleries/placements cascade from there.
- */
-export async function deleteMyAccount(): Promise<void> {
-  await deleteAllMyStorage()
-  const { error } = await supabase!.rpc('delete_my_account')
+  const { error } = await sb.rpc('delete_my_account')
   if (error) throw error
-  await supabase!.auth.signOut().catch(() => {}) // session is already invalid — best effort
+
+  // Point of no return passed — clean the bucket, but never surface a failure as one
+  try {
+    for (let i = 0; i < paths.length; i += 100) {
+      await sb.storage.from('artworks').remove(paths.slice(i, i + 100))
+    }
+  } catch (e) {
+    console.warn('storage cleanup after account deletion failed (files orphaned):', e)
+  }
+  await sb.auth.signOut().catch(() => {}) // session is already invalid — best effort
 }
 
 export async function deleteArtwork(ownerId: string, artworkId: string): Promise<void> {

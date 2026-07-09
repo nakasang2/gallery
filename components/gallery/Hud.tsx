@@ -91,7 +91,8 @@ export function HudStepper() {
   if (count === 0) return null
   const current = focusedIndex >= 0 ? String(focusedIndex + 1).padStart(2, '0') : '–'
   return (
-    <div className="hud-stepper">
+    // 'lifted' rides above the phone bottom sheet so browsing next/prev never needs closing it
+    <div className={`hud-stepper${focusedIndex >= 0 ? ' lifted' : ''}`}>
       <button className="step-btn" aria-label="Previous work" onClick={() => walkRef.current?.focusStep(-1)}>
         ‹
       </button>

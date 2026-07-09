@@ -276,7 +276,8 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return // ignore while typing in the settings panel
+      // Ignore while typing anywhere editable (settings inputs, guestbook/bio textareas, …)
+      if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable]')) return
       const k = e.key.toLowerCase()
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
         s.keys.add(k)

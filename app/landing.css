@@ -274,9 +274,10 @@ a { color: inherit; }
   z-index: 1;
   background: transparent;
 }
-/* 3D有効時: 廊下を歩き切るための縦スクロール量を確保(コンテンツは3D側) */
+/* 3D有効時: 廊下を歩き切るための縦スクロール量を確保(コンテンツは3D側)。
+   長すぎるとファネル(料金・登録)が埋没するため 400vh に抑える */
 .has-hero3d .corridor {
-  height: 700vh;
+  height: 400vh;
 }
 .has-hero3d .corridor-fallback { display: none; }
 /* 3D時はスクロール同期の2D見出し(.journey-hud)が案内するため、旧キューは隠す */
@@ -854,6 +855,16 @@ a { color: inherit; }
 }
 .price-card ul { list-style: none; }
 .price-cta { display: inline-block; margin-top: 1.4rem; text-decoration: none; }
+.nav-actions { display: flex; align-items: center; gap: 0.55rem; }
+.btn-gold { border-color: rgba(212, 162, 78, 0.65); color: #d4a24e; }
+.btn-gold:hover { border-color: #d4a24e; }
+.hero-alt { margin-top: 1.3rem; font-size: 0.8rem; }
+.hero-alt a { color: var(--muted); text-decoration: none; letter-spacing: 0.08em; }
+.hero-alt a:hover { color: var(--ink); }
+@media (max-width: 520px) {
+  /* 狭幅ではデモボタンを畳む(ヒーローに同じCTAがある) */
+  .nav-demo { display: none; }
+}
 .closing-alt { margin-top: 1.4rem; font-size: 0.82rem; }
 .closing-alt a { color: var(--muted); text-decoration: none; letter-spacing: 0.08em; }
 .closing-alt a:hover { color: var(--ink); }
@@ -903,7 +914,7 @@ a { color: inherit; }
 }
 /* 3D時: 廊下を抜けて大部屋が現れる"間"を作るため、締めに縦スクロールの余白を持たせる */
 .has-hero3d .closing {
-  min-height: 190vh;
+  min-height: 130vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1046,7 +1057,9 @@ a { color: inherit; }
 
 @media (max-width: 900px) {
   .nav { padding: 1rem 1.4rem; }
-  .nav-links { display: none; }
+  /* モバイル: セクションアンカーだけ隠し、Sign in と CTA は残す(導線を消さない) */
+  .nav-links a[href^='#'] { display: none; }
+  .nav-links { gap: 1rem; }
   .hero { padding: 0; }
   /* モバイル(3D非表示): 主役1点を中央上に据えて、ヒーローの"空き"を埋める */
   .hero-floats { display: block; transform: none; }
