@@ -39,8 +39,6 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
   const p = await fetchPublicProfile(username)
   if (!p) notFound()
 
-  const reportEmail = process.env.NEXT_PUBLIC_REPORT_EMAIL
-
   return (
     <main className="artist-page">
       <div className="me-inner">
@@ -48,8 +46,16 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
           <Link href="/" className="auth-logo">HAKONIWA</Link>
         </div>
 
-        <h1 className="artist-name">{p.displayName}</h1>
-        <p className="artist-handle">@{p.username}</p>
+        <div className="artist-head">
+          {p.avatarUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className="artist-avatar" src={p.avatarUrl} alt="" />
+          )}
+          <div>
+            <h1 className="artist-name">{p.displayName}</h1>
+            <p className="artist-handle">@{p.username}</p>
+          </div>
+        </div>
         {p.bio && <p className="artist-bio">{p.bio}</p>}
 
         <section className="me-section" style={{ marginTop: '2.4rem' }}>
@@ -80,11 +86,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
         <footer className="artist-footer">
           <Link href="/terms">Terms</Link>
           <Link href="/privacy">Privacy</Link>
-          {reportEmail && (
-            <a href={`mailto:${reportEmail}?subject=${encodeURIComponent(`Report: @${p.username}`)}`}>
-              Report a problem
-            </a>
-          )}
+          <Link href={`/report?about=${encodeURIComponent(`@${p.username}`)}`}>Report a problem</Link>
         </footer>
       </div>
     </main>

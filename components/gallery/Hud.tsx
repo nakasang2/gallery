@@ -9,7 +9,6 @@ import { galleryAudio } from '@/lib/audio'
 
 export function HudTop() {
   const visitor = useGallery((s) => s.visitor)
-  const reportEmail = process.env.NEXT_PUBLIC_REPORT_EMAIL
   return (
     <header className="hud-top">
       <Link className="hud-back" href="/">← HAKONIWA</Link>
@@ -21,17 +20,13 @@ export function HudTop() {
               <Link className="hud-artist-link" href={`/@${visitor.username}`}>
                 {visitor.ownerName} — @{visitor.username}
               </Link>
-              {reportEmail && (
-                <>
-                  {' · '}
-                  <a
-                    className="hud-report"
-                    href={`mailto:${reportEmail}?subject=${encodeURIComponent(`Report: @${visitor.username}/${visitor.slug}`)}`}
-                  >
-                    Report
-                  </a>
-                </>
-              )}
+              {' · '}
+              <Link
+                className="hud-report"
+                href={`/report?about=${encodeURIComponent(`@${visitor.username}/${visitor.slug}`)}`}
+              >
+                Report
+              </Link>
             </>
           ) : (
             'A permanent collection — ten artists'
@@ -47,6 +42,8 @@ export function HudActions() {
   const setTourActive = useGallery((s) => s.setTourActive)
   const settingsOpen = useGallery((s) => s.settingsOpen)
   const setSettingsOpen = useGallery((s) => s.setSettingsOpen)
+  const guestbookOpen = useGallery((s) => s.guestbookOpen)
+  const setGuestbookOpen = useGallery((s) => s.setGuestbookOpen)
   const visitor = useGallery((s) => s.visitor)
   const [audioOn, setAudioOn] = useState(galleryAudio.enabled)
 
@@ -69,8 +66,16 @@ export function HudActions() {
       >
         {tourActive ? '■ End tour' : '▶ Guided tour'}
       </button>
-      {/* No editing in visitor mode */}
-      {!visitor && (
+      {/* Visitors sign the guestbook; owners edit the space */}
+      {visitor ? (
+        <button
+          id="btn-guestbook"
+          className={`hud-btn${guestbookOpen ? ' active' : ''}`}
+          onClick={() => setGuestbookOpen(!guestbookOpen)}
+        >
+          ✎ Guestbook
+        </button>
+      ) : (
         <button id="btn-settings" className="hud-btn" onClick={() => setSettingsOpen(!settingsOpen)}>
           Edit space
         </button>

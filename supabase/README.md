@@ -13,6 +13,9 @@
    - `0005_dashboard.sql` — ギャラリー更新日時(ダッシュボード用)
    - `0006_storage_bytes.sql` — 作品ごとの保存容量(300MB上限の実測用)
    - `0007_delete_account.sql` — アカウント削除RPC(本人限定・cascade削除)
+   - `0008_engagement.sql` — 訪問記録・芳名帳・いいね(来場者エンゲージメント)
+   - `0009_space_extras.sql` — カスタムレイアウトのパラメータ・OGP代表作の指定
+   - `0010_reports.sql` — 通報のDB受付(閲覧はSQL Editor / service roleで)
 3. 「Success. No rows returned」が出れば完了
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、

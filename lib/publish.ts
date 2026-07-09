@@ -5,8 +5,10 @@ import { rowToArtwork } from './cloud'
 import type { ArtworkData } from './artworks'
 import type { Settings } from './store'
 import { rebuildPlacements } from './galleries'
+import { normalizeLayoutParams, type CustomLayoutParams } from './presets'
 
 export interface PublicExhibition {
+  galleryId: string
   title: string
   statement: string
   ownerName: string
@@ -14,9 +16,11 @@ export interface PublicExhibition {
   slug: string
   theme: string
   layout: string
+  layoutParams: CustomLayoutParams
   frame: string
   hanging: string
   caption: string
+  coverArtworkId: string | null
   frameOverrides: Record<string, string>
   artworks: ArtworkData[]
 }
@@ -37,19 +41,27 @@ export async function setUsername(userId: string, username: string): Promise<voi
 export interface ProfileFields {
   displayName: string
   bio: string
+  avatarUrl: string | null
 }
 
 export async function getProfile(userId: string): Promise<ProfileFields> {
   const { data, error } = await supabase!
     .from('profiles')
-    .select('display_name, bio')
+    .select('display_name, bio, avatar_url')
     .eq('id', userId)
     .maybeSingle()
   if (error) throw error
-  return { displayName: data?.display_name ?? '', bio: data?.bio ?? '' }
+  return {
+    displayName: data?.display_name ?? '',
+    bio: data?.bio ?? '',
+    avatarUrl: data?.avatar_url ?? null,
+  }
 }
 
-export async function saveProfile(userId: string, fields: ProfileFields): Promise<void> {
+export async function saveProfile(
+  userId: string,
+  fields: Pick<ProfileFields, 'displayName' | 'bio'>
+): Promise<void> {
   const { error } = await supabase!
     .from('profiles')
     .update({ display_name: fields.displayName.trim() || null, bio: fields.bio.trim() })
@@ -78,6 +90,7 @@ export async function publishGallery(params: {
         title: params.title,
         theme: settings.theme,
         layout: settings.layout,
+        layout_params: settings.layout === 'custom' ? settings.layoutParams : {},
         frame_default: settings.frame,
         hanging_default: settings.hanging,
         caption_default: settings.caption,
@@ -110,6 +123,7 @@ export interface PublicProfile {
   username: string
   displayName: string
   bio: string
+  avatarUrl: string | null
   galleries: {
     slug: string
     title: string
@@ -126,14 +140,14 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
   try {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, username, display_name, bio')
+      .select('id, username, display_name, bio, avatar_url')
       .eq('username', username)
       .maybeSingle()
     if (!profile) return null
 
     const { data: galleries } = await supabase
       .from('galleries')
-      .select('id, slug, title, statement')
+      .select('id, slug, title, statement, cover_artwork_id')
       .eq('owner_id', profile.id)
       .eq('is_public', true)
       .order('created_at', { ascending: true })
@@ -142,6 +156,7 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
       username: profile.username!,
       displayName: profile.display_name || profile.username || '',
       bio: profile.bio ?? '',
+      avatarUrl: profile.avatar_url ?? null,
       galleries: [],
     }
     for (const g of galleries ?? []) {
@@ -153,7 +168,9 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
       const rows = (placements ?? [])
         .map((p) => p.artworks as unknown as Parameters<typeof rowToArtwork>[0] | null)
         .filter(Boolean)
-      const first = rows[0] ? rowToArtwork(rows[0]!, out.displayName) : null
+      // Cover: the manually chosen work if it hangs here, otherwise slot 0 (decision 10.8-7)
+      const coverRow = rows.find((r) => r!.id === g.cover_artwork_id) ?? rows[0]
+      const first = coverRow ? rowToArtwork(coverRow, out.displayName) : null
       out.galleries.push({
         slug: g.slug,
         title: g.title,
@@ -196,7 +213,9 @@ async function fetchPublicExhibitionInner(
 
   const { data: gallery } = await supabase!
     .from('galleries')
-    .select('id, title, statement, theme, layout, frame_default, hanging_default, caption_default, is_public')
+    .select(
+      'id, title, statement, theme, layout, layout_params, frame_default, hanging_default, caption_default, cover_artwork_id, is_public'
+    )
     .eq('owner_id', profile.id)
     .eq('slug', slug)
     .eq('is_public', true)
@@ -220,6 +239,7 @@ async function fetchPublicExhibitionInner(
   }
 
   return {
+    galleryId: gallery.id,
     title: gallery.title,
     statement: gallery.statement,
     ownerName,
@@ -227,10 +247,12 @@ async function fetchPublicExhibitionInner(
     slug,
     theme: gallery.theme,
     layout: gallery.layout,
+    layoutParams: normalizeLayoutParams(gallery.layout_params),
     frame: gallery.frame_default,
     // Older galleries predate these columns; fall back to sensible defaults
     hanging: gallery.hanging_default ?? 'wire',
     caption: gallery.caption_default ?? 'side',
+    coverArtworkId: gallery.cover_artwork_id ?? null,
     frameOverrides,
     artworks,
   }

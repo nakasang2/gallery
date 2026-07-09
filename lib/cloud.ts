@@ -1,7 +1,7 @@
 // Cloud exhibition (when signed in): images go to Storage, metadata to the artworks table
 import { supabase } from './supabase'
 import type { ArtworkData } from './artworks'
-import { loadImage } from './upload'
+import { loadImage, fileToDataUrl } from './upload'
 import { PLAN } from './limits'
 
 interface ArtworkRow {
@@ -191,6 +191,23 @@ export async function reorderArtworks(orderedIds: string[]): Promise<void> {
   )
   const failed = results.find((r) => r.error)
   if (failed?.error) throw failed.error
+}
+
+/** Upload/replace the profile avatar (512px JPEG at {uid}/avatar.jpg) and save its URL */
+export async function uploadAvatar(ownerId: string, file: File): Promise<string> {
+  const sb = supabase!
+  const { dataUrl } = await fileToDataUrl(file, 512)
+  const blob = await dataUrlToJpegBlob(dataUrl, 512)
+  const path = `${ownerId}/avatar.jpg`
+  const up = await sb.storage.from('artworks').upload(path, blob, {
+    contentType: 'image/jpeg',
+    upsert: true,
+  })
+  if (up.error) throw up.error
+  const url = `${publicUrl(path)}?v=${Date.now()}` // cache-bust so the new face shows immediately
+  const { error } = await sb.from('profiles').update({ avatar_url: url }).eq('id', ownerId)
+  if (error) throw error
+  return url
 }
 
 /** How many placements (public walls) an artwork hangs on — used for delete warnings */

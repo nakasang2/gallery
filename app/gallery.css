@@ -327,6 +327,46 @@ body.gallery-mode {
   .joy { bottom: 4.6rem; }
 }
 
+/* いいね(来場者) */
+.like-btn {
+  margin-left: 0.8rem;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  padding: 0.25em 0.85em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.like-btn:hover { border-color: var(--gold); color: var(--gold); }
+.like-btn.liked { border-color: var(--gold); color: var(--gold); cursor: default; }
+
+/* 芳名帳パネル(来場者) */
+.guestbook { z-index: 22; }
+.gb-sub { font-size: 0.78rem; line-height: 1.8; color: var(--muted); margin-bottom: 1rem; }
+.gb-input {
+  flex: 1;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.06);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 0.55em 0.8em;
+  resize: vertical;
+  outline: none;
+}
+.gb-input:focus { border-color: var(--gold); }
+
+/* カスタムレイアウトのツマミ */
+.custom-layout { margin-top: 0.9rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.slider-row { display: flex; align-items: center; gap: 0.8rem; font-size: 0.74rem; color: var(--muted); }
+.slider-row span { min-width: 6.5em; letter-spacing: 0.08em; }
+.slider-row input[type='range'] { flex: 1; accent-color: var(--gold); }
+
 /* ---- 2Dフォールバック(WebGL非対応・スクリーンリーダー向け) ---- */
 .flat-gallery {
   position: fixed;

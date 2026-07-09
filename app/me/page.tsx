@@ -13,6 +13,7 @@ import {
   renameGallery,
   deleteGallery,
   setGalleryPublic,
+  setGalleryCover,
   updateGallerySlug,
   rowToSettings,
   type GalleryRow,
@@ -21,10 +22,18 @@ import { getProfile, saveProfile, setUsername, USERNAME_RE } from '@/lib/publish
 import {
   getStorageUsage,
   uploadArtwork,
+  uploadAvatar,
   deleteArtwork,
   artworkPlacementCount,
   deleteMyAccount,
 } from '@/lib/cloud'
+import {
+  engagementSummary,
+  listGuestbook,
+  deleteGuestbookEntry,
+  type EngagementSummary,
+  type GuestbookEntry,
+} from '@/lib/engagement'
 import { fileToDataUrl, loadImage } from '@/lib/upload'
 import type { ArtworkData } from '@/lib/artworks'
 
@@ -180,6 +189,18 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [nameInput, setNameInput] = useState(row.title)
   const [slugInput, setSlugInput] = useState(row.slug)
   const [copied, setCopied] = useState(false)
+  const [stats, setStats] = useState<EngagementSummary | null>(null)
+
+  // Visitor engagement counts (needs migration 0008; hide quietly if unapplied)
+  useEffect(() => {
+    let alive = true
+    engagementSummary(row.id)
+      .then((s) => alive && setStats(s))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [row.id])
 
   const publicUrl =
     typeof window !== 'undefined' && username ? `${location.origin}/@${username}/${row.slug}` : ''
@@ -221,6 +242,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
       </div>
       <p className="hako-meta">
         {cloudArtworks.length} work{cloudArtworks.length === 1 ? '' : 's'} exhibited
+        {stats ? ` · ${stats.visits} visit${stats.visits === 1 ? '' : 's'} · ♥ ${stats.likes} · ✎ ${stats.guestbook}` : ''}
         {row.updated_at ? ` · updated ${fmtDate(row.updated_at)}` : ''}
         {row.is_public && publicUrl ? (
           <>
@@ -320,7 +342,21 @@ function WorksCard() {
   const user = useGallery((s) => s.user)!
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const myGallery = useGallery((s) => s.myGallery)
+  const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const [uploading, setUploading] = useState(false)
+
+  // OGP/artist-page cover (decision 10.8-7: slot 0 unless chosen here)
+  async function toggleCover(art: ArtworkData) {
+    if (!myGallery) return
+    const next = myGallery.cover_artwork_id === art.id ? null : art.id
+    try {
+      await setGalleryCover(myGallery.id, next)
+      await refreshMyGallery()
+    } catch (e) {
+      alert(`Could not set the cover: ${e instanceof Error ? e.message : e}`)
+    }
+  }
 
   async function onFiles(files: FileList | null) {
     if (!files?.length) return
@@ -376,6 +412,16 @@ function WorksCard() {
               <img src={art.poster ?? art.src} alt={art.title} loading="lazy" />
               <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
               <button aria-label={`Remove ${art.title}`} onClick={() => void remove(art)}>×</button>
+              {myGallery && (
+                <button
+                  className={`works-star${myGallery.cover_artwork_id === art.id ? ' active' : ''}`}
+                  aria-label={`Use ${art.title} as the share cover`}
+                  title="Use as share cover (OGP)"
+                  onClick={() => void toggleCover(art)}
+                >
+                  {myGallery.cover_artwork_id === art.id ? '★' : '☆'}
+                </button>
+              )}
             </figure>
           ))}
         </div>
@@ -397,6 +443,49 @@ function WorksCard() {
       <p className="me-note">
         Works are library assets — deleting a hakoniwa never deletes them. Videos are uploaded from the editor.
       </p>
+    </div>
+  )
+}
+
+// Guestbook moderation: read what visitors wrote, delete spam
+function GuestbookCard({ galleryId }: { galleryId: string }) {
+  const [entries, setEntries] = useState<GuestbookEntry[] | null>(null)
+
+  const load = useCallback(() => {
+    listGuestbook(galleryId, 30)
+      .then(setEntries)
+      .catch(() => setEntries(null))
+  }, [galleryId])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  if (entries === null) return null // migration 0008 not applied (or fetch failed) — hide quietly
+  return (
+    <div className="me-card" style={{ marginTop: '1rem' }}>
+      {entries.length === 0 && (
+        <p className="me-note" style={{ marginTop: 0 }}>No guestbook entries yet.</p>
+      )}
+      <ul className="gb-list">
+        {entries.map((e) => (
+          <li key={e.id}>
+            <div className="gb-meta">
+              <b>{e.name || 'Anonymous'}</b> · {fmtDate(e.created_at)}
+              <button
+                aria-label="Delete entry"
+                onClick={() => {
+                  if (!confirm('Delete this guestbook entry?')) return
+                  void deleteGuestbookEntry(e.id).then(load)
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <p>{e.message}</p>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -482,6 +571,7 @@ function ProfileCard() {
   const [nameInput, setNameInput] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -492,12 +582,25 @@ function ProfileCard() {
         if (!alive) return
         setDisplayName(p.displayName)
         setBio(p.bio)
+        setAvatarUrl(p.avatarUrl)
       })
       .catch(() => {})
     return () => {
       alive = false
     }
   }, [user.id])
+
+  async function onAvatarFile(file: File | undefined) {
+    if (!file) return
+    setBusy(true)
+    try {
+      setAvatarUrl(await uploadAvatar(user.id, file))
+    } catch (e) {
+      alert(`Avatar upload failed: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function saveUsername() {
     const name = nameInput.trim().toLowerCase()
@@ -533,6 +636,27 @@ function ProfileCard() {
 
   return (
     <div className="me-card">
+      <div className="avatar-row">
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="avatar-img" src={avatarUrl} alt="Avatar" />
+        ) : (
+          <div className="avatar-img avatar-empty">{(displayName || 'A').slice(0, 1).toUpperCase()}</div>
+        )}
+        <label className="btn-line file-btn" aria-disabled={busy} style={{ marginTop: 0 }}>
+          {busy ? 'Uploading…' : avatarUrl ? 'Change avatar' : 'Upload avatar'}
+          <input
+            type="file"
+            accept="image/*"
+            hidden
+            disabled={busy}
+            onChange={(e) => {
+              void onAvatarFile(e.target.files?.[0])
+              e.target.value = ''
+            }}
+          />
+        </label>
+      </div>
       <label className="me-field">
         <span>Username — public URL: /@{username ?? 'username'}/…</span>
         <div className="field-row" style={{ marginTop: 0 }}>
@@ -654,6 +778,13 @@ export default function MePage() {
                 </p>
               )}
             </section>
+
+            {galleries.length > 0 && (
+              <section className="me-section">
+                <h2>Guestbook</h2>
+                <GuestbookCard galleryId={galleries[0].id} />
+              </section>
+            )}
 
             <section className="me-section">
               <h2>Works</h2>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
-import { LAYOUTS } from '@/lib/presets'
+import { resolveLayout } from '@/lib/presets'
 import { useExhibitionList } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
 import { walkRef, LOW_POWER } from '@/lib/controller'
@@ -14,6 +14,7 @@ import FlatGallery from './FlatGallery'
 import { HudTop, HudActions, HudStepper, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
 import SettingsPanel from './SettingsPanel'
+import GuestbookPanel from './GuestbookPanel'
 import Joystick from './Joystick'
 
 function LoadingOverlay({ done }: { done: boolean }) {
@@ -59,7 +60,9 @@ export default function GalleryApp() {
   const [loadingDone, setLoadingDone] = useState(false)
   // null = still detecting; false = no WebGL → 2D list fallback
   const [webgl, setWebgl] = useState<boolean | null>(null)
-  const entryRef = useRef(LAYOUTS[useGallery.getState().layout].entry)
+  const entryRef = useRef(
+    resolveLayout(useGallery.getState().layout, useGallery.getState().layoutParams).entry
+  )
 
   useTour()
 
@@ -98,7 +101,7 @@ export default function GalleryApp() {
     Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(() => {
       if (!alive) return
       useGallery.getState().hydrate()
-      entryRef.current = LAYOUTS[useGallery.getState().layout].entry
+      entryRef.current = resolveLayout(useGallery.getState().layout, useGallery.getState().layoutParams).entry
       setTimeout(() => alive && setLoadingDone(true), 500)
     })
     return () => {
@@ -141,6 +144,7 @@ export default function GalleryApp() {
       ) : null}
       <HudActions />
       <SettingsPanel />
+      <GuestbookPanel />
       <LoadingOverlay done={loadingDone} />
     </>
   )

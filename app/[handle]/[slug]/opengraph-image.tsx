@@ -14,7 +14,8 @@ export default async function OgImage({
   const { handle, slug } = await params
   const username = decodeURIComponent(handle).replace(/^@/, '')
   const ex = await fetchPublicExhibition(username, slug)
-  const first = ex?.artworks[0]
+  // Manually chosen cover work if set (and placed), otherwise slot 0
+  const first = ex ? ex.artworks.find((a) => a.id === ex.coverArtworkId) ?? ex.artworks[0] : undefined
   const cover = first ? (first.kind === 'video' ? first.poster : first.src) : undefined
 
   return new ImageResponse(

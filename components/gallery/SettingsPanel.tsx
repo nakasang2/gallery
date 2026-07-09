@@ -465,7 +465,63 @@ export default function SettingsPanel() {
 
       <section className="settings-section">
         <h3>Layout</h3>
-        <ChipRow defs={LAYOUTS} current={settings.layout} onPick={(layout) => updateSettings({ layout })} />
+        <div className="chips">
+          {Object.entries(LAYOUTS).map(([key, def]) => (
+            <button
+              key={key}
+              className={`chip${key === settings.layout ? ' active' : ''}`}
+              onClick={() => updateSettings({ layout: key })}
+            >
+              {def.label}
+            </button>
+          ))}
+          <button
+            className={`chip${settings.layout === 'custom' ? ' active' : ''}`}
+            onClick={() => updateSettings({ layout: 'custom' })}
+          >
+            Custom
+          </button>
+        </div>
+        {settings.layout === 'custom' && (
+          <div className="custom-layout">
+            <label className="slider-row">
+              <span>Width {Math.round(settings.layoutParams.hw * 2)}m</span>
+              <input
+                type="range"
+                min={8}
+                max={18}
+                step={0.5}
+                value={settings.layoutParams.hw}
+                onChange={(e) =>
+                  updateSettings({ layoutParams: { ...settings.layoutParams, hw: Number(e.target.value) } })
+                }
+              />
+            </label>
+            <label className="slider-row">
+              <span>Depth {Math.round(settings.layoutParams.hd * 2)}m</span>
+              <input
+                type="range"
+                min={4}
+                max={10}
+                step={0.5}
+                value={settings.layoutParams.hd}
+                onChange={(e) =>
+                  updateSettings({ layoutParams: { ...settings.layoutParams, hd: Number(e.target.value) } })
+                }
+              />
+            </label>
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={settings.layoutParams.island}
+                onChange={(e) =>
+                  updateSettings({ layoutParams: { ...settings.layoutParams, island: e.target.checked } })
+                }
+              />
+              Centre wall (4 extra slots)
+            </label>
+          </div>
+        )}
       </section>
 
       <section className="settings-section">
