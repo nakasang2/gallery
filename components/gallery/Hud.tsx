@@ -38,35 +38,30 @@ export function HudTop() {
 }
 
 export function HudActions() {
-  const tourActive = useGallery((s) => s.tourActive)
-  const setTourActive = useGallery((s) => s.setTourActive)
   const settingsOpen = useGallery((s) => s.settingsOpen)
   const setSettingsOpen = useGallery((s) => s.setSettingsOpen)
   const guestbookOpen = useGallery((s) => s.guestbookOpen)
   const setGuestbookOpen = useGallery((s) => s.setGuestbookOpen)
   const visitor = useGallery((s) => s.visitor)
+  const user = useGallery((s) => s.user)
   const [audioOn, setAudioOn] = useState(galleryAudio.enabled)
 
   return (
     <div className="hud-actions">
+      {/* Sound: icon-only mute toggle, video-player style */}
       <button
         id="btn-audio"
-        className={`hud-btn${audioOn ? ' active' : ''}`}
+        className={`hud-icon${audioOn ? ' active' : ' muted'}`}
+        aria-label={audioOn ? 'Mute ambience' : 'Unmute ambience'}
+        title={audioOn ? 'Ambience on' : 'Ambience off'}
         onClick={() => {
           galleryAudio.unlock()
           setAudioOn(galleryAudio.toggle())
         }}
       >
-        {audioOn ? '♪ Ambience on' : '♪ Ambience off'}
+        ♪
       </button>
-      <button
-        id="btn-tour"
-        className={`hud-btn${tourActive ? ' active' : ''}`}
-        onClick={() => setTourActive(!tourActive)}
-      >
-        {tourActive ? '■ End tour' : '▶ Guided tour'}
-      </button>
-      {/* Visitors sign the guestbook; owners edit the space */}
+      {/* Visitors sign the guestbook; the space editor is for signed-in owners only */}
       {visitor ? (
         <button
           id="btn-guestbook"
@@ -76,18 +71,23 @@ export function HudActions() {
           ✎ Guestbook
         </button>
       ) : (
-        <button id="btn-settings" className="hud-btn" onClick={() => setSettingsOpen(!settingsOpen)}>
-          Edit space
-        </button>
+        user && (
+          <button id="btn-settings" className="hud-btn" onClick={() => setSettingsOpen(!settingsOpen)}>
+            Edit space
+          </button>
+        )
       )}
     </div>
   )
 }
 
-// Self-paced viewer nav: one tap moves to the next/previous work AND faces it
+// Self-paced viewer nav: one tap moves to the next/previous work AND faces it.
+// The guided tour lives here too — it is just the automatic version of the stepper.
 export function HudStepper() {
   const count = useExhibitionList().length
   const focusedIndex = useGallery((s) => s.focusedIndex)
+  const tourActive = useGallery((s) => s.tourActive)
+  const setTourActive = useGallery((s) => s.setTourActive)
   if (count === 0) return null
   const current = focusedIndex >= 0 ? String(focusedIndex + 1).padStart(2, '0') : '–'
   return (
@@ -100,6 +100,15 @@ export function HudStepper() {
       </span>
       <button className="step-btn" aria-label="Next work" onClick={() => walkRef.current?.focusStep(1)}>
         ›
+      </button>
+      <span className="step-divider" aria-hidden="true" />
+      <button
+        className={`step-btn step-tour${tourActive ? ' active' : ''}`}
+        aria-label={tourActive ? 'End the guided tour' : 'Start the guided tour'}
+        title={tourActive ? 'End tour' : 'Guided tour'}
+        onClick={() => setTourActive(!tourActive)}
+      >
+        {tourActive ? '■' : '▶'}
       </button>
     </div>
   )
@@ -125,9 +134,9 @@ export function Hint() {
 
   return (
     <div id="hint" className={`hint${faded ? ' faded' : ''}`}>
-      <div className="hint-row"><b>W/S · joystick</b> walk & steer</div>
-      <div className="hint-row"><b>Drag</b> look · <b>tap floor</b> go</div>
-      <div className="hint-row"><b>‹ › / , .</b> next work</div>
+      <div className="hint-row"><b>Drag</b> walk & steer</div>
+      <div className="hint-row"><b>Tap floor</b> go there</div>
+      <div className="hint-row"><b>‹ ›</b> next work</div>
     </div>
   )
 }

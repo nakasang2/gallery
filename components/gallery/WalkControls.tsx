@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { EYE, type LayoutDef } from '@/lib/presets'
 import { artSize, getSolids } from '@/lib/exhibition'
-import { walkRef, joyState } from '@/lib/controller'
+import { walkRef } from '@/lib/controller'
 import { useGallery } from '@/lib/store'
 import { galleryAudio } from '@/lib/audio'
 import type { ArtworkData } from '@/lib/artworks'
@@ -37,10 +37,14 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     pitch: 0,
     keys: new Set<string>(),
     vel: new THREE.Vector3(),
+    // Drag anywhere = floating stick: the press point becomes the stick centre,
+    // dragging from it walks (vertical) and steers (horizontal)
     dragging: false,
-    dragMoved: 0,
-    lastX: 0,
-    lastY: 0,
+    dragActive: false,
+    startX: 0,
+    startY: 0,
+    dragX: 0,
+    dragY: 0,
     // Walking feel (head bob and footsteps)
     bobPhase: 0,
     bobAmp: 0,
@@ -237,9 +241,11 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     const onPointerDown = (e: PointerEvent) => {
       useGallery.getState().setTourActive(false)
       s.dragging = true
-      s.dragMoved = 0
-      s.lastX = e.clientX
-      s.lastY = e.clientY
+      s.dragActive = false
+      s.startX = e.clientX
+      s.startY = e.clientY
+      s.dragX = 0
+      s.dragY = 0
       el.style.cursor = 'grabbing'
       try {
         el.setPointerCapture(e.pointerId)
@@ -249,16 +255,23 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     }
     const onPointerMove = (e: PointerEvent) => {
       if (!s.dragging) return
-      const dx = e.clientX - s.lastX
-      const dy = e.clientY - s.lastY
-      s.dragMoved += Math.abs(dx) + Math.abs(dy)
-      s.lastX = e.clientX
-      s.lastY = e.clientY
-      s.yaw -= dx * 0.0042
-      s.pitch = THREE.MathUtils.clamp(s.pitch - dy * 0.0042, -1.15, 1.15)
+      const dx = e.clientX - s.startX
+      const dy = e.clientY - s.startY
+      const R = 70 // px of drag for full speed
+      s.dragX = THREE.MathUtils.clamp(dx / R, -1, 1)
+      s.dragY = THREE.MathUtils.clamp(dy / R, -1, 1)
+      // Once it's clearly a drag (not a tap), take over from any glide/tour/panel
+      if (!s.dragActive && Math.hypot(dx, dy) > 12) {
+        s.dragActive = true
+        cancelTweens()
+        stopTourAndPanel()
+      }
     }
     const onPointerUp = () => {
       s.dragging = false
+      s.dragActive = false
+      s.dragX = 0
+      s.dragY = 0
       el.style.cursor = ''
     }
 
@@ -320,14 +333,14 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       (s.keys.has('w') || s.keys.has('arrowup') ? 1 : 0) - (s.keys.has('s') || s.keys.has('arrowdown') ? 1 : 0)
     let turn =
       (s.keys.has('d') || s.keys.has('arrowright') ? 1 : 0) - (s.keys.has('a') || s.keys.has('arrowleft') ? 1 : 0)
-    if (joyState.active) {
-      forward += -joyState.y
-      turn += joyState.x
+    if (s.dragActive) {
+      // Drag anywhere: vertical walks, horizontal steers (invisible floating stick)
+      forward += -s.dragY
+      turn += s.dragX
     }
     forward = THREE.MathUtils.clamp(forward, -1, 1)
     turn = THREE.MathUtils.clamp(turn, -1, 1)
-    // Turn the heading (skip while a drag-look is active so the two don't fight)
-    if (turn && !s.dragging) s.yaw -= turn * TURN_SPEED * dt
+    if (turn) s.yaw -= turn * TURN_SPEED * dt
     if (forward) {
       const dir = new THREE.Vector3(-Math.sin(s.yaw), 0, -Math.cos(s.yaw))
       s.vel.lerp(dir.multiplyScalar(forward * 3.1), 1 - Math.pow(0.0008, dt))
@@ -335,7 +348,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       s.vel.lerp(new THREE.Vector3(), 1 - Math.pow(0.0001, dt))
     }
     // While moving, gently level the view (clears the phone focus tilt once you walk off)
-    if ((forward || turn) && !s.dragging) s.pitch += (0 - s.pitch) * Math.min(1, dt * 2.5)
+    if (forward || turn) s.pitch += (0 - s.pitch) * Math.min(1, dt * 2.5)
     if (s.vel.lengthSq() > 1e-6) {
       camera.position.addScaledVector(s.vel, dt)
       clampToRoom(camera.position)

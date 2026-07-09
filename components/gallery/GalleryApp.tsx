@@ -15,7 +15,6 @@ import { HudTop, HudActions, HudStepper, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
 import SettingsPanel from './SettingsPanel'
 import GuestbookPanel from './GuestbookPanel'
-import Joystick from './Joystick'
 
 function LoadingOverlay({ done }: { done: boolean }) {
   return (
@@ -138,7 +137,6 @@ export default function GalleryApp() {
         <>
           <Hint />
           <HudStepper />
-          <Joystick />
           <ArtworkPanel />
         </>
       ) : null}
