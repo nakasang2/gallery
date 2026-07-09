@@ -11,6 +11,7 @@ import { galleryAudio } from '@/lib/audio'
 import { unlockVideoAudio } from '@/lib/videohub'
 import GalleryScene from './GalleryScene'
 import FlatGallery from './FlatGallery'
+import MiniMap from './MiniMap'
 import { HudTop, HudActions, HudStepper, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
 import SettingsPanel from './SettingsPanel'
@@ -137,6 +138,7 @@ export default function GalleryApp() {
         <>
           <Hint />
           <HudStepper />
+          <MiniMap />
           <ArtworkPanel />
         </>
       ) : null}

@@ -19,6 +19,10 @@ export interface WalkAPI {
 
 export const walkRef: { current: WalkAPI | null } = { current: null }
 
+// Camera pose for the minimap — written every frame by WalkControls, read via rAF
+// (a shared ref keeps this off React's re-render path)
+export const camPose = { x: 0, z: 0, yaw: 0 }
+
 // On touch devices, disable post-processing and lower shadow resolution to hold 30fps
 export const LOW_POWER =
   typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches

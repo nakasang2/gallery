@@ -534,6 +534,30 @@ body.gallery-mode {
   line-height: 1.6;
 }
 
+/* ---- ミニマップ(現在地・向き・展示位置) ---- */
+.minimap {
+  position: fixed;
+  left: 1.2rem;
+  bottom: 1.2rem;
+  z-index: 15;
+  width: 118px;
+  padding: 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: rgba(11, 10, 9, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--muted);
+  pointer-events: none;
+}
+.minimap .mm-you { fill: var(--ink); stroke: rgba(11, 10, 9, 0.6); stroke-width: 0.18; }
+.minimap .mm-slot.empty { fill: none; stroke: currentColor; stroke-width: 0.22; opacity: 0.5; }
+.minimap .mm-slot.focus { fill: var(--gold); stroke: var(--ink); stroke-width: 0.22; }
+@media (max-width: 640px) {
+  .minimap { width: 92px; bottom: 4.4rem; left: 1rem; }
+  .minimap.lifted { bottom: calc(50vh + 0.8rem); z-index: 21; }
+}
+
 /* スウォッチ/間取り入りチップ */
 .chip-visual { display: inline-flex; align-items: center; gap: 0.55em; }
 .chip-plan { width: 2.7em; height: 1.7em; color: var(--muted); flex: none; }

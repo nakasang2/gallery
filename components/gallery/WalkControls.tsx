@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { EYE, type LayoutDef } from '@/lib/presets'
 import { artSize, getSolids } from '@/lib/exhibition'
-import { walkRef } from '@/lib/controller'
+import { walkRef, camPose } from '@/lib/controller'
 import { useGallery } from '@/lib/store'
 import { galleryAudio } from '@/lib/audio'
 import type { ArtworkData } from '@/lib/artworks'
@@ -428,6 +428,11 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     }
 
     camera.rotation.set(s.pitch, s.yaw, 0)
+
+    // Publish the pose for the minimap
+    camPose.x = camera.position.x
+    camPose.z = camera.position.z
+    camPose.yaw = s.yaw
   })
 
   return null
