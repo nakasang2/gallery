@@ -133,11 +133,14 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     cancelTweens()
     state.current.targetIndex = i // anchor the stepper here (cancelTweens cleared it)
 
-    // Distance that fits the whole frame on screen (based on the larger of width/height)
-    const viewDist = Math.max(2.4, (ex.width + 0.3) * 2.0, (ex.height + 0.3) * 1.7)
-    // The info panel appears on the right, so shift sideways to keep the artwork left of center
+    // On phones the info panel is a bottom sheet; on wider screens it's a right drawer
+    const isPhone = window.innerWidth <= 640
+    // Distance that fits the whole frame on screen (pull back a bit on phones so the
+    // lifted artwork clears the bottom sheet)
+    const viewDist = Math.max(2.4, (ex.width + 0.3) * 2.0, (ex.height + 0.3) * 1.7) * (isPhone ? 1.18 : 1)
+    // Right drawer: shift sideways to keep the artwork left of center. Bottom sheet: keep it centered.
     const side = new THREE.Vector3(ex.normal.z, 0, -ex.normal.x)
-    const shift = window.innerWidth > 700 ? viewDist * 0.2 : 0
+    const shift = isPhone ? 0 : viewDist * 0.2
     const to = clampToRoom(
       ex.center.clone().add(ex.normal.clone().multiplyScalar(viewDist)).add(side.multiplyScalar(shift))
     )
@@ -146,6 +149,8 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
 
     // Orientation facing the wall head-on
     const targetYaw = Math.atan2(ex.normal.x, ex.normal.z)
+    // Tilt down on phones so the artwork rises into the upper area above the bottom sheet
+    const targetPitch = isPhone ? -0.26 : 0
     const fromYaw = state.current.yaw
     const fromPitch = state.current.pitch
     const dYaw = shortestAngle(targetYaw - fromYaw)
@@ -156,7 +161,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
         const k = easeInOut(t)
         camera.position.lerpVectors(from, to, k)
         state.current.yaw = fromYaw + dYaw * k
-        state.current.pitch = fromPitch * (1 - k)
+        state.current.pitch = fromPitch + (targetPitch - fromPitch) * k
       },
       () => useGallery.getState().setFocused(i)
     )
@@ -329,6 +334,8 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     } else {
       s.vel.lerp(new THREE.Vector3(), 1 - Math.pow(0.0001, dt))
     }
+    // While moving, gently level the view (clears the phone focus tilt once you walk off)
+    if ((forward || turn) && !s.dragging) s.pitch += (0 - s.pitch) * Math.min(1, dt * 2.5)
     if (s.vel.lengthSq() > 1e-6) {
       camera.position.addScaledVector(s.vel, dt)
       clampToRoom(camera.position)

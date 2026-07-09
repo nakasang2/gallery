@@ -508,7 +508,23 @@ body.gallery-mode {
 @media (max-width: 640px) {
   .hint { gap: 0.9rem; padding: 0.6rem 1rem; font-size: 0.62rem; }
   .hud-title-main { font-size: 0.72rem; }
-  .panel { padding: 4.4rem 1.6rem 2rem; }
+  /* Detail info becomes a bottom sheet so it never covers the artwork (which is
+     framed into the upper area on phones — see focusExhibit) */
+  .panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 50vh;
+    padding: 1.6rem 1.4rem 1.8rem;
+    border-left: none;
+    border-top: 1px solid var(--hairline);
+    border-radius: 18px 18px 0 0;
+    transform: translateY(100%);
+  }
+  .panel.open { transform: translateY(0); }
+  .panel-close { top: 0.8rem; right: 0.9rem; }
+  .panel-title { font-size: 1.45rem; }
   .hud-actions { bottom: 4.4rem; }
   .settings { width: 100vw; border-left: none; }
 }
