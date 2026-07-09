@@ -20,8 +20,21 @@ import {
   getMyGalleryRow,
   saveGallerySpace,
   rebuildPlacements,
+  fetchPlacementOverrides,
   type GalleryRow,
 } from './galleries'
+
+// Space fields from a gallery row — the DB is the source of truth when signed in
+function rowSpace(row: GalleryRow): Partial<Settings> {
+  return {
+    ...(THEMES[row.theme] ? { theme: row.theme } : {}),
+    ...(LAYOUTS[row.layout] || row.layout === 'custom' ? { layout: row.layout } : {}),
+    ...(row.layout === 'custom' ? { layoutParams: normalizeLayoutParams(row.layout_params) } : {}),
+    ...(FRAMES[row.frame_default] ? { frame: row.frame_default } : {}),
+    ...(HANGINGS[row.hanging_default] ? { hanging: row.hanging_default } : {}),
+    ...(CAPTIONS[row.caption_default] ? { caption: row.caption_default } : {}),
+  }
+}
 
 export interface AuthUser {
   id: string
@@ -174,6 +187,10 @@ export const useGallery = create<GalleryStore>((set, get) => ({
 
   hydrate() {
     set({ ...loadSettings(), ready: true })
+    // Client-side navigation hydrates AFTER auth resolved (e.g. dashboard → editor):
+    // don't let localStorage clobber the signed-in user's gallery row
+    const g = get().myGallery
+    if (get().user && g) set(rowSpace(g))
   },
 
   initAuth() {
@@ -225,15 +242,18 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         return
       }
       // The gallery row is the source of truth for a signed-in user's space settings
-      set({
-        myGallery: row,
-        ...(THEMES[row.theme] ? { theme: row.theme } : {}),
-        ...(LAYOUTS[row.layout] || row.layout === 'custom' ? { layout: row.layout } : {}),
-        ...(row.layout === 'custom' ? { layoutParams: normalizeLayoutParams(row.layout_params) } : {}),
-        ...(FRAMES[row.frame_default] ? { frame: row.frame_default } : {}),
-        ...(HANGINGS[row.hanging_default] ? { hanging: row.hanging_default } : {}),
-        ...(CAPTIONS[row.caption_default] ? { caption: row.caption_default } : {}),
-      })
+      set({ myGallery: row, ...rowSpace(row) })
+      // Per-work framing may have been set on another device — the placements table
+      // is the shared record; merge it under any local (newer) overrides
+      try {
+        const saved = await fetchPlacementOverrides(row.id)
+        if (Object.keys(saved).length) {
+          set({ frameOverrides: { ...saved, ...get().frameOverrides } })
+          saveSettings(get())
+        }
+      } catch {
+        /* non-fatal */
+      }
     } catch (e) {
       console.error('load my gallery failed (apply supabase/migrations up to 0005):', e)
     }

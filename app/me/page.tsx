@@ -19,6 +19,7 @@ import {
   updateGallerySlug,
   saveGallerySpace,
   rebuildPlacements,
+  fetchPlacementOverrides,
   rowToSettings,
   type GalleryRow,
 } from '@/lib/galleries'
@@ -141,6 +142,7 @@ function GuestImportCard() {
 function CreateCard({ onCreated }: { onCreated: () => void }) {
   const user = useGallery((s) => s.user)!
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
+  const updateSettings = useGallery((s) => s.updateSettings)
   const router = useRouter()
   const [step, setStep] = useState<1 | 2>(1)
   const [title, setTitle] = useState('My Gallery')
@@ -152,6 +154,19 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
     try {
       await createGallery(user.id, { title, templateId })
       await refreshMyGallery()
+      // Persist the template locally too, so the editor's hydrate() can't fall back
+      // to stale localStorage defaults after the client-side navigation
+      const t = TEMPLATES[templateId]
+      if (t) {
+        updateSettings({
+          theme: t.theme,
+          layout: t.layout,
+          frame: t.frame,
+          hanging: t.hanging,
+          caption: t.caption,
+          frameOverrides: {},
+        })
+      }
       onCreated()
       router.push('/demo') // straight into the room — the result is the feedback
     } catch (e) {
@@ -241,21 +256,28 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
+  // Per-work framing may have been set on another device — merge the placements'
+  // stored overrides under this browser's, or a rebuild here would wipe them
+  async function mergedOverrides(): Promise<Record<string, string>> {
+    const saved = await fetchPlacementOverrides(row.id).catch(() => ({}))
+    return { ...saved, ...frameOverrides }
+  }
+
   async function togglePublic() {
     if (!row.is_public && cloudArtworks.length === 0) {
       alert('Exhibit at least one work before opening to the public (use the editor).')
       return
     }
-    await run(row.is_public ? 'Making private' : 'Publishing', () =>
-      setGalleryPublic(row, !row.is_public, rowToSettings(row, frameOverrides), cloudArtworks)
+    await run(row.is_public ? 'Making private' : 'Publishing', async () =>
+      setGalleryPublic(row, !row.is_public, rowToSettings(row, await mergedOverrides()), cloudArtworks)
     )
   }
 
   // Quick space change without opening the editor. Theme changes are cosmetic;
   // layout changes re-cap the placements, so public rooms are rebuilt too
   async function setSpace(partial: { theme?: string; layout?: string }) {
-    const s = { ...rowToSettings(row, frameOverrides), ...partial }
     await run('Space change', async () => {
+      const s = { ...rowToSettings(row, await mergedOverrides()), ...partial }
       await saveGallerySpace(row.id, s)
       if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
     })
@@ -407,12 +429,16 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 {def.label}
               </button>
             ))}
-            {row.layout === 'custom' && (
-              <button className="chip chip-visual active" disabled>
-                <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
-                Custom
-              </button>
-            )}
+            {/* layout_params survive preset switches (saveGallerySpace preserves them),
+                so a saved custom room is always one click away */}
+            <button
+              className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}`}
+              disabled={busy}
+              onClick={() => void setSpace({ layout: 'custom' })}
+            >
+              <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
+              Custom
+            </button>
           </div>
           <p className="me-note">
             Framing, hanging, captions and the custom room live in the{' '}
