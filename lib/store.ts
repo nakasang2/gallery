@@ -3,10 +3,16 @@
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import type { ArtworkData } from './artworks'
-import { THEMES, LAYOUTS, FRAMES } from './presets'
+import { THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS } from './presets'
 import { supabase } from './supabase'
 import { listMyArtworks, reorderArtworks } from './cloud'
 import type { PublicExhibition } from './publish'
+import {
+  getMyGalleryRow,
+  saveGallerySpace,
+  rebuildPlacements,
+  type GalleryRow,
+} from './galleries'
 
 export interface AuthUser {
   id: string
@@ -18,6 +24,10 @@ export interface Settings {
   theme: string
   layout: string
   frame: string
+  /** How frames are affixed to the wall (key into HANGINGS) */
+  hanging: string
+  /** How the name plate is shown (key into CAPTIONS) */
+  caption: string
   showDemo: boolean
   artworks: ArtworkData[]
   frameOverrides: Record<string, string>
@@ -27,6 +37,8 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'chic',
   layout: 'hall',
   frame: 'black',
+  hanging: 'wire',
+  caption: 'side',
   showDemo: true,
   artworks: [],
   frameOverrides: {},
@@ -34,6 +46,26 @@ export const DEFAULT_SETTINGS: Settings = {
 
 const STORAGE_KEY = 'hakoniwa.settings.v1'
 let authInitialized = false // Prevents duplicate subscriptions from React Strict Mode's double invocation
+let syncTimer: ReturnType<typeof setTimeout> | null = null
+
+// Debounced write-through: signed-in edits persist to the gallery row, and if the
+// hakoniwa is public they update the placements too (decision 10.8-3: saving is live)
+function scheduleGallerySync(get: () => GalleryStore) {
+  if (syncTimer) clearTimeout(syncTimer)
+  syncTimer = setTimeout(() => {
+    syncTimer = null
+    const s = get()
+    if (!supabase || !s.user || !s.myGallery) return
+    void (async () => {
+      try {
+        await saveGallerySpace(s.myGallery!.id, s)
+        if (s.myGallery!.is_public) await rebuildPlacements(s.myGallery!.id, s, s.cloudArtworks)
+      } catch (e) {
+        console.error('gallery sync failed (apply supabase/migrations up to 0005):', e)
+      }
+    })()
+  }, 1200)
+}
 
 export function loadSettings(): Settings {
   if (typeof window === 'undefined') return { ...DEFAULT_SETTINGS }
@@ -44,6 +76,8 @@ export function loadSettings(): Settings {
     if (!THEMES[s.theme]) s.theme = DEFAULT_SETTINGS.theme
     if (!LAYOUTS[s.layout]) s.layout = DEFAULT_SETTINGS.layout
     if (!FRAMES[s.frame]) s.frame = DEFAULT_SETTINGS.frame
+    if (!HANGINGS[s.hanging]) s.hanging = DEFAULT_SETTINGS.hanging
+    if (!CAPTIONS[s.caption]) s.caption = DEFAULT_SETTINGS.caption
     return s
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -52,8 +86,11 @@ export function loadSettings(): Settings {
 
 function saveSettings(s: Settings): boolean {
   try {
-    const { theme, layout, frame, showDemo, artworks, frameOverrides } = s
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ theme, layout, frame, showDemo, artworks, frameOverrides }))
+    const { theme, layout, frame, hanging, caption, showDemo, artworks, frameOverrides } = s
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ theme, layout, frame, hanging, caption, showDemo, artworks, frameOverrides })
+    )
     return true
   } catch {
     return false
@@ -74,12 +111,16 @@ interface GalleryStore extends Settings {
   cloudArtworks: ArtworkData[]
   /** Profile username (used in the public URL; null if unset) */
   profileUsername: string | null
+  /** The signed-in user's hakoniwa row (null = none created yet). DB is the source of truth */
+  myGallery: GalleryRow | null
   /** Visitor mode: overridden with read-only exhibition data on public pages */
   visitor: PublicExhibition | null
 
   hydrate(): void
   initAuth(): void
   refreshCloudArtworks(): Promise<void>
+  /** Load my gallery row and apply its space settings (signed-in editing reads from DB) */
+  refreshMyGallery(): Promise<void>
   signOut(): Promise<void>
   updateSettings(partial: Partial<Settings>): void
   /** Reorder exhibited works (move the item at `from` to `to`). Guests persist locally, signed-in users to the cloud */
@@ -98,6 +139,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   user: null,
   cloudArtworks: [],
   profileUsername: null,
+  myGallery: null,
   visitor: null,
 
   hydrate() {
@@ -110,13 +152,15 @@ export const useGallery = create<GalleryStore>((set, get) => ({
     supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user
       if (!u) {
-        set({ user: null, cloudArtworks: [] })
+        // Signed out: back to guest mode (restore this browser's local settings)
+        set({ user: null, cloudArtworks: [], myGallery: null, ...loadSettings() })
         return
       }
       const displayName =
         (u.user_metadata?.name as string | undefined) || u.email?.split('@')[0] || 'You'
       set({ user: { id: u.id, email: u.email ?? null, displayName } })
       void get().refreshCloudArtworks()
+      void get().refreshMyGallery()
     })
   },
 
@@ -132,11 +176,36 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         .maybeSingle()
       const artist = profile?.display_name || user.displayName
       set({ cloudArtworks: await listMyArtworks(artist), profileUsername: profile?.username ?? null })
+      // Works changed (upload/delete) — keep a public hakoniwa's placements in step
+      if (get().myGallery) scheduleGallerySync(get)
     } catch (e) {
       console.error(e)
       alert(
         'Could not load your works from the cloud. Check that supabase/migrations/0001_init.sql has been applied.'
       )
+    }
+  },
+
+  async refreshMyGallery() {
+    const user = get().user
+    if (!supabase || !user) return
+    try {
+      const row = await getMyGalleryRow(user.id)
+      if (!row) {
+        set({ myGallery: null })
+        return
+      }
+      // The gallery row is the source of truth for a signed-in user's space settings
+      set({
+        myGallery: row,
+        ...(THEMES[row.theme] ? { theme: row.theme } : {}),
+        ...(LAYOUTS[row.layout] ? { layout: row.layout } : {}),
+        ...(FRAMES[row.frame_default] ? { frame: row.frame_default } : {}),
+        ...(HANGINGS[row.hanging_default] ? { hanging: row.hanging_default } : {}),
+        ...(CAPTIONS[row.caption_default] ? { caption: row.caption_default } : {}),
+      })
+    } catch (e) {
+      console.error('load my gallery failed (apply supabase/migrations up to 0005):', e)
     }
   },
 
@@ -149,6 +218,8 @@ export const useGallery = create<GalleryStore>((set, get) => ({
     if (!saveSettings(get())) {
       alert('Browser storage is full. Remove some works or try smaller images.')
     }
+    // Signed-in edits write through to the hakoniwa row (and its public page)
+    if (get().user && get().myGallery) scheduleGallerySync(get)
   },
 
   async reorderOwnArtworks(from, to) {
@@ -163,6 +234,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
       set({ cloudArtworks: next })
       try {
         await reorderArtworks(next.map((a) => a.id))
+        if (get().myGallery) scheduleGallerySync(get) // new order → new placements when public
       } catch (e) {
         console.error(e)
         alert('Could not save the new order. Check that 0003_order_profile.sql has been applied.')
@@ -196,6 +268,8 @@ export function useSettings(): Settings {
             theme: s.visitor.theme,
             layout: s.visitor.layout,
             frame: s.visitor.frame,
+            hanging: s.visitor.hanging,
+            caption: s.visitor.caption,
             showDemo: false,
             artworks: EMPTY_ARTWORKS,
             frameOverrides: s.visitor.frameOverrides,
@@ -204,6 +278,8 @@ export function useSettings(): Settings {
             theme: s.theme,
             layout: s.layout,
             frame: s.frame,
+            hanging: s.hanging,
+            caption: s.caption,
             showDemo: s.showDemo,
             artworks: s.artworks,
             frameOverrides: s.frameOverrides,

@@ -2,18 +2,22 @@
 import { useMemo } from 'react'
 import { ARTWORKS, type ArtworkData } from './artworks'
 import { LAYOUTS, FRAMES, type LayoutDef } from './presets'
+import { effectiveSlotCount } from './limits'
 import { useGallery, useSettings, type Settings } from './store'
 
+/** Usable slots for the current layout (layout slots capped by the plan's works-per-gallery) */
+export function slotCount(s: Settings): number {
+  return effectiveSlotCount(LAYOUTS[s.layout].slots.length)
+}
+
 export function buildExhibitionList(s: Settings, own: ArtworkData[]): ArtworkData[] {
-  const layout = LAYOUTS[s.layout]
   const list = [...own, ...(s.showDemo ? ARTWORKS : [])]
-  return list.slice(0, layout.slots.length)
+  return list.slice(0, slotCount(s))
 }
 
 export function overflowCount(s: Settings, ownCount: number): number {
-  const layout = LAYOUTS[s.layout]
   const total = ownCount + (s.showDemo ? ARTWORKS.length : 0)
-  return Math.max(0, total - layout.slots.length)
+  return Math.max(0, total - slotCount(s))
 }
 
 /** Your own exhibited works (visitor mode = public data, signed in = cloud, guest = localStorage) */

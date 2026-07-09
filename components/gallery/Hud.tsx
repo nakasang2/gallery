@@ -3,17 +3,39 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useGallery } from '@/lib/store'
+import { useExhibitionList } from '@/lib/exhibition'
+import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 
 export function HudTop() {
   const visitor = useGallery((s) => s.visitor)
+  const reportEmail = process.env.NEXT_PUBLIC_REPORT_EMAIL
   return (
     <header className="hud-top">
       <Link className="hud-back" href="/">← HAKONIWA</Link>
       <div className="hud-title">
         <span className="hud-title-main">{visitor ? visitor.title : 'HAKONIWA COLLECTION'}</span>
         <span className="hud-title-sub">
-          {visitor ? `${visitor.ownerName} — @${visitor.username}` : 'A permanent collection — ten artists'}
+          {visitor ? (
+            <>
+              <Link className="hud-artist-link" href={`/@${visitor.username}`}>
+                {visitor.ownerName} — @{visitor.username}
+              </Link>
+              {reportEmail && (
+                <>
+                  {' · '}
+                  <a
+                    className="hud-report"
+                    href={`mailto:${reportEmail}?subject=${encodeURIComponent(`Report: @${visitor.username}/${visitor.slug}`)}`}
+                  >
+                    Report
+                  </a>
+                </>
+              )}
+            </>
+          ) : (
+            'A permanent collection — ten artists'
+          )}
         </span>
       </div>
     </header>
@@ -57,6 +79,27 @@ export function HudActions() {
   )
 }
 
+// Self-paced viewer nav: one tap moves to the next/previous work AND faces it
+export function HudStepper() {
+  const count = useExhibitionList().length
+  const focusedIndex = useGallery((s) => s.focusedIndex)
+  if (count === 0) return null
+  const current = focusedIndex >= 0 ? String(focusedIndex + 1).padStart(2, '0') : '–'
+  return (
+    <div className="hud-stepper">
+      <button className="step-btn" aria-label="Previous work" onClick={() => walkRef.current?.focusStep(-1)}>
+        ‹
+      </button>
+      <span className="step-count">
+        {current} <span className="step-sep">/</span> {String(count).padStart(2, '0')}
+      </span>
+      <button className="step-btn" aria-label="Next work" onClick={() => walkRef.current?.focusStep(1)}>
+        ›
+      </button>
+    </div>
+  )
+}
+
 export function Hint() {
   const [faded, setFaded] = useState(false)
 
@@ -77,9 +120,9 @@ export function Hint() {
 
   return (
     <div id="hint" className={`hint${faded ? ' faded' : ''}`}>
-      <div className="hint-row"><b>Drag</b> look</div>
-      <div className="hint-row"><b>WASD / tap floor</b> move</div>
-      <div className="hint-row"><b>Click a work</b> view</div>
+      <div className="hint-row"><b>W/S · joystick</b> walk & steer</div>
+      <div className="hint-row"><b>Drag</b> look · <b>tap floor</b> go</div>
+      <div className="hint-row"><b>‹ › / , .</b> next work</div>
     </div>
   )
 }

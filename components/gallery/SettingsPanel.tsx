@@ -2,8 +2,9 @@
 // Space settings panel (theme/layout/framing switches, account, and exhibiting works)
 // Where works are exhibited depends on sign-in state: guest = localStorage / signed in = Supabase
 import { useEffect, useRef, useState } from 'react'
-import { THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
-import { overflowCount, useOwnArtworks } from '@/lib/exhibition'
+import Link from 'next/link'
+import { THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS, TEMPLATES } from '@/lib/presets'
+import { overflowCount, slotCount, useOwnArtworks } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
 import { supabase } from '@/lib/supabase'
@@ -97,9 +98,6 @@ function ChipRow({
 function AccountSection() {
   const user = useGallery((s) => s.user)
   const signOut = useGallery((s) => s.signOut)
-  const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
-  const [busy, setBusy] = useState(false)
 
   if (!supabase) {
     return <p className="settings-note">Cloud storage is not configured (Supabase keys required in .env.local).</p>
@@ -113,58 +111,25 @@ function AccountSection() {
           so your show looks the same on every device.
         </p>
         <ProfileEditor />
-        <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
+        <div className="field-row">
+          <Link className="btn-line" href="/me">Dashboard</Link>
+          <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
+        </div>
       </>
     )
   }
 
-  async function sendMagicLink() {
-    if (!email.trim() || busy) return
-    setBusy(true)
-    try {
-      const { error } = await supabase!.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: `${location.origin}/demo` },
-      })
-      if (error) throw error
-      setSent(true)
-    } catch (e) {
-      alert(`Could not send the sign-in link: ${e instanceof Error ? e.message : e}`)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function googleLogin() {
-    const { error } = await supabase!.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${location.origin}/demo` },
-    })
-    if (error) alert(`Could not start Google sign-in: ${error.message}`)
-  }
-
+  // Signed out: password / magic link / Google all live on the dedicated auth pages
   return (
     <>
-      <div className="field-row">
-        <input
-          type="email"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void sendMagicLink()}
-        />
-        <button className="btn-line" disabled={busy} onClick={() => void sendMagicLink()}>
-          Send link
-        </button>
-      </div>
-      {sent && <p className="settings-note">Sign-in link sent. Check your inbox.</p>}
-      <div className="field-row">
-        <button className="btn-line" onClick={() => void googleLogin()}>Sign in with Google</button>
-      </div>
       <p className="settings-note">
-        Signing in stores your exhibited works in the cloud and enables the public URL.
+        Sign in to store your works in the cloud and publish your gallery at a public URL.
         Without an account, you can still exhibit inside this browser.
       </p>
+      <div className="field-row">
+        <Link className="btn-line" href="/signin">Sign in</Link>
+        <Link className="btn-line" href="/signup">Create account</Link>
+      </div>
     </>
   )
 }
@@ -174,6 +139,7 @@ function PublishSection() {
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const settings = useSettings()
   const ownArtworks = useOwnArtworks()
 
@@ -227,6 +193,8 @@ function PublishSection() {
         ownArtworks,
       })
       setIsPublic(nextPublic)
+      // Keep the store's gallery row current — live sync checks its is_public flag
+      await refreshMyGallery()
     } catch (e) {
       alert(`Publishing failed: ${e instanceof Error ? e.message : e}`)
     } finally {
@@ -294,8 +262,7 @@ function PublishSection() {
             {copied ? 'Copied' : 'Copy URL'}
           </button>
           <br />
-          The public page is a snapshot of the current works, theme and framing. After making changes,
-          press “Update the public page”.
+          While public, your edits (works, theme, framing) sync to this page automatically.
         </p>
       )}
     </>
@@ -446,7 +413,18 @@ export default function SettingsPanel() {
   const reorder = useGallery((s) => s.reorderOwnArtworks)
 
   const over = overflowCount(settings, ownArtworks.length)
-  const slots = LAYOUTS[settings.layout].slots.length
+  const slots = slotCount(settings)
+
+  // Highlight a template only while every axis still matches its bundle
+  const activeTemplate =
+    Object.entries(TEMPLATES).find(
+      ([, t]) =>
+        t.theme === settings.theme &&
+        t.layout === settings.layout &&
+        t.frame === settings.frame &&
+        t.hanging === settings.hanging &&
+        t.caption === settings.caption
+    )?.[0] ?? ''
 
   return (
     <aside id="settings" className={`settings${open ? ' open' : ''}`} aria-hidden={!open}>
@@ -454,8 +432,35 @@ export default function SettingsPanel() {
       <h2 className="settings-title">Edit space</h2>
 
       <section className="settings-section">
+        <h3>Template</h3>
+        {/* A template sets every axis below in one go, as a starting point */}
+        <ChipRow
+          defs={TEMPLATES}
+          current={activeTemplate}
+          onPick={(key) => {
+            const t = TEMPLATES[key]
+            updateSettings({
+              theme: t.theme,
+              layout: t.layout,
+              frame: t.frame,
+              hanging: t.hanging,
+              caption: t.caption,
+              frameOverrides: {},
+            })
+          }}
+        />
+        <p className="settings-note">A curated starting point. Fine-tune any axis below afterwards.</p>
+      </section>
+
+      <section className="settings-section">
         <h3>Theme</h3>
-        <ChipRow defs={THEMES} current={settings.theme} onPick={(theme) => updateSettings({ theme })} />
+        {/* Each theme carries recommended framing / hanging / caption; picking one applies them */}
+        <ChipRow
+          defs={THEMES}
+          current={settings.theme}
+          onPick={(theme) => updateSettings({ theme, ...THEMES[theme].recommends, frameOverrides: {} })}
+        />
+        <p className="settings-note">Switching theme applies its recommended framing; adjust below to taste.</p>
       </section>
 
       <section className="settings-section">
@@ -468,6 +473,16 @@ export default function SettingsPanel() {
         {/* Changing the overall framing also resets any per-work overrides */}
         <ChipRow defs={FRAMES} current={settings.frame} onPick={(frame) => updateSettings({ frame, frameOverrides: {} })} />
         <p className="settings-note">To change a single work, open it and use the panel.</p>
+      </section>
+
+      <section className="settings-section">
+        <h3>Hanging</h3>
+        <ChipRow defs={HANGINGS} current={settings.hanging} onPick={(hanging) => updateSettings({ hanging })} />
+      </section>
+
+      <section className="settings-section">
+        <h3>Caption</h3>
+        <ChipRow defs={CAPTIONS} current={settings.caption} onPick={(caption) => updateSettings({ caption })} />
       </section>
 
       <section className="settings-section">

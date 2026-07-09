@@ -27,6 +27,12 @@ export interface ThemeDef {
   mistDensity: number
   /** Falloff along the vertical axis (higher values pool the mist lower down). */
   mistFalloff: number
+  /**
+   * Curated defaults this theme looks best with. Picking a theme applies these
+   * (frame / hanging / caption), but each axis stays independently overridable
+   * afterwards — they are recommendations, not a hard binding.
+   */
+  recommends: { frame: string; hanging: string; caption: string }
 }
 
 export interface SlotDef {
@@ -90,6 +96,7 @@ export const THEMES: Record<string, ThemeDef> = {
     mistColor: 0x8f887b,
     mistDensity: 0.05,
     mistFalloff: 0.32,
+    recommends: { frame: 'gold', hanging: 'wire', caption: 'side' },
   },
   whitecube: {
     label: 'White Cube',
@@ -111,6 +118,7 @@ export const THEMES: Record<string, ThemeDef> = {
     mistColor: 0xe6e0d3,
     mistDensity: 0.04,
     mistFalloff: 0.38,
+    recommends: { frame: 'white', hanging: 'flush', caption: 'under' },
   },
   noir: {
     label: 'Noir',
@@ -131,6 +139,7 @@ export const THEMES: Record<string, ThemeDef> = {
     mistColor: 0x3a372f,
     mistDensity: 0.06,
     mistFalloff: 0.26,
+    recommends: { frame: 'black', hanging: 'wire', caption: 'side' },
   },
 }
 
@@ -199,6 +208,24 @@ export const LAYOUTS: Record<string, LayoutDef> = {
     partitions: [{ x: 0, z: 0, w: 7.6, t: 0.44, h: 3.5 }],
     entry: { x: 7, z: 4.6, yaw: 1.1 },
   },
+  portrait: {
+    // A tall, narrow room walked lengthwise. Works line the long east wall and
+    // both short end walls; the west wall is left for the title.
+    label: 'Portrait Hall',
+    hw: 4.5,
+    hd: 11,
+    slots: [
+      ...wallSlots(5, 8.5, 4.5 - 0.05, -Math.PI / 2, 'z'), // East long wall
+      ...wallSlots(2, 2.4, -11 + 0.05, 0, 'x'), // North end wall
+      ...wallSlots(2, 2.4, 11 - 0.05, Math.PI, 'x'), // South end wall
+    ],
+    benches: [
+      { x: -1.4, z: -3 },
+      { x: -1.4, z: 3 },
+    ],
+    partitions: [],
+    entry: { x: -1.4, z: 11 - 1.6, yaw: 0 },
+  },
 }
 
 /* ================= Framing ================= */
@@ -210,6 +237,54 @@ export const FRAMES: Record<string, FrameDef> = {
   white: { label: 'White', bar: 0.07, gap: 0.08, color: 0xf4f1ea, roughness: 0.62, metalness: 0.05, mat: 0xffffff, finish: 'paint' },
   wood: { label: 'Oak', bar: 0.08, gap: 0.07, color: 0x7a5c3e, roughness: 0.58, metalness: 0.05, mat: 0xf1ead9, finish: 'wood' },
   none: { label: 'None', mat: null },
+}
+
+/* ================= Hanging (how the frame is affixed to the wall) ================= */
+
+export interface HangingDef {
+  label: string
+  /** wire = twin picture-rail cords, flush = no visible hardware, ledge = the work rests on a shelf */
+  kind: 'wire' | 'flush' | 'ledge'
+}
+
+export const HANGINGS: Record<string, HangingDef> = {
+  wire: { label: 'Rail wires', kind: 'wire' },
+  flush: { label: 'Flush mount', kind: 'flush' },
+  ledge: { label: 'Shelf ledge', kind: 'ledge' },
+}
+
+/* ================= Captions (how the name plate is shown) ================= */
+
+export interface CaptionDef {
+  label: string
+  /** side = plate to the right, under = plate below the work, none = no plate */
+  place: 'side' | 'under' | 'none'
+}
+
+export const CAPTIONS: Record<string, CaptionDef> = {
+  side: { label: 'Side plate', place: 'side' },
+  under: { label: 'Under plate', place: 'under' },
+  none: { label: 'None', place: 'none' },
+}
+
+/* ================= Templates (a starting bundle across every axis) ================= */
+// A template just sets several axes at once. After applying it, each axis stays
+// independently editable — it is a curated starting point, not a lock.
+
+export interface TemplateDef {
+  label: string
+  theme: string
+  layout: string
+  frame: string
+  hanging: string
+  caption: string
+}
+
+export const TEMPLATES: Record<string, TemplateDef> = {
+  salon: { label: 'Classic Salon', theme: 'chic', layout: 'hall', frame: 'gold', hanging: 'wire', caption: 'side' },
+  studio: { label: 'White Cube', theme: 'whitecube', layout: 'corridor', frame: 'white', hanging: 'flush', caption: 'under' },
+  noir: { label: 'Noir Screening', theme: 'noir', layout: 'island', frame: 'black', hanging: 'wire', caption: 'side' },
+  tower: { label: 'Portrait Tower', theme: 'whitecube', layout: 'portrait', frame: 'wood', hanging: 'ledge', caption: 'under' },
 }
 
 export const CEIL_H = 5.2

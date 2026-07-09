@@ -18,6 +18,9 @@ interface Tween {
   onDone?: () => void
 }
 
+// Steering (auto-heading) turn rate at full input, radians per second
+const TURN_SPEED = 2.0
+
 function easeInOut(t: number) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 }
@@ -44,6 +47,9 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     lastPos: new THREE.Vector3(),
     stepDist: 0,
     introPlayed: false,
+    // Which work the prev/next stepper is anchored to (-1 = free-walking).
+    // Tracked here (not from the store) so rapid taps step correctly before the glide finishes.
+    targetIndex: -1,
   })
   const tweens = useRef<Tween[]>([])
 
@@ -69,6 +75,8 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
 
   function cancelTweens() {
     tweens.current.length = 0
+    // Any glide being cancelled means we're no longer anchored to a work
+    state.current.targetIndex = -1
   }
 
   function clampToRoom(v: THREE.Vector3) {
@@ -106,8 +114,16 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     const dist = from.distanceTo(to)
     if (dist < 0.3) return
     useGallery.getState().setFocused(-1)
+    // Auto-heading: turn to face the direction of travel as we walk there
+    const heading = to.clone().sub(from)
+    const targetYaw = Math.atan2(-heading.x, -heading.z)
+    const fromYaw = state.current.yaw
+    const dYaw = shortestAngle(targetYaw - fromYaw)
     tween(Math.min(2.2, 0.45 + dist * 0.22), (t) => {
-      camera.position.lerpVectors(from, to, easeInOut(t))
+      const k = easeInOut(t)
+      camera.position.lerpVectors(from, to, k)
+      // Finish the turn a little before arriving so we're already facing forward
+      state.current.yaw = fromYaw + dYaw * Math.min(1, k * 1.8)
     })
   }
 
@@ -115,12 +131,16 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     const ex = metaRef.current[i]
     if (!ex) return
     cancelTweens()
+    state.current.targetIndex = i // anchor the stepper here (cancelTweens cleared it)
 
-    // Distance that fits the whole frame on screen (based on the larger of width/height)
-    const viewDist = Math.max(2.4, (ex.width + 0.3) * 2.0, (ex.height + 0.3) * 1.7)
-    // The info panel appears on the right, so shift sideways to keep the artwork left of center
+    // On phones the info panel is a bottom sheet; on wider screens it's a right drawer
+    const isPhone = window.innerWidth <= 640
+    // Distance that fits the whole frame on screen (pull back a bit on phones so the
+    // lifted artwork clears the bottom sheet)
+    const viewDist = Math.max(2.4, (ex.width + 0.3) * 2.0, (ex.height + 0.3) * 1.7) * (isPhone ? 1.18 : 1)
+    // Right drawer: shift sideways to keep the artwork left of center. Bottom sheet: keep it centered.
     const side = new THREE.Vector3(ex.normal.z, 0, -ex.normal.x)
-    const shift = window.innerWidth > 700 ? viewDist * 0.2 : 0
+    const shift = isPhone ? 0 : viewDist * 0.2
     const to = clampToRoom(
       ex.center.clone().add(ex.normal.clone().multiplyScalar(viewDist)).add(side.multiplyScalar(shift))
     )
@@ -129,6 +149,8 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
 
     // Orientation facing the wall head-on
     const targetYaw = Math.atan2(ex.normal.x, ex.normal.z)
+    // Tilt down on phones so the artwork rises into the upper area above the bottom sheet
+    const targetPitch = isPhone ? -0.26 : 0
     const fromYaw = state.current.yaw
     const fromPitch = state.current.pitch
     const dYaw = shortestAngle(targetYaw - fromYaw)
@@ -139,10 +161,38 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
         const k = easeInOut(t)
         camera.position.lerpVectors(from, to, k)
         state.current.yaw = fromYaw + dYaw * k
-        state.current.pitch = fromPitch * (1 - k)
+        state.current.pitch = fromPitch + (targetPitch - fromPitch) * k
       },
       () => useGallery.getState().setFocused(i)
     )
+  }
+
+  // Index of the work whose center is closest to the camera on the floor plane
+  function nearestIndex() {
+    const meta = metaRef.current
+    let best = 0
+    let bestD = Infinity
+    for (let i = 0; i < meta.length; i++) {
+      const dx = meta[i].center.x - camera.position.x
+      const dz = meta[i].center.z - camera.position.z
+      const d = dx * dx + dz * dz
+      if (d < bestD) {
+        bestD = d
+        best = i
+      }
+    }
+    return best
+  }
+
+  // One action = glide to the next/previous work AND face it (reuses focusExhibit).
+  // From free-walking, the first step goes to the nearest work.
+  function focusStep(dir: number) {
+    const meta = metaRef.current
+    if (!meta.length) return
+    useGallery.getState().setTourActive(false)
+    const cur = state.current.targetIndex
+    const i = cur < 0 ? nearestIndex() : (cur + dir + meta.length) % meta.length
+    focusExhibit(i)
   }
 
   function resetToEntry() {
@@ -167,7 +217,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
 
   // Expose so the UI (panel, tour, joystick) can call it
   useEffect(() => {
-    walkRef.current = { focusExhibit, walkTo, cancel: cancelTweens, resetToEntry }
+    walkRef.current = { focusExhibit, focusStep, walkTo, cancel: cancelTweens, resetToEntry }
     return () => {
       walkRef.current = null
     }
@@ -225,6 +275,9 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
         g.setFocused(-1)
         g.setSettingsOpen(false)
       }
+      // Step through the exhibition (move + face the next/previous work)
+      if (k === '.' || k === '>') focusStep(1)
+      if (k === ',' || k === '<') focusStep(-1)
     }
     const onKeyUp = (e: KeyboardEvent) => s.keys.delete(e.key.toLowerCase())
 
@@ -261,24 +314,28 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       }
     }
 
-    // Key / joystick movement
+    // Steer-based movement (auto-heading): forward walks along the facing,
+    // left/right turns the view so you're always facing where you go.
     let forward =
       (s.keys.has('w') || s.keys.has('arrowup') ? 1 : 0) - (s.keys.has('s') || s.keys.has('arrowdown') ? 1 : 0)
-    let strafe =
+    let turn =
       (s.keys.has('d') || s.keys.has('arrowright') ? 1 : 0) - (s.keys.has('a') || s.keys.has('arrowleft') ? 1 : 0)
     if (joyState.active) {
       forward += -joyState.y
-      strafe += joyState.x
+      turn += joyState.x
     }
-    if (forward || strafe) {
+    forward = THREE.MathUtils.clamp(forward, -1, 1)
+    turn = THREE.MathUtils.clamp(turn, -1, 1)
+    // Turn the heading (skip while a drag-look is active so the two don't fight)
+    if (turn && !s.dragging) s.yaw -= turn * TURN_SPEED * dt
+    if (forward) {
       const dir = new THREE.Vector3(-Math.sin(s.yaw), 0, -Math.cos(s.yaw))
-      const right = new THREE.Vector3(-dir.z, 0, dir.x)
-      const move = dir.multiplyScalar(forward).add(right.multiplyScalar(strafe))
-      if (move.lengthSq() > 1) move.normalize()
-      s.vel.lerp(move.multiplyScalar(3.1), 1 - Math.pow(0.0008, dt))
+      s.vel.lerp(dir.multiplyScalar(forward * 3.1), 1 - Math.pow(0.0008, dt))
     } else {
       s.vel.lerp(new THREE.Vector3(), 1 - Math.pow(0.0001, dt))
     }
+    // While moving, gently level the view (clears the phone focus tilt once you walk off)
+    if ((forward || turn) && !s.dragging) s.pitch += (0 - s.pitch) * Math.min(1, dt * 2.5)
     if (s.vel.lengthSq() > 1e-6) {
       camera.position.addScaledVector(s.vel, dt)
       clampToRoom(camera.position)

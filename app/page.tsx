@@ -14,6 +14,7 @@ export default function LandingPage() {
           <a href="#features">Features</a>
           <a href="#flow">How it works</a>
           <a href="#pricing">Pricing</a>
+          <Link href="/signin">Sign in</Link>
         </div>
         <Link className="btn btn-small" href="/demo">Enter demo</Link>
       </nav>
@@ -158,6 +159,7 @@ export default function LandingPage() {
               <li>Public URL</li>
               <li>Mobile-ready viewer</li>
             </ul>
+            <Link className="btn btn-small price-cta" href="/signup">Start free</Link>
           </div>
           <div className="price-card price-card--pro reveal">
             <div className="price-badge">For Artists</div>
@@ -183,7 +185,10 @@ export default function LandingPage() {
           <p className="closing-sub">
             Upload your work, compose the space, and send a single link to the world.
           </p>
-          <Link className="hero-cta" href="/demo">Walk the gallery</Link>
+          <Link className="hero-cta" href="/signup">Create your gallery — free</Link>
+          <p className="closing-alt">
+            <Link href="/demo">or walk the demo first →</Link>
+          </p>
         </div>
       </section>
 
@@ -196,11 +201,13 @@ export default function LandingPage() {
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
           <Link href="/demo">Demo</Link>
+          <Link href="/signin">Sign in</Link>
+          <Link href="/signup">Create account</Link>
         </nav>
         <div className="footer-meta">
           <span>Prototype v0.4</span>
-          <span>Privacy</span>
-          <span>Terms</span>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
           <span>© 2026 HAKONIWA</span>
         </div>
       </footer>

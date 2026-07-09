@@ -2,6 +2,7 @@
 import { supabase } from './supabase'
 import type { ArtworkData } from './artworks'
 import { loadImage } from './upload'
+import { PLAN } from './limits'
 
 interface ArtworkRow {
   id: string
@@ -47,6 +48,42 @@ export async function listMyArtworks(artistName: string): Promise<ArtworkData[]>
   return (data as ArtworkRow[]).map((r) => rowToArtwork(r, artistName))
 }
 
+/** Total bytes this user has stored (sum of artworks.bytes; rows predating 0006 count as 0) */
+export async function getStorageUsage(ownerId: string): Promise<number> {
+  const { data, error } = await supabase!.from('artworks').select('bytes').eq('owner_id', ownerId)
+  if (error) throw error
+  return (data ?? []).reduce((sum, r) => sum + ((r as { bytes?: number }).bytes ?? 0), 0)
+}
+
+// Plan quota gate (REQUIREMENTS 10.10). Throws a readable error when the upload wouldn't fit
+async function assertQuota(ownerId: string, addedBytes: number): Promise<void> {
+  let used = 0
+  try {
+    used = await getStorageUsage(ownerId)
+  } catch {
+    return // bytes column missing (0006 not applied) — don't block uploads
+  }
+  if (used + addedBytes > PLAN.storageBytes) {
+    const mb = (n: number) => Math.round(n / 1024 / 1024)
+    throw new Error(
+      `Storage limit reached: ${mb(used)}MB of ${mb(PLAN.storageBytes)}MB used, this upload needs ${Math.max(1, mb(addedBytes))}MB. Remove some works first.`
+    )
+  }
+}
+
+// Insert an artworks row; if the bytes column doesn't exist yet (0006 not applied), retry without it
+async function insertArtworkRow(row: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase!.from('artworks').insert(row)
+  if (!error) return
+  if (/bytes/i.test(error.message)) {
+    const { bytes: _bytes, ...rest } = row
+    const retry = await supabase!.from('artworks').insert(rest)
+    if (!retry.error) return
+    throw retry.error
+  }
+  throw error
+}
+
 async function dataUrlToJpegBlob(dataUrl: string, maxSide: number): Promise<Blob> {
   const img = await loadImage(dataUrl)
   const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
@@ -76,6 +113,7 @@ export async function uploadArtwork(params: {
   // Two sizes: a display image (long edge 1600) and a thumbnail (long edge 400) (docs/ARCHITECTURE.md ch. 5)
   const display = await dataUrlToJpegBlob(params.dataUrl, 1600)
   const thumb = await dataUrlToJpegBlob(params.dataUrl, 400)
+  await assertQuota(params.ownerId, display.size + thumb.size)
 
   const up1 = await sb.storage.from('artworks').upload(`${basePath}/display.jpg`, display, {
     contentType: 'image/jpeg',
@@ -86,15 +124,17 @@ export async function uploadArtwork(params: {
   })
   if (up2.error) throw up2.error
 
-  const { error } = await sb.from('artworks').insert({
-    id,
-    owner_id: params.ownerId,
-    storage_path: basePath,
-    width: params.w,
-    height: params.h,
-    title: params.title,
-  })
-  if (error) {
+  try {
+    await insertArtworkRow({
+      id,
+      owner_id: params.ownerId,
+      storage_path: basePath,
+      width: params.w,
+      height: params.h,
+      title: params.title,
+      bytes: display.size + thumb.size,
+    })
+  } catch (error) {
     // If metadata insertion fails, don't leave the images behind
     await sb.storage.from('artworks').remove([`${basePath}/display.jpg`, `${basePath}/thumb.jpg`])
     throw error
@@ -114,25 +154,29 @@ export async function uploadVideoArtwork(params: {
   const id = crypto.randomUUID()
   const basePath = `${params.ownerId}/${id}`
 
+  const thumb = await dataUrlToJpegBlob(params.posterDataUrl, 400)
+  await assertQuota(params.ownerId, params.file.size + thumb.size)
+
   const contentType = params.file.type || 'video/mp4'
   const upV = await sb.storage.from('artworks').upload(`${basePath}/video`, params.file, { contentType })
   if (upV.error) throw upV.error
-  const thumb = await dataUrlToJpegBlob(params.posterDataUrl, 400)
   const upT = await sb.storage.from('artworks').upload(`${basePath}/thumb.jpg`, thumb, {
     contentType: 'image/jpeg',
   })
   if (upT.error) throw upT.error
 
-  const { error } = await sb.from('artworks').insert({
-    id,
-    owner_id: params.ownerId,
-    storage_path: basePath,
-    width: params.w,
-    height: params.h,
-    title: params.title,
-    kind: 'video',
-  })
-  if (error) {
+  try {
+    await insertArtworkRow({
+      id,
+      owner_id: params.ownerId,
+      storage_path: basePath,
+      width: params.w,
+      height: params.h,
+      title: params.title,
+      kind: 'video',
+      bytes: params.file.size + thumb.size,
+    })
+  } catch (error) {
     await sb.storage.from('artworks').remove([`${basePath}/video`, `${basePath}/thumb.jpg`])
     throw error
   }

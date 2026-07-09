@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 import { rowToArtwork } from './cloud'
 import type { ArtworkData } from './artworks'
 import type { Settings } from './store'
-import { LAYOUTS } from './presets'
+import { rebuildPlacements } from './galleries'
 
 export interface PublicExhibition {
   title: string
@@ -15,6 +15,8 @@ export interface PublicExhibition {
   theme: string
   layout: string
   frame: string
+  hanging: string
+  caption: string
   frameOverrides: Record<string, string>
   artworks: ArtworkData[]
 }
@@ -77,6 +79,8 @@ export async function publishGallery(params: {
         theme: settings.theme,
         layout: settings.layout,
         frame_default: settings.frame,
+        hanging_default: settings.hanging,
+        caption_default: settings.caption,
         is_public: params.isPublic,
       },
       { onConflict: 'owner_id,slug' }
@@ -85,21 +89,7 @@ export async function publishGallery(params: {
     .single()
   if (gErr) throw gErr
 
-  // Rebuild the placements (capped at the number of slots)
-  const slots = LAYOUTS[settings.layout].slots.length
-  const shown = params.ownArtworks.slice(0, slots)
-  const { error: dErr } = await sb.from('placements').delete().eq('gallery_id', gallery.id)
-  if (dErr) throw dErr
-  if (shown.length) {
-    const rows = shown.map((art, i) => ({
-      gallery_id: gallery.id,
-      artwork_id: art.id,
-      slot_index: i,
-      frame_override: settings.frameOverrides[art.id] ?? null,
-    }))
-    const { error: pErr } = await sb.from('placements').insert(rows)
-    if (pErr) throw pErr
-  }
+  await rebuildPlacements(gallery.id, settings, params.ownArtworks)
 }
 
 /** Get your own publish status (for the settings panel) */
@@ -112,6 +102,71 @@ export async function getMyGallery(userId: string) {
     .maybeSingle()
   if (error) throw error
   return data
+}
+
+/* ---- Artist page (/@username) ---- */
+
+export interface PublicProfile {
+  username: string
+  displayName: string
+  bio: string
+  galleries: {
+    slug: string
+    title: string
+    statement: string
+    /** Cover image URL (slot 0 work; decision 10.8-7) */
+    cover: string | null
+    workCount: number
+  }[]
+}
+
+/** Profile + public hakoniwa list for /@username (null if the user doesn't exist or the fetch fails) */
+export async function fetchPublicProfile(username: string): Promise<PublicProfile | null> {
+  if (!supabase) return null
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, bio')
+      .eq('username', username)
+      .maybeSingle()
+    if (!profile) return null
+
+    const { data: galleries } = await supabase
+      .from('galleries')
+      .select('id, slug, title, statement')
+      .eq('owner_id', profile.id)
+      .eq('is_public', true)
+      .order('created_at', { ascending: true })
+
+    const out: PublicProfile = {
+      username: profile.username!,
+      displayName: profile.display_name || profile.username || '',
+      bio: profile.bio ?? '',
+      galleries: [],
+    }
+    for (const g of galleries ?? []) {
+      const { data: placements } = await supabase
+        .from('placements')
+        .select('slot_index, artworks (*)')
+        .eq('gallery_id', g.id)
+        .order('slot_index', { ascending: true })
+      const rows = (placements ?? [])
+        .map((p) => p.artworks as unknown as Parameters<typeof rowToArtwork>[0] | null)
+        .filter(Boolean)
+      const first = rows[0] ? rowToArtwork(rows[0]!, out.displayName) : null
+      out.galleries.push({
+        slug: g.slug,
+        title: g.title,
+        statement: g.statement,
+        cover: first ? (first.kind === 'video' ? first.poster ?? null : first.src ?? null) : null,
+        workCount: rows.length,
+      })
+    }
+    return out
+  } catch (e) {
+    console.error('fetchPublicProfile failed:', e)
+    return null
+  }
 }
 
 /** For the public page: fetch the full exhibition from username + slug (null if private, missing, or the fetch fails) */
@@ -141,7 +196,7 @@ async function fetchPublicExhibitionInner(
 
   const { data: gallery } = await supabase!
     .from('galleries')
-    .select('id, title, statement, theme, layout, frame_default, is_public')
+    .select('id, title, statement, theme, layout, frame_default, hanging_default, caption_default, is_public')
     .eq('owner_id', profile.id)
     .eq('slug', slug)
     .eq('is_public', true)
@@ -173,6 +228,9 @@ async function fetchPublicExhibitionInner(
     theme: gallery.theme,
     layout: gallery.layout,
     frame: gallery.frame_default,
+    // Older galleries predate these columns; fall back to sensible defaults
+    hanging: gallery.hanging_default ?? 'wire',
+    caption: gallery.caption_default ?? 'side',
     frameOverrides,
     artworks,
   }

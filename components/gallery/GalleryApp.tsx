@@ -10,7 +10,7 @@ import { walkRef, LOW_POWER } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { unlockVideoAudio } from '@/lib/videohub'
 import GalleryScene from './GalleryScene'
-import { HudTop, HudActions, Hint } from './Hud'
+import { HudTop, HudActions, HudStepper, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
 import SettingsPanel from './SettingsPanel'
 import Joystick from './Joystick'
@@ -120,6 +120,7 @@ export default function GalleryApp() {
       <HudTop />
       <Hint />
       <HudActions />
+      <HudStepper />
       <Joystick />
       <ArtworkPanel />
       <SettingsPanel />

@@ -853,6 +853,12 @@ a { color: inherit; }
   margin-left: 0.6em;
 }
 .price-card ul { list-style: none; }
+.price-cta { display: inline-block; margin-top: 1.4rem; text-decoration: none; }
+.closing-alt { margin-top: 1.4rem; font-size: 0.82rem; }
+.closing-alt a { color: var(--muted); text-decoration: none; letter-spacing: 0.08em; }
+.closing-alt a:hover { color: var(--ink); }
+.footer-meta a { color: inherit; text-decoration: none; }
+.footer-meta a:hover { color: var(--ink); }
 .price-card li {
   font-size: 0.82rem;
   color: var(--muted);

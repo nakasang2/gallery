@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import './landing.css'
 import './gallery.css'
+import './auth.css'
+import './me.css'
 
 export const metadata: Metadata = {
   title: 'HAKONIWA — Your work, given space.',
