@@ -75,7 +75,9 @@ export async function createGallery(
 
 export const SLUG_RE = /^[a-z0-9-]{1,40}$/
 
-/** Change the public URL slug (/@username/[slug]). Unique per owner */
+/** Change the public URL slug (/@username/[slug]). Unique per owner.
+ *  NOTE: no UI calls this while the plan allows a single hakoniwa — the shared
+ *  URL is just /@username. Kept for the multi-gallery future. */
 export async function updateGallerySlug(id: string, slug: string): Promise<void> {
   const clean = slug.trim().toLowerCase()
   if (!SLUG_RE.test(clean)) {
