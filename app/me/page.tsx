@@ -3,9 +3,11 @@
 // Designed for multiple galleries; the release plan caps creation at PLAN.galleries.
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS } from '@/lib/presets'
+import { ThemeSwatch, LayoutPlan, TemplateCard } from '@/components/SpacePreviews'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -15,6 +17,9 @@ import {
   setGalleryPublic,
   setGalleryCover,
   updateGallerySlug,
+  saveGallerySpace,
+  rebuildPlacements,
+  fetchPlacementOverrides,
   rowToSettings,
   type GalleryRow,
 } from '@/lib/galleries'
@@ -132,10 +137,14 @@ function GuestImportCard() {
   )
 }
 
-// Create a hakoniwa: name + template as the starting point (REQUIREMENTS 10.2)
+// Create a hakoniwa as a two-step wizard: SEE the template first, then name it,
+// and land straight in the editor with the themed room around you (REQUIREMENTS 10.2)
 function CreateCard({ onCreated }: { onCreated: () => void }) {
   const user = useGallery((s) => s.user)!
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
+  const updateSettings = useGallery((s) => s.updateSettings)
+  const router = useRouter()
+  const [step, setStep] = useState<1 | 2>(1)
   const [title, setTitle] = useState('My Gallery')
   const [templateId, setTemplateId] = useState('salon')
   const [busy, setBusy] = useState(false)
@@ -145,38 +154,62 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
     try {
       await createGallery(user.id, { title, templateId })
       await refreshMyGallery()
+      // Persist the template locally too, so the editor's hydrate() can't fall back
+      // to stale localStorage defaults after the client-side navigation
+      const t = TEMPLATES[templateId]
+      if (t) {
+        updateSettings({
+          theme: t.theme,
+          layout: t.layout,
+          frame: t.frame,
+          hanging: t.hanging,
+          caption: t.caption,
+          frameOverrides: {},
+        })
+      }
       onCreated()
+      router.push('/demo') // straight into the room — the result is the feedback
     } catch (e) {
       alert(`Could not create the hakoniwa: ${e instanceof Error ? e.message : e}`)
-    } finally {
       setBusy(false)
     }
+  }
+
+  if (step === 1) {
+    return (
+      <div className="me-card">
+        <p className="me-note" style={{ marginTop: 0 }}>
+          <b style={{ color: 'var(--ink)' }}>Step 1 of 2</b> — pick the room you&apos;ll start from.
+          Colours, floor plan and framing are all shown; everything can be changed later.
+        </p>
+        <div className="tpl-grid">
+          {Object.keys(TEMPLATES).map((key) => (
+            <TemplateCard key={key} templateId={key} active={key === templateId} onClick={() => setTemplateId(key)} />
+          ))}
+        </div>
+        <button className="btn-line" onClick={() => setStep(2)}>
+          Continue with {TEMPLATES[templateId]?.label} →
+        </button>
+      </div>
+    )
   }
 
   return (
     <div className="me-card">
       <p className="me-note" style={{ marginTop: 0 }}>
-        You don&apos;t have a hakoniwa yet. Pick a starting template — everything can be changed later
-        in the editor.
+        <b style={{ color: 'var(--ink)' }}>Step 2 of 2</b> — name your hakoniwa. This is the exhibition
+        title visitors will see.
       </p>
       <label className="me-field">
         <span>Name</span>
-        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
       </label>
-      <div className="chips" style={{ margin: '0.4rem 0 1.2rem' }}>
-        {Object.entries(TEMPLATES).map(([key, t]) => (
-          <button
-            key={key}
-            className={`chip${key === templateId ? ' active' : ''}`}
-            onClick={() => setTemplateId(key)}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="hako-actions">
+        <button className="btn-line" disabled={busy} onClick={() => setStep(1)}>← Back</button>
+        <button className="btn-line" disabled={busy} onClick={() => void create()}>
+          {busy ? 'Creating…' : 'Create & open the editor'}
+        </button>
       </div>
-      <button className="btn-line" disabled={busy} onClick={() => void create()}>
-        {busy ? 'Creating…' : 'Create hakoniwa'}
-      </button>
     </div>
   )
 }
@@ -190,7 +223,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
-  const [mode, setMode] = useState<'view' | 'rename' | 'url'>('view')
+  const [mode, setMode] = useState<'view' | 'rename' | 'url' | 'space'>('view')
   const [nameInput, setNameInput] = useState(row.title)
   const [slugInput, setSlugInput] = useState(row.slug)
   const [copied, setCopied] = useState(false)
@@ -223,14 +256,31 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
+  // Per-work framing may have been set on another device — merge the placements'
+  // stored overrides under this browser's, or a rebuild here would wipe them
+  async function mergedOverrides(): Promise<Record<string, string>> {
+    const saved = await fetchPlacementOverrides(row.id).catch(() => ({}))
+    return { ...saved, ...frameOverrides }
+  }
+
   async function togglePublic() {
     if (!row.is_public && cloudArtworks.length === 0) {
       alert('Exhibit at least one work before opening to the public (use the editor).')
       return
     }
-    await run(row.is_public ? 'Making private' : 'Publishing', () =>
-      setGalleryPublic(row, !row.is_public, rowToSettings(row, frameOverrides), cloudArtworks)
+    await run(row.is_public ? 'Making private' : 'Publishing', async () =>
+      setGalleryPublic(row, !row.is_public, rowToSettings(row, await mergedOverrides()), cloudArtworks)
     )
+  }
+
+  // Quick space change without opening the editor. Theme changes are cosmetic;
+  // layout changes re-cap the placements, so public rooms are rebuilt too
+  async function setSpace(partial: { theme?: string; layout?: string }) {
+    await run('Space change', async () => {
+      const s = { ...rowToSettings(row, await mergedOverrides()), ...partial }
+      await saveGallerySpace(row.id, s)
+      if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+    })
   }
 
   // Publishing needs a username — set it right here instead of hunting for the Profile section
@@ -251,8 +301,29 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
+  // Cover: the chosen OGP work, else the first exhibited work, else the theme itself
+  const coverArt = cloudArtworks.find((a) => a.id === row.cover_artwork_id) ?? cloudArtworks[0]
+  const coverSrc = coverArt ? coverArt.poster ?? coverArt.src : undefined
+
   return (
     <div className="me-card">
+      {/* What the room looks like: cover work, theme colours, floor plan */}
+      <div className="hako-visual">
+        {coverSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="hako-cover" src={coverSrc} alt="" />
+        ) : (
+          <ThemeSwatch themeKey={row.theme} className="hako-cover-swatch" />
+        )}
+        <span className="hako-plan-chip">
+          <LayoutPlan layoutKey={row.layout} params={row.layout_params} />
+        </span>
+        <span className="hako-space-tag">
+          <ThemeSwatch themeKey={row.theme} />
+          {THEMES[row.theme]?.label ?? row.theme} ·{' '}
+          {row.layout === 'custom' ? 'Custom room' : LAYOUTS[row.layout]?.label ?? row.layout}
+        </span>
+      </div>
       <div className="hako-head">
         <span className="hako-title">{row.title}</span>
         <span className={`hako-badge${row.is_public ? ' public' : ''}`}>
@@ -329,9 +400,59 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </div>
       )}
 
+      {mode === 'space' && (
+        <>
+          <p className="me-note" style={{ marginTop: 0 }}>Theme</p>
+          <div className="chips" style={{ marginBottom: '0.9rem' }}>
+            {Object.entries(THEMES).map(([key, def]) => (
+              <button
+                key={key}
+                className={`chip chip-visual${key === row.theme ? ' active' : ''}`}
+                disabled={busy}
+                onClick={() => void setSpace({ theme: key })}
+              >
+                <ThemeSwatch themeKey={key} />
+                {def.label}
+              </button>
+            ))}
+          </div>
+          <p className="me-note" style={{ marginTop: 0 }}>Layout</p>
+          <div className="chips" style={{ marginBottom: '0.9rem' }}>
+            {Object.entries(LAYOUTS).map(([key, def]) => (
+              <button
+                key={key}
+                className={`chip chip-visual${key === row.layout ? ' active' : ''}`}
+                disabled={busy}
+                onClick={() => void setSpace({ layout: key })}
+              >
+                <LayoutPlan layoutKey={key} className="chip-plan" />
+                {def.label}
+              </button>
+            ))}
+            {/* layout_params survive preset switches (saveGallerySpace preserves them),
+                so a saved custom room is always one click away */}
+            <button
+              className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}`}
+              disabled={busy}
+              onClick={() => void setSpace({ layout: 'custom' })}
+            >
+              <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
+              Custom
+            </button>
+          </div>
+          <p className="me-note">
+            Framing, hanging, captions and the custom room live in the{' '}
+            <Link href="/demo" style={{ color: 'var(--gold)' }}>editor</Link>, where you see them on the walls.
+          </p>
+          <button className="btn-line" onClick={() => setMode('view')}>Done</button>
+        </>
+      )}
       {mode === 'view' && (
         <div className="hako-actions">
           <Link className="btn-line" href="/demo">Open editor</Link>
+          <button className="btn-line" disabled={busy} onClick={() => setMode('space')}>
+            Change space
+          </button>
           <button
             className="btn-line"
             disabled={busy || (!row.is_public && !username)}

@@ -104,17 +104,17 @@ export async function deleteGallery(id: string): Promise<void> {
 
 /** Persist the space settings (theme/layout/framing/hanging/caption) to the gallery row */
 export async function saveGallerySpace(id: string, s: Settings): Promise<void> {
-  const { error } = await supabase!
-    .from('galleries')
-    .update({
-      theme: s.theme,
-      layout: s.layout,
-      layout_params: s.layout === 'custom' ? s.layoutParams : {},
-      frame_default: s.frame,
-      hanging_default: s.hanging,
-      caption_default: s.caption,
-    })
-    .eq('id', id)
+  const fields: Record<string, unknown> = {
+    theme: s.theme,
+    layout: s.layout,
+    frame_default: s.frame,
+    hanging_default: s.hanging,
+    caption_default: s.caption,
+  }
+  // Only overwrite layout_params while ON the custom layout — switching to a preset
+  // must not destroy a saved custom room (switching back recovers it)
+  if (s.layout === 'custom') fields.layout_params = s.layoutParams
+  const { error } = await supabase!.from('galleries').update(fields).eq('id', id)
   if (error) throw error
 }
 
@@ -124,7 +124,9 @@ export async function setGalleryCover(id: string, artworkId: string | null): Pro
   if (error) throw error
 }
 
-/** Rebuild placements from the current works, capped at the plan's effective slot count */
+/** Rebuild placements from the current works, capped at the plan's effective slot count.
+ *  Upsert-then-trim (not delete-then-insert): a failure mid-way leaves stale extras,
+ *  never an emptied public gallery. */
 export async function rebuildPlacements(
   galleryId: string,
   settings: Settings,
@@ -133,8 +135,6 @@ export async function rebuildPlacements(
   const sb = supabase!
   const slots = effectiveSlotCount(resolveLayout(settings.layout, settings.layoutParams).slots.length)
   const shown = ownArtworks.slice(0, slots)
-  const { error: dErr } = await sb.from('placements').delete().eq('gallery_id', galleryId)
-  if (dErr) throw dErr
   if (shown.length) {
     const rows = shown.map((art, i) => ({
       gallery_id: galleryId,
@@ -142,9 +142,28 @@ export async function rebuildPlacements(
       slot_index: i,
       frame_override: settings.frameOverrides[art.id] ?? null,
     }))
-    const { error: pErr } = await sb.from('placements').insert(rows)
-    if (pErr) throw pErr
+    const { error } = await sb.from('placements').upsert(rows, { onConflict: 'gallery_id,slot_index' })
+    if (error) throw error
   }
+  const { error: dErr } = await sb
+    .from('placements')
+    .delete()
+    .eq('gallery_id', galleryId)
+    .gte('slot_index', shown.length)
+  if (dErr) throw dErr
+}
+
+/** frame_override per artwork as stored in the placements — the cross-device record
+ *  of per-work framing (local frameOverrides only exist in one browser) */
+export async function fetchPlacementOverrides(galleryId: string): Promise<Record<string, string>> {
+  const { data, error } = await supabase!
+    .from('placements')
+    .select('artwork_id, frame_override')
+    .eq('gallery_id', galleryId)
+  if (error) throw error
+  const out: Record<string, string> = {}
+  for (const r of data ?? []) if (r.frame_override) out[r.artwork_id] = r.frame_override
+  return out
 }
 
 /** Toggle public. Turning public also (re)builds the placements so the page is complete */

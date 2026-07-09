@@ -12,6 +12,7 @@ import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
 import { getProfile, saveProfile } from '@/lib/publish'
 import { setGalleryPublic } from '@/lib/galleries'
 import { walkRef } from '@/lib/controller'
+import { ThemeSwatch, LayoutPlan, TemplateCard } from '@/components/SpacePreviews'
 import type { ArtworkData } from '@/lib/artworks'
 
 // Profile editor (display name + bio). The display name is also used as the artist name on labels
@@ -514,56 +515,71 @@ export default function SettingsPanel() {
 
       <section className="settings-section">
         <h3>Template</h3>
-        {/* A template sets every axis below in one go, as a starting point */}
-        <ChipRow
-          defs={TEMPLATES}
-          current={activeTemplate}
-          onPick={(key) => {
-            if (!confirmOverrideReset()) return
-            const t = TEMPLATES[key]
-            updateSettings({
-              theme: t.theme,
-              layout: t.layout,
-              frame: t.frame,
-              hanging: t.hanging,
-              caption: t.caption,
-              frameOverrides: {},
-            })
-          }}
-        />
+        {/* A template sets every axis below in one go — shown as pictures, not names */}
+        <div className="tpl-grid">
+          {Object.keys(TEMPLATES).map((key) => (
+            <TemplateCard
+              key={key}
+              templateId={key}
+              active={key === activeTemplate}
+              onClick={() => {
+                if (!confirmOverrideReset()) return
+                const t = TEMPLATES[key]
+                updateSettings({
+                  theme: t.theme,
+                  layout: t.layout,
+                  frame: t.frame,
+                  hanging: t.hanging,
+                  caption: t.caption,
+                  frameOverrides: {},
+                })
+              }}
+            />
+          ))}
+        </div>
         <p className="settings-note">A curated starting point. Fine-tune any axis below afterwards.</p>
       </section>
 
       <section className="settings-section">
         <h3>Theme</h3>
-        {/* Each theme carries recommended framing / hanging / caption; picking one applies them */}
-        <ChipRow
-          defs={THEMES}
-          current={settings.theme}
-          onPick={(theme) => {
-            if (!confirmOverrideReset()) return
-            updateSettings({ theme, ...THEMES[theme].recommends, frameOverrides: {} })
-          }}
-        />
+        {/* Wall / floor / light colours shown right on the chip */}
+        <div className="chips">
+          {Object.entries(THEMES).map(([key, def]) => (
+            <button
+              key={key}
+              className={`chip chip-visual${key === settings.theme ? ' active' : ''}`}
+              onClick={() => {
+                if (!confirmOverrideReset()) return
+                updateSettings({ theme: key, ...def.recommends, frameOverrides: {} })
+              }}
+            >
+              <ThemeSwatch themeKey={key} />
+              {def.label}
+            </button>
+          ))}
+        </div>
         <p className="settings-note">Switching theme applies its recommended framing; adjust below to taste.</p>
       </section>
 
       <section className="settings-section">
         <h3>Layout</h3>
+        {/* Floor plans generated from the real layout data: room, hanging spots, benches */}
         <div className="chips">
           {Object.entries(LAYOUTS).map(([key, def]) => (
             <button
               key={key}
-              className={`chip${key === settings.layout ? ' active' : ''}`}
+              className={`chip chip-visual${key === settings.layout ? ' active' : ''}`}
               onClick={() => updateSettings({ layout: key })}
             >
+              <LayoutPlan layoutKey={key} className="chip-plan" />
               {def.label}
             </button>
           ))}
           <button
-            className={`chip${settings.layout === 'custom' ? ' active' : ''}`}
+            className={`chip chip-visual${settings.layout === 'custom' ? ' active' : ''}`}
             onClick={() => updateSettings({ layout: 'custom' })}
           >
+            <LayoutPlan layoutKey="custom" params={settings.layoutParams} className="chip-plan" />
             Custom
           </button>
         </div>
