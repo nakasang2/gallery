@@ -13,12 +13,20 @@ import {
   renameGallery,
   deleteGallery,
   setGalleryPublic,
+  updateGallerySlug,
   rowToSettings,
   type GalleryRow,
 } from '@/lib/galleries'
 import { getProfile, saveProfile, setUsername, USERNAME_RE } from '@/lib/publish'
-import { getStorageUsage, uploadArtwork } from '@/lib/cloud'
-import { loadImage } from '@/lib/upload'
+import {
+  getStorageUsage,
+  uploadArtwork,
+  deleteArtwork,
+  artworkPlacementCount,
+  deleteMyAccount,
+} from '@/lib/cloud'
+import { fileToDataUrl, loadImage } from '@/lib/upload'
+import type { ArtworkData } from '@/lib/artworks'
 
 function fmtDate(iso: string | null): string {
   if (!iso) return ''
@@ -168,8 +176,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const frameOverrides = useGallery((s) => s.frameOverrides)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const [busy, setBusy] = useState(false)
-  const [renaming, setRenaming] = useState(false)
+  const [mode, setMode] = useState<'view' | 'rename' | 'url'>('view')
   const [nameInput, setNameInput] = useState(row.title)
+  const [slugInput, setSlugInput] = useState(row.slug)
   const [copied, setCopied] = useState(false)
 
   const publicUrl =
@@ -223,7 +232,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         ) : null}
       </p>
 
-      {renaming ? (
+      {mode === 'rename' && (
         <div className="field-row">
           <input type="text" value={nameInput} onChange={(e) => setNameInput(e.target.value)} />
           <button
@@ -232,15 +241,40 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             onClick={() =>
               void run('Rename', async () => {
                 await renameGallery(row.id, nameInput)
-                setRenaming(false)
+                setMode('view')
               })
             }
           >
             Save
           </button>
-          <button className="btn-line" onClick={() => setRenaming(false)}>Cancel</button>
+          <button className="btn-line" onClick={() => setMode('view')}>Cancel</button>
         </div>
-      ) : (
+      )}
+      {mode === 'url' && (
+        <>
+          <div className="field-row">
+            <span className="slug-prefix">/@{username ?? 'you'}/</span>
+            <input type="text" value={slugInput} onChange={(e) => setSlugInput(e.target.value)} />
+            <button
+              className="btn-line"
+              disabled={busy}
+              onClick={() =>
+                void run('URL change', async () => {
+                  await updateGallerySlug(row.id, slugInput)
+                  setMode('view')
+                })
+              }
+            >
+              Save
+            </button>
+            <button className="btn-line" onClick={() => setMode('view')}>Cancel</button>
+          </div>
+          {row.is_public && (
+            <p className="me-note">Changing the URL breaks links you have already shared.</p>
+          )}
+        </>
+      )}
+      {mode === 'view' && (
         <div className="hako-actions">
           <Link className="btn-line" href="/demo">Open editor</Link>
           <button className="btn-line" disabled={busy} onClick={() => void togglePublic()}>
@@ -259,8 +293,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               {copied ? 'Copied' : 'Copy URL'}
             </button>
           )}
-          <button className="btn-line" onClick={() => { setNameInput(row.title); setRenaming(true) }}>
+          <button className="btn-line" onClick={() => { setNameInput(row.title); setMode('rename') }}>
             Rename
+          </button>
+          <button className="btn-line" onClick={() => { setSlugInput(row.slug); setMode('url') }}>
+            Change URL
           </button>
           <button
             className="btn-line hako-danger"
@@ -274,6 +311,166 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+// Works library (REQUIREMENTS 10.3): user-level assets, reusable across hakoniwa
+function WorksCard() {
+  const user = useGallery((s) => s.user)!
+  const cloudArtworks = useGallery((s) => s.cloudArtworks)
+  const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const [uploading, setUploading] = useState(false)
+
+  async function onFiles(files: FileList | null) {
+    if (!files?.length) return
+    setUploading(true)
+    try {
+      for (const f of Array.from(files)) {
+        if (f.type.startsWith('video/')) {
+          alert(`Videos are uploaded from the editor (“Exhibit your work”) — skipped “${f.name}”.`)
+          continue
+        }
+        const title = f.name.replace(/\.[^.]+$/, '') || 'Untitled'
+        const { dataUrl, w, h } = await fileToDataUrl(f, 1600)
+        await uploadArtwork({ ownerId: user.id, dataUrl, title, w, h })
+      }
+      await refreshCloud()
+    } catch (e) {
+      alert(`Upload failed: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function remove(art: ArtworkData) {
+    let msg = `Remove “${art.title}” from your library?`
+    try {
+      if ((await artworkPlacementCount(art.id)) > 0) {
+        msg = `“${art.title}” is hanging in your public hakoniwa. Removing it also takes it off the wall. Continue?`
+      }
+    } catch {
+      /* placements unreadable — fall back to the generic confirm */
+    }
+    if (!confirm(msg)) return
+    try {
+      await deleteArtwork(user.id, art.id)
+      await refreshCloud()
+    } catch (e) {
+      alert(`Could not remove the work: ${e instanceof Error ? e.message : e}`)
+    }
+  }
+
+  return (
+    <div className="me-card">
+      {cloudArtworks.length === 0 && (
+        <p className="me-note" style={{ marginTop: 0 }}>
+          No works in your library yet. Upload images here, then arrange them in the editor.
+        </p>
+      )}
+      {cloudArtworks.length > 0 && (
+        <div className="works-grid">
+          {cloudArtworks.map((art) => (
+            <figure className="works-cell" key={art.id}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={art.poster ?? art.src} alt={art.title} loading="lazy" />
+              <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
+              <button aria-label={`Remove ${art.title}`} onClick={() => void remove(art)}>×</button>
+            </figure>
+          ))}
+        </div>
+      )}
+      <label className="btn-line file-btn" aria-disabled={uploading}>
+        {uploading ? 'Uploading…' : 'Upload images'}
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          disabled={uploading}
+          onChange={(e) => {
+            void onFiles(e.target.files)
+            e.target.value = ''
+          }}
+        />
+      </label>
+      <p className="me-note">
+        Works are library assets — deleting a hakoniwa never deletes them. Videos are uploaded from the editor.
+      </p>
+    </div>
+  )
+}
+
+// Account operations (REQUIREMENTS 10.1): email change, password change, deletion
+function AccountCard() {
+  const user = useGallery((s) => s.user)!
+  const [newEmail, setNewEmail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+
+  async function changeEmail() {
+    const email = newEmail.trim()
+    if (!email || busy) return
+    setBusy(true)
+    try {
+      const { error } = await supabase!.auth.updateUser({ email })
+      if (error) throw error
+      setEmailSent(true)
+    } catch (e) {
+      alert(`Could not start the email change: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeAccount() {
+    if (
+      !confirm(
+        'Delete your account? Your hakoniwa, its public page, and every uploaded work will be permanently removed.'
+      )
+    )
+      return
+    if (!confirm('This cannot be undone. Really delete everything?')) return
+    setBusy(true)
+    try {
+      await deleteMyAccount()
+      location.href = '/'
+    } catch (e) {
+      alert(
+        `Account deletion failed: ${e instanceof Error ? e.message : e}\n` +
+          'Check that supabase/migrations/0007_delete_account.sql has been applied.'
+      )
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="me-card">
+      <label className="me-field">
+        <span>Email — currently {user.email ?? '(none)'}</span>
+        <div className="field-row" style={{ marginTop: 0 }}>
+          <input
+            type="email"
+            placeholder="new@email.com"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+          />
+          <button className="btn-line" disabled={busy || !newEmail.trim()} onClick={() => void changeEmail()}>
+            Change
+          </button>
+        </div>
+      </label>
+      {emailSent && (
+        <p className="me-note">
+          Confirmation link(s) sent — open them to complete the change.
+        </p>
+      )}
+      <div className="hako-actions">
+        <Link className="btn-line" href="/reset">Change password</Link>
+        <button className="btn-line hako-danger" disabled={busy} onClick={() => void removeAccount()}>
+          Delete account
+        </button>
+      </div>
     </div>
   )
 }
@@ -459,8 +656,18 @@ export default function MePage() {
             </section>
 
             <section className="me-section">
+              <h2>Works</h2>
+              <WorksCard />
+            </section>
+
+            <section className="me-section">
               <h2>Profile</h2>
               <ProfileCard />
+            </section>
+
+            <section className="me-section">
+              <h2>Account</h2>
+              <AccountCard />
             </section>
           </>
         )}

@@ -71,6 +71,21 @@ export async function createGallery(
   return data as GalleryRow
 }
 
+export const SLUG_RE = /^[a-z0-9-]{1,40}$/
+
+/** Change the public URL slug (/@username/[slug]). Unique per owner */
+export async function updateGallerySlug(id: string, slug: string): Promise<void> {
+  const clean = slug.trim().toLowerCase()
+  if (!SLUG_RE.test(clean)) {
+    throw new Error('URLs are 1–40 characters: lowercase letters, digits and hyphens.')
+  }
+  const { error } = await supabase!.from('galleries').update({ slug: clean }).eq('id', id)
+  if (error) {
+    if (error.code === '23505') throw new Error('You already use this URL for another hakoniwa.')
+    throw error
+  }
+}
+
 export async function renameGallery(id: string, title: string): Promise<void> {
   const { error } = await supabase!
     .from('galleries')

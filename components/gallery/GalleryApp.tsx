@@ -10,6 +10,7 @@ import { walkRef, LOW_POWER } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { unlockVideoAudio } from '@/lib/videohub'
 import GalleryScene from './GalleryScene'
+import FlatGallery from './FlatGallery'
 import { HudTop, HudActions, HudStepper, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
 import SettingsPanel from './SettingsPanel'
@@ -56,9 +57,20 @@ function useTour() {
 export default function GalleryApp() {
   const ready = useGallery((s) => s.ready)
   const [loadingDone, setLoadingDone] = useState(false)
+  // null = still detecting; false = no WebGL → 2D list fallback
+  const [webgl, setWebgl] = useState<boolean | null>(null)
   const entryRef = useRef(LAYOUTS[useGallery.getState().layout].entry)
 
   useTour()
+
+  useEffect(() => {
+    try {
+      const c = document.createElement('canvas')
+      setWebgl(!!(c.getContext('webgl2') || c.getContext('webgl')))
+    } catch {
+      setWebgl(false)
+    }
+  }, [])
 
   // Prototype: expose internal state on the console for inspection
   useEffect(() => {
@@ -96,7 +108,7 @@ export default function GalleryApp() {
 
   return (
     <>
-      {ready && (
+      {ready && webgl && (
         <Canvas
           className="stage-root"
           gl={{ antialias: true }}
@@ -116,13 +128,18 @@ export default function GalleryApp() {
           <GalleryScene />
         </Canvas>
       )}
+      {ready && webgl === false && <FlatGallery />}
 
       <HudTop />
-      <Hint />
+      {webgl !== false ? (
+        <>
+          <Hint />
+          <HudStepper />
+          <Joystick />
+          <ArtworkPanel />
+        </>
+      ) : null}
       <HudActions />
-      <HudStepper />
-      <Joystick />
-      <ArtworkPanel />
       <SettingsPanel />
       <LoadingOverlay done={loadingDone} />
     </>

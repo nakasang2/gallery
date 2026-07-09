@@ -12,6 +12,7 @@
    - `0004_hanging_caption.sql` — 吊し方・キャプション設定
    - `0005_dashboard.sql` — ギャラリー更新日時(ダッシュボード用)
    - `0006_storage_bytes.sql` — 作品ごとの保存容量(300MB上限の実測用)
+   - `0007_delete_account.sql` — アカウント削除RPC(本人限定・cascade削除)
 3. 「Success. No rows returned」が出れば完了
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、
