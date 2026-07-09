@@ -2,8 +2,9 @@
 // Space settings panel (theme/layout/framing switches, account, and exhibiting works)
 // Where works are exhibited depends on sign-in state: guest = localStorage / signed in = Supabase
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS, TEMPLATES } from '@/lib/presets'
-import { overflowCount, useOwnArtworks } from '@/lib/exhibition'
+import { overflowCount, slotCount, useOwnArtworks } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
 import { supabase } from '@/lib/supabase'
@@ -97,9 +98,6 @@ function ChipRow({
 function AccountSection() {
   const user = useGallery((s) => s.user)
   const signOut = useGallery((s) => s.signOut)
-  const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
-  const [busy, setBusy] = useState(false)
 
   if (!supabase) {
     return <p className="settings-note">Cloud storage is not configured (Supabase keys required in .env.local).</p>
@@ -118,53 +116,17 @@ function AccountSection() {
     )
   }
 
-  async function sendMagicLink() {
-    if (!email.trim() || busy) return
-    setBusy(true)
-    try {
-      const { error } = await supabase!.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: `${location.origin}/demo` },
-      })
-      if (error) throw error
-      setSent(true)
-    } catch (e) {
-      alert(`Could not send the sign-in link: ${e instanceof Error ? e.message : e}`)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function googleLogin() {
-    const { error } = await supabase!.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${location.origin}/demo` },
-    })
-    if (error) alert(`Could not start Google sign-in: ${error.message}`)
-  }
-
+  // Signed out: password / magic link / Google all live on the dedicated auth pages
   return (
     <>
-      <div className="field-row">
-        <input
-          type="email"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void sendMagicLink()}
-        />
-        <button className="btn-line" disabled={busy} onClick={() => void sendMagicLink()}>
-          Send link
-        </button>
-      </div>
-      {sent && <p className="settings-note">Sign-in link sent. Check your inbox.</p>}
-      <div className="field-row">
-        <button className="btn-line" onClick={() => void googleLogin()}>Sign in with Google</button>
-      </div>
       <p className="settings-note">
-        Signing in stores your exhibited works in the cloud and enables the public URL.
+        Sign in to store your works in the cloud and publish your gallery at a public URL.
         Without an account, you can still exhibit inside this browser.
       </p>
+      <div className="field-row">
+        <Link className="btn-line" href="/signin">Sign in</Link>
+        <Link className="btn-line" href="/signup">Create account</Link>
+      </div>
     </>
   )
 }
@@ -446,7 +408,7 @@ export default function SettingsPanel() {
   const reorder = useGallery((s) => s.reorderOwnArtworks)
 
   const over = overflowCount(settings, ownArtworks.length)
-  const slots = LAYOUTS[settings.layout].slots.length
+  const slots = slotCount(settings)
 
   // Highlight a template only while every axis still matches its bundle
   const activeTemplate =

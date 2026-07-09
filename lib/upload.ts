@@ -1,5 +1,6 @@
 // Exhibition flow: loading and resizing images (requirement 8-2)
 import type { ArtworkData } from './artworks'
+import { PLAN } from './limits'
 
 export function loadImage(src: string, crossOrigin = false): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -33,7 +34,7 @@ export async function fileToDataUrl(
   }
 }
 
-export const VIDEO_MAX_BYTES = 40 * 1024 * 1024 // Limit tuned to Supabase's free tier
+export const VIDEO_MAX_BYTES = PLAN.videoBytes // Single video cap comes from the plan variables
 
 /** Extract dimensions and a poster image (first frame) from a video file */
 export function videoFileMeta(

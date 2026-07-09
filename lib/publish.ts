@@ -5,6 +5,7 @@ import { rowToArtwork } from './cloud'
 import type { ArtworkData } from './artworks'
 import type { Settings } from './store'
 import { LAYOUTS } from './presets'
+import { effectiveSlotCount } from './limits'
 
 export interface PublicExhibition {
   title: string
@@ -89,8 +90,8 @@ export async function publishGallery(params: {
     .single()
   if (gErr) throw gErr
 
-  // Rebuild the placements (capped at the number of slots)
-  const slots = LAYOUTS[settings.layout].slots.length
+  // Rebuild the placements (capped at the plan's effective slot count)
+  const slots = effectiveSlotCount(LAYOUTS[settings.layout].slots.length)
   const shown = params.ownArtworks.slice(0, slots)
   const { error: dErr } = await sb.from('placements').delete().eq('gallery_id', gallery.id)
   if (dErr) throw dErr

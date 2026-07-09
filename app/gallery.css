@@ -388,6 +388,8 @@ body.gallery-mode {
 
 .btn-line {
   display: inline-block;
+  text-decoration: none; /* also used on <a> (auth page links etc.) */
+  text-align: center;
   font-family: var(--sans);
   font-size: 0.74rem;
   letter-spacing: 0.1em;
