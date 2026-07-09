@@ -3,7 +3,7 @@
 // the plan variable caps how many hakoniwa one user can own.
 import { supabase } from './supabase'
 import { PLAN, effectiveSlotCount } from './limits'
-import { LAYOUTS, TEMPLATES } from './presets'
+import { TEMPLATES, resolveLayout, normalizeLayoutParams, type CustomLayoutParams } from './presets'
 import type { Settings } from './store'
 import type { ArtworkData } from './artworks'
 
@@ -14,15 +14,17 @@ export interface GalleryRow {
   statement: string
   theme: string
   layout: string
+  layout_params: Partial<CustomLayoutParams> | null
   frame_default: string
   hanging_default: string
   caption_default: string
+  cover_artwork_id: string | null
   is_public: boolean
   updated_at: string | null
 }
 
 const COLS =
-  'id, slug, title, statement, theme, layout, frame_default, hanging_default, caption_default, is_public, updated_at'
+  'id, slug, title, statement, theme, layout, layout_params, frame_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at'
 
 export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
   const { data, error } = await supabase!
@@ -71,6 +73,21 @@ export async function createGallery(
   return data as GalleryRow
 }
 
+export const SLUG_RE = /^[a-z0-9-]{1,40}$/
+
+/** Change the public URL slug (/@username/[slug]). Unique per owner */
+export async function updateGallerySlug(id: string, slug: string): Promise<void> {
+  const clean = slug.trim().toLowerCase()
+  if (!SLUG_RE.test(clean)) {
+    throw new Error('URLs are 1–40 characters: lowercase letters, digits and hyphens.')
+  }
+  const { error } = await supabase!.from('galleries').update({ slug: clean }).eq('id', id)
+  if (error) {
+    if (error.code === '23505') throw new Error('You already use this URL for another hakoniwa.')
+    throw error
+  }
+}
+
 export async function renameGallery(id: string, title: string): Promise<void> {
   const { error } = await supabase!
     .from('galleries')
@@ -92,11 +109,18 @@ export async function saveGallerySpace(id: string, s: Settings): Promise<void> {
     .update({
       theme: s.theme,
       layout: s.layout,
+      layout_params: s.layout === 'custom' ? s.layoutParams : {},
       frame_default: s.frame,
       hanging_default: s.hanging,
       caption_default: s.caption,
     })
     .eq('id', id)
+  if (error) throw error
+}
+
+/** Pick the work used for the OGP card / artist-page cover (null = slot 0) */
+export async function setGalleryCover(id: string, artworkId: string | null): Promise<void> {
+  const { error } = await supabase!.from('galleries').update({ cover_artwork_id: artworkId }).eq('id', id)
   if (error) throw error
 }
 
@@ -107,7 +131,7 @@ export async function rebuildPlacements(
   ownArtworks: ArtworkData[]
 ): Promise<void> {
   const sb = supabase!
-  const slots = effectiveSlotCount(LAYOUTS[settings.layout].slots.length)
+  const slots = effectiveSlotCount(resolveLayout(settings.layout, settings.layoutParams).slots.length)
   const shown = ownArtworks.slice(0, slots)
   const { error: dErr } = await sb.from('placements').delete().eq('gallery_id', galleryId)
   if (dErr) throw dErr
@@ -140,6 +164,7 @@ export function rowToSettings(row: GalleryRow, frameOverrides: Record<string, st
   return {
     theme: row.theme,
     layout: row.layout,
+    layoutParams: normalizeLayoutParams(row.layout_params),
     frame: row.frame_default,
     hanging: row.hanging_default,
     caption: row.caption_default,

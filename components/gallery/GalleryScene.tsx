@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS } from '@/lib/presets'
+import { THEMES, FRAMES, HANGINGS, CAPTIONS, resolveLayout } from '@/lib/presets'
 import { useExhibitionList, frameKeyFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
 import { LOW_POWER } from '@/lib/controller'
@@ -38,7 +38,7 @@ export default function GalleryScene() {
   const settings = useSettings()
   // Fall back in case the published data keys are outdated
   const theme = THEMES[settings.theme] ?? THEMES.chic
-  const layout = LAYOUTS[settings.layout] ?? LAYOUTS.hall
+  const layout = resolveLayout(settings.layout, settings.layoutParams)
   const hangingDef = HANGINGS[settings.hanging] ?? HANGINGS.wire
   const captionDef = CAPTIONS[settings.caption] ?? CAPTIONS.side
   const list = useExhibitionList()
@@ -78,7 +78,7 @@ export default function GalleryScene() {
       gl.shadowMap.needsUpdate = true
     })
     return () => cancelAnimationFrame(id)
-  }, [gl, scene, settings.theme, settings.layout, settings.frame, settings.hanging, settings.caption, settings.frameOverrides, list])
+  }, [gl, scene, settings.theme, settings.layout, settings.layoutParams, settings.frame, settings.hanging, settings.caption, settings.frameOverrides, list])
 
   return (
     <>

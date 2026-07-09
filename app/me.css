@@ -92,6 +92,107 @@
   .hako-actions .btn-line { flex: 1 1 44%; }
 }
 
+/* 作品ライブラリ */
+.works-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 1.1rem;
+}
+.works-cell { position: relative; margin: 0; }
+.works-cell img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  display: block;
+}
+.works-cell figcaption {
+  font-size: 0.64rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.works-cell button {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: rgba(11, 10, 9, 0.7);
+  color: var(--ink);
+  cursor: pointer;
+  line-height: 1;
+}
+.works-cell button:hover { border-color: #e08a7a; color: #e08a7a; }
+
+.slug-prefix { font-size: 0.78rem; color: var(--muted); align-self: center; white-space: nowrap; }
+
+/* カバー指定の★(OGP代表作) */
+.works-star {
+  position: absolute;
+  top: 0.3rem;
+  left: 0.3rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: rgba(11, 10, 9, 0.7);
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+}
+.works-star:hover { border-color: var(--gold); color: var(--gold); }
+.works-star.active { border-color: var(--gold); color: var(--gold); }
+
+/* アバター */
+.avatar-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.1rem; }
+.avatar-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--hairline);
+}
+.avatar-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  color: var(--gold);
+  background: rgba(212, 162, 78, 0.08);
+}
+
+/* 芳名帳(オーナー管理) */
+.gb-list { list-style: none; display: flex; flex-direction: column; gap: 1.1rem; }
+.gb-list .gb-meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.gb-list .gb-meta b { color: var(--ink); font-weight: 500; }
+.gb-list .gb-meta button {
+  margin-left: auto;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+}
+.gb-list .gb-meta button:hover { border-color: #e08a7a; color: #e08a7a; }
+.gb-list p { font-size: 0.84rem; line-height: 1.8; color: #cdc7bd; margin-top: 0.3rem; }
+
 /* ---- 作家ページ(/@username)と法務ページ ---- */
 
 .artist-page, .legal-page {
@@ -105,6 +206,14 @@
   color: var(--ink);
 }
 
+.artist-head { display: flex; align-items: center; gap: 1.2rem; }
+.artist-avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--hairline);
+}
 .artist-name { font-family: var(--serif); font-size: 2.1rem; font-weight: 500; }
 .artist-handle { font-size: 0.78rem; letter-spacing: 0.14em; color: var(--gold); margin-top: 0.3rem; }
 .artist-bio { font-size: 0.88rem; line-height: 2; color: #cdc7bd; margin-top: 1.1rem; max-width: 56ch; }

@@ -64,6 +64,20 @@
   transition: border-color 0.2s;
 }
 .auth-field input:focus { border-color: var(--gold); }
+.auth-textarea {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.05);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.7em 0.9em;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+.auth-textarea:focus { border-color: var(--gold); }
 
 .auth-submit {
   width: 100%;

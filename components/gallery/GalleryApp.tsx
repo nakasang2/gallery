@@ -3,16 +3,18 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
-import { LAYOUTS } from '@/lib/presets'
+import { resolveLayout } from '@/lib/presets'
 import { useExhibitionList } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
 import { walkRef, LOW_POWER } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { unlockVideoAudio } from '@/lib/videohub'
 import GalleryScene from './GalleryScene'
+import FlatGallery from './FlatGallery'
 import { HudTop, HudActions, HudStepper, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
 import SettingsPanel from './SettingsPanel'
+import GuestbookPanel from './GuestbookPanel'
 import Joystick from './Joystick'
 
 function LoadingOverlay({ done }: { done: boolean }) {
@@ -56,9 +58,22 @@ function useTour() {
 export default function GalleryApp() {
   const ready = useGallery((s) => s.ready)
   const [loadingDone, setLoadingDone] = useState(false)
-  const entryRef = useRef(LAYOUTS[useGallery.getState().layout].entry)
+  // null = still detecting; false = no WebGL → 2D list fallback
+  const [webgl, setWebgl] = useState<boolean | null>(null)
+  const entryRef = useRef(
+    resolveLayout(useGallery.getState().layout, useGallery.getState().layoutParams).entry
+  )
 
   useTour()
+
+  useEffect(() => {
+    try {
+      const c = document.createElement('canvas')
+      setWebgl(!!(c.getContext('webgl2') || c.getContext('webgl')))
+    } catch {
+      setWebgl(false)
+    }
+  }, [])
 
   // Prototype: expose internal state on the console for inspection
   useEffect(() => {
@@ -86,7 +101,7 @@ export default function GalleryApp() {
     Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(() => {
       if (!alive) return
       useGallery.getState().hydrate()
-      entryRef.current = LAYOUTS[useGallery.getState().layout].entry
+      entryRef.current = resolveLayout(useGallery.getState().layout, useGallery.getState().layoutParams).entry
       setTimeout(() => alive && setLoadingDone(true), 500)
     })
     return () => {
@@ -96,7 +111,7 @@ export default function GalleryApp() {
 
   return (
     <>
-      {ready && (
+      {ready && webgl && (
         <Canvas
           className="stage-root"
           gl={{ antialias: true }}
@@ -116,14 +131,20 @@ export default function GalleryApp() {
           <GalleryScene />
         </Canvas>
       )}
+      {ready && webgl === false && <FlatGallery />}
 
       <HudTop />
-      <Hint />
+      {webgl !== false ? (
+        <>
+          <Hint />
+          <HudStepper />
+          <Joystick />
+          <ArtworkPanel />
+        </>
+      ) : null}
       <HudActions />
-      <HudStepper />
-      <Joystick />
-      <ArtworkPanel />
       <SettingsPanel />
+      <GuestbookPanel />
       <LoadingOverlay done={loadingDone} />
     </>
   )

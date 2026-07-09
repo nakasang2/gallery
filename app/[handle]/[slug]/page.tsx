@@ -28,17 +28,11 @@ export async function generateMetadata({
   const title = `${ex.title} | ${ex.ownerName} — HAKONIWA`
   const description =
     ex.statement || `A 3D gallery by ${ex.ownerName}. Walk through ${ex.artworks.length} works in your browser.`
-  const first = ex.artworks[0]
-  const firstImage = first ? (first.kind === 'video' ? first.poster : first.src) : undefined
+  // OG image comes from the opengraph-image.tsx file convention (a composed card)
   return {
     title,
     description,
-    openGraph: {
-      title,
-      description,
-      type: 'website',
-      ...(firstImage ? { images: [{ url: firstImage }] } : {}),
-    },
+    openGraph: { title, description, type: 'website' },
     twitter: { card: 'summary_large_image' },
   }
 }

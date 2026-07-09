@@ -239,6 +239,76 @@ export const FRAMES: Record<string, FrameDef> = {
   none: { label: 'None', mat: null },
 }
 
+/* ================= Custom (parametric) layout ================= */
+// The 'custom' layout is generated from a few knobs instead of a preset table.
+// Kept close to the preset proportions so lighting/benches/entry stay sensible.
+
+export interface CustomLayoutParams {
+  /** Half width in metres (room is hw*2 wide) */
+  hw: number
+  /** Half depth in metres */
+  hd: number
+  /** Free-standing centre wall with 4 extra slots */
+  island: boolean
+}
+
+export const CUSTOM_LAYOUT_DEFAULTS: CustomLayoutParams = { hw: 12, hd: 7, island: false }
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+
+export function normalizeLayoutParams(p?: Partial<CustomLayoutParams> | null): CustomLayoutParams {
+  return {
+    hw: clamp(Number(p?.hw) || CUSTOM_LAYOUT_DEFAULTS.hw, 8, 18),
+    hd: clamp(Number(p?.hd) || CUSTOM_LAYOUT_DEFAULTS.hd, 4, 10),
+    island: !!p?.island,
+  }
+}
+
+export function buildCustomLayout(raw?: Partial<CustomLayoutParams> | null): LayoutDef {
+  const p = normalizeLayoutParams(raw)
+  const { hw, hd, island } = p
+  // Works per long wall scale with width (hall: hw13 → 4, corridor: hw17 → 5)
+  const nLong = clamp(Math.round(hw / 3.2), 2, 6)
+  const span = hw * 0.72
+  const slots: SlotDef[] = [
+    ...wallSlots(nLong, span, -hd + 0.05, 0, 'x'), // North wall
+    ...wallSlots(nLong, span, hd - 0.05, Math.PI, 'x'), // South wall
+  ]
+  if (island) {
+    const w = Math.min(7.6, hw * 0.62)
+    const sx = Math.min(1.9, w / 4)
+    slots.push(
+      { x: -sx, z: -0.26, rotY: Math.PI, noWire: true },
+      { x: sx, z: -0.26, rotY: Math.PI, noWire: true },
+      { x: -sx, z: 0.26, rotY: 0, noWire: true },
+      { x: sx, z: 0.26, rotY: 0, noWire: true }
+    )
+  } else if (hd >= 5.5) {
+    // Deep room without a centre wall: hang on the east end wall too
+    const nEnd = clamp(Math.round(hd / 4), 1, 2)
+    slots.push(...wallSlots(nEnd, hd * 0.5, hw - 0.05, -Math.PI / 2, 'z'))
+  }
+  const benchZ = island ? Math.min(2.2, hd - 1.6) : 0
+  return {
+    label: 'Custom',
+    hw,
+    hd,
+    slots,
+    benches: [
+      { x: -hw * 0.5, z: benchZ },
+      { x: hw * 0.5, z: benchZ },
+    ],
+    partitions: island ? [{ x: 0, z: 0, w: Math.min(7.6, hw * 0.62), t: 0.44, h: 3.5 }] : [],
+    entry: { x: hw - 2.2, z: hd - 1.8, yaw: 1.37 },
+  }
+}
+
+/** Resolve a layout key (+ params for 'custom') to a concrete LayoutDef */
+export function resolveLayout(key: string, params?: Partial<CustomLayoutParams> | null): LayoutDef {
+  if (key === 'custom') return buildCustomLayout(params)
+  return LAYOUTS[key] ?? LAYOUTS.hall
+}
+
 /* ================= Hanging (how the frame is affixed to the wall) ================= */
 
 export interface HangingDef {

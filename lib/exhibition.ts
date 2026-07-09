@@ -1,13 +1,13 @@
 // Logic for deriving the exhibition list (both the 3D scene and the UI panel read the same result)
 import { useMemo } from 'react'
 import { ARTWORKS, type ArtworkData } from './artworks'
-import { LAYOUTS, FRAMES, type LayoutDef } from './presets'
+import { FRAMES, resolveLayout, type LayoutDef } from './presets'
 import { effectiveSlotCount } from './limits'
 import { useGallery, useSettings, type Settings } from './store'
 
 /** Usable slots for the current layout (layout slots capped by the plan's works-per-gallery) */
 export function slotCount(s: Settings): number {
-  return effectiveSlotCount(LAYOUTS[s.layout].slots.length)
+  return effectiveSlotCount(resolveLayout(s.layout, s.layoutParams).slots.length)
 }
 
 export function buildExhibitionList(s: Settings, own: ArtworkData[]): ArtworkData[] {

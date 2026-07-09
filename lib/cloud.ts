@@ -1,7 +1,7 @@
 // Cloud exhibition (when signed in): images go to Storage, metadata to the artworks table
 import { supabase } from './supabase'
 import type { ArtworkData } from './artworks'
-import { loadImage } from './upload'
+import { loadImage, fileToDataUrl } from './upload'
 import { PLAN } from './limits'
 
 interface ArtworkRow {
@@ -191,6 +191,60 @@ export async function reorderArtworks(orderedIds: string[]): Promise<void> {
   )
   const failed = results.find((r) => r.error)
   if (failed?.error) throw failed.error
+}
+
+/** Upload/replace the profile avatar (512px JPEG at {uid}/avatar.jpg) and save its URL */
+export async function uploadAvatar(ownerId: string, file: File): Promise<string> {
+  const sb = supabase!
+  const { dataUrl } = await fileToDataUrl(file, 512)
+  const blob = await dataUrlToJpegBlob(dataUrl, 512)
+  const path = `${ownerId}/avatar.jpg`
+  const up = await sb.storage.from('artworks').upload(path, blob, {
+    contentType: 'image/jpeg',
+    upsert: true,
+  })
+  if (up.error) throw up.error
+  const url = `${publicUrl(path)}?v=${Date.now()}` // cache-bust so the new face shows immediately
+  const { error } = await sb.from('profiles').update({ avatar_url: url }).eq('id', ownerId)
+  if (error) throw error
+  return url
+}
+
+/** How many placements (public walls) an artwork hangs on — used for delete warnings */
+export async function artworkPlacementCount(artworkId: string): Promise<number> {
+  const { count, error } = await supabase!
+    .from('placements')
+    .select('id', { count: 'exact', head: true })
+    .eq('artwork_id', artworkId)
+  if (error) throw error
+  return count ?? 0
+}
+
+/** Remove every stored file belonging to this user (account deletion; DB rows cascade separately) */
+async function deleteAllMyStorage(): Promise<void> {
+  const { data, error } = await supabase!.from('artworks').select('storage_path')
+  if (error) throw error
+  const paths = (data ?? []).flatMap((r) => [
+    `${r.storage_path}/display.jpg`,
+    `${r.storage_path}/thumb.jpg`,
+    `${r.storage_path}/video`,
+  ])
+  // Storage remove() takes batches; nonexistent keys are ignored
+  for (let i = 0; i < paths.length; i += 100) {
+    await supabase!.storage.from('artworks').remove(paths.slice(i, i + 100))
+  }
+}
+
+/**
+ * Delete the account and everything in it (REQUIREMENTS 10.1).
+ * Storage files first (they don't cascade), then the auth user via the
+ * delete_my_account RPC (0007) — profiles/artworks/galleries/placements cascade from there.
+ */
+export async function deleteMyAccount(): Promise<void> {
+  await deleteAllMyStorage()
+  const { error } = await supabase!.rpc('delete_my_account')
+  if (error) throw error
+  await supabase!.auth.signOut().catch(() => {}) // session is already invalid — best effort
 }
 
 export async function deleteArtwork(ownerId: string, artworkId: string): Promise<void> {

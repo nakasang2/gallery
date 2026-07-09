@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useGallery } from '@/lib/store'
+import { recordVisit } from '@/lib/engagement'
 import type { PublicExhibition } from '@/lib/publish'
 
 const GalleryApp = dynamic(() => import('@/components/gallery/GalleryApp'), {
@@ -24,6 +25,7 @@ export default function VisitorGallery({ exhibition }: { exhibition: PublicExhib
   useEffect(() => {
     document.body.classList.add('gallery-mode')
     useGallery.setState({ visitor: exhibition })
+    recordVisit(exhibition.galleryId) // analytics: one count per tab session
     setArmed(true)
     return () => {
       document.body.classList.remove('gallery-mode')

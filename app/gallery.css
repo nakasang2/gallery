@@ -327,6 +327,73 @@ body.gallery-mode {
   .joy { bottom: 4.6rem; }
 }
 
+/* いいね(来場者) */
+.like-btn {
+  margin-left: 0.8rem;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  padding: 0.25em 0.85em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.like-btn:hover { border-color: var(--gold); color: var(--gold); }
+.like-btn.liked { border-color: var(--gold); color: var(--gold); cursor: default; }
+
+/* 芳名帳パネル(来場者) */
+.guestbook { z-index: 22; }
+.gb-sub { font-size: 0.78rem; line-height: 1.8; color: var(--muted); margin-bottom: 1rem; }
+.gb-input {
+  flex: 1;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.06);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 0.55em 0.8em;
+  resize: vertical;
+  outline: none;
+}
+.gb-input:focus { border-color: var(--gold); }
+
+/* カスタムレイアウトのツマミ */
+.custom-layout { margin-top: 0.9rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.slider-row { display: flex; align-items: center; gap: 0.8rem; font-size: 0.74rem; color: var(--muted); }
+.slider-row span { min-width: 6.5em; letter-spacing: 0.08em; }
+.slider-row input[type='range'] { flex: 1; accent-color: var(--gold); }
+
+/* ---- 2Dフォールバック(WebGL非対応・スクリーンリーダー向け) ---- */
+.flat-gallery {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  padding: 6rem 1.4rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+}
+.flat-head { max-width: 640px; margin: 0 auto 3rem; }
+.flat-head h1 { font-family: var(--serif); font-size: 1.8rem; font-weight: 500; }
+.flat-head p { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; letter-spacing: 0.1em; }
+.flat-note { font-style: italic; }
+.flat-work { max-width: 640px; margin: 0 auto 3.4rem; }
+.flat-work img {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: rgba(236, 231, 222, 0.04);
+}
+.flat-work h2 { font-family: var(--serif); font-size: 1.25rem; font-weight: 500; margin-top: 1rem; }
+.flat-no { font-size: 0.66rem; letter-spacing: 0.3em; color: var(--gold); display: block; margin-bottom: 0.4rem; }
+.flat-artist { font-size: 0.78rem; letter-spacing: 0.12em; color: var(--muted); margin-top: 0.35rem; }
+.flat-desc { font-size: 0.86rem; line-height: 2; color: #cdc7bd; margin-top: 0.8rem; }
+
 /* ---- チップ(テーマ/レイアウト/額装の選択) ---- */
 .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .chip {

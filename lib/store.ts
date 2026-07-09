@@ -3,7 +3,16 @@
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import type { ArtworkData } from './artworks'
-import { THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS } from './presets'
+import {
+  THEMES,
+  LAYOUTS,
+  FRAMES,
+  HANGINGS,
+  CAPTIONS,
+  CUSTOM_LAYOUT_DEFAULTS,
+  normalizeLayoutParams,
+  type CustomLayoutParams,
+} from './presets'
 import { supabase } from './supabase'
 import { listMyArtworks, reorderArtworks } from './cloud'
 import type { PublicExhibition } from './publish'
@@ -23,6 +32,8 @@ export interface AuthUser {
 export interface Settings {
   theme: string
   layout: string
+  /** Knobs for layout === 'custom' (room size, centre wall) */
+  layoutParams: CustomLayoutParams
   frame: string
   /** How frames are affixed to the wall (key into HANGINGS) */
   hanging: string
@@ -36,6 +47,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'chic',
   layout: 'hall',
+  layoutParams: CUSTOM_LAYOUT_DEFAULTS,
   frame: 'black',
   hanging: 'wire',
   caption: 'side',
@@ -74,7 +86,8 @@ export function loadSettings(): Settings {
     if (!raw) return { ...DEFAULT_SETTINGS }
     const s = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } as Settings
     if (!THEMES[s.theme]) s.theme = DEFAULT_SETTINGS.theme
-    if (!LAYOUTS[s.layout]) s.layout = DEFAULT_SETTINGS.layout
+    if (!LAYOUTS[s.layout] && s.layout !== 'custom') s.layout = DEFAULT_SETTINGS.layout
+    s.layoutParams = normalizeLayoutParams(s.layoutParams)
     if (!FRAMES[s.frame]) s.frame = DEFAULT_SETTINGS.frame
     if (!HANGINGS[s.hanging]) s.hanging = DEFAULT_SETTINGS.hanging
     if (!CAPTIONS[s.caption]) s.caption = DEFAULT_SETTINGS.caption
@@ -86,10 +99,10 @@ export function loadSettings(): Settings {
 
 function saveSettings(s: Settings): boolean {
   try {
-    const { theme, layout, frame, hanging, caption, showDemo, artworks, frameOverrides } = s
+    const { theme, layout, layoutParams, frame, hanging, caption, showDemo, artworks, frameOverrides } = s
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ theme, layout, frame, hanging, caption, showDemo, artworks, frameOverrides })
+      JSON.stringify({ theme, layout, layoutParams, frame, hanging, caption, showDemo, artworks, frameOverrides })
     )
     return true
   } catch {
@@ -101,6 +114,8 @@ interface GalleryStore extends Settings {
   /** Index of the exhibit being viewed (-1 = none) */
   focusedIndex: number
   settingsOpen: boolean
+  /** Visitor guestbook panel */
+  guestbookOpen: boolean
   tourActive: boolean
   /** Whether fonts have loaded and settings have been restored */
   ready: boolean
@@ -127,6 +142,7 @@ interface GalleryStore extends Settings {
   reorderOwnArtworks(from: number, to: number): Promise<void>
   setFocused(i: number): void
   setSettingsOpen(open: boolean): void
+  setGuestbookOpen(open: boolean): void
   setTourActive(active: boolean): void
 }
 
@@ -134,6 +150,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   ...DEFAULT_SETTINGS,
   focusedIndex: -1,
   settingsOpen: false,
+  guestbookOpen: false,
   tourActive: false,
   ready: false,
   user: null,
@@ -199,7 +216,8 @@ export const useGallery = create<GalleryStore>((set, get) => ({
       set({
         myGallery: row,
         ...(THEMES[row.theme] ? { theme: row.theme } : {}),
-        ...(LAYOUTS[row.layout] ? { layout: row.layout } : {}),
+        ...(LAYOUTS[row.layout] || row.layout === 'custom' ? { layout: row.layout } : {}),
+        ...(row.layout === 'custom' ? { layoutParams: normalizeLayoutParams(row.layout_params) } : {}),
         ...(FRAMES[row.frame_default] ? { frame: row.frame_default } : {}),
         ...(HANGINGS[row.hanging_default] ? { hanging: row.hanging_default } : {}),
         ...(CAPTIONS[row.caption_default] ? { caption: row.caption_default } : {}),
@@ -251,6 +269,9 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   setSettingsOpen(open) {
     set({ settingsOpen: open })
   },
+  setGuestbookOpen(open) {
+    set({ guestbookOpen: open })
+  },
   setTourActive(active) {
     set({ tourActive: active })
   },
@@ -267,6 +288,7 @@ export function useSettings(): Settings {
         ? {
             theme: s.visitor.theme,
             layout: s.visitor.layout,
+            layoutParams: s.visitor.layoutParams,
             frame: s.visitor.frame,
             hanging: s.visitor.hanging,
             caption: s.visitor.caption,
@@ -277,6 +299,7 @@ export function useSettings(): Settings {
         : {
             theme: s.theme,
             layout: s.layout,
+            layoutParams: s.layoutParams,
             frame: s.frame,
             hanging: s.hanging,
             caption: s.caption,
