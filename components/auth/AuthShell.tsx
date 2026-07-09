@@ -11,6 +11,9 @@ export default function AuthShell({ title, children }: { title: string; children
         <h1 className="auth-title">{title}</h1>
         {children}
       </section>
+      <p className="auth-legal">
+        <Link href="/terms">Terms</Link> · <Link href="/privacy">Privacy</Link>
+      </p>
     </main>
   )
 }

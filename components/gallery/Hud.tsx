@@ -9,13 +9,33 @@ import { galleryAudio } from '@/lib/audio'
 
 export function HudTop() {
   const visitor = useGallery((s) => s.visitor)
+  const reportEmail = process.env.NEXT_PUBLIC_REPORT_EMAIL
   return (
     <header className="hud-top">
       <Link className="hud-back" href="/">← HAKONIWA</Link>
       <div className="hud-title">
         <span className="hud-title-main">{visitor ? visitor.title : 'HAKONIWA COLLECTION'}</span>
         <span className="hud-title-sub">
-          {visitor ? `${visitor.ownerName} — @${visitor.username}` : 'A permanent collection — ten artists'}
+          {visitor ? (
+            <>
+              <Link className="hud-artist-link" href={`/@${visitor.username}`}>
+                {visitor.ownerName} — @{visitor.username}
+              </Link>
+              {reportEmail && (
+                <>
+                  {' · '}
+                  <a
+                    className="hud-report"
+                    href={`mailto:${reportEmail}?subject=${encodeURIComponent(`Report: @${visitor.username}/${visitor.slug}`)}`}
+                  >
+                    Report
+                  </a>
+                </>
+              )}
+            </>
+          ) : (
+            'A permanent collection — ten artists'
+          )}
         </span>
       </div>
     </header>

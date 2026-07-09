@@ -104,6 +104,71 @@ export async function getMyGallery(userId: string) {
   return data
 }
 
+/* ---- Artist page (/@username) ---- */
+
+export interface PublicProfile {
+  username: string
+  displayName: string
+  bio: string
+  galleries: {
+    slug: string
+    title: string
+    statement: string
+    /** Cover image URL (slot 0 work; decision 10.8-7) */
+    cover: string | null
+    workCount: number
+  }[]
+}
+
+/** Profile + public hakoniwa list for /@username (null if the user doesn't exist or the fetch fails) */
+export async function fetchPublicProfile(username: string): Promise<PublicProfile | null> {
+  if (!supabase) return null
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, bio')
+      .eq('username', username)
+      .maybeSingle()
+    if (!profile) return null
+
+    const { data: galleries } = await supabase
+      .from('galleries')
+      .select('id, slug, title, statement')
+      .eq('owner_id', profile.id)
+      .eq('is_public', true)
+      .order('created_at', { ascending: true })
+
+    const out: PublicProfile = {
+      username: profile.username!,
+      displayName: profile.display_name || profile.username || '',
+      bio: profile.bio ?? '',
+      galleries: [],
+    }
+    for (const g of galleries ?? []) {
+      const { data: placements } = await supabase
+        .from('placements')
+        .select('slot_index, artworks (*)')
+        .eq('gallery_id', g.id)
+        .order('slot_index', { ascending: true })
+      const rows = (placements ?? [])
+        .map((p) => p.artworks as unknown as Parameters<typeof rowToArtwork>[0] | null)
+        .filter(Boolean)
+      const first = rows[0] ? rowToArtwork(rows[0]!, out.displayName) : null
+      out.galleries.push({
+        slug: g.slug,
+        title: g.title,
+        statement: g.statement,
+        cover: first ? (first.kind === 'video' ? first.poster ?? null : first.src ?? null) : null,
+        workCount: rows.length,
+      })
+    }
+    return out
+  } catch (e) {
+    console.error('fetchPublicProfile failed:', e)
+    return null
+  }
+}
+
 /** For the public page: fetch the full exhibition from username + slug (null if private, missing, or the fetch fails) */
 export async function fetchPublicExhibition(
   username: string,

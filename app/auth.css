@@ -114,3 +114,7 @@
 }
 .auth-links a { color: var(--muted); text-decoration: none; }
 .auth-links a:hover { color: var(--gold); }
+
+.auth-legal { font-size: 0.7rem; letter-spacing: 0.1em; color: var(--muted); }
+.auth-legal a { color: inherit; text-decoration: none; }
+.auth-legal a:hover { color: var(--gold); }

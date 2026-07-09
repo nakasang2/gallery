@@ -17,6 +17,8 @@ import {
   type GalleryRow,
 } from '@/lib/galleries'
 import { getProfile, saveProfile, setUsername, USERNAME_RE } from '@/lib/publish'
+import { getStorageUsage, uploadArtwork } from '@/lib/cloud'
+import { loadImage } from '@/lib/upload'
 
 function fmtDate(iso: string | null): string {
   if (!iso) return ''
@@ -25,6 +27,90 @@ function fmtDate(iso: string | null): string {
   } catch {
     return ''
   }
+}
+
+const IMPORT_DISMISS_KEY = 'hakoniwa.importDismissed.v1'
+
+// Guest migration (REQUIREMENTS 10.1): offer to move this browser's local works into the account
+function GuestImportCard() {
+  const user = useGallery((s) => s.user)!
+  const localArtworks = useGallery((s) => s.artworks)
+  const updateSettings = useGallery((s) => s.updateSettings)
+  const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const [busy, setBusy] = useState(false)
+  const [dismissed, setDismissed] = useState(true)
+
+  useEffect(() => {
+    try {
+      setDismissed(localStorage.getItem(IMPORT_DISMISS_KEY) === '1')
+    } catch {
+      setDismissed(false)
+    }
+  }, [])
+
+  if (dismissed || localArtworks.length === 0) return null
+
+  function dismiss() {
+    try {
+      localStorage.setItem(IMPORT_DISMISS_KEY, '1')
+    } catch {
+      /* storage full — the card will simply reappear next visit */
+    }
+    setDismissed(true)
+  }
+
+  async function importAll() {
+    setBusy(true)
+    let ok = 0
+    let failed = 0
+    const remaining = [...localArtworks]
+    for (const art of localArtworks) {
+      try {
+        let dataUrl = art.src
+        if (!dataUrl) {
+          failed++
+          continue
+        }
+        if (!dataUrl.startsWith('data:')) {
+          // URL-added works: fetch through a canvas (CORS permitting)
+          const img = await loadImage(dataUrl, true)
+          const c = document.createElement('canvas')
+          c.width = img.width
+          c.height = img.height
+          c.getContext('2d')!.drawImage(img, 0, 0)
+          dataUrl = c.toDataURL('image/jpeg', 0.9)
+        }
+        const [w, h] = art.ratio
+        await uploadArtwork({ ownerId: user.id, dataUrl, title: art.title, w, h })
+        remaining.splice(remaining.findIndex((a) => a.id === art.id), 1)
+        ok++
+      } catch (e) {
+        console.error(`import failed for “${art.title}”:`, e)
+        failed++
+      }
+    }
+    updateSettings({ artworks: remaining })
+    await refreshCloud()
+    setBusy(false)
+    if (failed) alert(`Imported ${ok} work${ok === 1 ? '' : 's'}; ${failed} could not be read (CORS or storage limit) and stayed local.`)
+    else dismiss()
+  }
+
+  return (
+    <div className="me-card" style={{ marginBottom: '1rem' }}>
+      <p className="me-note" style={{ marginTop: 0 }}>
+        You have <b>{localArtworks.length}</b> work{localArtworks.length === 1 ? '' : 's'} exhibited as a guest
+        in this browser. Import {localArtworks.length === 1 ? 'it' : 'them'} into your account so they appear on
+        every device and can be published?
+      </p>
+      <div className="hako-actions" style={{ marginTop: '0.8rem' }}>
+        <button className="btn-line" disabled={busy} onClick={() => void importAll()}>
+          {busy ? 'Importing…' : 'Import to my account'}
+        </button>
+        <button className="btn-line" disabled={busy} onClick={dismiss}>Not now</button>
+      </div>
+    </div>
+  )
 }
 
 // Create a hakoniwa: name + template as the starting point (REQUIREMENTS 10.2)
@@ -288,6 +374,7 @@ export default function MePage() {
   const [checked, setChecked] = useState(false)
   const [galleries, setGalleries] = useState<GalleryRow[]>([])
   const [loadErr, setLoadErr] = useState('')
+  const [usage, setUsage] = useState<number | null>(null)
 
   useEffect(() => {
     hydrate() // frameOverrides etc. from this browser feed placement rebuilds
@@ -303,7 +390,12 @@ export default function MePage() {
       setLoadErr('')
     } catch (e) {
       console.error(e)
-      setLoadErr('Could not load your hakoniwa. Check that supabase/migrations up to 0005 have been applied.')
+      setLoadErr('Could not load your hakoniwa. Check that supabase/migrations up to 0006 have been applied.')
+    }
+    try {
+      setUsage(await getStorageUsage(user.id))
+    } catch {
+      setUsage(null) // bytes column missing (0006 not applied) — hide the meter
     }
   }, [user])
 
@@ -347,6 +439,7 @@ export default function MePage() {
         {user && (
           <>
             <h1 className="me-h1">My hakoniwa</h1>
+            <GuestImportCard />
             <section className="me-section">
               {loadErr && <p className="me-error">{loadErr}</p>}
               {!loadErr && galleries.length === 0 && <CreateCard onCreated={() => void reload()} />}
@@ -358,6 +451,11 @@ export default function MePage() {
                   You can create {PLAN.galleries - galleries.length} more hakoniwa on your plan.
                 </p>
               )}
+              {usage !== null && (
+                <p className="me-note">
+                  Storage: {(usage / 1024 / 1024).toFixed(1)} MB of {Math.round(PLAN.storageBytes / 1024 / 1024)} MB used
+                </p>
+              )}
             </section>
 
             <section className="me-section">
@@ -366,6 +464,11 @@ export default function MePage() {
             </section>
           </>
         )}
+
+        <footer className="artist-footer">
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
+        </footer>
       </div>
     </main>
   )
