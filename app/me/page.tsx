@@ -16,7 +16,6 @@ import {
   deleteGallery,
   setGalleryPublic,
   setGalleryCover,
-  updateGallerySlug,
   saveGallerySpace,
   rebuildPlacements,
   fetchPlacementOverrides,
@@ -223,9 +222,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
-  const [mode, setMode] = useState<'view' | 'rename' | 'url' | 'space'>('view')
+  const [mode, setMode] = useState<'view' | 'rename' | 'space'>('view')
   const [nameInput, setNameInput] = useState(row.title)
-  const [slugInput, setSlugInput] = useState(row.slug)
   const [copied, setCopied] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
 
@@ -240,8 +238,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }, [row.id])
 
-  const publicUrl =
-    typeof window !== 'undefined' && username ? `${location.origin}/@${username}/${row.slug}` : ''
+  // The shareable URL is just /@name while the plan allows one hakoniwa
+  // (the slug mechanism stays in the DB for the multi-gallery future)
+  const publicUrl = typeof window !== 'undefined' && username ? `${location.origin}/@${username}` : ''
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(true)
@@ -362,35 +361,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           <button className="btn-line" onClick={() => setMode('view')}>Cancel</button>
         </div>
       )}
-      {mode === 'url' && (
-        <>
-          <div className="field-row">
-            <span className="slug-prefix">/@{username ?? 'you'}/</span>
-            <input type="text" value={slugInput} onChange={(e) => setSlugInput(e.target.value)} />
-            <button
-              className="btn-line"
-              disabled={busy}
-              onClick={() =>
-                void run('URL change', async () => {
-                  await updateGallerySlug(row.id, slugInput)
-                  setMode('view')
-                })
-              }
-            >
-              Save
-            </button>
-            <button className="btn-line" onClick={() => setMode('view')}>Cancel</button>
-          </div>
-          {row.is_public && (
-            <p className="me-note">Changing the URL breaks links you have already shared.</p>
-          )}
-        </>
-      )}
       {!username && (
         <div className="field-row">
           <input
             type="text"
-            placeholder="username — needed to publish (/@you/…)"
+            placeholder="username — needed to publish (/@you)"
             value={usernameInput}
             onChange={(e) => setUsernameInput(e.target.value)}
           />
@@ -448,49 +423,50 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </>
       )}
       {mode === 'view' && (
-        <div className="hako-actions">
-          <Link className="btn-line" href="/demo">Open editor</Link>
-          <button className="btn-line" disabled={busy} onClick={() => setMode('space')}>
-            Change space
-          </button>
-          <button
-            className="btn-line"
-            disabled={busy || (!row.is_public && !username)}
-            title={!row.is_public && !username ? 'Set a username first' : undefined}
-            onClick={() => void togglePublic()}
-          >
-            {row.is_public ? 'Make private' : 'Open to the public'}
-          </button>
-          {row.is_public && publicUrl && (
+        <>
+          {/* Primary actions: enter the room, style it, share it */}
+          <div className="hako-actions">
+            <Link className="btn-line btn-gold" href="/demo">Open editor</Link>
+            <button className="btn-line" disabled={busy} onClick={() => setMode('space')}>
+              Change space
+            </button>
             <button
               className="btn-line"
+              disabled={busy || (!row.is_public && !username)}
+              title={!row.is_public && !username ? 'Set a username first' : undefined}
+              onClick={() => void togglePublic()}
+            >
+              {row.is_public ? 'Make private' : 'Open to the public'}
+            </button>
+            {row.is_public && publicUrl && (
+              <button
+                className="btn-line"
+                onClick={() => {
+                  void navigator.clipboard.writeText(publicUrl).then(() => {
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 1600)
+                  })
+                }}
+              >
+                {copied ? 'Copied' : 'Copy URL'}
+              </button>
+            )}
+          </div>
+          {/* Quiet row for rare / destructive housekeeping — not peers of the actions above */}
+          <div className="hako-secondary">
+            <button onClick={() => { setNameInput(row.title); setMode('rename') }}>Rename</button>
+            <button
+              className="danger"
+              disabled={busy}
               onClick={() => {
-                void navigator.clipboard.writeText(publicUrl).then(() => {
-                  setCopied(true)
-                  setTimeout(() => setCopied(false), 1600)
-                })
+                if (!confirm(`Delete “${row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
+                void run('Delete', () => deleteGallery(row.id))
               }}
             >
-              {copied ? 'Copied' : 'Copy URL'}
+              Delete
             </button>
-          )}
-          <button className="btn-line" onClick={() => { setNameInput(row.title); setMode('rename') }}>
-            Rename
-          </button>
-          <button className="btn-line" onClick={() => { setSlugInput(row.slug); setMode('url') }}>
-            Change URL
-          </button>
-          <button
-            className="btn-line hako-danger"
-            disabled={busy}
-            onClick={() => {
-              if (!confirm(`Delete “${row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
-              void run('Delete', () => deleteGallery(row.id))
-            }}
-          >
-            Delete
-          </button>
-        </div>
+          </div>
+        </>
       )}
     </div>
   )
@@ -820,7 +796,7 @@ function ProfileCard() {
         </label>
       </div>
       <label className="me-field">
-        <span>Username — public URL: /@{username ?? 'username'}/…</span>
+        <span>Username — public URL: /@{username ?? 'username'}</span>
         <div className="field-row" style={{ marginTop: 0 }}>
           <input
             type="text"

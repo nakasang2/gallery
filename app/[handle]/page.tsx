@@ -1,8 +1,12 @@
-// Artist page: hakoniwa.app/@username — profile + list of public hakoniwa
+// hakoniwa.app/@username — THE public URL of an artist.
+// While the plan allows a single hakoniwa, this renders the public gallery
+// directly (the shared URL is just /@name); with several public galleries
+// it becomes the listing page. /@name/[slug] keeps working either way.
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { fetchPublicProfile } from '@/lib/publish'
+import { fetchPublicProfile, fetchPublicExhibition } from '@/lib/publish'
+import VisitorGallery from '@/components/gallery/VisitorGallery'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +26,24 @@ export async function generateMetadata({
   if (!username) return {}
   const p = await fetchPublicProfile(username)
   if (!p) return {}
+
+  // Single public gallery: /@name IS the exhibition — use exhibition metadata
+  if (p.galleries.length === 1) {
+    const ex = await fetchPublicExhibition(username, p.galleries[0].slug)
+    if (ex) {
+      const title = `${ex.title} | ${ex.ownerName} — HAKONIWA`
+      const description =
+        ex.statement ||
+        `A 3D gallery by ${ex.ownerName}. Walk through ${ex.artworks.length} works in your browser.`
+      return {
+        title,
+        description,
+        openGraph: { title, description, type: 'website' },
+        twitter: { card: 'summary_large_image' },
+      }
+    }
+  }
+
   const title = `${p.displayName} — HAKONIWA`
   const description = p.bio || `3D galleries by ${p.displayName}.`
   const cover = p.galleries.find((g) => g.cover)?.cover
@@ -38,6 +60,12 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
   if (!username) notFound()
   const p = await fetchPublicProfile(username)
   if (!p) notFound()
+
+  // Exactly one public hakoniwa → /@name opens the room itself
+  if (p.galleries.length === 1) {
+    const ex = await fetchPublicExhibition(username, p.galleries[0].slug)
+    if (ex) return <VisitorGallery exhibition={ex} />
+  }
 
   return (
     <main className="artist-page">

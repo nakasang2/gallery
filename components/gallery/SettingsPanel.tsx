@@ -159,10 +159,10 @@ function PublishSection() {
     )
   }
 
+  // Single-hakoniwa plan: the shareable URL is just /@name (slug stays in the DB
+  // for the multi-gallery future; /@name/[slug] keeps resolving too)
   const publicUrl =
-    typeof window !== 'undefined' && username
-      ? `${location.origin}/@${username}/${myGallery.slug}`
-      : ''
+    typeof window !== 'undefined' && username ? `${location.origin}/@${username}` : ''
 
   async function toggle(nextPublic: boolean) {
     setBusy(true)
@@ -220,7 +220,7 @@ function PublishSection() {
             {copied ? 'Copied' : 'Copy URL'}
           </button>
           <br />
-          Your edits sync to this page automatically. Rename or change the URL in the{' '}
+          Your edits sync to this page automatically. Rename your exhibition in the{' '}
           <Link href="/me" style={{ color: 'var(--gold)' }}>dashboard</Link>.
         </p>
       )}

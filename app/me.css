@@ -167,7 +167,28 @@
 .works-cell button { color: #c96a5a; } /* 完全削除であることが静置状態でも伝わる色 */
 .works-cell button:hover { border-color: #e08a7a; color: #e08a7a; }
 
-.slug-prefix { font-size: 0.78rem; color: var(--muted); align-self: center; white-space: nowrap; }
+/* 二次操作(Rename/Delete): 主要ボタンと並列にしない静かなテキスト行 */
+.hako-secondary {
+  display: flex;
+  gap: 1.4rem;
+  margin-top: 0.9rem;
+}
+.hako-secondary button {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--hairline);
+}
+.hako-secondary button:hover { color: var(--ink); text-decoration-color: currentColor; }
+.hako-secondary button.danger { color: #c96a5a; }
+.hako-secondary button.danger:hover { color: #e08a7a; }
 
 /* カバー指定の★(OGP代表作) */
 .works-star {
