@@ -71,7 +71,7 @@ export default function ResetPage() {
       <AuthShell title="Password updated">
         <p className="auth-note">Your new password is set. You are signed in.</p>
         <p className="auth-links">
-          <Link href="/demo">Go to your gallery</Link>
+          <Link href="/me">Go to your dashboard</Link>
         </p>
       </AuthShell>
     )

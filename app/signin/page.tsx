@@ -33,7 +33,7 @@ export default function SignInPage() {
       setError(error.message)
       return
     }
-    router.push('/demo')
+    router.push('/me')
   }
 
   async function magicLink() {
@@ -45,7 +45,7 @@ export default function SignInPage() {
     setError('')
     const { error } = await supabase!.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: `${location.origin}/demo` },
+      options: { emailRedirectTo: `${location.origin}/me` },
     })
     setBusy(false)
     if (error) setError(error.message)
@@ -55,7 +55,7 @@ export default function SignInPage() {
   async function google() {
     const { error } = await supabase!.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${location.origin}/demo` },
+      options: { redirectTo: `${location.origin}/me` },
     })
     if (error) setError(error.message)
   }

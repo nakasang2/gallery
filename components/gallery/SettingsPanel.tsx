@@ -111,7 +111,10 @@ function AccountSection() {
           so your show looks the same on every device.
         </p>
         <ProfileEditor />
-        <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
+        <div className="field-row">
+          <Link className="btn-line" href="/me">Dashboard</Link>
+          <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
+        </div>
       </>
     )
   }
@@ -136,6 +139,7 @@ function PublishSection() {
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const settings = useSettings()
   const ownArtworks = useOwnArtworks()
 
@@ -189,6 +193,8 @@ function PublishSection() {
         ownArtworks,
       })
       setIsPublic(nextPublic)
+      // Keep the store's gallery row current — live sync checks its is_public flag
+      await refreshMyGallery()
     } catch (e) {
       alert(`Publishing failed: ${e instanceof Error ? e.message : e}`)
     } finally {
@@ -256,8 +262,7 @@ function PublishSection() {
             {copied ? 'Copied' : 'Copy URL'}
           </button>
           <br />
-          The public page is a snapshot of the current works, theme and framing. After making changes,
-          press “Update the public page”.
+          While public, your edits (works, theme, framing) sync to this page automatically.
         </p>
       )}
     </>

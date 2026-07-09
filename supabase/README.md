@@ -9,6 +9,8 @@
    - `0001_init.sql` — テーブル・RLS・ストレージ(適用済み)
    - `0002_video.sql` — 動画作品対応(kindカラム追加)
    - `0003_order_profile.sql` — 配置の並び順(sort_orderカラム追加)
+   - `0004_hanging_caption.sql` — 吊し方・キャプション設定
+   - `0005_dashboard.sql` — ギャラリー更新日時(ダッシュボード用)
 3. 「Success. No rows returned」が出れば完了
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、
@@ -16,7 +18,11 @@
 
 ## 2. 認証の設定
 
-### メール(マジックリンク)— 追加設定なしで動く
+### メール(パスワード / マジックリンク)— 追加設定なしで動く
+
+パスワード認証(`/signup` `/signin` `/reset`)も同じ Email プロバイダで動作する。
+[Authentication → Sign In / Providers](https://supabase.com/dashboard/project/ncffdcvsksiutsjerpeb/auth/providers) で
+**Confirm email が有効**になっていることを確認(登録時に確認メールを送る設定)。
 
 デフォルトで有効。ただし Supabase 内蔵のメール送信は**1時間あたり数通**の
 レート制限がある(開発用)。本公開の前に独自SMTP(Resend等)を

@@ -4,8 +4,7 @@ import { supabase } from './supabase'
 import { rowToArtwork } from './cloud'
 import type { ArtworkData } from './artworks'
 import type { Settings } from './store'
-import { LAYOUTS } from './presets'
-import { effectiveSlotCount } from './limits'
+import { rebuildPlacements } from './galleries'
 
 export interface PublicExhibition {
   title: string
@@ -90,21 +89,7 @@ export async function publishGallery(params: {
     .single()
   if (gErr) throw gErr
 
-  // Rebuild the placements (capped at the plan's effective slot count)
-  const slots = effectiveSlotCount(LAYOUTS[settings.layout].slots.length)
-  const shown = params.ownArtworks.slice(0, slots)
-  const { error: dErr } = await sb.from('placements').delete().eq('gallery_id', gallery.id)
-  if (dErr) throw dErr
-  if (shown.length) {
-    const rows = shown.map((art, i) => ({
-      gallery_id: gallery.id,
-      artwork_id: art.id,
-      slot_index: i,
-      frame_override: settings.frameOverrides[art.id] ?? null,
-    }))
-    const { error: pErr } = await sb.from('placements').insert(rows)
-    if (pErr) throw pErr
-  }
+  await rebuildPlacements(gallery.id, settings, params.ownArtworks)
 }
 
 /** Get your own publish status (for the settings panel) */

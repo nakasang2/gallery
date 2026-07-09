@@ -1,0 +1,93 @@
+/* ---- ダッシュボード(/me) ---- */
+
+.me-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 2rem 1.4rem 4rem;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(212, 162, 78, 0.05), transparent 60%),
+    var(--bg);
+  font-family: var(--sans);
+  color: var(--ink);
+}
+
+.me-inner { width: min(760px, 100%); margin: 0 auto; }
+
+.me-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2.6rem;
+}
+.me-top .auth-logo { font-size: 0.95rem; }
+.me-top-actions { display: flex; gap: 0.5rem; }
+
+.me-h1 {
+  font-family: var(--serif);
+  font-size: 1.8rem;
+  font-weight: 500;
+  margin-bottom: 1.2rem;
+}
+.me-section { margin-bottom: 2.8rem; }
+.me-section h2 {
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.me-card {
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: rgba(15, 14, 12, 0.7);
+  padding: 1.5rem 1.6rem;
+}
+
+.hako-head { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
+.hako-title { font-family: var(--serif); font-size: 1.35rem; font-weight: 500; }
+.hako-badge {
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  padding: 0.3em 0.9em;
+  border-radius: 100px;
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+}
+.hako-badge.public { border-color: var(--gold); color: var(--gold); }
+.hako-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem; }
+.hako-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.2rem; }
+.hako-danger { color: #c96a5a; border-color: rgba(201, 106, 90, 0.4); }
+.hako-danger:hover { color: #e08a7a; border-color: #e08a7a; }
+
+.me-note { font-size: 0.78rem; line-height: 1.9; color: var(--muted); margin-top: 0.8rem; }
+.me-error { font-size: 0.78rem; line-height: 1.8; color: #e08a7a; margin-top: 0.8rem; }
+
+.me-field { display: block; margin: 0.9rem 0; }
+.me-field span {
+  display: block;
+  font-size: 0.64rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.me-field input, .me-field textarea {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.05);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.6em 0.85em;
+  outline: none;
+  transition: border-color 0.2s;
+  resize: vertical;
+}
+.me-field input:focus, .me-field textarea:focus { border-color: var(--gold); }
+
+@media (max-width: 640px) {
+  .me-page { padding-top: 1.4rem; }
+  .hako-actions .btn-line { flex: 1 1 44%; }
+}

@@ -44,7 +44,7 @@ export default function SignUpPage() {
       password,
       options: {
         data: name.trim() ? { name: name.trim() } : undefined,
-        emailRedirectTo: `${location.origin}/demo`,
+        emailRedirectTo: `${location.origin}/me`,
       },
     })
     setBusy(false)
@@ -54,7 +54,7 @@ export default function SignUpPage() {
     }
     // With email confirmation disabled the session opens immediately; otherwise a
     // confirmation email is on its way
-    if (data.session) router.push('/demo')
+    if (data.session) router.push('/me')
     else setSent(true)
   }
 
