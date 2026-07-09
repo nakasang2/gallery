@@ -80,7 +80,7 @@ export default function Exhibit({
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
-    if (e.delta > 8) return // it was a drag
+    if (e.delta > 10) return // it was a drag (matches WalkControls.TAP_THRESHOLD)
     walkRef.current?.focusExhibit(index)
   }
   const onOver = () => (gl.domElement.style.cursor = 'pointer')

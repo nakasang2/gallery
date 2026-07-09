@@ -136,6 +136,18 @@ export default function SignUpPage() {
           Create account
         </button>
       </form>
+      <div className="auth-alt">
+        <button
+          className="btn-line"
+          onClick={() => {
+            void supabase!.auth
+              .signInWithOAuth({ provider: 'google', options: { redirectTo: `${location.origin}/me` } })
+              .then(({ error }) => error && setError(error.message))
+          }}
+        >
+          Continue with Google
+        </button>
+      </div>
       <p className="auth-links">
         <Link href="/signin">Already have an account? Sign in</Link>
       </p>

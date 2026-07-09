@@ -70,12 +70,11 @@ export default function ArtworkPanel() {
       </button>
       {art && (
         <>
-          <div className="panel-no">
-            No. {String(focusedIndex + 1).padStart(2, '0')}
-            {visitor && <LikeButton galleryId={visitor.galleryId} artworkId={art.id} />}
-          </div>
+          <div className="panel-no">No. {String(focusedIndex + 1).padStart(2, '0')}</div>
           <h2 className="panel-title">{art.title}</h2>
           <div className="panel-artist">{art.artist} — {art.year}</div>
+          {/* The visitor's one reaction deserves a real touch target, not an afterthought */}
+          {visitor && <LikeButton galleryId={visitor.galleryId} artworkId={art.id} />}
           <p className="panel-desc">{art.desc}</p>
           <div className="panel-tags">
             {(art.tags || []).map((t) => (

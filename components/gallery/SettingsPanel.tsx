@@ -395,6 +395,13 @@ export default function SettingsPanel() {
 
   const over = overflowCount(settings, ownArtworks.length)
 
+  // Template/theme/global-frame picks reset per-work framing — never silently
+  function confirmOverrideReset(): boolean {
+    const n = Object.keys(settings.frameOverrides).length
+    if (n === 0) return true
+    return confirm(`This resets the custom framing on ${n} work${n === 1 ? '' : 's'}. Continue?`)
+  }
+
   // Highlight a template only while every axis still matches its bundle
   const activeTemplate =
     Object.entries(TEMPLATES).find(
@@ -512,6 +519,7 @@ export default function SettingsPanel() {
           defs={TEMPLATES}
           current={activeTemplate}
           onPick={(key) => {
+            if (!confirmOverrideReset()) return
             const t = TEMPLATES[key]
             updateSettings({
               theme: t.theme,
@@ -532,7 +540,10 @@ export default function SettingsPanel() {
         <ChipRow
           defs={THEMES}
           current={settings.theme}
-          onPick={(theme) => updateSettings({ theme, ...THEMES[theme].recommends, frameOverrides: {} })}
+          onPick={(theme) => {
+            if (!confirmOverrideReset()) return
+            updateSettings({ theme, ...THEMES[theme].recommends, frameOverrides: {} })
+          }}
         />
         <p className="settings-note">Switching theme applies its recommended framing; adjust below to taste.</p>
       </section>
@@ -601,7 +612,14 @@ export default function SettingsPanel() {
       <section className="settings-section">
         <h3>Framing — all works</h3>
         {/* Changing the overall framing also resets any per-work overrides */}
-        <ChipRow defs={FRAMES} current={settings.frame} onPick={(frame) => updateSettings({ frame, frameOverrides: {} })} />
+        <ChipRow
+          defs={FRAMES}
+          current={settings.frame}
+          onPick={(frame) => {
+            if (!confirmOverrideReset()) return
+            updateSettings({ frame, frameOverrides: {} })
+          }}
+        />
         <p className="settings-note">To change a single work, open it and use the panel.</p>
       </section>
 

@@ -50,11 +50,13 @@ const HALL_SIDES: [number, number, number, 'L' | 'R'][] = [
   [4, -114, 3.6, 'R'],
 ]
 
-type Hud = { eyebrow: string; title: string }
+type Hud = { eyebrow: string; title: string; body?: string }
 const CORRIDOR_HUD: Hud[] = [
   { eyebrow: 'The room', title: 'Built around a single work.' },
   { eyebrow: 'The room', title: 'Walked, not scrolled.' },
-  ...PANELS.map((p) => ({ eyebrow: `Features · ${p.n}`, title: p.h })),
+  // Body copy rides along in the DOM HUD — the wall textures alone are unreadable
+  // on portrait phones and invisible to screen readers
+  ...PANELS.map((p) => ({ eyebrow: `Features · ${p.n}`, title: p.h, body: p.b })),
 ]
 
 function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lh: number) {
@@ -436,11 +438,21 @@ export default function HeroScene() {
   const [hudOn, setHudOn] = useState(false)
   // Stop the render loop entirely while the tab is hidden (battery)
   const [halted, setHalted] = useState(false)
+  // Wall/label textures bake fonts into canvases once — wait for the webfonts
+  // (with a cap) so museum labels don't ship in a fallback serif forever
+  const [fontsReady, setFontsReady] = useState(false)
 
   useEffect(() => {
     const onVis = () => setHalted(document.hidden)
     document.addEventListener('visibilitychange', onVis)
-    return () => document.removeEventListener('visibilitychange', onVis)
+    let alive = true
+    void Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(() => {
+      if (alive) setFontsReady(true)
+    })
+    return () => {
+      alive = false
+      document.removeEventListener('visibilitychange', onVis)
+    }
   }, [])
 
   useEffect(() => {
@@ -497,13 +509,14 @@ export default function HeroScene() {
           gl.toneMappingExposure = 1.3
         }}
       >
-        <Scene />
+        {fontsReady && <Scene />}
       </Canvas>
       <div className="hero-grade" aria-hidden="true" />
       <div className={`journey-hud${hudOn ? ' on' : ''}`}>
         <div className="journey-hud-inner" key={(hud?.eyebrow || '') + (hud?.title || '')}>
           <span className="journey-hud-eyebrow">{hud?.eyebrow}</span>
           <p className="journey-hud-title">{hud?.title}</p>
+          {hud?.body && <p className="journey-hud-desc">{hud.body}</p>}
         </div>
       </div>
     </div>

@@ -129,6 +129,7 @@
   cursor: pointer;
   line-height: 1;
 }
+.works-cell button { color: #c96a5a; } /* 完全削除であることが静置状態でも伝わる色 */
 .works-cell button:hover { border-color: #e08a7a; color: #e08a7a; }
 
 .slug-prefix { font-size: 0.78rem; color: var(--muted); align-self: center; white-space: nowrap; }
@@ -248,6 +249,7 @@
 .artist-footer a { color: var(--muted); text-decoration: none; }
 .artist-footer a:hover { color: var(--gold); }
 
+.legal-page .me-inner { max-width: 680px; } /* 本文幅に合わせて中央に */
 .legal-body { max-width: 62ch; }
 .legal-body p { font-size: 0.86rem; line-height: 2; color: #cdc7bd; margin-bottom: 1.1rem; }
 .legal-body h2 {

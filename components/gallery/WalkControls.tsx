@@ -20,6 +20,9 @@ interface Tween {
 
 // Steering (auto-heading) turn rate at full input, radians per second
 const TURN_SPEED = 2.0
+// Below this many px of pointer travel it's a tap (click), above it's a drag.
+// Must match the click guards in Exhibit/Room (e.delta) so there is no dead zone.
+export const TAP_THRESHOLD = 10
 
 function easeInOut(t: number) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
@@ -41,6 +44,8 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     // dragging from it walks (vertical) and steers (horizontal)
     dragging: false,
     dragActive: false,
+    // Two-finger vertical drag = explicit look up/down (tilt)
+    tilting: false,
     startX: 0,
     startY: 0,
     dragX: 0,
@@ -247,8 +252,31 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     stick.appendChild(knob)
     document.body.appendChild(stick)
 
+    const pointers = new Map<number, { x: number; y: number }>()
+
+    const hideStick = () => {
+      stick.classList.remove('on')
+      knob.style.transform = ''
+    }
+
     const onPointerDown = (e: PointerEvent) => {
       useGallery.getState().setTourActive(false)
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      try {
+        el.setPointerCapture(e.pointerId)
+      } catch {
+        // Ignore when pointerId is invalid, e.g. for synthetic events
+      }
+      if (pointers.size >= 2) {
+        // Second finger switches from walking to tilting
+        s.dragging = false
+        s.dragActive = false
+        s.dragX = 0
+        s.dragY = 0
+        s.tilting = true
+        hideStick()
+        return
+      }
       s.dragging = true
       s.dragActive = false
       s.startX = e.clientX
@@ -256,13 +284,20 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       s.dragX = 0
       s.dragY = 0
       el.style.cursor = 'grabbing'
-      try {
-        el.setPointerCapture(e.pointerId)
-      } catch {
-        // Ignore when pointerId is invalid, e.g. for synthetic events
-      }
     }
     const onPointerMove = (e: PointerEvent) => {
+      const p = pointers.get(e.pointerId)
+      if (s.tilting && p) {
+        // Two-finger vertical drag: look up / down
+        s.pitch = THREE.MathUtils.clamp(s.pitch + (p.y - e.clientY) * 0.005, -1.15, 1.15)
+        p.x = e.clientX
+        p.y = e.clientY
+        return
+      }
+      if (p) {
+        p.x = e.clientX
+        p.y = e.clientY
+      }
       if (!s.dragging) return
       const dx = e.clientX - s.startX
       const dy = e.clientY - s.startY
@@ -270,7 +305,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       s.dragX = THREE.MathUtils.clamp(dx / R, -1, 1)
       s.dragY = THREE.MathUtils.clamp(dy / R, -1, 1)
       // Once it's clearly a drag (not a tap), take over from any glide/tour/panel
-      if (!s.dragActive && Math.hypot(dx, dy) > 12) {
+      if (!s.dragActive && Math.hypot(dx, dy) > TAP_THRESHOLD) {
         s.dragActive = true
         cancelTweens()
         stopTourAndPanel()
@@ -280,21 +315,23 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       }
       if (s.dragActive) knob.style.transform = `translate(${s.dragX * 34}px, ${s.dragY * 34}px)`
     }
-    const onPointerUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
+      pointers.delete(e.pointerId)
+      if (pointers.size < 2) s.tilting = false
+      if (pointers.size > 0) return
       s.dragging = false
       s.dragActive = false
       s.dragX = 0
       s.dragY = 0
       el.style.cursor = ''
-      stick.classList.remove('on')
-      knob.style.transform = ''
+      hideStick()
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
       // Ignore while typing anywhere editable (settings inputs, guestbook/bio textareas, …)
       if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable]')) return
       const k = e.key.toLowerCase()
-      if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
+      if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
         s.keys.add(k)
         cancelTweens()
         stopTourAndPanel()
@@ -364,8 +401,12 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     } else {
       s.vel.lerp(new THREE.Vector3(), 1 - Math.pow(0.0001, dt))
     }
-    // While moving, gently level the view (clears the phone focus tilt once you walk off)
-    if (forward || turn) s.pitch += (0 - s.pitch) * Math.min(1, dt * 2.5)
+    // Explicit tilt: Q looks up, E looks down (two-finger drag does the same on touch)
+    const tilt = (s.keys.has('q') ? 1 : 0) - (s.keys.has('e') ? 1 : 0)
+    if (tilt) s.pitch = THREE.MathUtils.clamp(s.pitch + tilt * dt * 1.1, -1.15, 1.15)
+    // While moving, gently level the view (clears the phone focus tilt once you walk off) —
+    // unless the user is deliberately tilting right now
+    if ((forward || turn) && !tilt && !s.tilting) s.pitch += (0 - s.pitch) * Math.min(1, dt * 2.5)
     if (s.vel.lengthSq() > 1e-6) {
       camera.position.addScaledVector(s.vel, dt)
       clampToRoom(camera.position)

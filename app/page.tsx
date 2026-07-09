@@ -17,7 +17,7 @@ export default function LandingPage() {
           <Link href="/signin">Sign in</Link>
         </div>
         <div className="nav-actions">
-          <Link className="btn btn-small nav-demo" href="/demo">Enter demo</Link>
+          <Link className="btn btn-small nav-demo" href="/demo">Walk the demo</Link>
           <Link className="btn btn-small btn-gold" href="/signup">Start free</Link>
         </div>
       </nav>
@@ -32,16 +32,16 @@ export default function LandingPage() {
         {/* 入口のミニマルなクローム(ナビはスクロールで初めて現れる) */}
         <div className="hero-chrome">
           <Link className="hero-mark" href="/">HAKONIWA</Link>
-          <Link className="hero-enter" href="/demo">Enter the gallery →</Link>
+          <Link className="hero-enter" href="/demo">Walk the demo →</Link>
         </div>
 
         <div className="hero-lead-wrap">
           <p className="hero-eyebrow">An exhibition of one</p>
           <h1 className="hero-title">Step into your own light.</h1>
           <p className="hero-sub">
-            A permanent room for your work — walked, not scrolled.
+            Turn your portfolio into a walkable 3D gallery — one link, no installs.
           </p>
-          <Link className="hero-cta" href="/demo">Walk the gallery</Link>
+          <Link className="hero-cta" href="/demo">Walk the demo</Link>
           <p className="hero-alt">
             <Link href="/signup">or create your own — free →</Link>
           </p>
@@ -144,7 +144,7 @@ export default function LandingPage() {
               Drag to look around, tap the floor to move, and click any work
               to read its label.
             </p>
-            <Link className="btn btn-primary" href="/demo">Enter the demo gallery — free</Link>
+            <Link className="btn btn-primary" href="/demo">Walk the demo — free</Link>
           </div>
         </div>
       </section>
@@ -178,6 +178,7 @@ export default function LandingPage() {
               <li>Visitor analytics</li>
               <li>Custom domain</li>
             </ul>
+            <span className="btn btn-small price-cta price-cta-soon" aria-disabled="true">Coming soon</span>
           </div>
         </div>
         <p className="pricing-note reveal">HAKONIWA is a prototype. Pricing is part of the product concept — billing is not implemented.</p>

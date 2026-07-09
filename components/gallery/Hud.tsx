@@ -96,7 +96,7 @@ export function HudStepper() {
       <button className="step-btn" aria-label="Previous work" onClick={() => walkRef.current?.focusStep(-1)}>
         ‹
       </button>
-      <span className="step-count">
+      <span className={`step-count${focusedIndex < 0 ? ' idle' : ''}`}>
         {current} <span className="step-sep">/</span> {String(count).padStart(2, '0')}
       </span>
       <button className="step-btn" aria-label="Next work" onClick={() => walkRef.current?.focusStep(1)}>

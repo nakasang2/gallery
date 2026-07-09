@@ -856,6 +856,34 @@ a { color: inherit; }
 .price-card ul { list-style: none; }
 .price-cta { display: inline-block; margin-top: 1.4rem; text-decoration: none; }
 .nav-actions { display: flex; align-items: center; gap: 0.55rem; }
+/* 固定ナビの高さ分、アンカー着地をずらす(見出しがバーの下に潜らない) */
+html { scroll-padding-top: 72px; }
+/* Proカード: 未提供でも骨格を揃える */
+.price-cta-soon { opacity: 0.5; cursor: default; pointer-events: none; }
+/* 料金の "/ month" がカード背景のスポットに溶けないように */
+.price span { margin-left: 0.45em; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
+/* 注記は読ませる(免責を極小フォントに隠さない) */
+.pricing-note { font-size: 0.74rem; }
+/* スクロール同期HUDの本文(壁テクスチャの文字は読めない環境が多い) */
+.journey-hud-desc {
+  max-width: 46ch;
+  margin-top: 0.7rem;
+  font-size: 0.82rem;
+  line-height: 1.9;
+  color: var(--muted);
+}
+/* キャンバスとフッターの継ぎ目をぼかす */
+.footer { position: relative; }
+.footer::before {
+  content: '';
+  position: absolute;
+  top: -140px;
+  left: 0;
+  right: 0;
+  height: 140px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+}
 /* 明るい額装の上でも読めるように(ヒーローの英字) */
 .hero-eyebrow { text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85), 0 0 26px rgba(0, 0, 0, 0.65); }
 .btn-gold { border-color: rgba(212, 162, 78, 0.65); color: #d4a24e; }

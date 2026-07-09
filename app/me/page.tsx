@@ -110,8 +110,9 @@ function GuestImportCard() {
     updateSettings({ artworks: remaining })
     await refreshCloud()
     setBusy(false)
+    // Full success: the card hides itself because the local list is empty — do NOT set the
+    // dismiss flag, so works added as a guest later can still be imported
     if (failed) alert(`Imported ${ok} work${ok === 1 ? '' : 's'}; ${failed} could not be read (CORS or storage limit) and stayed local.`)
-    else dismiss()
   }
 
   return (
@@ -439,6 +440,11 @@ function WorksCard() {
       {cloudArtworks.length === 0 && (
         <p className="me-note" style={{ marginTop: 0 }}>
           No works in your library yet. Upload images here, then arrange them in the editor.
+        </p>
+      )}
+      {cloudArtworks.length > 0 && (
+        <p className="me-note" style={{ marginTop: 0, marginBottom: '0.8rem' }}>
+          ★ share cover (OGP) · × delete from library
         </p>
       )}
       {cloudArtworks.length > 0 && (
@@ -820,13 +826,7 @@ export default function MePage() {
               )}
             </section>
 
-            {galleries !== null && galleries.length > 0 && (
-              <section className="me-section">
-                <h2>Guestbook</h2>
-                <GuestbookCard galleryId={galleries[0].id} />
-              </section>
-            )}
-
+            {/* First-run order: works → profile (username) → guestbook → account */}
             <section className="me-section">
               <h2>Works</h2>
               <WorksCard />
@@ -836,6 +836,13 @@ export default function MePage() {
               <h2>Profile</h2>
               <ProfileCard />
             </section>
+
+            {galleries !== null && galleries.length > 0 && (
+              <section className="me-section">
+                <h2>Guestbook</h2>
+                <GuestbookCard galleryId={galleries[0].id} />
+              </section>
+            )}
 
             <section className="me-section">
               <h2>Account</h2>
