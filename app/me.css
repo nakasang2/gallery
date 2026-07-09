@@ -44,6 +44,41 @@
   padding: 1.5rem 1.6rem;
 }
 
+/* 箱庭カードのビジュアルヘッダー(カバー作品 or テーマ色 + 間取り) */
+.hako-visual {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.1rem;
+}
+.hako-cover {
+  width: 108px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  flex: none;
+}
+.hako-cover-swatch { width: 108px; height: 68px; border-radius: 8px; }
+.hako-plan-chip {
+  width: 84px;
+  height: 56px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  flex: none;
+}
+.hako-space-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.hako-space-tag .theme-swatch { width: 1.9em; height: 1.3em; }
+
 .hako-head { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
 .hako-title { font-family: var(--serif); font-size: 1.35rem; font-weight: 500; }
 .hako-badge {

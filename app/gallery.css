@@ -459,6 +459,86 @@ body.gallery-mode {
 .flat-artist { font-size: 0.78rem; letter-spacing: 0.12em; color: var(--muted); margin-top: 0.35rem; }
 .flat-desc { font-size: 0.86rem; line-height: 2; color: #cdc7bd; margin-top: 0.8rem; }
 
+/* ---- ビジュアルプレビュー(テーマ・間取り・テンプレート) ---- */
+/* 「選ぶ前に見える」ための部品。presetsのデータから自動生成される */
+
+.theme-swatch {
+  position: relative;
+  display: inline-block;
+  width: 2.4em;
+  height: 1.6em;
+  border-radius: 4px;
+  overflow: hidden;
+  flex: none;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.theme-swatch-spot { position: absolute; inset: 0; }
+.theme-swatch-accent { position: absolute; left: 0; top: 0; height: 64%; width: 17%; }
+
+.layout-plan { display: block; width: 100%; height: 100%; }
+.layout-plan .lp-room { fill: none; stroke: currentColor; stroke-width: 0.34; opacity: 0.85; }
+.layout-plan .lp-part { fill: currentColor; opacity: 0.75; }
+.layout-plan .lp-bench { fill: currentColor; opacity: 0.3; }
+.layout-plan .lp-slot { fill: var(--gold); }
+.layout-plan .lp-entry { fill: none; stroke: currentColor; stroke-width: 0.3; opacity: 0.55; }
+
+/* テンプレートカード */
+.tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.7rem;
+  margin: 0.4rem 0 1rem;
+}
+.tpl-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0 0 0.85rem;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(236, 231, 222, 0.03);
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.tpl-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+.tpl-card.active { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.tpl-card .tpl-swatch { display: block; width: 100%; height: 72px; border-radius: 0; box-shadow: none; }
+.tpl-plan-chip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 62px;
+  height: 42px;
+  padding: 3px;
+  border-radius: 6px;
+  background: rgba(8, 8, 10, 0.58);
+  color: #ece7de;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.tpl-name {
+  display: block;
+  margin: 0.65rem 0.85rem 0;
+  font-family: var(--serif);
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+.tpl-sub {
+  display: block;
+  margin: 0.2rem 0.85rem 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* スウォッチ/間取り入りチップ */
+.chip-visual { display: inline-flex; align-items: center; gap: 0.55em; }
+.chip-plan { width: 2.7em; height: 1.7em; color: var(--muted); flex: none; }
+.chip.active .chip-plan { color: var(--gold); }
+
 /* ---- チップ(テーマ/レイアウト/額装の選択) ---- */
 .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .chip {

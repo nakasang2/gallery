@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS } from '@/lib/presets'
+import { ThemeSwatch, LayoutPlan, TemplateCard } from '@/components/SpacePreviews'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -163,15 +164,10 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
         <span>Name</span>
         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
       </label>
-      <div className="chips" style={{ margin: '0.4rem 0 1.2rem' }}>
-        {Object.entries(TEMPLATES).map(([key, t]) => (
-          <button
-            key={key}
-            className={`chip${key === templateId ? ' active' : ''}`}
-            onClick={() => setTemplateId(key)}
-          >
-            {t.label}
-          </button>
+      {/* Templates as pictures: theme colours + a floor plan of the room */}
+      <div className="tpl-grid">
+        {Object.keys(TEMPLATES).map((key) => (
+          <TemplateCard key={key} templateId={key} active={key === templateId} onClick={() => setTemplateId(key)} />
         ))}
       </div>
       <button className="btn-line" disabled={busy} onClick={() => void create()}>
@@ -251,8 +247,29 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
+  // Cover: the chosen OGP work, else the first exhibited work, else the theme itself
+  const coverArt = cloudArtworks.find((a) => a.id === row.cover_artwork_id) ?? cloudArtworks[0]
+  const coverSrc = coverArt ? coverArt.poster ?? coverArt.src : undefined
+
   return (
     <div className="me-card">
+      {/* What the room looks like: cover work, theme colours, floor plan */}
+      <div className="hako-visual">
+        {coverSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="hako-cover" src={coverSrc} alt="" />
+        ) : (
+          <ThemeSwatch themeKey={row.theme} className="hako-cover-swatch" />
+        )}
+        <span className="hako-plan-chip">
+          <LayoutPlan layoutKey={row.layout} params={row.layout_params} />
+        </span>
+        <span className="hako-space-tag">
+          <ThemeSwatch themeKey={row.theme} />
+          {THEMES[row.theme]?.label ?? row.theme} ·{' '}
+          {row.layout === 'custom' ? 'Custom room' : LAYOUTS[row.layout]?.label ?? row.layout}
+        </span>
+      </div>
       <div className="hako-head">
         <span className="hako-title">{row.title}</span>
         <span className={`hako-badge${row.is_public ? ' public' : ''}`}>
