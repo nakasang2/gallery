@@ -60,22 +60,30 @@ const STORAGE_KEY = 'hakoniwa.settings.v1'
 let authInitialized = false // Prevents duplicate subscriptions from React Strict Mode's double invocation
 let syncTimer: ReturnType<typeof setTimeout> | null = null
 
+// The actual write-through: gallery row + (when public) placements
+async function runGallerySync(get: () => GalleryStore): Promise<void> {
+  const s = get()
+  if (!supabase || !s.user || !s.myGallery) return
+  useGallery.setState({ syncState: 'saving' })
+  try {
+    await saveGallerySpace(s.myGallery.id, s)
+    if (s.myGallery.is_public) await rebuildPlacements(s.myGallery.id, s, s.cloudArtworks)
+    useGallery.setState({ syncState: 'saved' })
+  } catch (e) {
+    // Surfaced as a retry chip in the settings panel — never a blocking alert
+    console.error('gallery sync failed:', e)
+    useGallery.setState({ syncState: 'error' })
+  }
+}
+
 // Debounced write-through: signed-in edits persist to the gallery row, and if the
 // hakoniwa is public they update the placements too (decision 10.8-3: saving is live)
 function scheduleGallerySync(get: () => GalleryStore) {
   if (syncTimer) clearTimeout(syncTimer)
+  useGallery.setState({ syncState: 'saving' })
   syncTimer = setTimeout(() => {
     syncTimer = null
-    const s = get()
-    if (!supabase || !s.user || !s.myGallery) return
-    void (async () => {
-      try {
-        await saveGallerySpace(s.myGallery!.id, s)
-        if (s.myGallery!.is_public) await rebuildPlacements(s.myGallery!.id, s, s.cloudArtworks)
-      } catch (e) {
-        console.error('gallery sync failed (apply supabase/migrations up to 0005):', e)
-      }
-    })()
+    void runGallerySync(get)
   }, 1200)
 }
 
@@ -117,6 +125,8 @@ interface GalleryStore extends Settings {
   /** Visitor guestbook panel */
   guestbookOpen: boolean
   tourActive: boolean
+  /** Cloud write-through status for the signed-in editor (chip in the settings panel) */
+  syncState: 'idle' | 'saving' | 'saved' | 'error'
   /** Whether fonts have loaded and settings have been restored */
   ready: boolean
 
@@ -144,6 +154,8 @@ interface GalleryStore extends Settings {
   setSettingsOpen(open: boolean): void
   setGuestbookOpen(open: boolean): void
   setTourActive(active: boolean): void
+  /** Re-run a failed cloud sync immediately */
+  retrySync(): void
 }
 
 export const useGallery = create<GalleryStore>((set, get) => ({
@@ -152,6 +164,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   settingsOpen: false,
   guestbookOpen: false,
   tourActive: false,
+  syncState: 'idle',
   ready: false,
   user: null,
   cloudArtworks: [],
@@ -196,10 +209,9 @@ export const useGallery = create<GalleryStore>((set, get) => ({
       // Works changed (upload/delete) — keep a public hakoniwa's placements in step
       if (get().myGallery) scheduleGallerySync(get)
     } catch (e) {
-      console.error(e)
-      alert(
-        'Could not load your works from the cloud. Check that supabase/migrations/0001_init.sql has been applied.'
-      )
+      // Passive load — never block the tab with an alert (runbook hints stay in the console)
+      console.error('could not load cloud works (are supabase/migrations applied?):', e)
+      set({ syncState: 'error' })
     }
   },
 
@@ -254,8 +266,8 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         await reorderArtworks(next.map((a) => a.id))
         if (get().myGallery) scheduleGallerySync(get) // new order → new placements when public
       } catch (e) {
-        console.error(e)
-        alert('Could not save the new order. Check that 0003_order_profile.sql has been applied.')
+        console.error('reorder failed (is 0003_order_profile.sql applied?):', e)
+        alert('Could not save the new order — please try again.')
         void get().refreshCloudArtworks()
       }
     } else {
@@ -264,7 +276,8 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   },
 
   setFocused(i) {
-    set({ focusedIndex: i })
+    // Focusing a work also closes the settings drawer so the artwork panel is never hidden behind it
+    set(i >= 0 ? { focusedIndex: i, settingsOpen: false } : { focusedIndex: i })
   },
   setSettingsOpen(open) {
     set({ settingsOpen: open })
@@ -274,6 +287,13 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   },
   setTourActive(active) {
     set({ tourActive: active })
+  },
+  retrySync() {
+    if (syncTimer) {
+      clearTimeout(syncTimer)
+      syncTimer = null
+    }
+    void runGallerySync(get)
   },
 }))
 

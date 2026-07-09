@@ -50,11 +50,13 @@ const HALL_SIDES: [number, number, number, 'L' | 'R'][] = [
   [4, -114, 3.6, 'R'],
 ]
 
-type Hud = { eyebrow: string; title: string }
+type Hud = { eyebrow: string; title: string; body?: string }
 const CORRIDOR_HUD: Hud[] = [
   { eyebrow: 'The room', title: 'Built around a single work.' },
   { eyebrow: 'The room', title: 'Walked, not scrolled.' },
-  ...PANELS.map((p) => ({ eyebrow: `Features · ${p.n}`, title: p.h })),
+  // Body copy rides along in the DOM HUD — the wall textures alone are unreadable
+  // on portrait phones and invisible to screen readers
+  ...PANELS.map((p) => ({ eyebrow: `Features · ${p.n}`, title: p.h, body: p.b })),
 ]
 
 function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lh: number) {
@@ -394,18 +396,24 @@ function Scene() {
       {/* 廊下から広間まで続く反射床 */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0, -58]}>
         <planeGeometry args={[HALL_HALF * 2 + 2, 170]} />
-        <MeshReflectorMaterial
-          blur={[300, 100]}
-          resolution={SMALL_SCREEN ? 128 : 256}
-          mixBlur={1}
-          mixStrength={13}
-          roughness={0.93}
-          depthScale={1}
-          minDepthThreshold={0.4}
-          maxDepthThreshold={1.3}
-          color="#0b0b0c"
-          metalness={0.5}
-        />
+        {SMALL_SCREEN ? (
+          // Phones skip the reflector: it re-renders the scene to a render target
+          // every frame, the single biggest GPU/battery cost on the page
+          <meshStandardMaterial color="#0b0b0c" metalness={0.5} roughness={0.93} />
+        ) : (
+          <MeshReflectorMaterial
+            blur={[300, 100]}
+            resolution={256}
+            mixBlur={1}
+            mixStrength={13}
+            roughness={0.93}
+            depthScale={1}
+            minDepthThreshold={0.4}
+            maxDepthThreshold={1.3}
+            color="#0b0b0c"
+            metalness={0.5}
+          />
+        )}
       </mesh>
 
       {HERO_ART.map(([idx, z], k) => (
@@ -428,6 +436,24 @@ function Scene() {
 export default function HeroScene() {
   const [hud, setHud] = useState<Hud | null>(null)
   const [hudOn, setHudOn] = useState(false)
+  // Stop the render loop entirely while the tab is hidden (battery)
+  const [halted, setHalted] = useState(false)
+  // Wall/label textures bake fonts into canvases once — wait for the webfonts
+  // (with a cap) so museum labels don't ship in a fallback serif forever
+  const [fontsReady, setFontsReady] = useState(false)
+
+  useEffect(() => {
+    const onVis = () => setHalted(document.hidden)
+    document.addEventListener('visibilitychange', onVis)
+    let alive = true
+    void Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(() => {
+      if (alive) setFontsReady(true)
+    })
+    return () => {
+      alive = false
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
 
   useEffect(() => {
     const recompute = () => {
@@ -474,7 +500,7 @@ export default function HeroScene() {
   return (
     <div className="hero-canvas" aria-hidden="true">
       <Canvas
-        frameloop="always"
+        frameloop={halted ? 'never' : 'always'}
         dpr={[1, SMALL_SCREEN ? 1.25 : 1.5]}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         camera={{ fov: 48, position: [-1.7, 1.66, 7.4], near: 0.1, far: 160 }}
@@ -483,13 +509,14 @@ export default function HeroScene() {
           gl.toneMappingExposure = 1.3
         }}
       >
-        <Scene />
+        {fontsReady && <Scene />}
       </Canvas>
       <div className="hero-grade" aria-hidden="true" />
       <div className={`journey-hud${hudOn ? ' on' : ''}`}>
         <div className="journey-hud-inner" key={(hud?.eyebrow || '') + (hud?.title || '')}>
           <span className="journey-hud-eyebrow">{hud?.eyebrow}</span>
           <p className="journey-hud-title">{hud?.title}</p>
+          {hud?.body && <p className="journey-hud-desc">{hud.body}</p>}
         </div>
       </div>
     </div>

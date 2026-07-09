@@ -19,9 +19,6 @@ export interface WalkAPI {
 
 export const walkRef: { current: WalkAPI | null } = { current: null }
 
-// Virtual joystick input (Joystick UI → WalkControls)
-export const joyState = { active: false, x: 0, y: 0 }
-
 // On touch devices, disable post-processing and lower shadow resolution to hold 30fps
 export const LOW_POWER =
   typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches

@@ -124,7 +124,7 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
   const partitionMaps = useWallMaps(8)
 
   const onFloorClick = (e: ThreeEvent<MouseEvent>) => {
-    if (e.delta > 8) return // it was a drag
+    if (e.delta > 10) return // it was a drag (matches WalkControls.TAP_THRESHOLD)
     walkRef.current?.walkTo(e.point)
   }
 

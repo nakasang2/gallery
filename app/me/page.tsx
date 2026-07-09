@@ -36,6 +36,7 @@ import {
 } from '@/lib/engagement'
 import { fileToDataUrl, loadImage } from '@/lib/upload'
 import type { ArtworkData } from '@/lib/artworks'
+import AuthShell from '@/components/auth/AuthShell'
 
 function fmtDate(iso: string | null): string {
   if (!iso) return ''
@@ -109,8 +110,9 @@ function GuestImportCard() {
     updateSettings({ artworks: remaining })
     await refreshCloud()
     setBusy(false)
+    // Full success: the card hides itself because the local list is empty — do NOT set the
+    // dismiss flag, so works added as a guest later can still be imported
     if (failed) alert(`Imported ${ok} work${ok === 1 ? '' : 's'}; ${failed} could not be read (CORS or storage limit) and stayed local.`)
-    else dismiss()
   }
 
   return (
@@ -180,10 +182,13 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
 }
 
 function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => void }) {
+  const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
   const frameOverrides = useGallery((s) => s.frameOverrides)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
+  const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [mode, setMode] = useState<'view' | 'rename' | 'url'>('view')
   const [nameInput, setNameInput] = useState(row.title)
@@ -219,10 +224,6 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   }
 
   async function togglePublic() {
-    if (!row.is_public && !username) {
-      alert('Set a username first (Profile section below) — it becomes part of your public URL.')
-      return
-    }
     if (!row.is_public && cloudArtworks.length === 0) {
       alert('Exhibit at least one work before opening to the public (use the editor).')
       return
@@ -230,6 +231,24 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     await run(row.is_public ? 'Making private' : 'Publishing', () =>
       setGalleryPublic(row, !row.is_public, rowToSettings(row, frameOverrides), cloudArtworks)
     )
+  }
+
+  // Publishing needs a username — set it right here instead of hunting for the Profile section
+  async function saveUsernameInline() {
+    const name = usernameInput.trim().toLowerCase()
+    if (!USERNAME_RE.test(name)) {
+      alert('Usernames are 3–20 characters: lowercase letters, digits and _')
+      return
+    }
+    setBusy(true)
+    try {
+      await setUsername(user.id, name)
+      await refreshCloud()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -296,10 +315,29 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           )}
         </>
       )}
+      {!username && (
+        <div className="field-row">
+          <input
+            type="text"
+            placeholder="username — needed to publish (/@you/…)"
+            value={usernameInput}
+            onChange={(e) => setUsernameInput(e.target.value)}
+          />
+          <button className="btn-line" disabled={busy || !usernameInput.trim()} onClick={() => void saveUsernameInline()}>
+            Set
+          </button>
+        </div>
+      )}
+
       {mode === 'view' && (
         <div className="hako-actions">
           <Link className="btn-line" href="/demo">Open editor</Link>
-          <button className="btn-line" disabled={busy} onClick={() => void togglePublic()}>
+          <button
+            className="btn-line"
+            disabled={busy || (!row.is_public && !username)}
+            title={!row.is_public && !username ? 'Set a username first' : undefined}
+            onClick={() => void togglePublic()}
+          >
             {row.is_public ? 'Make private' : 'Open to the public'}
           </button>
           {row.is_public && publicUrl && (
@@ -402,6 +440,11 @@ function WorksCard() {
       {cloudArtworks.length === 0 && (
         <p className="me-note" style={{ marginTop: 0 }}>
           No works in your library yet. Upload images here, then arrange them in the editor.
+        </p>
+      )}
+      {cloudArtworks.length > 0 && (
+        <p className="me-note" style={{ marginTop: 0, marginBottom: '0.8rem' }}>
+          ★ share cover (OGP) · × delete from library
         </p>
       )}
       {cloudArtworks.length > 0 && (
@@ -522,13 +565,11 @@ function AccountCard() {
     if (!confirm('This cannot be undone. Really delete everything?')) return
     setBusy(true)
     try {
-      await deleteMyAccount()
+      await deleteMyAccount(user.id)
       location.href = '/'
     } catch (e) {
-      alert(
-        `Account deletion failed: ${e instanceof Error ? e.message : e}\n` +
-          'Check that supabase/migrations/0007_delete_account.sql has been applied.'
-      )
+      console.error('account deletion failed (is 0007_delete_account.sql applied?):', e)
+      alert(`Account deletion failed — nothing was removed. ${e instanceof Error ? e.message : e}`)
       setBusy(false)
     }
   }
@@ -693,7 +734,8 @@ export default function MePage() {
   const signOut = useGallery((s) => s.signOut)
 
   const [checked, setChecked] = useState(false)
-  const [galleries, setGalleries] = useState<GalleryRow[]>([])
+  // null = still loading (prevents flashing the create card at returning users)
+  const [galleries, setGalleries] = useState<GalleryRow[] | null>(null)
   const [loadErr, setLoadErr] = useState('')
   const [usage, setUsage] = useState<number | null>(null)
 
@@ -710,8 +752,9 @@ export default function MePage() {
       setGalleries(await listMyGalleries(user.id))
       setLoadErr('')
     } catch (e) {
-      console.error(e)
-      setLoadErr('Could not load your hakoniwa. Check that supabase/migrations up to 0006 have been applied.')
+      console.error('could not load galleries (are supabase/migrations applied?):', e)
+      setLoadErr('Could not load your hakoniwa — please retry in a moment.')
+      setGalleries([])
     }
     try {
       setUsage(await getStorageUsage(user.id))
@@ -726,11 +769,12 @@ export default function MePage() {
 
   if (!supabase) {
     return (
-      <main className="me-page">
-        <div className="me-inner">
-          <p className="me-note">Cloud features are not configured (Supabase keys required in .env.local).</p>
-        </div>
-      </main>
+      <AuthShell title="Dashboard">
+        <p className="auth-note">Cloud features are not configured (Supabase keys required in .env.local).</p>
+        <p className="auth-links">
+          <Link href="/">Back to HAKONIWA</Link>
+        </p>
+      </AuthShell>
     )
   }
 
@@ -763,11 +807,14 @@ export default function MePage() {
             <GuestImportCard />
             <section className="me-section">
               {loadErr && <p className="me-error">{loadErr}</p>}
-              {!loadErr && galleries.length === 0 && <CreateCard onCreated={() => void reload()} />}
-              {galleries.map((g) => (
+              {galleries === null && !loadErr && <p className="me-note">Loading your hakoniwa…</p>}
+              {galleries !== null && !loadErr && galleries.length === 0 && (
+                <CreateCard onCreated={() => void reload()} />
+              )}
+              {(galleries ?? []).map((g) => (
                 <HakoniwaCard key={g.id} row={g} onChanged={() => void reload()} />
               ))}
-              {galleries.length > 0 && galleries.length < PLAN.galleries && (
+              {galleries !== null && galleries.length > 0 && galleries.length < PLAN.galleries && (
                 <p className="me-note">
                   You can create {PLAN.galleries - galleries.length} more hakoniwa on your plan.
                 </p>
@@ -779,13 +826,7 @@ export default function MePage() {
               )}
             </section>
 
-            {galleries.length > 0 && (
-              <section className="me-section">
-                <h2>Guestbook</h2>
-                <GuestbookCard galleryId={galleries[0].id} />
-              </section>
-            )}
-
+            {/* First-run order: works → profile (username) → guestbook → account */}
             <section className="me-section">
               <h2>Works</h2>
               <WorksCard />
@@ -795,6 +836,13 @@ export default function MePage() {
               <h2>Profile</h2>
               <ProfileCard />
             </section>
+
+            {galleries !== null && galleries.length > 0 && (
+              <section className="me-section">
+                <h2>Guestbook</h2>
+                <GuestbookCard galleryId={galleries[0].id} />
+              </section>
+            )}
 
             <section className="me-section">
               <h2>Account</h2>

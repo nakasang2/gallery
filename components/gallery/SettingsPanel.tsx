@@ -9,7 +9,9 @@ import { useGallery, useSettings } from '@/lib/store'
 import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
 import { supabase } from '@/lib/supabase'
 import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
-import { USERNAME_RE, setUsername, publishGallery, getMyGallery, getProfile, saveProfile } from '@/lib/publish'
+import { getProfile, saveProfile } from '@/lib/publish'
+import { setGalleryPublic } from '@/lib/galleries'
+import { walkRef } from '@/lib/controller'
 import type { ArtworkData } from '@/lib/artworks'
 
 // Profile editor (display name + bio). The display name is also used as the artist name on labels
@@ -134,66 +136,37 @@ function AccountSection() {
   )
 }
 
-// Publish: set username → write the current space and works to galleries/placements and issue a unique URL
+// Publish: thin status + toggle. Title/URL/username management lives in the dashboard
 function PublishSection() {
-  const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
-  const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const myGallery = useGallery((s) => s.myGallery)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const settings = useSettings()
   const ownArtworks = useOwnArtworks()
 
-  const [nameInput, setNameInput] = useState('')
-  const [galleryTitle, setGalleryTitle] = useState('My Gallery')
-  const [isPublic, setIsPublic] = useState(false)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  // Load the existing publish state
-  useEffect(() => {
-    let alive = true
-    getMyGallery(user.id)
-      .then((g) => {
-        if (alive && g) {
-          setGalleryTitle(g.title)
-          setIsPublic(g.is_public)
-        }
-      })
-      .catch(() => {})
-    return () => {
-      alive = false
-    }
-  }, [user.id])
-
-  async function saveUsername() {
-    const name = nameInput.trim().toLowerCase()
-    if (!USERNAME_RE.test(name)) {
-      alert('Usernames are 3–20 characters: lowercase letters, digits and _')
-      return
-    }
-    setBusy(true)
-    try {
-      await setUsername(user.id, name)
-      await refreshCloud()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
+  // The dashboard owns title / URL / creation — this panel is only a status + toggle,
+  // so the two surfaces can never diverge (single source of truth: the gallery row)
+  if (!myGallery) {
+    return (
+      <p className="settings-note">
+        Create your hakoniwa from the <Link href="/me" style={{ color: 'var(--gold)' }}>dashboard</Link> first
+        — then you can publish it from here.
+      </p>
+    )
   }
 
-  async function publish(nextPublic: boolean) {
+  const publicUrl =
+    typeof window !== 'undefined' && username
+      ? `${location.origin}/@${username}/${myGallery.slug}`
+      : ''
+
+  async function toggle(nextPublic: boolean) {
     setBusy(true)
     try {
-      await publishGallery({
-        userId: user.id,
-        title: galleryTitle.trim() || 'My Gallery',
-        isPublic: nextPublic,
-        settings,
-        ownArtworks,
-      })
-      setIsPublic(nextPublic)
-      // Keep the store's gallery row current — live sync checks its is_public flag
+      await setGalleryPublic(myGallery!, nextPublic, settings, ownArtworks)
       await refreshMyGallery()
     } catch (e) {
       alert(`Publishing failed: ${e instanceof Error ? e.message : e}`)
@@ -202,49 +175,33 @@ function PublishSection() {
     }
   }
 
-  if (!username) {
-    return (
-      <>
-        <p className="settings-note">Choose a username for your public URL (lowercase letters, digits, _).</p>
-        <div className="field-row">
-          <input
-            type="text"
-            placeholder="username"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-          />
-          <button className="btn-line" disabled={busy} onClick={() => void saveUsername()}>Save</button>
-        </div>
-      </>
-    )
-  }
-
-  const publicUrl = typeof window !== 'undefined' ? `${location.origin}/@${username}/main` : ''
-
   return (
     <>
       <div className="field-row">
-        <input
-          type="text"
-          placeholder="Exhibition title"
-          value={galleryTitle}
-          onChange={(e) => setGalleryTitle(e.target.value)}
-        />
-      </div>
-      <div className="field-row">
-        <button className="btn-line" disabled={busy || ownArtworks.length === 0} onClick={() => void publish(true)}>
-          {isPublic ? 'Update the public page' : 'Open to the public'}
-        </button>
-        {isPublic && (
-          <button className="btn-line" disabled={busy} onClick={() => void publish(false)}>
+        {myGallery.is_public ? (
+          <button className="btn-line" disabled={busy} onClick={() => void toggle(false)}>
             Make private
+          </button>
+        ) : (
+          <button
+            className="btn-line"
+            disabled={busy || ownArtworks.length === 0 || !username}
+            onClick={() => void toggle(true)}
+          >
+            Open to the public
           </button>
         )}
       </div>
-      {ownArtworks.length === 0 && (
+      {!username && (
+        <p className="settings-note">
+          Set a username in the <Link href="/me" style={{ color: 'var(--gold)' }}>dashboard</Link> first —
+          it becomes part of your public URL.
+        </p>
+      )}
+      {username && ownArtworks.length === 0 && !myGallery.is_public && (
         <p className="settings-note">Exhibit at least one work before publishing.</p>
       )}
-      {isPublic && (
+      {myGallery.is_public && publicUrl && (
         <p className="settings-note">
           Live at:{' '}
           <a href={publicUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>
@@ -262,7 +219,8 @@ function PublishSection() {
             {copied ? 'Copied' : 'Copy URL'}
           </button>
           <br />
-          While public, your edits (works, theme, framing) sync to this page automatically.
+          Your edits sync to this page automatically. Rename or change the URL in the{' '}
+          <Link href="/me" style={{ color: 'var(--gold)' }}>dashboard</Link>.
         </p>
       )}
     </>
@@ -274,6 +232,9 @@ export default function SettingsPanel() {
   const setOpen = useGallery((s) => s.setSettingsOpen)
   const updateSettings = useGallery((s) => s.updateSettings)
   const user = useGallery((s) => s.user)
+  const myGallery = useGallery((s) => s.myGallery)
+  const syncState = useGallery((s) => s.syncState)
+  const retrySync = useGallery((s) => s.retrySync)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const settings = useSettings()
   const ownArtworks = useOwnArtworks()
@@ -281,10 +242,20 @@ export default function SettingsPanel() {
   const [igNote, setIgNote] = useState(false)
   const [uploading, setUploading] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null!)
-  const artistRef = useRef<HTMLInputElement>(null!)
+  const artistRef = useRef<HTMLInputElement>(null)
   const urlRef = useRef<HTMLInputElement>(null!)
 
+  // Upload feedback: close the panel and glide to the freshly hung work so the
+  // result is actually seen (the panel otherwise hides it)
+  const slots = slotCount(settings)
+  function revealNew(prevOwnCount: number) {
+    if (prevOwnCount >= slots) return // it landed beyond the visible slots
+    setOpen(false)
+    walkRef.current?.focusExhibit(prevOwnCount)
+  }
+
   async function addEntries(entries: { title: string; dataUrl: string; w: number; h: number }[]) {
+    const prevCount = ownArtworks.length
     if (user) {
       // Cloud exhibit (Storage + DB)
       setUploading(true)
@@ -293,21 +264,21 @@ export default function SettingsPanel() {
           await uploadArtwork({ ownerId: user.id, dataUrl: e.dataUrl, title: e.title, w: e.w, h: e.h })
         }
         await refreshCloud()
+        revealNew(prevCount)
       } catch (e) {
-        alert(
-          `Upload failed: ${e instanceof Error ? e.message : e}\n` +
-            'Check that supabase/migrations/0001_init.sql has been applied.'
-        )
+        console.error('upload failed (are supabase/migrations applied?):', e)
+        alert(`Upload failed: ${e instanceof Error ? e.message : e}`)
       } finally {
         setUploading(false)
       }
     } else {
       // Guest exhibit (localStorage)
-      const artist = artistRef.current.value.trim()
+      const artist = artistRef.current?.value.trim() ?? ''
       const items: ArtworkData[] = entries.map((e) =>
         newArtworkEntry({ title: e.title, artist, src: e.dataUrl, w: e.w, h: e.h })
       )
       updateSettings({ artworks: [...settings.artworks, ...items] })
+      revealNew(prevCount)
     }
   }
 
@@ -321,6 +292,7 @@ export default function SettingsPanel() {
       alert(`Videos are limited to ${Math.floor(VIDEO_MAX_BYTES / 1024 / 1024)}MB (“${file.name}” is ${Math.ceil(file.size / 1024 / 1024)}MB).`)
       return
     }
+    const prevCount = ownArtworks.length
     setUploading(true)
     try {
       const meta = await videoFileMeta(file)
@@ -333,11 +305,10 @@ export default function SettingsPanel() {
         h: meta.h,
       })
       await refreshCloud()
+      revealNew(prevCount)
     } catch (e) {
-      alert(
-        `Video upload failed: ${e instanceof Error ? e.message : e}\n` +
-          'Check that supabase/migrations/0002_video.sql has been applied.'
-      )
+      console.error('video upload failed (is 0002_video.sql applied?):', e)
+      alert(`Video upload failed: ${e instanceof Error ? e.message : e}`)
     } finally {
       setUploading(false)
     }
@@ -346,8 +317,10 @@ export default function SettingsPanel() {
   async function onFiles(files: FileList | null) {
     if (!files?.length) return
     const entries = []
+    // A typed title only applies to a single file — multi-selects keep their filenames
+    const customTitle = files.length === 1 ? titleRef.current.value.trim() : ''
     for (const file of Array.from(files)) {
-      const title = titleRef.current.value.trim() || file.name.replace(/\.[^.]+$/, '') || 'Untitled'
+      const title = customTitle || file.name.replace(/\.[^.]+$/, '') || 'Untitled'
       if (file.type.startsWith('video/')) {
         await onVideoFile(file, title)
         continue
@@ -378,12 +351,20 @@ export default function SettingsPanel() {
         c.getContext('2d')!.drawImage(img, 0, 0)
         await addEntries([{ title, dataUrl: c.toDataURL('image/jpeg', 0.9), w: img.width, h: img.height }])
       } else {
+        const prevCount = ownArtworks.length
         updateSettings({
           artworks: [
             ...settings.artworks,
-            newArtworkEntry({ title, artist: artistRef.current.value.trim(), src: url, w: img.width, h: img.height }),
+            newArtworkEntry({
+              title,
+              artist: artistRef.current?.value.trim() ?? '',
+              src: url,
+              w: img.width,
+              h: img.height,
+            }),
           ],
         })
+        revealNew(prevCount)
       }
       titleRef.current.value = ''
       urlRef.current.value = ''
@@ -413,7 +394,13 @@ export default function SettingsPanel() {
   const reorder = useGallery((s) => s.reorderOwnArtworks)
 
   const over = overflowCount(settings, ownArtworks.length)
-  const slots = slotCount(settings)
+
+  // Template/theme/global-frame picks reset per-work framing — never silently
+  function confirmOverrideReset(): boolean {
+    const n = Object.keys(settings.frameOverrides).length
+    if (n === 0) return true
+    return confirm(`This resets the custom framing on ${n} work${n === 1 ? '' : 's'}. Continue?`)
+  }
 
   // Highlight a template only while every axis still matches its bundle
   const activeTemplate =
@@ -427,132 +414,21 @@ export default function SettingsPanel() {
     )?.[0] ?? ''
 
   return (
-    <aside id="settings" className={`settings${open ? ' open' : ''}`} aria-hidden={!open}>
+    <aside id="settings" className={`settings${open ? ' open' : ''}`} aria-hidden={!open} inert={!open}>
       <button className="panel-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
-      <h2 className="settings-title">Edit space</h2>
-
-      <section className="settings-section">
-        <h3>Template</h3>
-        {/* A template sets every axis below in one go, as a starting point */}
-        <ChipRow
-          defs={TEMPLATES}
-          current={activeTemplate}
-          onPick={(key) => {
-            const t = TEMPLATES[key]
-            updateSettings({
-              theme: t.theme,
-              layout: t.layout,
-              frame: t.frame,
-              hanging: t.hanging,
-              caption: t.caption,
-              frameOverrides: {},
-            })
-          }}
-        />
-        <p className="settings-note">A curated starting point. Fine-tune any axis below afterwards.</p>
-      </section>
-
-      <section className="settings-section">
-        <h3>Theme</h3>
-        {/* Each theme carries recommended framing / hanging / caption; picking one applies them */}
-        <ChipRow
-          defs={THEMES}
-          current={settings.theme}
-          onPick={(theme) => updateSettings({ theme, ...THEMES[theme].recommends, frameOverrides: {} })}
-        />
-        <p className="settings-note">Switching theme applies its recommended framing; adjust below to taste.</p>
-      </section>
-
-      <section className="settings-section">
-        <h3>Layout</h3>
-        <div className="chips">
-          {Object.entries(LAYOUTS).map(([key, def]) => (
-            <button
-              key={key}
-              className={`chip${key === settings.layout ? ' active' : ''}`}
-              onClick={() => updateSettings({ layout: key })}
-            >
-              {def.label}
-            </button>
-          ))}
-          <button
-            className={`chip${settings.layout === 'custom' ? ' active' : ''}`}
-            onClick={() => updateSettings({ layout: 'custom' })}
-          >
-            Custom
-          </button>
-        </div>
-        {settings.layout === 'custom' && (
-          <div className="custom-layout">
-            <label className="slider-row">
-              <span>Width {Math.round(settings.layoutParams.hw * 2)}m</span>
-              <input
-                type="range"
-                min={8}
-                max={18}
-                step={0.5}
-                value={settings.layoutParams.hw}
-                onChange={(e) =>
-                  updateSettings({ layoutParams: { ...settings.layoutParams, hw: Number(e.target.value) } })
-                }
-              />
-            </label>
-            <label className="slider-row">
-              <span>Depth {Math.round(settings.layoutParams.hd * 2)}m</span>
-              <input
-                type="range"
-                min={4}
-                max={10}
-                step={0.5}
-                value={settings.layoutParams.hd}
-                onChange={(e) =>
-                  updateSettings({ layoutParams: { ...settings.layoutParams, hd: Number(e.target.value) } })
-                }
-              />
-            </label>
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={settings.layoutParams.island}
-                onChange={(e) =>
-                  updateSettings({ layoutParams: { ...settings.layoutParams, island: e.target.checked } })
-                }
-              />
-              Centre wall (4 extra slots)
-            </label>
-          </div>
+      <h2 className="settings-title">
+        Edit space
+        {/* Cloud write-through status — edits to a public hakoniwa must never fail silently */}
+        {user && myGallery && syncState !== 'idle' && (
+          syncState === 'error' ? (
+            <button className="sync-chip error" onClick={retrySync}>Sync failed — retry</button>
+          ) : (
+            <span className={`sync-chip ${syncState}`}>{syncState === 'saving' ? 'Saving…' : 'Saved'}</span>
+          )
         )}
-      </section>
+      </h2>
 
-      <section className="settings-section">
-        <h3>Framing — all works</h3>
-        {/* Changing the overall framing also resets any per-work overrides */}
-        <ChipRow defs={FRAMES} current={settings.frame} onPick={(frame) => updateSettings({ frame, frameOverrides: {} })} />
-        <p className="settings-note">To change a single work, open it and use the panel.</p>
-      </section>
-
-      <section className="settings-section">
-        <h3>Hanging</h3>
-        <ChipRow defs={HANGINGS} current={settings.hanging} onPick={(hanging) => updateSettings({ hanging })} />
-      </section>
-
-      <section className="settings-section">
-        <h3>Caption</h3>
-        <ChipRow defs={CAPTIONS} current={settings.caption} onPick={(caption) => updateSettings({ caption })} />
-      </section>
-
-      <section className="settings-section">
-        <h3>Account</h3>
-        <AccountSection />
-      </section>
-
-      {user && (
-        <section className="settings-section">
-          <h3>Publish</h3>
-          <PublishSection />
-        </section>
-      )}
-
+      {/* Hanging your own work is the point of the product — it comes first */}
       <section className="settings-section">
         <h3>Exhibit your work</h3>
         <button className="btn-line" onClick={() => setIgNote(!igNote)}>Pick from Instagram</button>
@@ -563,8 +439,9 @@ export default function SettingsPanel() {
           </p>
         )}
         <div className="field-row">
-          <input ref={titleRef} type="text" placeholder="Title (optional)" />
-          <input ref={artistRef} type="text" placeholder="Artist (optional)" disabled={!!user} />
+          <input ref={titleRef} type="text" placeholder="Title (optional, single upload)" />
+          {/* Signed-in users' artist name comes from their profile */}
+          {!user && <input ref={artistRef} type="text" placeholder="Artist (optional)" />}
         </div>
         <label className="btn-line file-btn" aria-disabled={uploading}>
           {uploading ? 'Uploading…' : 'Upload image / video'}
@@ -634,6 +511,139 @@ export default function SettingsPanel() {
           Show the demo collection
         </label>
       </section>
+
+      <section className="settings-section">
+        <h3>Template</h3>
+        {/* A template sets every axis below in one go, as a starting point */}
+        <ChipRow
+          defs={TEMPLATES}
+          current={activeTemplate}
+          onPick={(key) => {
+            if (!confirmOverrideReset()) return
+            const t = TEMPLATES[key]
+            updateSettings({
+              theme: t.theme,
+              layout: t.layout,
+              frame: t.frame,
+              hanging: t.hanging,
+              caption: t.caption,
+              frameOverrides: {},
+            })
+          }}
+        />
+        <p className="settings-note">A curated starting point. Fine-tune any axis below afterwards.</p>
+      </section>
+
+      <section className="settings-section">
+        <h3>Theme</h3>
+        {/* Each theme carries recommended framing / hanging / caption; picking one applies them */}
+        <ChipRow
+          defs={THEMES}
+          current={settings.theme}
+          onPick={(theme) => {
+            if (!confirmOverrideReset()) return
+            updateSettings({ theme, ...THEMES[theme].recommends, frameOverrides: {} })
+          }}
+        />
+        <p className="settings-note">Switching theme applies its recommended framing; adjust below to taste.</p>
+      </section>
+
+      <section className="settings-section">
+        <h3>Layout</h3>
+        <div className="chips">
+          {Object.entries(LAYOUTS).map(([key, def]) => (
+            <button
+              key={key}
+              className={`chip${key === settings.layout ? ' active' : ''}`}
+              onClick={() => updateSettings({ layout: key })}
+            >
+              {def.label}
+            </button>
+          ))}
+          <button
+            className={`chip${settings.layout === 'custom' ? ' active' : ''}`}
+            onClick={() => updateSettings({ layout: 'custom' })}
+          >
+            Custom
+          </button>
+        </div>
+        {settings.layout === 'custom' && (
+          <div className="custom-layout">
+            <label className="slider-row">
+              <span>Width {Math.round(settings.layoutParams.hw * 2)}m</span>
+              <input
+                type="range"
+                min={8}
+                max={18}
+                step={0.5}
+                value={settings.layoutParams.hw}
+                onChange={(e) =>
+                  updateSettings({ layoutParams: { ...settings.layoutParams, hw: Number(e.target.value) } })
+                }
+              />
+            </label>
+            <label className="slider-row">
+              <span>Depth {Math.round(settings.layoutParams.hd * 2)}m</span>
+              <input
+                type="range"
+                min={4}
+                max={10}
+                step={0.5}
+                value={settings.layoutParams.hd}
+                onChange={(e) =>
+                  updateSettings({ layoutParams: { ...settings.layoutParams, hd: Number(e.target.value) } })
+                }
+              />
+            </label>
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={settings.layoutParams.island}
+                onChange={(e) =>
+                  updateSettings({ layoutParams: { ...settings.layoutParams, island: e.target.checked } })
+                }
+              />
+              Centre wall (4 extra slots)
+            </label>
+          </div>
+        )}
+      </section>
+
+      <section className="settings-section">
+        <h3>Framing — all works</h3>
+        {/* Changing the overall framing also resets any per-work overrides */}
+        <ChipRow
+          defs={FRAMES}
+          current={settings.frame}
+          onPick={(frame) => {
+            if (!confirmOverrideReset()) return
+            updateSettings({ frame, frameOverrides: {} })
+          }}
+        />
+        <p className="settings-note">To change a single work, open it and use the panel.</p>
+      </section>
+
+      <section className="settings-section">
+        <h3>Hanging</h3>
+        <ChipRow defs={HANGINGS} current={settings.hanging} onPick={(hanging) => updateSettings({ hanging })} />
+      </section>
+
+      <section className="settings-section">
+        <h3>Caption</h3>
+        <ChipRow defs={CAPTIONS} current={settings.caption} onPick={(caption) => updateSettings({ caption })} />
+      </section>
+
+      <section className="settings-section">
+        <h3>Account</h3>
+        <AccountSection />
+      </section>
+
+      {user && (
+        <section className="settings-section">
+          <h3>Publish</h3>
+          <PublishSection />
+        </section>
+      )}
 
       <p className="settings-note">
         Space settings are saved in this browser. Exhibited works are stored {user ? 'in the cloud' : 'in this browser'}.

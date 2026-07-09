@@ -3,8 +3,6 @@
 import { supabase } from './supabase'
 import { rowToArtwork } from './cloud'
 import type { ArtworkData } from './artworks'
-import type { Settings } from './store'
-import { rebuildPlacements } from './galleries'
 import { normalizeLayoutParams, type CustomLayoutParams } from './presets'
 
 export interface PublicExhibition {
@@ -67,54 +65,6 @@ export async function saveProfile(
     .update({ display_name: fields.displayName.trim() || null, bio: fields.bio.trim() })
     .eq('id', userId)
   if (error) throw error
-}
-
-/** Apply the current space settings and exhibited works to galleries / placements (slug is fixed to 'main' for now) */
-export async function publishGallery(params: {
-  userId: string
-  title: string
-  isPublic: boolean
-  settings: Settings
-  /** Your currently exhibited works (in display order) */
-  ownArtworks: ArtworkData[]
-}): Promise<void> {
-  const sb = supabase!
-  const { settings } = params
-
-  const { data: gallery, error: gErr } = await sb
-    .from('galleries')
-    .upsert(
-      {
-        owner_id: params.userId,
-        slug: 'main',
-        title: params.title,
-        theme: settings.theme,
-        layout: settings.layout,
-        layout_params: settings.layout === 'custom' ? settings.layoutParams : {},
-        frame_default: settings.frame,
-        hanging_default: settings.hanging,
-        caption_default: settings.caption,
-        is_public: params.isPublic,
-      },
-      { onConflict: 'owner_id,slug' }
-    )
-    .select('id')
-    .single()
-  if (gErr) throw gErr
-
-  await rebuildPlacements(gallery.id, settings, params.ownArtworks)
-}
-
-/** Get your own publish status (for the settings panel) */
-export async function getMyGallery(userId: string) {
-  const { data, error } = await supabase!
-    .from('galleries')
-    .select('title, is_public')
-    .eq('owner_id', userId)
-    .eq('slug', 'main')
-    .maybeSingle()
-  if (error) throw error
-  return data
 }
 
 /* ---- Artist page (/@username) ---- */
