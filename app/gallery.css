@@ -143,7 +143,8 @@ body.gallery-mode {
   transition: opacity 0.8s ease;
   white-space: nowrap;
 }
-.hint.faded { opacity: 0; pointer-events: none; }
+.hint { pointer-events: none; } /* informational only — must never swallow a drag */
+.hint.faded { opacity: 0; }
 .hint b { color: var(--ink); font-weight: 500; margin-right: 0.4em; }
 
 /* ---- 作品情報パネル ---- */
@@ -214,6 +215,19 @@ body.gallery-mode {
   border: 1px solid var(--hairline);
   border-radius: 100px;
   padding: 0.32em 0.9em;
+}
+
+@media (max-width: 480px) {
+  /* コンパクトヘッダー: 戻るリンクの折返しとタイトル衝突を防ぐ */
+  .hud-back { white-space: nowrap; }
+  .hud-title-main {
+    max-width: 52vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+  }
+  .hud-title-sub { display: none; }
 }
 
 .hud-artist-link { color: inherit; text-decoration: none; }
@@ -317,6 +331,50 @@ body.gallery-mode {
 .hud-icon:hover { border-color: var(--gold); color: var(--gold); }
 .hud-icon.active { border-color: var(--gold); color: var(--gold); }
 .hud-icon.muted { opacity: 0.65; text-decoration: line-through; }
+
+/* ドラッグ操縦の可視化(押下点に現れるスティック) */
+.drag-stick {
+  position: fixed;
+  z-index: 14;
+  width: 96px;
+  height: 96px;
+  margin: -48px 0 0 -48px;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: rgba(11, 10, 9, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.drag-stick.on { opacity: 1; }
+.drag-stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  background: rgba(236, 231, 222, 0.32);
+  border: 1px solid rgba(236, 231, 222, 0.45);
+}
+
+/* クラウド同期チップ(Edit space ヘッダー) */
+.sync-chip {
+  margin-left: 0.7rem;
+  vertical-align: middle;
+  font-family: var(--sans);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  padding: 0.3em 0.9em;
+  background: transparent;
+}
+.sync-chip.saved { color: var(--gold); border-color: rgba(212, 162, 78, 0.4); }
+.sync-chip.error { color: #e08a7a; border-color: rgba(224, 138, 122, 0.5); cursor: pointer; }
+.sync-chip.error:hover { border-color: #e08a7a; }
 
 /* いいね(来場者) */
 .like-btn {
@@ -593,5 +651,18 @@ body.gallery-mode {
   .hud-actions { bottom: 4.4rem; }
   /* While the bottom sheet is open, the pager rides just above it (sheet is max 50vh) */
   .hud-stepper.lifted { bottom: calc(50vh + 0.8rem); z-index: 21; }
-  .settings { width: 100vw; border-left: none; }
+  /* Settings become a bottom sheet too, so theme/framing chips are judged with the room visible */
+  .settings {
+    top: auto;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 62vh;
+    padding: 3.2rem 1.4rem 2rem;
+    border-left: none;
+    border-top: 1px solid var(--hairline);
+    border-radius: 18px 18px 0 0;
+    transform: translateY(105%);
+  }
+  .settings.open { transform: translateY(0); }
 }

@@ -118,16 +118,31 @@ export function HudStepper() {
 export function Hint() {
   const [faded, setFaded] = useState(false)
 
+  // Fade after a while, but come back for lost users: 25s of idle re-shows the hint
   useEffect(() => {
-    let timer = setTimeout(() => setFaded(true), 9000)
-    const onActivity = () => {
-      clearTimeout(timer)
-      timer = setTimeout(() => setFaded(true), 4000)
+    let hideT: ReturnType<typeof setTimeout>
+    let showT: ReturnType<typeof setTimeout>
+    const arm = (delay: number) => {
+      clearTimeout(hideT)
+      hideT = setTimeout(() => {
+        setFaded(true)
+        clearTimeout(showT)
+        showT = setTimeout(() => {
+          setFaded(false)
+          arm(6000)
+        }, 25000)
+      }, delay)
     }
+    const onActivity = () => {
+      clearTimeout(showT)
+      arm(4000)
+    }
+    arm(9000)
     window.addEventListener('pointerdown', onActivity)
     window.addEventListener('keydown', onActivity)
     return () => {
-      clearTimeout(timer)
+      clearTimeout(hideT)
+      clearTimeout(showT)
       window.removeEventListener('pointerdown', onActivity)
       window.removeEventListener('keydown', onActivity)
     }
@@ -136,7 +151,7 @@ export function Hint() {
   return (
     <div id="hint" className={`hint${faded ? ' faded' : ''}`}>
       <div className="hint-row"><b>Drag</b> walk & steer</div>
-      <div className="hint-row"><b>Tap floor</b> go there</div>
+      <div className="hint-row"><b>Tap</b> floor to go · a work to view</div>
       <div className="hint-row"><b>‹ ›</b> next work</div>
     </div>
   )

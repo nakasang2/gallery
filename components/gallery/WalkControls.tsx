@@ -233,10 +233,19 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout])
 
-  // Pointer (drag to look around) and keyboard
+  // Pointer (drag anywhere = floating stick) and keyboard
   useEffect(() => {
     const el = gl.domElement
     const s = state.current
+
+    // Visual affordance for the invisible stick: a ring at the press point with a
+    // knob that follows the drag (DOM overlay — imperative, no React re-renders)
+    const stick = document.createElement('div')
+    stick.className = 'drag-stick'
+    const knob = document.createElement('div')
+    knob.className = 'drag-stick-knob'
+    stick.appendChild(knob)
+    document.body.appendChild(stick)
 
     const onPointerDown = (e: PointerEvent) => {
       useGallery.getState().setTourActive(false)
@@ -265,7 +274,11 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
         s.dragActive = true
         cancelTweens()
         stopTourAndPanel()
+        stick.style.left = `${s.startX}px`
+        stick.style.top = `${s.startY}px`
+        stick.classList.add('on')
       }
+      if (s.dragActive) knob.style.transform = `translate(${s.dragX * 34}px, ${s.dragY * 34}px)`
     }
     const onPointerUp = () => {
       s.dragging = false
@@ -273,6 +286,8 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       s.dragX = 0
       s.dragY = 0
       el.style.cursor = ''
+      stick.classList.remove('on')
+      knob.style.transform = ''
     }
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -302,6 +317,7 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     return () => {
+      stick.remove()
       el.removeEventListener('pointerdown', onPointerDown)
       el.removeEventListener('pointermove', onPointerMove)
       el.removeEventListener('pointerup', onPointerUp)

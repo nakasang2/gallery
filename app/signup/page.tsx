@@ -58,13 +58,28 @@ export default function SignUpPage() {
     else setSent(true)
   }
 
+  async function resend() {
+    if (busy) return
+    setBusy(true)
+    const { error } = await supabase!.auth.resend({ type: 'signup', email: email.trim() })
+    setBusy(false)
+    if (error) setError(error.message)
+    else setError('')
+  }
+
   if (sent) {
     return (
       <AuthShell title="Check your inbox">
         <p className="auth-note">
-          We sent a confirmation link to <b>{email.trim()}</b>. Open it to activate your account,
-          then sign in.
+          We sent a confirmation link to <b>{email.trim()}</b>. Open it and you&apos;ll land in your
+          dashboard, signed in.
         </p>
+        <div className="auth-alt">
+          <button className="btn-line" disabled={busy} onClick={() => void resend()}>
+            Resend the email
+          </button>
+        </div>
+        {error && <p className="auth-error">{error}</p>}
         <p className="auth-links">
           <Link href="/signin">Back to sign in</Link>
         </p>

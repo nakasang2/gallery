@@ -42,10 +42,8 @@ export default function ReportForm({ about }: { about: string }) {
       await submitReport(aboutInput, reason, contact)
       setDone(true)
     } catch (err) {
-      alert(
-        `Could not send the report: ${err instanceof Error ? err.message : err}\n` +
-          'Check that supabase/migrations/0010_reports.sql has been applied.'
-      )
+      console.error('report submit failed (is 0010_reports.sql applied?):', err)
+      alert(`Could not send the report — please try again later. ${err instanceof Error ? err.message : err}`)
     } finally {
       setBusy(false)
     }

@@ -856,6 +856,8 @@ a { color: inherit; }
 .price-card ul { list-style: none; }
 .price-cta { display: inline-block; margin-top: 1.4rem; text-decoration: none; }
 .nav-actions { display: flex; align-items: center; gap: 0.55rem; }
+/* 明るい額装の上でも読めるように(ヒーローの英字) */
+.hero-eyebrow { text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85), 0 0 26px rgba(0, 0, 0, 0.65); }
 .btn-gold { border-color: rgba(212, 162, 78, 0.65); color: #d4a24e; }
 .btn-gold:hover { border-color: #d4a24e; }
 .hero-alt { margin-top: 1.3rem; font-size: 0.8rem; }

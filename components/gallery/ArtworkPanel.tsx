@@ -57,7 +57,7 @@ export default function ArtworkPanel() {
   const open = !!art
 
   return (
-    <aside id="panel" className={`panel${open ? ' open' : ''}`} aria-hidden={!open}>
+    <aside id="panel" className={`panel${open ? ' open' : ''}`} aria-hidden={!open} inert={!open}>
       <button
         className="panel-close"
         aria-label="Close"

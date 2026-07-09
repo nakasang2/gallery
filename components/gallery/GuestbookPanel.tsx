@@ -55,7 +55,7 @@ export default function GuestbookPanel() {
   }
 
   return (
-    <aside id="guestbook" className={`panel guestbook${open ? ' open' : ''}`} aria-hidden={!open}>
+    <aside id="guestbook" className={`panel guestbook${open ? ' open' : ''}`} aria-hidden={!open} inert={!open}>
       <button className="panel-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
       <h2 className="panel-title">Guestbook</h2>
       <p className="gb-sub">Leave a note for {visitor.ownerName}.</p>
