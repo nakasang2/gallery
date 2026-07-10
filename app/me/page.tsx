@@ -6,8 +6,17 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
-import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
+import { TEMPLATES, THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS } from '@/lib/presets'
+import { setOverride } from '@/lib/exhibition'
+import {
+  ThemeSwatch,
+  LayoutPlan,
+  TemplateCard,
+  WallPreview,
+  FramedArt,
+  HangingIcon,
+  CaptionIcon,
+} from '@/components/SpacePreviews'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -20,6 +29,8 @@ import {
   rebuildPlacements,
   fetchPlacementOverrides,
   rowToSettings,
+  EMPTY_OVERRIDES,
+  type PlacementOverrides,
   type GalleryRow,
 } from '@/lib/galleries'
 import { getProfile, saveProfile, setUsername, USERNAME_RE } from '@/lib/publish'
@@ -230,6 +241,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
   const frameOverrides = useGallery((s) => s.frameOverrides)
+  const hangingOverrides = useGallery((s) => s.hangingOverrides)
+  const captionOverrides = useGallery((s) => s.captionOverrides)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [usernameInput, setUsernameInput] = useState('')
@@ -268,11 +281,15 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
-  // Per-work framing may have been set on another device — merge the placements'
+  // Per-work design may have been set on another device — merge the placements'
   // stored overrides under this browser's, or a rebuild here would wipe them
-  async function mergedOverrides(): Promise<Record<string, string>> {
-    const saved = await fetchPlacementOverrides(row.id).catch(() => ({}))
-    return { ...saved, ...frameOverrides }
+  async function mergedOverrides(): Promise<PlacementOverrides> {
+    const saved = await fetchPlacementOverrides(row.id).catch(() => EMPTY_OVERRIDES)
+    return {
+      frames: { ...saved.frames, ...frameOverrides },
+      hangings: { ...saved.hangings, ...hangingOverrides },
+      captions: { ...saved.captions, ...captionOverrides },
+    }
   }
 
   async function togglePublic() {
@@ -314,8 +331,13 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   }
 
   // Cover: the chosen OGP work, else the first exhibited work, else the theme itself
+  // (videos show their poster; a poster-less video falls back to the swatch)
   const coverArt = cloudArtworks.find((a) => a.id === row.cover_artwork_id) ?? cloudArtworks[0]
-  const coverSrc = coverArt ? coverArt.poster ?? coverArt.src : undefined
+  const coverSrc = coverArt
+    ? coverArt.kind === 'video'
+      ? coverArt.poster
+      : coverArt.poster ?? coverArt.src
+    : undefined
 
   return (
     <div className="me-card">
@@ -405,12 +427,14 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
 
       {mode === 'space' && (
         <>
-          {/* The room's current look: wall + the art in ITS frame, hanging and caption */}
+          {/* The room's current look: wall + YOUR cover work in its frame, hanging and caption */}
           <WallPreview
             themeKey={row.theme}
             frameKey={row.frame_default}
             hangingKey={row.hanging_default}
             captionKey={row.caption_default}
+            artSrc={coverSrc}
+            artRatio={coverArt?.ratio}
           />
           <p className="me-note">
             How a work hangs right now — {THEMES[row.theme]?.label ?? row.theme} theme,{' '}
@@ -520,14 +544,39 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   )
 }
 
-// Works library (REQUIREMENTS 10.3): user-level assets, reusable across hakoniwa
+// Works library (REQUIREMENTS 10.3): user-level assets, reusable across hakoniwa.
+// Two columns: upload + library on the left, and the SELECTED work hanging in the
+// room's actual frame/theme on the right — upload, click, confirm in one view.
 function WorksCard() {
   const user = useGallery((s) => s.user)!
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const myGallery = useGallery((s) => s.myGallery)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
+  const frameOverrides = useGallery((s) => s.frameOverrides)
+  const hangingOverrides = useGallery((s) => s.hangingOverrides)
+  const captionOverrides = useGallery((s) => s.captionOverrides)
+  const updateSettings = useGallery((s) => s.updateSettings)
+  const syncState = useGallery((s) => s.syncState)
   const [uploading, setUploading] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
+  // The wall the preview hangs on: the user's real room, or the defaults before one exists
+  const theme = myGallery?.theme ?? 'chic'
+  const baseFrame = myGallery?.frame_default ?? 'black'
+  const baseHanging = myGallery?.hanging_default ?? 'wire'
+  const baseCaption = myGallery?.caption_default ?? 'side'
+  // Effective per-work design: the override when set, else the gallery default
+  const frame = (selected && frameOverrides[selected.id]) || baseFrame
+  const hanging = (selected && hangingOverrides[selected.id]) || baseHanging
+  const caption = (selected && captionOverrides[selected.id]) || baseCaption
+  // Videos hang by their poster; a poster-less video previews as the placeholder
+  const previewSrc = selected
+    ? selected.kind === 'video'
+      ? selected.poster
+      : selected.poster ?? selected.src
+    : undefined
 
   // OGP/artist-page cover (decision 10.8-7: slot 0 unless chosen here)
   async function toggleCover(art: ArtworkData) {
@@ -582,55 +631,147 @@ function WorksCard() {
 
   return (
     <div className="me-card">
-      {cloudArtworks.length === 0 && (
-        <p className="me-note" style={{ marginTop: 0 }}>
-          No works in your library yet. Upload images here, then arrange them in the editor.
-        </p>
-      )}
-      {cloudArtworks.length > 0 && (
-        <p className="me-note" style={{ marginTop: 0, marginBottom: '0.8rem' }}>
-          ★ share cover (OGP) · × delete from library
-        </p>
-      )}
-      {cloudArtworks.length > 0 && (
-        <div className="works-grid">
-          {cloudArtworks.map((art) => (
-            <figure className="works-cell" key={art.id}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={art.poster ?? art.src} alt={art.title} loading="lazy" />
-              <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
-              <button aria-label={`Remove ${art.title}`} onClick={() => void remove(art)}>×</button>
-              {myGallery && (
-                <button
-                  className={`works-star${myGallery.cover_artwork_id === art.id ? ' active' : ''}`}
-                  aria-label={`Use ${art.title} as the share cover`}
-                  title="Use as share cover (OGP)"
-                  onClick={() => void toggleCover(art)}
-                >
-                  {myGallery.cover_artwork_id === art.id ? '★' : '☆'}
-                </button>
-              )}
-            </figure>
-          ))}
+      <div className="works-editor">
+        <div className="we-left">
+          {cloudArtworks.length === 0 && (
+            <p className="me-note" style={{ marginTop: 0 }}>
+              No works in your library yet. Upload images here — the preview alongside shows how
+              each one hangs in your room.
+            </p>
+          )}
+          {cloudArtworks.length > 0 && (
+            <p className="me-note" style={{ marginTop: 0, marginBottom: '0.8rem' }}>
+              Click a work to preview it framed · ★ share cover (OGP) · × delete from library
+            </p>
+          )}
+          {cloudArtworks.length > 0 && (
+            <div className="works-grid">
+              {cloudArtworks.map((art) => (
+                <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={art.poster ?? art.src}
+                    alt={art.title}
+                    loading="lazy"
+                    onClick={() => setSelectedId(art.id)}
+                  />
+                  <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
+                  <button aria-label={`Remove ${art.title}`} onClick={() => void remove(art)}>×</button>
+                  {myGallery && (
+                    <button
+                      className={`works-star${myGallery.cover_artwork_id === art.id ? ' active' : ''}`}
+                      aria-label={`Use ${art.title} as the share cover`}
+                      title="Use as share cover (OGP)"
+                      onClick={() => void toggleCover(art)}
+                    >
+                      {myGallery.cover_artwork_id === art.id ? '★' : '☆'}
+                    </button>
+                  )}
+                </figure>
+              ))}
+            </div>
+          )}
+          <label className="btn-line file-btn" aria-disabled={uploading}>
+            {uploading ? 'Uploading…' : 'Upload images'}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              disabled={uploading}
+              onChange={(e) => {
+                void onFiles(e.target.files)
+                e.target.value = ''
+              }}
+            />
+          </label>
+          <p className="me-note">
+            Works are library assets — deleting a hakoniwa never deletes them. Videos are uploaded
+            from the editor.
+          </p>
         </div>
-      )}
-      <label className="btn-line file-btn" aria-disabled={uploading}>
-        {uploading ? 'Uploading…' : 'Upload images'}
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          disabled={uploading}
-          onChange={(e) => {
-            void onFiles(e.target.files)
-            e.target.value = ''
-          }}
-        />
-      </label>
-      <p className="me-note">
-        Works are library assets — deleting a hakoniwa never deletes them. Videos are uploaded from the editor.
-      </p>
+
+        {/* Live preview: the selected upload inside the room's real frame, wall and caption —
+            and the per-work design controls right under what they change */}
+        <div className="we-right">
+          <WallPreview
+            themeKey={theme}
+            frameKey={frame}
+            hangingKey={hanging}
+            captionKey={caption}
+            artSrc={previewSrc}
+            artRatio={selected?.ratio}
+            className="wall-preview--lg"
+          />
+          {!selected && (
+            <p className="me-note">
+              Upload a work to see it hanging in your theme and frame before you publish.
+            </p>
+          )}
+          {selected && !myGallery && (
+            <p className="me-note">
+              “{selected.title}” with the default framing — create your hakoniwa to style it.
+            </p>
+          )}
+          {selected && myGallery && (
+            <>
+              <p className="me-note" style={{ marginBottom: '0.4rem' }}>
+                “{selected.title}” — design for <b style={{ color: 'var(--ink)' }}>this work</b>
+                {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
+              </p>
+              <div className="chips we-chips">
+                {Object.entries(FRAMES).map(([key, def]) => (
+                  <button
+                    key={key}
+                    className={`chip chip-visual${frame === key ? ' active' : ''}`}
+                    title={`${def.label} frame`}
+                    onClick={() =>
+                      updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, key, baseFrame) })
+                    }
+                  >
+                    <FramedArt frameKey={key} className="chip-frame" />
+                    {def.label}
+                  </button>
+                ))}
+              </div>
+              <div className="chips we-chips">
+                {Object.entries(HANGINGS).map(([key, def]) => (
+                  <button
+                    key={key}
+                    className={`chip chip-visual${hanging === key ? ' active' : ''}`}
+                    title={`${def.label} hanging`}
+                    onClick={() =>
+                      updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, key, baseHanging) })
+                    }
+                  >
+                    <HangingIcon hangingKey={key} />
+                    {def.label}
+                  </button>
+                ))}
+              </div>
+              <div className="chips we-chips">
+                {Object.entries(CAPTIONS).map(([key, def]) => (
+                  <button
+                    key={key}
+                    className={`chip chip-visual${caption === key ? ' active' : ''}`}
+                    title={`${def.label} caption`}
+                    onClick={() =>
+                      updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, key, baseCaption) })
+                    }
+                  >
+                    <CaptionIcon captionKey={key} />
+                    {def.label}
+                  </button>
+                ))}
+              </div>
+              <p className="me-note" style={{ marginTop: '0.5rem' }}>
+                The theme picks these for the whole room; anything you change here applies to this
+                work only. Picking the room's value clears the override.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -872,12 +1013,22 @@ function ProfileCard() {
   )
 }
 
+// Dashboard menus: gallery editing and profile/account editing are separate concerns
+const ME_TABS = [
+  ['gallery', 'Gallery'],
+  ['guestbook', 'Guestbook'],
+  ['profile', 'Profile'],
+  ['account', 'Account'],
+] as const
+type MeTab = (typeof ME_TABS)[number][0]
+
 export default function MePage() {
   const user = useGallery((s) => s.user)
   const initAuth = useGallery((s) => s.initAuth)
   const hydrate = useGallery((s) => s.hydrate)
   const signOut = useGallery((s) => s.signOut)
 
+  const [tab, setTab] = useState<MeTab>('gallery')
   const [checked, setChecked] = useState(false)
   // null = still loading (prevents flashing the create card at returning users)
   const [galleries, setGalleries] = useState<GalleryRow[] | null>(null)
@@ -948,51 +1099,79 @@ export default function MePage() {
 
         {user && (
           <>
-            <h1 className="me-h1">My hakoniwa</h1>
-            <GuestImportCard />
-            <section className="me-section">
-              {loadErr && <p className="me-error">{loadErr}</p>}
-              {galleries === null && !loadErr && <p className="me-note">Loading your hakoniwa…</p>}
-              {galleries !== null && !loadErr && galleries.length === 0 && (
-                <CreateCard onCreated={() => void reload()} />
-              )}
-              {(galleries ?? []).map((g) => (
-                <HakoniwaCard key={g.id} row={g} onChanged={() => void reload()} />
+            <h1 className="me-h1">Dashboard</h1>
+            <nav className="me-tabs" aria-label="Dashboard sections">
+              {ME_TABS.map(([key, label]) => (
+                <button
+                  key={key}
+                  className={`me-tab${tab === key ? ' active' : ''}`}
+                  aria-current={tab === key ? 'page' : undefined}
+                  onClick={() => setTab(key)}
+                >
+                  {label}
+                </button>
               ))}
-              {galleries !== null && galleries.length > 0 && galleries.length < PLAN.galleries && (
-                <p className="me-note">
-                  You can create {PLAN.galleries - galleries.length} more hakoniwa on your plan.
-                </p>
-              )}
-              {usage !== null && (
-                <p className="me-note">
-                  Storage: {(usage / 1024 / 1024).toFixed(1)} MB of {Math.round(PLAN.storageBytes / 1024 / 1024)} MB used
-                </p>
-              )}
-            </section>
+            </nav>
 
-            {/* First-run order: works → profile (username) → guestbook → account */}
-            <section className="me-section">
-              <h2>Works</h2>
-              <WorksCard />
-            </section>
+            {tab === 'gallery' && (
+              <>
+                <GuestImportCard />
+                <section className="me-section">
+                  <h2>My hakoniwa</h2>
+                  {loadErr && <p className="me-error">{loadErr}</p>}
+                  {galleries === null && !loadErr && <p className="me-note">Loading your hakoniwa…</p>}
+                  {galleries !== null && !loadErr && galleries.length === 0 && (
+                    <CreateCard onCreated={() => void reload()} />
+                  )}
+                  {(galleries ?? []).map((g) => (
+                    <HakoniwaCard key={g.id} row={g} onChanged={() => void reload()} />
+                  ))}
+                  {galleries !== null && galleries.length > 0 && galleries.length < PLAN.galleries && (
+                    <p className="me-note">
+                      You can create {PLAN.galleries - galleries.length} more hakoniwa on your plan.
+                    </p>
+                  )}
+                </section>
 
-            <section className="me-section">
-              <h2>Profile</h2>
-              <ProfileCard />
-            </section>
+                <section className="me-section">
+                  <h2>Works</h2>
+                  <WorksCard />
+                  {usage !== null && (
+                    <p className="me-note">
+                      Storage: {(usage / 1024 / 1024).toFixed(1)} MB of{' '}
+                      {Math.round(PLAN.storageBytes / 1024 / 1024)} MB used
+                    </p>
+                  )}
+                </section>
+              </>
+            )}
 
-            {galleries !== null && galleries.length > 0 && (
+            {tab === 'guestbook' && (
               <section className="me-section">
                 <h2>Guestbook</h2>
-                <GuestbookCard galleryId={galleries[0].id} />
+                {galleries !== null && galleries.length > 0 ? (
+                  <GuestbookCard galleryId={galleries[0].id} />
+                ) : (
+                  <p className="me-note">
+                    Create your hakoniwa first — the guestbook collects what visitors write in your room.
+                  </p>
+                )}
               </section>
             )}
 
-            <section className="me-section">
-              <h2>Account</h2>
-              <AccountCard />
-            </section>
+            {tab === 'profile' && (
+              <section className="me-section">
+                <h2>Profile</h2>
+                <ProfileCard />
+              </section>
+            )}
+
+            {tab === 'account' && (
+              <section className="me-section">
+                <h2>Account</h2>
+                <AccountCard />
+              </section>
+            )}
           </>
         )}
 

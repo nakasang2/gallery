@@ -132,6 +132,15 @@ export async function setGalleryCover(id: string, artworkId: string | null): Pro
   if (error) throw error
 }
 
+// Does this error mean migration 0011 (hanging/caption override columns) is missing?
+function missingOverrideColumns(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === 'PGRST204' ||
+    error.code === '42703' ||
+    /hanging_override|caption_override/.test(error.message ?? '')
+  )
+}
+
 /** Rebuild placements from the current works, capped at the plan's effective slot count.
  *  Upsert-then-trim (not delete-then-insert): a failure mid-way leaves stale extras,
  *  never an emptied public gallery. */
@@ -149,8 +158,20 @@ export async function rebuildPlacements(
       artwork_id: art.id,
       slot_index: i,
       frame_override: settings.frameOverrides[art.id] ?? null,
+      hanging_override: settings.hangingOverrides[art.id] ?? null,
+      caption_override: settings.captionOverrides[art.id] ?? null,
     }))
-    const { error } = await sb.from('placements').upsert(rows, { onConflict: 'gallery_id,slot_index' })
+    let { error } = await sb.from('placements').upsert(rows, { onConflict: 'gallery_id,slot_index' })
+    if (error && missingOverrideColumns(error)) {
+      // Migration 0011 not applied yet — keep publishing working, frame-only
+      const legacy = rows.map(({ gallery_id, artwork_id, slot_index, frame_override }) => ({
+        gallery_id,
+        artwork_id,
+        slot_index,
+        frame_override,
+      }))
+      ;({ error } = await sb.from('placements').upsert(legacy, { onConflict: 'gallery_id,slot_index' }))
+    }
     if (error) throw error
   }
   const { error: dErr } = await sb
@@ -161,16 +182,40 @@ export async function rebuildPlacements(
   if (dErr) throw dErr
 }
 
-/** frame_override per artwork as stored in the placements — the cross-device record
- *  of per-work framing (local frameOverrides only exist in one browser) */
-export async function fetchPlacementOverrides(galleryId: string): Promise<Record<string, string>> {
-  const { data, error } = await supabase!
+/** Per-work design overrides (keyed by artwork id) as stored in the placements —
+ *  the cross-device record; the local Settings maps only exist in one browser */
+export interface PlacementOverrides {
+  frames: Record<string, string>
+  hangings: Record<string, string>
+  captions: Record<string, string>
+}
+
+export const EMPTY_OVERRIDES: PlacementOverrides = { frames: {}, hangings: {}, captions: {} }
+
+export async function fetchPlacementOverrides(galleryId: string): Promise<PlacementOverrides> {
+  let res = await supabase!
     .from('placements')
-    .select('artwork_id, frame_override')
+    .select('artwork_id, frame_override, hanging_override, caption_override')
     .eq('gallery_id', galleryId)
-  if (error) throw error
-  const out: Record<string, string> = {}
-  for (const r of data ?? []) if (r.frame_override) out[r.artwork_id] = r.frame_override
+  if (res.error && missingOverrideColumns(res.error)) {
+    // Migration 0011 not applied yet — frame overrides still work
+    res = (await supabase!
+      .from('placements')
+      .select('artwork_id, frame_override')
+      .eq('gallery_id', galleryId)) as unknown as typeof res
+  }
+  if (res.error) throw res.error
+  const out: PlacementOverrides = { frames: {}, hangings: {}, captions: {} }
+  for (const r of (res.data ?? []) as Array<{
+    artwork_id: string
+    frame_override?: string | null
+    hanging_override?: string | null
+    caption_override?: string | null
+  }>) {
+    if (r.frame_override) out.frames[r.artwork_id] = r.frame_override
+    if (r.hanging_override) out.hangings[r.artwork_id] = r.hanging_override
+    if (r.caption_override) out.captions[r.artwork_id] = r.caption_override
+  }
   return out
 }
 
@@ -187,7 +232,7 @@ export async function setGalleryPublic(
 }
 
 /** View a gallery row as Settings (for placement rebuilds initiated from the dashboard) */
-export function rowToSettings(row: GalleryRow, frameOverrides: Record<string, string> = {}): Settings {
+export function rowToSettings(row: GalleryRow, overrides: PlacementOverrides = EMPTY_OVERRIDES): Settings {
   return {
     theme: row.theme,
     layout: row.layout,
@@ -197,6 +242,8 @@ export function rowToSettings(row: GalleryRow, frameOverrides: Record<string, st
     caption: row.caption_default,
     showDemo: false,
     artworks: [],
-    frameOverrides,
+    frameOverrides: overrides.frames,
+    hangingOverrides: overrides.hangings,
+    captionOverrides: overrides.captions,
   }
 }

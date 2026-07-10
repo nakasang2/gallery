@@ -1,7 +1,7 @@
 // Logic for deriving the exhibition list (both the 3D scene and the UI panel read the same result)
 import { useMemo } from 'react'
 import { ARTWORKS, type ArtworkData } from './artworks'
-import { FRAMES, resolveLayout, type LayoutDef } from './presets'
+import { FRAMES, HANGINGS, CAPTIONS, resolveLayout, type LayoutDef } from './presets'
 import { effectiveSlotCount } from './limits'
 import { useGallery, useSettings, type Settings } from './store'
 
@@ -36,9 +36,34 @@ export function useExhibitionList(): ArtworkData[] {
   return useMemo(() => buildExhibitionList(settings, own), [settings, own])
 }
 
+// Effective design per work: the override when set (and valid), else the gallery default
 export function frameKeyFor(s: Settings, art: ArtworkData): string {
   const key = s.frameOverrides[art.id]
   return key && FRAMES[key] ? key : s.frame
+}
+
+export function hangingKeyFor(s: Settings, art: ArtworkData): string {
+  const key = s.hangingOverrides[art.id]
+  return key && HANGINGS[key] ? key : s.hanging
+}
+
+export function captionKeyFor(s: Settings, art: ArtworkData): string {
+  const key = s.captionOverrides[art.id]
+  return key && CAPTIONS[key] ? key : s.caption
+}
+
+/** Set a per-work override — picking the gallery-wide value clears it instead,
+ *  so the work follows future theme/global changes again */
+export function setOverride(
+  map: Record<string, string>,
+  artId: string,
+  key: string,
+  galleryDefault: string
+): Record<string, string> {
+  const next = { ...map }
+  if (key === galleryDefault) delete next[artId]
+  else next[artId] = key
+  return next
 }
 
 // Determine display size from aspect ratio (landscape keys off width, portrait off height)

@@ -21,6 +21,8 @@ export interface PublicExhibition {
   caption: string
   coverArtworkId: string | null
   frameOverrides: Record<string, string>
+  hangingOverrides: Record<string, string>
+  captionOverrides: Record<string, string>
   artworks: ArtworkData[]
 }
 
@@ -173,20 +175,38 @@ async function fetchPublicExhibitionInner(
     .maybeSingle()
   if (!gallery) return null
 
-  const { data: placements } = await supabase!
+  let pRes = await supabase!
     .from('placements')
-    .select('slot_index, frame_override, artworks (*)')
+    .select('slot_index, frame_override, hanging_override, caption_override, artworks (*)')
     .eq('gallery_id', gallery.id)
     .order('slot_index', { ascending: true })
+  if (pRes.error) {
+    // Migration 0011 (hanging/caption overrides) not applied — the page must still render
+    pRes = (await supabase!
+      .from('placements')
+      .select('slot_index, frame_override, artworks (*)')
+      .eq('gallery_id', gallery.id)
+      .order('slot_index', { ascending: true })) as unknown as typeof pRes
+  }
+  if (pRes.error) throw pRes.error
 
   const ownerName = profile.display_name || profile.username || ''
   const frameOverrides: Record<string, string> = {}
+  const hangingOverrides: Record<string, string> = {}
+  const captionOverrides: Record<string, string> = {}
   const artworks: ArtworkData[] = []
-  for (const p of placements ?? []) {
-    const row = p.artworks as unknown as Parameters<typeof rowToArtwork>[0] | null
+  for (const p of (pRes.data ?? []) as Array<{
+    frame_override?: string | null
+    hanging_override?: string | null
+    caption_override?: string | null
+    artworks: unknown
+  }>) {
+    const row = p.artworks as Parameters<typeof rowToArtwork>[0] | null
     if (!row) continue
     artworks.push(rowToArtwork(row, ownerName))
     if (p.frame_override) frameOverrides[row.id] = p.frame_override
+    if (p.hanging_override) hangingOverrides[row.id] = p.hanging_override
+    if (p.caption_override) captionOverrides[row.id] = p.caption_override
   }
 
   return {
@@ -206,6 +226,8 @@ async function fetchPublicExhibitionInner(
     caption: gallery.caption_default ?? 'side',
     coverArtworkId: gallery.cover_artwork_id ?? null,
     frameOverrides,
+    hangingOverrides,
+    captionOverrides,
     artworks,
   }
 }

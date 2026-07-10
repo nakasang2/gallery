@@ -370,11 +370,16 @@ export default function SettingsPanel() {
         alert(`Could not remove the work: ${e instanceof Error ? e.message : e}`)
       }
     } else {
-      const overrides = { ...settings.frameOverrides }
-      delete overrides[art.id]
+      const drop = (m: Record<string, string>) => {
+        const next = { ...m }
+        delete next[art.id]
+        return next
+      }
       updateSettings({
         artworks: settings.artworks.filter((a) => a.id !== art.id),
-        frameOverrides: overrides,
+        frameOverrides: drop(settings.frameOverrides),
+        hangingOverrides: drop(settings.hangingOverrides),
+        captionOverrides: drop(settings.captionOverrides),
       })
     }
   }
@@ -383,12 +388,13 @@ export default function SettingsPanel() {
 
   const over = overflowCount(settings, ownArtworks.length)
 
-  // Template/theme/global-frame picks reset per-work framing — never silently
-  function confirmOverrideReset(): boolean {
-    const n = Object.keys(settings.frameOverrides).length
+  // Template/theme/global picks reset per-work overrides — never silently
+  function confirmOverrideReset(...maps: Record<string, string>[]): boolean {
+    const n = new Set(maps.flatMap((m) => Object.keys(m))).size
     if (n === 0) return true
-    return confirm(`This resets the custom framing on ${n} work${n === 1 ? '' : 's'}. Continue?`)
+    return confirm(`This resets the per-work design on ${n} work${n === 1 ? '' : 's'}. Continue?`)
   }
+  const allOverrideMaps = [settings.frameOverrides, settings.hangingOverrides, settings.captionOverrides]
 
   // Highlight a template only while every axis still matches its bundle
   const activeTemplate =
@@ -510,7 +516,7 @@ export default function SettingsPanel() {
               templateId={key}
               active={key === activeTemplate}
               onClick={() => {
-                if (!confirmOverrideReset()) return
+                if (!confirmOverrideReset(...allOverrideMaps)) return
                 const t = TEMPLATES[key]
                 updateSettings({
                   theme: t.theme,
@@ -519,6 +525,8 @@ export default function SettingsPanel() {
                   hanging: t.hanging,
                   caption: t.caption,
                   frameOverrides: {},
+                  hangingOverrides: {},
+                  captionOverrides: {},
                 })
               }}
             />
@@ -536,8 +544,14 @@ export default function SettingsPanel() {
               key={key}
               className={`chip chip-visual${key === settings.theme ? ' active' : ''}`}
               onClick={() => {
-                if (!confirmOverrideReset()) return
-                updateSettings({ theme: key, ...def.recommends, frameOverrides: {} })
+                if (!confirmOverrideReset(...allOverrideMaps)) return
+                updateSettings({
+                  theme: key,
+                  ...def.recommends,
+                  frameOverrides: {},
+                  hangingOverrides: {},
+                  captionOverrides: {},
+                })
               }}
             >
               <ThemeSwatch themeKey={key} />
@@ -621,7 +635,7 @@ export default function SettingsPanel() {
               key={key}
               className={`chip chip-visual${key === settings.frame ? ' active' : ''}`}
               onClick={() => {
-                if (!confirmOverrideReset()) return
+                if (!confirmOverrideReset(settings.frameOverrides)) return
                 updateSettings({ frame: key, frameOverrides: {} })
               }}
             >
@@ -634,13 +648,16 @@ export default function SettingsPanel() {
       </section>
 
       <section className="settings-section">
-        <h3>Hanging</h3>
+        <h3>Hanging — all works</h3>
         <div className="chips">
           {Object.entries(HANGINGS).map(([key, def]) => (
             <button
               key={key}
               className={`chip chip-visual${key === settings.hanging ? ' active' : ''}`}
-              onClick={() => updateSettings({ hanging: key })}
+              onClick={() => {
+                if (!confirmOverrideReset(settings.hangingOverrides)) return
+                updateSettings({ hanging: key, hangingOverrides: {} })
+              }}
             >
               <HangingIcon hangingKey={key} />
               {def.label}
@@ -650,19 +667,23 @@ export default function SettingsPanel() {
       </section>
 
       <section className="settings-section">
-        <h3>Caption</h3>
+        <h3>Caption — all works</h3>
         <div className="chips">
           {Object.entries(CAPTIONS).map(([key, def]) => (
             <button
               key={key}
               className={`chip chip-visual${key === settings.caption ? ' active' : ''}`}
-              onClick={() => updateSettings({ caption: key })}
+              onClick={() => {
+                if (!confirmOverrideReset(settings.captionOverrides)) return
+                updateSettings({ caption: key, captionOverrides: {} })
+              }}
             >
               <CaptionIcon captionKey={key} />
               {def.label}
             </button>
           ))}
         </div>
+        <p className="settings-note">To change a single work, open it and use the panel.</p>
       </section>
 
       <section className="settings-section">
