@@ -45,12 +45,17 @@ export function HudActions() {
   const setSettingsOpen = useGallery((s) => s.setSettingsOpen)
   const guestbookOpen = useGallery((s) => s.guestbookOpen)
   const setGuestbookOpen = useGallery((s) => s.setGuestbookOpen)
+  const focusedIndex = useGallery((s) => s.focusedIndex)
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
   const [audioOn, setAudioOn] = useState(galleryAudio.enabled)
 
+  // Any open surface (artwork sheet, settings, guestbook) covers this corner —
+  // tuck the actions away instead of leaving dead buttons underneath
+  const tucked = focusedIndex >= 0 || settingsOpen || guestbookOpen
+
   return (
-    <div className="hud-actions">
+    <div className={`hud-actions${tucked ? ' tucked' : ''}`} aria-hidden={tucked} inert={tucked}>
       {/* Sound: icon-only mute toggle, video-player style */}
       <button
         id="btn-audio"
@@ -91,11 +96,19 @@ export function HudStepper() {
   const focusedIndex = useGallery((s) => s.focusedIndex)
   const tourActive = useGallery((s) => s.tourActive)
   const setTourActive = useGallery((s) => s.setTourActive)
+  const settingsOpen = useGallery((s) => s.settingsOpen)
+  const guestbookOpen = useGallery((s) => s.guestbookOpen)
   if (count === 0) return null
   const current = focusedIndex >= 0 ? String(focusedIndex + 1).padStart(2, '0') : '–'
+  // Settings/guestbook sheets cover the pager — hide it rather than bury it
+  const tucked = settingsOpen || guestbookOpen
   return (
     // 'lifted' rides above the phone bottom sheet so browsing next/prev never needs closing it
-    <div className={`hud-stepper${focusedIndex >= 0 ? ' lifted' : ''}`}>
+    <div
+      className={`hud-stepper${focusedIndex >= 0 ? ' lifted' : ''}${tucked ? ' tucked' : ''}`}
+      aria-hidden={tucked}
+      inert={tucked}
+    >
       <button className="step-btn" aria-label="Previous work" onClick={() => walkRef.current?.focusStep(-1)}>
         ‹
       </button>
@@ -120,6 +133,11 @@ export function HudStepper() {
 
 export function Hint() {
   const [faded, setFaded] = useState(false)
+  // Never talk over an open surface — the idle re-show must not float above sheets
+  const focusedIndex = useGallery((s) => s.focusedIndex)
+  const settingsOpen = useGallery((s) => s.settingsOpen)
+  const guestbookOpen = useGallery((s) => s.guestbookOpen)
+  const suppressed = focusedIndex >= 0 || settingsOpen || guestbookOpen
 
   // Fade after a while, but come back for lost users: 25s of idle re-shows the hint
   useEffect(() => {
@@ -152,7 +170,7 @@ export function Hint() {
   }, [])
 
   return (
-    <div id="hint" className={`hint${faded ? ' faded' : ''}`}>
+    <div id="hint" className={`hint${faded || suppressed ? ' faded' : ''}`}>
       <div className="hint-row"><b>Drag</b> walk & steer</div>
       <div className="hint-row"><b>Tap</b> floor to go · a work to view</div>
       <div className="hint-row"><b>‹ ›</b> next work</div>
