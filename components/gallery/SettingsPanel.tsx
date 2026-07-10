@@ -12,7 +12,14 @@ import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
 import { getProfile, saveProfile } from '@/lib/publish'
 import { setGalleryPublic } from '@/lib/galleries'
 import { walkRef } from '@/lib/controller'
-import { ThemeSwatch, LayoutPlan, TemplateCard } from '@/components/SpacePreviews'
+import {
+  ThemeSwatch,
+  LayoutPlan,
+  TemplateCard,
+  FramedArt,
+  HangingIcon,
+  CaptionIcon,
+} from '@/components/SpacePreviews'
 import type { ArtworkData } from '@/lib/artworks'
 
 // Profile editor (display name + bio). The display name is also used as the artist name on labels
@@ -74,26 +81,6 @@ function ProfileEditor() {
       <button className="btn-line" disabled={busy} onClick={() => void save()}>
         {saved ? 'Saved' : 'Save profile'}
       </button>
-    </div>
-  )
-}
-
-function ChipRow({
-  defs,
-  current,
-  onPick,
-}: {
-  defs: Record<string, { label: string }>
-  current: string
-  onPick: (key: string) => void
-}) {
-  return (
-    <div className="chips">
-      {Object.entries(defs).map(([key, def]) => (
-        <button key={key} className={`chip${key === current ? ' active' : ''}`} onClick={() => onPick(key)}>
-          {def.label}
-        </button>
-      ))}
     </div>
   )
 }
@@ -627,26 +614,55 @@ export default function SettingsPanel() {
 
       <section className="settings-section">
         <h3>Framing — all works</h3>
-        {/* Changing the overall framing also resets any per-work overrides */}
-        <ChipRow
-          defs={FRAMES}
-          current={settings.frame}
-          onPick={(frame) => {
-            if (!confirmOverrideReset()) return
-            updateSettings({ frame, frameOverrides: {} })
-          }}
-        />
+        {/* Each chip shows the art IN that frame (bar, mat, colour from the real preset) */}
+        <div className="chips">
+          {Object.entries(FRAMES).map(([key, def]) => (
+            <button
+              key={key}
+              className={`chip chip-visual${key === settings.frame ? ' active' : ''}`}
+              onClick={() => {
+                if (!confirmOverrideReset()) return
+                updateSettings({ frame: key, frameOverrides: {} })
+              }}
+            >
+              <FramedArt frameKey={key} className="chip-frame" />
+              {def.label}
+            </button>
+          ))}
+        </div>
         <p className="settings-note">To change a single work, open it and use the panel.</p>
       </section>
 
       <section className="settings-section">
         <h3>Hanging</h3>
-        <ChipRow defs={HANGINGS} current={settings.hanging} onPick={(hanging) => updateSettings({ hanging })} />
+        <div className="chips">
+          {Object.entries(HANGINGS).map(([key, def]) => (
+            <button
+              key={key}
+              className={`chip chip-visual${key === settings.hanging ? ' active' : ''}`}
+              onClick={() => updateSettings({ hanging: key })}
+            >
+              <HangingIcon hangingKey={key} />
+              {def.label}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="settings-section">
         <h3>Caption</h3>
-        <ChipRow defs={CAPTIONS} current={settings.caption} onPick={(caption) => updateSettings({ caption })} />
+        <div className="chips">
+          {Object.entries(CAPTIONS).map(([key, def]) => (
+            <button
+              key={key}
+              className={`chip chip-visual${key === settings.caption ? ' active' : ''}`}
+              onClick={() => updateSettings({ caption: key })}
+            >
+              <CaptionIcon captionKey={key} />
+              {def.label}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="settings-section">
