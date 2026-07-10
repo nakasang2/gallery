@@ -7,6 +7,8 @@ import {
   LAYOUTS,
   TEMPLATES,
   FRAMES,
+  HANGINGS,
+  CAPTIONS,
   resolveLayout,
   type CustomLayoutParams,
 } from '@/lib/presets'
@@ -22,7 +24,40 @@ function mul(a: number, b: number): number {
   return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(bl)
 }
 
-/** A tiny "room" swatch: wall, accent wall, wood floor and the spotlight tone */
+// A consistent "artwork" stand-in for framing previews (reads as art, stays neutral)
+const ART_GRADIENT =
+  'linear-gradient(135deg, #dcbd8e 0%, #b0764e 36%, #64503c 62%, #2b3947 82%, #18222c 100%)'
+
+/** How a work actually looks in a given frame: bar, mat and canvas straight from FRAMES.
+ *  Sized in em so the same component scales from chip to card via CSS font-size. */
+export function FramedArt({ frameKey, className = '' }: { frameKey: string; className?: string }) {
+  const f = FRAMES[frameKey] ?? FRAMES.black
+  if (f.mat === null) {
+    // Stretched canvas: no frame, just the work with a dark edge
+    return (
+      <span className={`framed-art frameless ${className}`} aria-hidden="true">
+        <span className="framed-art-img" style={{ background: ART_GRADIENT }} />
+      </span>
+    )
+  }
+  // bar/gap are metres on a ~1.3m-wide work → scale into em against the 3.6em art
+  const bar = (f.bar! / 1.3) * 3.6
+  const gap = (f.gap! / 1.3) * 3.6
+  return (
+    <span
+      className={`framed-art ${className}`}
+      aria-hidden="true"
+      style={{ background: hex(f.color!), padding: `${bar.toFixed(2)}em` }}
+    >
+      <span className="framed-art-mat" style={{ background: hex(f.mat), padding: `${gap.toFixed(2)}em` }}>
+        <span className="framed-art-img" style={{ background: ART_GRADIENT }} />
+      </span>
+    </span>
+  )
+}
+
+/** A tiny "room" swatch: wall, accent wall, wood floor, the spotlight tone — and a
+ *  work hanging in the theme's RECOMMENDED frame, so picking a theme shows the art */
 export function ThemeSwatch({ themeKey, className = '' }: { themeKey: string; className?: string }) {
   const t = THEMES[themeKey] ?? THEMES.chic
   const floor = mul(t.floorTint, 0x9a7a55)
@@ -39,7 +74,39 @@ export function ThemeSwatch({ themeKey, className = '' }: { themeKey: string; cl
         style={{ background: `radial-gradient(ellipse 60% 55% at 50% 0%, ${hex(t.spotColor)}59, transparent 72%)` }}
       />
       <span className="theme-swatch-accent" style={{ background: hex(t.accentWall) }} />
+      <span className="theme-swatch-art">
+        <FramedArt frameKey={t.recommends.frame} />
+      </span>
     </span>
+  )
+}
+
+/** Hanging style at a glance: rail wires / flush / shelf ledge */
+export function HangingIcon({ hangingKey, className = '' }: { hangingKey: string; className?: string }) {
+  const kind = HANGINGS[hangingKey]?.kind ?? 'wire'
+  return (
+    <svg viewBox="0 0 24 20" className={`hang-icon ${className}`} aria-hidden="true">
+      {kind === 'wire' && (
+        <>
+          <line x1="9" y1="1" x2="9" y2="7" />
+          <line x1="15" y1="1" x2="15" y2="7" />
+        </>
+      )}
+      <rect x="6" y="7" width="12" height="9" rx="0.8" />
+      {kind === 'ledge' && <line x1="4" y1="18" x2="20" y2="18" />}
+    </svg>
+  )
+}
+
+/** Caption placement at a glance: plate beside / below / none */
+export function CaptionIcon({ captionKey, className = '' }: { captionKey: string; className?: string }) {
+  const place = CAPTIONS[captionKey]?.place ?? 'side'
+  return (
+    <svg viewBox="0 0 24 20" className={`hang-icon ${className}`} aria-hidden="true">
+      <rect x="4" y="3" width="11" height="9" rx="0.8" />
+      {place === 'side' && <rect x="17" y="8.5" width="5" height="3.2" rx="0.5" className="cap-plate" />}
+      {place === 'under' && <rect x="7" y="14.5" width="5" height="3.2" rx="0.5" className="cap-plate" />}
+    </svg>
   )
 }
 

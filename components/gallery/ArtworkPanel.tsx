@@ -5,6 +5,7 @@ import { FRAMES } from '@/lib/presets'
 import { useExhibitionList, frameKeyFor } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { addLike, hasLiked, likeCount } from '@/lib/engagement'
+import { FramedArt } from '@/components/SpacePreviews'
 
 // Visitor-only like button (anonymous; dedupe per browser)
 function LikeButton({ galleryId, artworkId }: { galleryId: string; artworkId: string }) {
@@ -89,9 +90,10 @@ export default function ArtworkPanel() {
                 {Object.entries(FRAMES).map(([key, def]) => (
                   <button
                     key={key}
-                    className={`chip${frameKeyFor(settings, art) === key ? ' active' : ''}`}
+                    className={`chip chip-visual${frameKeyFor(settings, art) === key ? ' active' : ''}`}
                     onClick={() => updateSettings({ frameOverrides: { ...settings.frameOverrides, [art.id]: key } })}
                   >
+                    <FramedArt frameKey={key} className="chip-frame" />
                     {def.label}
                   </button>
                 ))}
