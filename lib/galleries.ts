@@ -68,7 +68,8 @@ export async function createGallery(
   const row = {
     owner_id: userId,
     slug: 'main', // slug editing arrives with multi-gallery plans
-    title: opts.title.trim() || 'My Gallery',
+    // An empty title is fine — displays lead with the artist instead of a canned name
+    title: opts.title.trim(),
     statement: opts.statement?.trim() ?? '',
     ...(t
       ? {
@@ -114,7 +115,7 @@ export async function updateGalleryDetails(
 ): Promise<void> {
   const { error } = await supabase!
     .from('galleries')
-    .update({ title: fields.title.trim() || 'My Gallery', statement: fields.statement.trim() })
+    .update({ title: fields.title.trim(), statement: fields.statement.trim() })
     .eq('id', id)
   if (error) throw error
 }

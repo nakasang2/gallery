@@ -11,6 +11,7 @@ export interface PublicExhibition {
   statement: string
   ownerName: string
   ownerAvatar: string | null
+  ownerBio: string
   username: string
   slug: string
   theme: string
@@ -29,6 +30,13 @@ export interface PublicExhibition {
 }
 
 export const USERNAME_RE = /^[a-z0-9_]{3,20}$/
+
+/** True when the exhibition has no real name — empty, or the old seeded default.
+ *  Displays then lead with the ARTIST instead of a canned "My Gallery". */
+export function isPlaceholderTitle(t?: string | null): boolean {
+  const s = (t ?? '').trim()
+  return !s || s === 'My Gallery'
+}
 
 export async function setUsername(userId: string, username: string): Promise<void> {
   const { error } = await supabase!
@@ -161,7 +169,7 @@ async function fetchPublicExhibitionInner(
 ): Promise<PublicExhibition | null> {
   const { data: profile } = await supabase!
     .from('profiles')
-    .select('id, username, display_name, avatar_url')
+    .select('id, username, display_name, avatar_url, bio')
     .eq('username', username)
     .maybeSingle()
   if (!profile) return null
@@ -235,6 +243,7 @@ async function fetchPublicExhibitionInner(
     statement: gallery.statement,
     ownerName,
     ownerAvatar: profile.avatar_url ?? null,
+    ownerBio: profile.bio ?? '',
     username: profile.username!,
     slug,
     theme: gallery.theme,

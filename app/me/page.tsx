@@ -27,7 +27,7 @@ import {
   type PlacementOverrides,
   type GalleryRow,
 } from '@/lib/galleries'
-import { getProfile, saveProfile, setUsername, USERNAME_RE } from '@/lib/publish'
+import { getProfile, saveProfile, setUsername, isPlaceholderTitle, USERNAME_RE } from '@/lib/publish'
 import {
   getStorageUsage,
   uploadArtwork,
@@ -154,7 +154,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   const updateSettings = useGallery((s) => s.updateSettings)
   const router = useRouter()
   const [step, setStep] = useState<1 | 2>(1)
-  const [title, setTitle] = useState('My Gallery')
+  const [title, setTitle] = useState('')
   const [statement, setStatement] = useState('')
   const [templateId, setTemplateId] = useState('salon')
   const [busy, setBusy] = useState(false)
@@ -213,11 +213,17 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
     <div className="me-card">
       <p className="me-note" style={{ marginTop: 0 }}>
         <b style={{ color: 'var(--ink)' }}>Step 2 of 2</b> — name your hakoniwa. This is the exhibition
-        title visitors will see.
+        title visitors will see; leave it blank and your artist name leads instead.
       </p>
       <label className="me-field">
-        <span>Name</span>
-        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+        <span>Exhibition title (optional)</span>
+        <input
+          type="text"
+          placeholder="e.g. Blue Hours"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          autoFocus
+        />
       </label>
       <label className="me-field">
         <span>Concept / intro (optional) — shown on the board at the back of your room</span>
@@ -431,7 +437,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   return (
     <div className="me-card">
       <div className="hako-head">
-        <span className="hako-title">{row.title}</span>
+        <span className="hako-title" style={isPlaceholderTitle(row.title) ? { color: 'var(--muted)' } : undefined}>
+          {isPlaceholderTitle(row.title) ? 'Untitled exhibition' : row.title}
+        </span>
         <span className={`hako-badge${row.is_public ? ' public' : ''}`}>
           {row.is_public ? 'PUBLIC' : 'PRIVATE'}
         </span>
@@ -539,7 +547,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               className="danger"
               disabled={busy}
               onClick={() => {
-                if (!confirm(`Delete “${row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
+                if (!confirm(`Delete “${isPlaceholderTitle(row.title) ? 'your hakoniwa' : row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
                 void run('Delete', () => deleteGallery(row.id))
               }}
             >

@@ -1,7 +1,7 @@
 // OGP card for /@username — the exhibition card when a single public gallery
 // makes this URL the room itself, otherwise a profile card
 import { ImageResponse } from 'next/og'
-import { fetchPublicProfile, fetchPublicExhibition } from '@/lib/publish'
+import { fetchPublicProfile, fetchPublicExhibition, isPlaceholderTitle } from '@/lib/publish'
 
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
@@ -22,8 +22,8 @@ export default async function OgImage({ params }: { params: Promise<{ handle: st
     if (ex) {
       const first = ex.artworks.find((a) => a.id === ex.coverArtworkId) ?? ex.artworks[0]
       cover = first ? (first.kind === 'video' ? first.poster : first.src) : undefined
-      title = ex.title
-      sub = `by ${ex.ownerName}`
+      title = isPlaceholderTitle(ex.title) ? ex.ownerName : ex.title
+      sub = isPlaceholderTitle(ex.title) ? `@${ex.username}` : `by ${ex.ownerName}`
       note = `Walk through ${ex.artworks.length} work${ex.artworks.length === 1 ? '' : 's'} in your browser →`
     }
   } else if (p) {

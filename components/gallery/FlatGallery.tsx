@@ -3,6 +3,7 @@
 // screen readers). Shows the same exhibition list as the 3D room, as plain scrollable articles.
 import { useExhibitionList } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
+import { isPlaceholderTitle } from '@/lib/publish'
 
 export default function FlatGallery() {
   const list = useExhibitionList()
@@ -11,7 +12,7 @@ export default function FlatGallery() {
   return (
     <div className="flat-gallery" role="main">
       <header className="flat-head">
-        <h1>{visitor ? visitor.title : 'HAKONIWA COLLECTION'}</h1>
+        <h1>{visitor ? (isPlaceholderTitle(visitor.title) ? visitor.ownerName : visitor.title) : 'HAKONIWA COLLECTION'}</h1>
         <p>
           {visitor ? `${visitor.ownerName} — @${visitor.username}` : 'A permanent collection — ten artists'}
         </p>

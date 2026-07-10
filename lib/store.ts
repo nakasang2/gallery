@@ -172,6 +172,8 @@ interface GalleryStore extends Settings {
   profileDisplayName: string | null
   /** Profile avatar URL (drawn on the title wall) */
   profileAvatarUrl: string | null
+  /** Profile bio (the biography line at the foot of the title wall) */
+  profileBio: string | null
   /** The signed-in user's hakoniwa row (null = none created yet). DB is the source of truth */
   myGallery: GalleryRow | null
   /** Visitor mode: overridden with read-only exhibition data on public pages */
@@ -207,6 +209,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   profileUsername: null,
   profileDisplayName: null,
   profileAvatarUrl: null,
+  profileBio: null,
   myGallery: null,
   visitor: null,
 
@@ -231,6 +234,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
           myGallery: null,
           profileDisplayName: null,
           profileAvatarUrl: null,
+          profileBio: null,
           ...loadSettings(),
         })
         return
@@ -250,7 +254,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
       // Use the profile's display name as the artist name on name plates
       const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name, username, avatar_url')
+        .select('display_name, username, avatar_url, bio')
         .eq('id', user.id)
         .maybeSingle()
       const artist = profile?.display_name || user.displayName
@@ -259,6 +263,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         profileUsername: profile?.username ?? null,
         profileDisplayName: artist,
         profileAvatarUrl: profile?.avatar_url ?? null,
+        profileBio: profile?.bio ?? null,
       })
       // Works changed (upload/delete) — keep a public hakoniwa's placements in step
       if (get().myGallery) scheduleGallerySync(get)
