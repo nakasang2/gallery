@@ -7,6 +7,7 @@ import {
   THEMES,
   LAYOUTS,
   FRAMES,
+  MATS,
   HANGINGS,
   CAPTIONS,
   CUSTOM_LAYOUT_DEFAULTS,
@@ -31,6 +32,7 @@ function rowSpace(row: GalleryRow): Partial<Settings> {
     ...(LAYOUTS[row.layout] || row.layout === 'custom' ? { layout: row.layout } : {}),
     ...(row.layout === 'custom' ? { layoutParams: normalizeLayoutParams(row.layout_params) } : {}),
     ...(FRAMES[row.frame_default] ? { frame: row.frame_default } : {}),
+    ...(MATS[row.mat_default] ? { mat: row.mat_default } : {}),
     ...(HANGINGS[row.hanging_default] ? { hanging: row.hanging_default } : {}),
     ...(CAPTIONS[row.caption_default] ? { caption: row.caption_default } : {}),
   }
@@ -48,6 +50,8 @@ export interface Settings {
   /** Knobs for layout === 'custom' (room size, centre wall) */
   layoutParams: CustomLayoutParams
   frame: string
+  /** Mat (paper border) inside the frame — presence + colour (key into MATS) */
+  mat: string
   /** How frames are affixed to the wall (key into HANGINGS) */
   hanging: string
   /** How the name plate is shown (key into CAPTIONS) */
@@ -56,6 +60,7 @@ export interface Settings {
   artworks: ArtworkData[]
   /** Per-work design overrides, keyed by artwork id (absent = gallery default) */
   frameOverrides: Record<string, string>
+  matOverrides: Record<string, string>
   hangingOverrides: Record<string, string>
   captionOverrides: Record<string, string>
 }
@@ -65,11 +70,13 @@ export const DEFAULT_SETTINGS: Settings = {
   layout: 'hall',
   layoutParams: CUSTOM_LAYOUT_DEFAULTS,
   frame: 'black',
+  mat: 'auto',
   hanging: 'wire',
   caption: 'side',
   showDemo: true,
   artworks: [],
   frameOverrides: {},
+  matOverrides: {},
   hangingOverrides: {},
   captionOverrides: {},
 }
@@ -115,6 +122,7 @@ export function loadSettings(): Settings {
     if (!LAYOUTS[s.layout] && s.layout !== 'custom') s.layout = DEFAULT_SETTINGS.layout
     s.layoutParams = normalizeLayoutParams(s.layoutParams)
     if (!FRAMES[s.frame]) s.frame = DEFAULT_SETTINGS.frame
+    if (!MATS[s.mat]) s.mat = DEFAULT_SETTINGS.mat
     if (!HANGINGS[s.hanging]) s.hanging = DEFAULT_SETTINGS.hanging
     if (!CAPTIONS[s.caption]) s.caption = DEFAULT_SETTINGS.caption
     return s
@@ -126,14 +134,14 @@ export function loadSettings(): Settings {
 function saveSettings(s: Settings): boolean {
   try {
     const {
-      theme, layout, layoutParams, frame, hanging, caption,
-      showDemo, artworks, frameOverrides, hangingOverrides, captionOverrides,
+      theme, layout, layoutParams, frame, mat, hanging, caption,
+      showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides,
     } = s
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        theme, layout, layoutParams, frame, hanging, caption,
-        showDemo, artworks, frameOverrides, hangingOverrides, captionOverrides,
+        theme, layout, layoutParams, frame, mat, hanging, caption,
+        showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides,
       })
     )
     return true
@@ -278,11 +286,13 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         const saved = await fetchPlacementOverrides(row.id)
         if (
           Object.keys(saved.frames).length ||
+          Object.keys(saved.mats).length ||
           Object.keys(saved.hangings).length ||
           Object.keys(saved.captions).length
         ) {
           set({
             frameOverrides: { ...saved.frames, ...get().frameOverrides },
+            matOverrides: { ...saved.mats, ...get().matOverrides },
             hangingOverrides: { ...saved.hangings, ...get().hangingOverrides },
             captionOverrides: { ...saved.captions, ...get().captionOverrides },
           })
@@ -367,11 +377,13 @@ export function useSettings(): Settings {
             layout: s.visitor.layout,
             layoutParams: s.visitor.layoutParams,
             frame: s.visitor.frame,
+            mat: s.visitor.mat,
             hanging: s.visitor.hanging,
             caption: s.visitor.caption,
             showDemo: false,
             artworks: EMPTY_ARTWORKS,
             frameOverrides: s.visitor.frameOverrides,
+            matOverrides: s.visitor.matOverrides,
             hangingOverrides: s.visitor.hangingOverrides,
             captionOverrides: s.visitor.captionOverrides,
           }
@@ -380,11 +392,13 @@ export function useSettings(): Settings {
             layout: s.layout,
             layoutParams: s.layoutParams,
             frame: s.frame,
+            mat: s.mat,
             hanging: s.hanging,
             caption: s.caption,
             showDemo: s.showDemo,
             artworks: s.artworks,
             frameOverrides: s.frameOverrides,
+            matOverrides: s.matOverrides,
             hangingOverrides: s.hangingOverrides,
             captionOverrides: s.captionOverrides,
           }

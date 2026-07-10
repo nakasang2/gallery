@@ -239,6 +239,35 @@ export const FRAMES: Record<string, FrameDef> = {
   none: { label: 'None', mat: null },
 }
 
+/* ================= Mats (the paper border inside the frame) ================= */
+
+export interface MatDef {
+  label: string
+  /** Mat colour; null = keep the frame's own recommended mat colour */
+  color: number | null
+  /** Mat width in metres; null = keep the frame's own; 0 = no mat at all */
+  gap: number | null
+}
+
+export const MATS: Record<string, MatDef> = {
+  auto: { label: 'Frame default', color: null, gap: null },
+  none: { label: 'No mat', color: null, gap: 0 },
+  white: { label: 'White', color: 0xf6f3ea, gap: 0.07 },
+  ivory: { label: 'Ivory', color: 0xe9dfc8, gap: 0.07 },
+  grey: { label: 'Grey', color: 0x8d8880, gap: 0.07 },
+  black: { label: 'Black', color: 0x17140f, gap: 0.07 },
+}
+
+/** A frame with the chosen mat applied. EVERY renderer (3D room, dashboard
+ *  preview, 2D chips) resolves through this, so "no mat" and mat colours mean
+ *  exactly the same thing everywhere. Stretched canvas has nothing to mat. */
+export function applyMat(f: FrameDef, matKey?: string | null): FrameDef {
+  if (f.mat === null) return f
+  const m = MATS[matKey ?? 'auto'] ?? MATS.auto
+  if (m.gap === null && m.color === null) return f
+  return { ...f, gap: m.gap ?? f.gap, mat: m.color ?? f.mat }
+}
+
 /* ================= Custom (parametric) layout ================= */
 // The 'custom' layout is generated from a few knobs instead of a preset table.
 // Kept close to the preset proportions so lighting/benches/entry stay sensible.

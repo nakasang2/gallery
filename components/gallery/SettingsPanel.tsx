@@ -3,7 +3,7 @@
 // Where works are exhibited depends on sign-in state: guest = localStorage / signed in = Supabase
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS, TEMPLATES } from '@/lib/presets'
+import { THEMES, LAYOUTS, FRAMES, MATS, HANGINGS, CAPTIONS, TEMPLATES } from '@/lib/presets'
 import { overflowCount, slotCount, useOwnArtworks } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
@@ -378,6 +378,7 @@ export default function SettingsPanel() {
       updateSettings({
         artworks: settings.artworks.filter((a) => a.id !== art.id),
         frameOverrides: drop(settings.frameOverrides),
+        matOverrides: drop(settings.matOverrides),
         hangingOverrides: drop(settings.hangingOverrides),
         captionOverrides: drop(settings.captionOverrides),
       })
@@ -394,7 +395,12 @@ export default function SettingsPanel() {
     if (n === 0) return true
     return confirm(`This resets the per-work design on ${n} work${n === 1 ? '' : 's'}. Continue?`)
   }
-  const allOverrideMaps = [settings.frameOverrides, settings.hangingOverrides, settings.captionOverrides]
+  const allOverrideMaps = [
+    settings.frameOverrides,
+    settings.matOverrides,
+    settings.hangingOverrides,
+    settings.captionOverrides,
+  ]
 
   // Highlight a template only while every axis still matches its bundle
   const activeTemplate =
@@ -522,9 +528,11 @@ export default function SettingsPanel() {
                   theme: t.theme,
                   layout: t.layout,
                   frame: t.frame,
+                  mat: 'auto',
                   hanging: t.hanging,
                   caption: t.caption,
                   frameOverrides: {},
+                  matOverrides: {},
                   hangingOverrides: {},
                   captionOverrides: {},
                 })
@@ -548,7 +556,9 @@ export default function SettingsPanel() {
                 updateSettings({
                   theme: key,
                   ...def.recommends,
+                  mat: 'auto',
                   frameOverrides: {},
+                  matOverrides: {},
                   hangingOverrides: {},
                   captionOverrides: {},
                 })
@@ -645,6 +655,29 @@ export default function SettingsPanel() {
           ))}
         </div>
         <p className="settings-note">To change a single work, open it and use the panel.</p>
+      </section>
+
+      <section className="settings-section">
+        <h3>Mat — all works</h3>
+        {/* The paper border inside the frame: none / colours, shown on the current frame */}
+        <div className="chips">
+          {Object.entries(MATS).map(([key, def]) => (
+            <button
+              key={key}
+              className={`chip chip-visual${key === settings.mat ? ' active' : ''}`}
+              onClick={() => {
+                if (!confirmOverrideReset(settings.matOverrides)) return
+                updateSettings({ mat: key, matOverrides: {} })
+              }}
+            >
+              <FramedArt frameKey={settings.frame} matKey={key} className="chip-frame" />
+              {def.label}
+            </button>
+          ))}
+        </div>
+        <p className="settings-note">
+          “Frame default” uses each frame&apos;s recommended mat. Stretched canvas (frame: None) has no mat.
+        </p>
       </section>
 
       <section className="settings-section">

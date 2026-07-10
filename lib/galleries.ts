@@ -16,6 +16,7 @@ export interface GalleryRow {
   layout: string
   layout_params: Partial<CustomLayoutParams> | null
   frame_default: string
+  mat_default: string
   hanging_default: string
   caption_default: string
   cover_artwork_id: string | null
@@ -24,16 +25,29 @@ export interface GalleryRow {
 }
 
 const COLS =
-  'id, slug, title, statement, theme, layout, layout_params, frame_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at'
+  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at'
+// Pre-0012 shape (no mat column) — reads fall back to this so an unapplied
+// migration never breaks the dashboard; mat then defaults to 'auto'
+const LEGACY_COLS = COLS.replace('mat_default, ', '')
 
 export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
-  const { data, error } = await supabase!
+  let res = await supabase!
     .from('galleries')
     .select(COLS)
     .eq('owner_id', userId)
     .order('created_at', { ascending: true })
-  if (error) throw error
-  return (data ?? []) as GalleryRow[]
+  if (res.error && missingOverrideColumns(res.error)) {
+    res = (await supabase!
+      .from('galleries')
+      .select(LEGACY_COLS)
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: true })) as unknown as typeof res
+  }
+  if (res.error) throw res.error
+  return (res.data ?? []).map((r) => ({
+    ...(r as object),
+    mat_default: (r as { mat_default?: string }).mat_default ?? 'auto',
+  })) as GalleryRow[]
 }
 
 /** The signed-in user's hakoniwa (first one; the release plan allows a single gallery) */
@@ -51,27 +65,28 @@ export async function createGallery(
     throw new Error(`Your plan allows ${PLAN.galleries} hakoniwa.`)
   }
   const t = opts.templateId ? TEMPLATES[opts.templateId] : undefined
-  const { data, error } = await supabase!
-    .from('galleries')
-    .insert({
-      owner_id: userId,
-      slug: 'main', // slug editing arrives with multi-gallery plans
-      title: opts.title.trim() || 'My Gallery',
-      statement: opts.statement?.trim() ?? '',
-      ...(t
-        ? {
-            theme: t.theme,
-            layout: t.layout,
-            frame_default: t.frame,
-            hanging_default: t.hanging,
-            caption_default: t.caption,
-          }
-        : {}),
-    })
-    .select(COLS)
-    .single()
-  if (error) throw error
-  return data as GalleryRow
+  const row = {
+    owner_id: userId,
+    slug: 'main', // slug editing arrives with multi-gallery plans
+    title: opts.title.trim() || 'My Gallery',
+    statement: opts.statement?.trim() ?? '',
+    ...(t
+      ? {
+          theme: t.theme,
+          layout: t.layout,
+          frame_default: t.frame,
+          hanging_default: t.hanging,
+          caption_default: t.caption,
+        }
+      : {}),
+  }
+  let res = await supabase!.from('galleries').insert(row).select(COLS).single()
+  if (res.error && missingOverrideColumns(res.error)) {
+    // 0012 not applied — an unknown column in ?select= fails before the insert runs
+    res = (await supabase!.from('galleries').insert(row).select(LEGACY_COLS).single()) as unknown as typeof res
+  }
+  if (res.error) throw res.error
+  return { mat_default: 'auto', ...(res.data as object) } as GalleryRow
 }
 
 export const SLUG_RE = /^[a-z0-9-]{1,40}$/
@@ -110,19 +125,25 @@ export async function deleteGallery(id: string): Promise<void> {
   if (error) throw error
 }
 
-/** Persist the space settings (theme/layout/framing/hanging/caption) to the gallery row */
+/** Persist the space settings (theme/layout/framing/mat/hanging/caption) to the gallery row */
 export async function saveGallerySpace(id: string, s: Settings): Promise<void> {
   const fields: Record<string, unknown> = {
     theme: s.theme,
     layout: s.layout,
     frame_default: s.frame,
+    mat_default: s.mat,
     hanging_default: s.hanging,
     caption_default: s.caption,
   }
   // Only overwrite layout_params while ON the custom layout — switching to a preset
   // must not destroy a saved custom room (switching back recovers it)
   if (s.layout === 'custom') fields.layout_params = s.layoutParams
-  const { error } = await supabase!.from('galleries').update(fields).eq('id', id)
+  let { error } = await supabase!.from('galleries').update(fields).eq('id', id)
+  if (error && missingOverrideColumns(error)) {
+    // 0012 not applied — save everything else, mat stays local until then
+    delete fields.mat_default
+    ;({ error } = await supabase!.from('galleries').update(fields).eq('id', id))
+  }
   if (error) throw error
 }
 
@@ -132,12 +153,12 @@ export async function setGalleryCover(id: string, artworkId: string | null): Pro
   if (error) throw error
 }
 
-// Does this error mean migration 0011 (hanging/caption override columns) is missing?
+// Does this error mean migration 0011/0012 (per-work override / mat columns) is missing?
 function missingOverrideColumns(error: { code?: string; message?: string }): boolean {
   return (
     error.code === 'PGRST204' ||
     error.code === '42703' ||
-    /hanging_override|caption_override/.test(error.message ?? '')
+    /hanging_override|caption_override|mat_override|mat_default/.test(error.message ?? '')
   )
 }
 
@@ -158,12 +179,13 @@ export async function rebuildPlacements(
       artwork_id: art.id,
       slot_index: i,
       frame_override: settings.frameOverrides[art.id] ?? null,
+      mat_override: settings.matOverrides[art.id] ?? null,
       hanging_override: settings.hangingOverrides[art.id] ?? null,
       caption_override: settings.captionOverrides[art.id] ?? null,
     }))
     let { error } = await sb.from('placements').upsert(rows, { onConflict: 'gallery_id,slot_index' })
     if (error && missingOverrideColumns(error)) {
-      // Migration 0011 not applied yet — keep publishing working, frame-only
+      // Migration 0011/0012 not applied yet — keep publishing working, frame-only
       const legacy = rows.map(({ gallery_id, artwork_id, slot_index, frame_override }) => ({
         gallery_id,
         artwork_id,
@@ -186,33 +208,36 @@ export async function rebuildPlacements(
  *  the cross-device record; the local Settings maps only exist in one browser */
 export interface PlacementOverrides {
   frames: Record<string, string>
+  mats: Record<string, string>
   hangings: Record<string, string>
   captions: Record<string, string>
 }
 
-export const EMPTY_OVERRIDES: PlacementOverrides = { frames: {}, hangings: {}, captions: {} }
+export const EMPTY_OVERRIDES: PlacementOverrides = { frames: {}, mats: {}, hangings: {}, captions: {} }
 
 export async function fetchPlacementOverrides(galleryId: string): Promise<PlacementOverrides> {
   let res = await supabase!
     .from('placements')
-    .select('artwork_id, frame_override, hanging_override, caption_override')
+    .select('artwork_id, frame_override, mat_override, hanging_override, caption_override')
     .eq('gallery_id', galleryId)
   if (res.error && missingOverrideColumns(res.error)) {
-    // Migration 0011 not applied yet — frame overrides still work
+    // Migration 0011/0012 not applied yet — frame overrides still work
     res = (await supabase!
       .from('placements')
       .select('artwork_id, frame_override')
       .eq('gallery_id', galleryId)) as unknown as typeof res
   }
   if (res.error) throw res.error
-  const out: PlacementOverrides = { frames: {}, hangings: {}, captions: {} }
+  const out: PlacementOverrides = { frames: {}, mats: {}, hangings: {}, captions: {} }
   for (const r of (res.data ?? []) as Array<{
     artwork_id: string
     frame_override?: string | null
+    mat_override?: string | null
     hanging_override?: string | null
     caption_override?: string | null
   }>) {
     if (r.frame_override) out.frames[r.artwork_id] = r.frame_override
+    if (r.mat_override) out.mats[r.artwork_id] = r.mat_override
     if (r.hanging_override) out.hangings[r.artwork_id] = r.hanging_override
     if (r.caption_override) out.captions[r.artwork_id] = r.caption_override
   }
@@ -238,11 +263,13 @@ export function rowToSettings(row: GalleryRow, overrides: PlacementOverrides = E
     layout: row.layout,
     layoutParams: normalizeLayoutParams(row.layout_params),
     frame: row.frame_default,
+    mat: row.mat_default,
     hanging: row.hanging_default,
     caption: row.caption_default,
     showDemo: false,
     artworks: [],
     frameOverrides: overrides.frames,
+    matOverrides: overrides.mats,
     hangingOverrides: overrides.hangings,
     captionOverrides: overrides.captions,
   }

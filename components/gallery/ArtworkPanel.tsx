@@ -1,8 +1,8 @@
 'use client'
 // Artwork info panel (details for the focused work, plus per-work framing / visitor likes)
 import { useEffect, useState } from 'react'
-import { FRAMES, HANGINGS, CAPTIONS } from '@/lib/presets'
-import { useExhibitionList, frameKeyFor, hangingKeyFor, captionKeyFor, setOverride } from '@/lib/exhibition'
+import { FRAMES, MATS, HANGINGS, CAPTIONS } from '@/lib/presets'
+import { useExhibitionList, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, setOverride } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { addLike, hasLiked, likeCount } from '@/lib/engagement'
 import { FramedArt, HangingIcon, CaptionIcon } from '@/components/SpacePreviews'
@@ -97,6 +97,23 @@ export default function ArtworkPanel() {
                       }
                     >
                       <FramedArt frameKey={key} className="chip-frame" />
+                      {def.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="panel-frame">
+                <div className="panel-frame-label">Mat — this work</div>
+                <div className="chips">
+                  {Object.entries(MATS).map(([key, def]) => (
+                    <button
+                      key={key}
+                      className={`chip chip-visual${matKeyFor(settings, art) === key ? ' active' : ''}`}
+                      onClick={() =>
+                        updateSettings({ matOverrides: setOverride(settings.matOverrides, art.id, key, settings.mat) })
+                      }
+                    >
+                      <FramedArt frameKey={frameKeyFor(settings, art)} matKey={key} className="chip-frame" />
                       {def.label}
                     </button>
                   ))}

@@ -9,6 +9,7 @@ import {
   FRAMES,
   HANGINGS,
   CAPTIONS,
+  applyMat,
   resolveLayout,
   type CustomLayoutParams,
 } from '@/lib/presets'
@@ -33,16 +34,18 @@ const ART_GRADIENT =
  *  Pass `src` (+ `ratio`) to frame a REAL artwork instead of the placeholder. */
 export function FramedArt({
   frameKey,
+  matKey,
   src,
   ratio,
   className = '',
 }: {
   frameKey: string
+  matKey?: string
   src?: string
   ratio?: [number, number]
   className?: string
 }) {
-  const f = FRAMES[frameKey] ?? FRAMES.black
+  const f = applyMat(FRAMES[frameKey] ?? FRAMES.black, matKey)
   // Real artworks keep their aspect: fixed 3.6em width, height clamped for sanity
   const h = ratio ? Math.min(5.4, Math.max(2, (3.6 * ratio[1]) / ratio[0])) : 2.7
   const imgStyle: React.CSSProperties = src
@@ -108,6 +111,7 @@ export function ThemeSwatch({ themeKey, className = '' }: { themeKey: string; cl
 export function WallPreview({
   themeKey,
   frameKey,
+  matKey,
   hangingKey,
   captionKey,
   artSrc,
@@ -116,6 +120,7 @@ export function WallPreview({
 }: {
   themeKey: string
   frameKey: string
+  matKey?: string
   hangingKey: string
   captionKey: string
   /** A real uploaded work to hang instead of the placeholder gradient */
@@ -129,7 +134,7 @@ export function WallPreview({
   const caption = CAPTIONS[captionKey]?.place ?? 'side'
   // Mirror FramedArt's sizing so the ledge and caption plate track the REAL art's
   // edges (a tall portrait must not swallow its own caption)
-  const f = FRAMES[frameKey] ?? FRAMES.black
+  const f = applyMat(FRAMES[frameKey] ?? FRAMES.black, matKey)
   const artH = artRatio ? Math.min(5.4, Math.max(2, (3.6 * artRatio[1]) / artRatio[0])) : 2.7
   const pad = f.mat === null ? 0.06 : ((f.bar! + f.gap!) / 1.3) * 3.6
   const halfW = 1.8 + pad
@@ -153,7 +158,7 @@ export function WallPreview({
         </>
       )}
       <span className="wp-art">
-        <FramedArt frameKey={frameKey} src={artSrc} ratio={artRatio} />
+        <FramedArt frameKey={frameKey} matKey={matKey} src={artSrc} ratio={artRatio} />
       </span>
       {hanging === 'ledge' && <span className="wp-ledge" style={{ top: `calc(46% + ${(halfH + 0.28).toFixed(2)}em)` }} />}
       {caption === 'side' && (

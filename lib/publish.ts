@@ -17,10 +17,12 @@ export interface PublicExhibition {
   layout: string
   layoutParams: CustomLayoutParams
   frame: string
+  mat: string
   hanging: string
   caption: string
   coverArtworkId: string | null
   frameOverrides: Record<string, string>
+  matOverrides: Record<string, string>
   hangingOverrides: Record<string, string>
   captionOverrides: Record<string, string>
   artworks: ArtworkData[]
@@ -164,24 +166,39 @@ async function fetchPublicExhibitionInner(
     .maybeSingle()
   if (!profile) return null
 
-  const { data: gallery } = await supabase!
+  let gRes = await supabase!
     .from('galleries')
     .select(
-      'id, title, statement, theme, layout, layout_params, frame_default, hanging_default, caption_default, cover_artwork_id, is_public'
+      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public'
     )
     .eq('owner_id', profile.id)
     .eq('slug', slug)
     .eq('is_public', true)
     .maybeSingle()
+  if (gRes.error) {
+    // Migration 0012 (mat) not applied — the public page must still render
+    gRes = (await supabase!
+      .from('galleries')
+      .select(
+        'id, title, statement, theme, layout, layout_params, frame_default, hanging_default, caption_default, cover_artwork_id, is_public'
+      )
+      .eq('owner_id', profile.id)
+      .eq('slug', slug)
+      .eq('is_public', true)
+      .maybeSingle()) as unknown as typeof gRes
+  }
+  const gallery = gRes.data as
+    | (NonNullable<typeof gRes.data> & { mat_default?: string | null })
+    | null
   if (!gallery) return null
 
   let pRes = await supabase!
     .from('placements')
-    .select('slot_index, frame_override, hanging_override, caption_override, artworks (*)')
+    .select('slot_index, frame_override, mat_override, hanging_override, caption_override, artworks (*)')
     .eq('gallery_id', gallery.id)
     .order('slot_index', { ascending: true })
   if (pRes.error) {
-    // Migration 0011 (hanging/caption overrides) not applied — the page must still render
+    // Migration 0011/0012 (per-work overrides) not applied — the page must still render
     pRes = (await supabase!
       .from('placements')
       .select('slot_index, frame_override, artworks (*)')
@@ -192,11 +209,13 @@ async function fetchPublicExhibitionInner(
 
   const ownerName = profile.display_name || profile.username || ''
   const frameOverrides: Record<string, string> = {}
+  const matOverrides: Record<string, string> = {}
   const hangingOverrides: Record<string, string> = {}
   const captionOverrides: Record<string, string> = {}
   const artworks: ArtworkData[] = []
   for (const p of (pRes.data ?? []) as Array<{
     frame_override?: string | null
+    mat_override?: string | null
     hanging_override?: string | null
     caption_override?: string | null
     artworks: unknown
@@ -205,6 +224,7 @@ async function fetchPublicExhibitionInner(
     if (!row) continue
     artworks.push(rowToArtwork(row, ownerName))
     if (p.frame_override) frameOverrides[row.id] = p.frame_override
+    if (p.mat_override) matOverrides[row.id] = p.mat_override
     if (p.hanging_override) hangingOverrides[row.id] = p.hanging_override
     if (p.caption_override) captionOverrides[row.id] = p.caption_override
   }
@@ -222,10 +242,12 @@ async function fetchPublicExhibitionInner(
     layoutParams: normalizeLayoutParams(gallery.layout_params),
     frame: gallery.frame_default,
     // Older galleries predate these columns; fall back to sensible defaults
+    mat: gallery.mat_default ?? 'auto',
     hanging: gallery.hanging_default ?? 'wire',
     caption: gallery.caption_default ?? 'side',
     coverArtworkId: gallery.cover_artwork_id ?? null,
     frameOverrides,
+    matOverrides,
     hangingOverrides,
     captionOverrides,
     artworks,

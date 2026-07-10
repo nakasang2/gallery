@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS, FRAMES, MATS, HANGINGS, CAPTIONS } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
 import {
   ThemeSwatch,
@@ -246,6 +246,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
   const frameOverrides = useGallery((s) => s.frameOverrides)
+  const matOverrides = useGallery((s) => s.matOverrides)
   const hangingOverrides = useGallery((s) => s.hangingOverrides)
   const captionOverrides = useGallery((s) => s.captionOverrides)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
@@ -292,6 +293,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     const saved = await fetchPlacementOverrides(row.id).catch(() => EMPTY_OVERRIDES)
     return {
       frames: { ...saved.frames, ...frameOverrides },
+      mats: { ...saved.mats, ...matOverrides },
       hangings: { ...saved.hangings, ...hangingOverrides },
       captions: { ...saved.captions, ...captionOverrides },
     }
@@ -309,7 +311,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
 
   // Quick space change without opening the editor. Theme changes are cosmetic;
   // layout changes re-cap the placements, so public rooms are rebuilt too
-  async function setSpace(partial: Partial<Pick<ReturnType<typeof rowToSettings>, 'theme' | 'layout' | 'frame' | 'hanging' | 'caption'>>) {
+  async function setSpace(partial: Partial<Pick<ReturnType<typeof rowToSettings>, 'theme' | 'layout' | 'frame' | 'mat' | 'hanging' | 'caption'>>) {
     await run('Space change', async () => {
       const s = { ...rowToSettings(row, await mergedOverrides()), ...partial }
       await saveGallerySpace(row.id, s)
@@ -453,7 +455,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 key={key}
                 className={`chip chip-visual${key === row.theme ? ' active' : ''}`}
                 disabled={busy}
-                onClick={() => void setSpace({ theme: key, ...def.recommends })}
+                onClick={() => void setSpace({ theme: key, ...def.recommends, mat: 'auto' })}
               >
                 <ThemeSwatch themeKey={key} />
                 {def.label}
@@ -559,6 +561,7 @@ function WorksCard() {
   const myGallery = useGallery((s) => s.myGallery)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const frameOverrides = useGallery((s) => s.frameOverrides)
+  const matOverrides = useGallery((s) => s.matOverrides)
   const hangingOverrides = useGallery((s) => s.hangingOverrides)
   const captionOverrides = useGallery((s) => s.captionOverrides)
   const updateSettings = useGallery((s) => s.updateSettings)
@@ -570,10 +573,12 @@ function WorksCard() {
   // The wall the preview hangs on: the user's real room, or the defaults before one exists
   const theme = myGallery?.theme ?? 'chic'
   const baseFrame = myGallery?.frame_default ?? 'black'
+  const baseMat = myGallery?.mat_default ?? 'auto'
   const baseHanging = myGallery?.hanging_default ?? 'wire'
   const baseCaption = myGallery?.caption_default ?? 'side'
   // Effective per-work design: the override when set, else the gallery default
   const frame = (selected && frameOverrides[selected.id]) || baseFrame
+  const mat = (selected && matOverrides[selected.id]) || baseMat
   const hanging = (selected && hangingOverrides[selected.id]) || baseHanging
   const caption = (selected && captionOverrides[selected.id]) || baseCaption
   // Videos hang by their poster; a poster-less video previews as the placeholder
@@ -707,6 +712,7 @@ function WorksCard() {
                 art={selected.kind === 'video' ? { ...selected, kind: 'image', src: previewSrc } : selected}
                 themeKey={theme}
                 frameKey={frame}
+                matKey={mat}
                 hangingKey={hanging}
                 captionKey={caption}
               />
@@ -715,6 +721,7 @@ function WorksCard() {
             <WallPreview
               themeKey={theme}
               frameKey={frame}
+              matKey={mat}
               hangingKey={hanging}
               captionKey={caption}
               artSrc={previewSrc}
@@ -749,6 +756,21 @@ function WorksCard() {
                     }
                   >
                     <FramedArt frameKey={key} className="chip-frame" />
+                    {def.label}
+                  </button>
+                ))}
+              </div>
+              <div className="chips we-chips">
+                {Object.entries(MATS).map(([key, def]) => (
+                  <button
+                    key={key}
+                    className={`chip chip-visual${mat === key ? ' active' : ''}`}
+                    title={`${def.label} mat`}
+                    onClick={() =>
+                      updateSettings({ matOverrides: setOverride(matOverrides, selected.id, key, baseMat) })
+                    }
+                  >
+                    <FramedArt frameKey={frame} matKey={key} className="chip-frame" />
                     {def.label}
                   </button>
                 ))}
