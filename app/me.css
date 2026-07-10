@@ -168,11 +168,21 @@
 .we-chips { margin-top: 0.45rem; gap: 0.35rem; }
 .we-chips .chip { font-size: 0.66rem; padding: 0.4em 0.85em; }
 .wall-preview--lg { height: 250px; font-size: 18px; }
+/* 実3Dプレビュー(ルームと同じExhibitを小キャンバスで描画) */
+.wall-preview3d {
+  height: 250px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  background: #101010;
+}
+.wall-preview3d canvas { display: block; width: 100%; height: 100%; }
 @media (max-width: 720px) {
   .works-editor { grid-template-columns: 1fr; }
   /* Preview first on phones: pick a work below, see it framed right above */
   .we-right { position: static; order: -1; }
   .wall-preview--lg { height: 210px; font-size: 15px; }
+  .wall-preview3d { height: 210px; }
 }
 
 .works-grid {

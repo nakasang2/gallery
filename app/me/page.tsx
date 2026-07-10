@@ -3,6 +3,7 @@
 // Designed for multiple galleries; the release plan caps creation at PLAN.galleries.
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
@@ -52,6 +53,10 @@ import {
 import { fileToDataUrl, loadImage } from '@/lib/upload'
 import type { ArtworkData } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
+
+// The works preview is the REAL renderer (three.js), loaded only when needed;
+// until the chunk arrives the flat CSS preview holds the same footprint
+const Preview3D = dynamic(() => import('@/components/Preview3D'), { ssr: false })
 
 function fmtDate(iso: string | null): string {
   if (!iso) return ''
@@ -691,18 +696,32 @@ function WorksCard() {
           </p>
         </div>
 
-        {/* Live preview: the selected upload inside the room's real frame, wall and caption —
-            and the per-work design controls right under what they change */}
+        {/* Live preview: the selected upload rendered by the ACTUAL 3D pipeline
+            (same Exhibit component as the room), with the per-work design controls
+            right under what they change. Poster-less videos and the empty state
+            fall back to the flat CSS preview. */}
         <div className="we-right">
-          <WallPreview
-            themeKey={theme}
-            frameKey={frame}
-            hangingKey={hanging}
-            captionKey={caption}
-            artSrc={previewSrc}
-            artRatio={selected?.ratio}
-            className="wall-preview--lg"
-          />
+          {selected && previewSrc ? (
+            <div className="wall-preview3d">
+              <Preview3D
+                art={selected.kind === 'video' ? { ...selected, kind: 'image', src: previewSrc } : selected}
+                themeKey={theme}
+                frameKey={frame}
+                hangingKey={hanging}
+                captionKey={caption}
+              />
+            </div>
+          ) : (
+            <WallPreview
+              themeKey={theme}
+              frameKey={frame}
+              hangingKey={hanging}
+              captionKey={caption}
+              artSrc={previewSrc}
+              artRatio={selected?.ratio}
+              className="wall-preview--lg"
+            />
+          )}
           {!selected && (
             <p className="me-note">
               Upload a work to see it hanging in your theme and frame before you publish.
