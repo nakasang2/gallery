@@ -63,6 +63,42 @@ function fmtDate(iso: string | null): string {
 
 const IMPORT_DISMISS_KEY = 'hakoniwa.importDismissed.v1'
 
+const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
+
+// The first thing a signed-in artist sees: their own face and name, not a form
+function Hero() {
+  const user = useGallery((s) => s.user)!
+  const displayName = useGallery((s) => s.profileDisplayName)
+  const avatarUrl = useGallery((s) => s.profileAvatarUrl)
+  const username = useGallery((s) => s.profileUsername)
+  const name = displayName || user.displayName
+  const h = new Date().getHours()
+  const greet = h < 5 ? 'Working late' : h < 11 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+  return (
+    <div className="me-hero">
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="me-hero-avatar" src={avatarUrl} alt="" />
+      ) : (
+        <div className="me-hero-avatar empty">{name.slice(0, 1).toUpperCase()}</div>
+      )}
+      <div>
+        <div className="me-hero-greet">{greet}, {name}.</div>
+        <p className="me-hero-sub">
+          {username ? (
+            <>
+              Your gallery lives at{' '}
+              <a href={`/@${username}`} target="_blank" rel="noreferrer">/@{username}</a>
+            </>
+          ) : (
+            'Set a username to claim your public URL.'
+          )}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // Guest migration (REQUIREMENTS 10.1): offer to move this browser's local works into the account
 function GuestImportCard() {
   const user = useGallery((s) => s.user)!
@@ -434,8 +470,17 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
+  const themeDef = THEMES[row.theme] ?? THEMES.chic
+
   return (
     <div className="me-card">
+      {/* The room's own colours, as a ribbon — this card IS that room */}
+      <div
+        className="hako-ribbon"
+        style={{
+          background: `linear-gradient(90deg, ${hex(themeDef.wall)}, ${hex(themeDef.accentWall)} 45%, ${hex(themeDef.spotColor)})`,
+        }}
+      />
       <div className="hako-head">
         <span className="hako-title" style={isPlaceholderTitle(row.title) ? { color: 'var(--muted)' } : undefined}>
           {isPlaceholderTitle(row.title) ? 'Untitled exhibition' : row.title}
@@ -445,18 +490,23 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </span>
       </div>
       <p className="hako-meta">
-        {cloudArtworks.length} work{cloudArtworks.length === 1 ? '' : 's'} exhibited
-        {stats ? ` · ${stats.visits} visit${stats.visits === 1 ? '' : 's'} · ♥ ${stats.likes} · ✎ ${stats.guestbook}` : ''}
-        {row.updated_at ? ` · updated ${fmtDate(row.updated_at)}` : ''}
+        {row.updated_at ? `Updated ${fmtDate(row.updated_at)}` : ''}
         {row.is_public && publicUrl ? (
           <>
-            {' · '}
+            {' · live at '}
             <a href={publicUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>
               {publicUrl.replace(/^https?:\/\//, '')}
             </a>
           </>
         ) : null}
       </p>
+      {/* How the exhibition is doing, at a glance */}
+      <div className="stat-row">
+        <div className="stat"><b>{cloudArtworks.length}</b><span>Works</span></div>
+        <div className="stat"><b>{stats ? stats.visits : '–'}</b><span>Visits</span></div>
+        <div className="stat"><b>{stats ? stats.likes : '–'}</b><span>Likes</span></div>
+        <div className="stat"><b>{stats ? stats.guestbook : '–'}</b><span>Guest notes</span></div>
+      </div>
 
       {mode === 'details' && (
         <>
@@ -561,10 +611,24 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
       <div className="works-editor" style={{ marginTop: '1.4rem' }}>
         <div className="we-left">
           {cloudArtworks.length === 0 && (
-            <p className="me-note" style={{ marginTop: 0 }}>
-              No works in your library yet. Upload images here — the preview alongside shows how
-              each one hangs in your room.
-            </p>
+            <label className="upload-hero" aria-disabled={uploading}>
+              <b>{uploading ? 'Uploading…' : 'Hang your first work'}</b>
+              <span>
+                Drop in images from your camera roll or portfolio —<br />
+                the preview alongside shows them framed on your wall.
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                disabled={uploading}
+                onChange={(e) => {
+                  void onFiles(e.target.files)
+                  e.target.value = ''
+                }}
+              />
+            </label>
           )}
           {cloudArtworks.length > 0 && (
             <p className="me-note" style={{ marginTop: 0, marginBottom: '0.8rem' }}>
@@ -596,20 +660,22 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               ))}
             </div>
           )}
-          <label className="btn-line file-btn" aria-disabled={uploading}>
-            {uploading ? 'Uploading…' : 'Upload images'}
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              hidden
-              disabled={uploading}
-              onChange={(e) => {
-                void onFiles(e.target.files)
-                e.target.value = ''
-              }}
-            />
-          </label>
+          {cloudArtworks.length > 0 && (
+            <label className="btn-line file-btn" aria-disabled={uploading}>
+              {uploading ? 'Uploading…' : 'Upload images'}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                disabled={uploading}
+                onChange={(e) => {
+                  void onFiles(e.target.files)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+          )}
           <p className="me-note">
             Works are library assets — deleting a hakoniwa never deletes them. Videos are uploaded
             from the 3D preview.
@@ -1081,7 +1147,7 @@ export default function MePage() {
 
         {user && (
           <>
-            <h1 className="me-h1">Dashboard</h1>
+            <Hero />
             <nav className="me-tabs" aria-label="Dashboard sections">
               {ME_TABS.map(([key, label]) => (
                 <button

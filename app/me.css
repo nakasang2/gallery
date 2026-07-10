@@ -57,6 +57,37 @@
   font-weight: 500;
   margin-bottom: 1.2rem;
 }
+
+/* ヒーロー: サインイン後の最初の一言(挨拶+アバター) */
+.me-hero { display: flex; align-items: center; gap: 1.1rem; margin-bottom: 1.8rem; }
+.me-hero-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--gold);
+  flex: none;
+}
+.me-hero-avatar.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  color: var(--gold);
+  background: rgba(212, 162, 78, 0.08);
+  border-color: var(--hairline);
+}
+.me-hero-greet {
+  font-family: var(--serif);
+  font-size: 1.75rem;
+  font-weight: 500;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.me-hero-sub { font-size: 0.72rem; letter-spacing: 0.14em; color: var(--muted); margin-top: 0.35rem; }
+.me-hero-sub a { color: var(--gold); text-decoration: none; }
+.me-hero-sub a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .me-section { margin-bottom: 2.8rem; }
 .me-section h2 {
   font-size: 0.72rem;
@@ -107,6 +138,54 @@
   color: var(--muted);
 }
 .hako-space-tag .theme-swatch { width: 1.9em; height: 1.3em; }
+
+/* 部屋のテーマ色を映すリボン — カードと3D空間を視覚的に接続する */
+.hako-ribbon { height: 5px; border-radius: 100px; margin-bottom: 1.15rem; opacity: 0.9; }
+
+/* エンゲージメント統計タイル */
+.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-top: 1rem; }
+.stat {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  background: rgba(236, 231, 222, 0.03);
+  transition: border-color 0.2s;
+}
+.stat:hover { border-color: rgba(212, 162, 78, 0.4); }
+.stat b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.stat span {
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .stat-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* 空のライブラリ: 最初の一歩を誘う大きなアップロードゾーン */
+.upload-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px dashed rgba(212, 162, 78, 0.45);
+  border-radius: 12px;
+  padding: 2.4rem 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.upload-hero:hover { border-color: var(--gold); background: rgba(212, 162, 78, 0.05); }
+.upload-hero b { font-family: var(--serif); font-size: 1.1rem; font-weight: 500; }
+.upload-hero span { font-size: 0.72rem; line-height: 1.7; color: var(--muted); }
 
 .hako-head { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
 .hako-title { font-family: var(--serif); font-size: 1.35rem; font-weight: 500; }
@@ -200,9 +279,10 @@
   border: 1px solid var(--hairline);
   display: block;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, transform 0.2s;
 }
-.works-cell img:hover { border-color: rgba(212, 162, 78, 0.5); }
+.works-cell img:hover { border-color: rgba(212, 162, 78, 0.5); transform: scale(1.03); }
+.works-cell img:active { transform: scale(0.99); }
 .works-cell.selected img { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
 .works-cell figcaption {
   font-size: 0.64rem;
