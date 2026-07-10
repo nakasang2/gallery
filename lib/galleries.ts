@@ -44,7 +44,7 @@ export async function getMyGalleryRow(userId: string): Promise<GalleryRow | null
 
 export async function createGallery(
   userId: string,
-  opts: { title: string; templateId?: string }
+  opts: { title: string; templateId?: string; statement?: string }
 ): Promise<GalleryRow> {
   const existing = await listMyGalleries(userId)
   if (existing.length >= PLAN.galleries) {
@@ -57,6 +57,7 @@ export async function createGallery(
       owner_id: userId,
       slug: 'main', // slug editing arrives with multi-gallery plans
       title: opts.title.trim() || 'My Gallery',
+      statement: opts.statement?.trim() ?? '',
       ...(t
         ? {
             theme: t.theme,
@@ -90,10 +91,15 @@ export async function updateGallerySlug(id: string, slug: string): Promise<void>
   }
 }
 
-export async function renameGallery(id: string, title: string): Promise<void> {
+/** Title + statement together: the exhibition's name and the concept/intro text
+ *  shown on the title wall, the artist page and OGP descriptions */
+export async function updateGalleryDetails(
+  id: string,
+  fields: { title: string; statement: string }
+): Promise<void> {
   const { error } = await supabase!
     .from('galleries')
-    .update({ title: title.trim() || 'My Gallery' })
+    .update({ title: fields.title.trim() || 'My Gallery', statement: fields.statement.trim() })
     .eq('id', id)
   if (error) throw error
 }

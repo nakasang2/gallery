@@ -12,7 +12,7 @@ import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
   createGallery,
-  renameGallery,
+  updateGalleryDetails,
   deleteGallery,
   setGalleryPublic,
   setGalleryCover,
@@ -145,13 +145,14 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   const router = useRouter()
   const [step, setStep] = useState<1 | 2>(1)
   const [title, setTitle] = useState('My Gallery')
+  const [statement, setStatement] = useState('')
   const [templateId, setTemplateId] = useState('salon')
   const [busy, setBusy] = useState(false)
 
   async function create() {
     setBusy(true)
     try {
-      await createGallery(user.id, { title, templateId })
+      await createGallery(user.id, { title, templateId, statement })
       await refreshMyGallery()
       // Persist the template locally too, so the editor's hydrate() can't fall back
       // to stale localStorage defaults after the client-side navigation
@@ -181,23 +182,12 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
           <b style={{ color: 'var(--ink)' }}>Step 1 of 2</b> — pick the room you&apos;ll start from.
           Colours, floor plan and framing are all shown; everything can be changed later.
         </p>
+        {/* One preview per card (the card top IS the wall preview) — no duplicate block */}
         <div className="tpl-grid">
           {Object.keys(TEMPLATES).map((key) => (
             <TemplateCard key={key} templateId={key} active={key === templateId} onClick={() => setTemplateId(key)} />
           ))}
         </div>
-        {/* Large wall preview of the selected template: how a work will actually hang */}
-        {TEMPLATES[templateId] && (
-          <>
-            <WallPreview
-              themeKey={TEMPLATES[templateId].theme}
-              frameKey={TEMPLATES[templateId].frame}
-              hangingKey={TEMPLATES[templateId].hanging}
-              captionKey={TEMPLATES[templateId].caption}
-            />
-            <p className="me-note">How a work will hang in “{TEMPLATES[templateId].label}”.</p>
-          </>
-        )}
         <button className="btn-line" onClick={() => setStep(2)}>
           Continue with {TEMPLATES[templateId]?.label} →
         </button>
@@ -214,6 +204,16 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
       <label className="me-field">
         <span>Name</span>
         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+      </label>
+      <label className="me-field">
+        <span>Concept / intro (optional) — shown on the board at the back of your room</span>
+        <textarea
+          rows={3}
+          maxLength={200}
+          placeholder="What is this exhibition about? Who are you?"
+          value={statement}
+          onChange={(e) => setStatement(e.target.value)}
+        />
       </label>
       <div className="hako-actions">
         <button className="btn-line" disabled={busy} onClick={() => setStep(1)}>← Back</button>
@@ -234,8 +234,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
-  const [mode, setMode] = useState<'view' | 'rename' | 'space'>('view')
+  const [mode, setMode] = useState<'view' | 'details' | 'space'>('view')
   const [nameInput, setNameInput] = useState(row.title)
+  const [statementInput, setStatementInput] = useState(row.statement)
   const [copied, setCopied] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
 
@@ -329,8 +330,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         <span className="hako-plan-chip">
           <LayoutPlan layoutKey={row.layout} params={row.layout_params} />
         </span>
+        {/* Text only — the big cover/swatch next to it already IS the theme preview */}
         <span className="hako-space-tag">
-          <ThemeSwatch themeKey={row.theme} />
           {THEMES[row.theme]?.label ?? row.theme} ·{' '}
           {row.layout === 'custom' ? 'Custom room' : LAYOUTS[row.layout]?.label ?? row.layout}
         </span>
@@ -355,23 +356,38 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         ) : null}
       </p>
 
-      {mode === 'rename' && (
-        <div className="field-row">
-          <input type="text" value={nameInput} onChange={(e) => setNameInput(e.target.value)} />
-          <button
-            className="btn-line"
-            disabled={busy}
-            onClick={() =>
-              void run('Rename', async () => {
-                await renameGallery(row.id, nameInput)
-                setMode('view')
-              })
-            }
-          >
-            Save
-          </button>
-          <button className="btn-line" onClick={() => setMode('view')}>Cancel</button>
-        </div>
+      {mode === 'details' && (
+        <>
+          <label className="me-field">
+            <span>Exhibition title</span>
+            <input type="text" value={nameInput} onChange={(e) => setNameInput(e.target.value)} />
+          </label>
+          <label className="me-field">
+            <span>Concept / intro — shown on the board at the back of your room</span>
+            <textarea
+              rows={3}
+              maxLength={200}
+              placeholder="What is this exhibition about? Who are you?"
+              value={statementInput}
+              onChange={(e) => setStatementInput(e.target.value)}
+            />
+          </label>
+          <div className="hako-actions">
+            <button
+              className="btn-line"
+              disabled={busy}
+              onClick={() =>
+                void run('Save details', async () => {
+                  await updateGalleryDetails(row.id, { title: nameInput, statement: statementInput })
+                  setMode('view')
+                })
+              }
+            >
+              Save
+            </button>
+            <button className="btn-line" onClick={() => setMode('view')}>Cancel</button>
+          </div>
+        </>
       )}
       {!username && (
         <div className="field-row">
@@ -478,7 +494,15 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           </div>
           {/* Quiet row for rare / destructive housekeeping — not peers of the actions above */}
           <div className="hako-secondary">
-            <button onClick={() => { setNameInput(row.title); setMode('rename') }}>Rename</button>
+            <button
+              onClick={() => {
+                setNameInput(row.title)
+                setStatementInput(row.statement)
+                setMode('details')
+              }}
+            >
+              Edit details
+            </button>
             <button
               className="danger"
               disabled={busy}

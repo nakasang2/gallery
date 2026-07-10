@@ -166,27 +166,70 @@ export const DEFAULT_TITLE_TEXT: TitleWallText = {
   note2: 'This space is waiting to become yours.',
 }
 
-export function makeTitleTexture(dark: boolean, text: TitleWallText = DEFAULT_TITLE_TEXT): THREE.CanvasTexture {
+// Wrap a long note into at most `maxLines` centred lines (statement text is free-form)
+function wrapNote(ctx: CanvasRenderingContext2D, s: string, maxW: number, maxLines: number): string[] {
+  const words = s.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let line = ''
+  for (const w of words) {
+    const test = line ? `${line} ${w}` : w
+    if (ctx.measureText(test).width > maxW && line) {
+      lines.push(line)
+      line = w
+      if (lines.length === maxLines) break
+    } else line = test
+  }
+  if (lines.length < maxLines && line) lines.push(line)
+  else if (lines.length === maxLines && line) lines[maxLines - 1] = `${lines[maxLines - 1]}…`
+  return lines
+}
+
+export function makeTitleTexture(
+  dark: boolean,
+  text: TitleWallText = DEFAULT_TITLE_TEXT,
+  avatar?: HTMLImageElement | null
+): THREE.CanvasTexture {
   const c = document.createElement('canvas')
   c.width = 2048
   c.height = 1024
   const ctx = c.getContext('2d')!
   ctx.textAlign = 'center'
+
+  // Artist icon above the eyebrow (circle-clipped, thin gold ring)
+  if (avatar) {
+    const cx = 1024
+    const cy = 96
+    const r = 62
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.clip()
+    ctx.drawImage(avatar, cx - r, cy - r, r * 2, r * 2)
+    ctx.restore()
+    ctx.beginPath()
+    ctx.arc(cx, cy, r + 3, 0, Math.PI * 2)
+    ctx.strokeStyle = '#d4a24e'
+    ctx.lineWidth = 4
+    ctx.stroke()
+  }
+
   ctx.fillStyle = '#d4a24e'
   ctx.font = '500 40px "Geist", sans-serif'
-  ctx.fillText('E X H I B I T I O N', 1024, 210)
+  ctx.fillText('E X H I B I T I O N', 1024, 230)
   ctx.fillStyle = dark ? '#22201c' : '#ece7de'
   // Shrink the title to fit the width when it's too long
   ctx.font = '400 190px "Instrument Serif", serif'
   const mainWidth = ctx.measureText(text.main).width
   if (mainWidth > 1800) ctx.font = `400 ${Math.max(80, Math.floor(190 * (1800 / mainWidth)))}px "Instrument Serif", serif`
-  ctx.fillText(text.main, 1024, 450)
+  ctx.fillText(text.main, 1024, 460)
   ctx.font = '400 74px "Instrument Serif", serif'
-  ctx.fillText(text.sub, 1024, 600)
+  ctx.fillText(text.sub, 1024, 605)
   ctx.fillStyle = dark ? '#6b665e' : '#9a938a'
   ctx.font = '300 44px "Geist", sans-serif'
-  ctx.fillText(text.note1, 1024, 750)
-  ctx.fillText(text.note2, 1024, 830)
+  // note1 may be a free-form statement — wrap it; note2 renders on the remaining line
+  const noteLines = wrapNote(ctx, text.note1, 1700, text.note2 ? 1 : 2)
+  if (text.note2) noteLines.push(text.note2)
+  noteLines.forEach((line, i) => ctx.fillText(line, 1024, 750 + i * 80))
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   tex.anisotropy = 8

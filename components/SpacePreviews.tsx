@@ -193,7 +193,8 @@ export function LayoutPlan({
   )
 }
 
-/** A template as a picture: theme swatch backdrop + floor plan + composition line */
+/** A template as a picture: ONE preview — the wall (theme + framed art + hanging +
+ *  caption) with the floor plan chipped into the corner — plus a composition line */
 export function TemplateCard({
   templateId,
   active,
@@ -207,7 +208,13 @@ export function TemplateCard({
   if (!t) return null
   return (
     <button type="button" className={`tpl-card${active ? ' active' : ''}`} onClick={onClick}>
-      <ThemeSwatch themeKey={t.theme} className="tpl-swatch" />
+      <WallPreview
+        themeKey={t.theme}
+        frameKey={t.frame}
+        hangingKey={t.hanging}
+        captionKey={t.caption}
+        className="tpl-wall"
+      />
       <span className="tpl-plan-chip">
         <LayoutPlan layoutKey={t.layout} className="tpl-plan" />
       </span>

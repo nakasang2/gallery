@@ -10,6 +10,7 @@ export interface PublicExhibition {
   title: string
   statement: string
   ownerName: string
+  ownerAvatar: string | null
   username: string
   slug: string
   theme: string
@@ -156,7 +157,7 @@ async function fetchPublicExhibitionInner(
 ): Promise<PublicExhibition | null> {
   const { data: profile } = await supabase!
     .from('profiles')
-    .select('id, username, display_name')
+    .select('id, username, display_name, avatar_url')
     .eq('username', username)
     .maybeSingle()
   if (!profile) return null
@@ -193,6 +194,7 @@ async function fetchPublicExhibitionInner(
     title: gallery.title,
     statement: gallery.statement,
     ownerName,
+    ownerAvatar: profile.avatar_url ?? null,
     username: profile.username!,
     slug,
     theme: gallery.theme,
