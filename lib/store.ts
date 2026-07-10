@@ -149,6 +149,10 @@ interface GalleryStore extends Settings {
   cloudArtworks: ArtworkData[]
   /** Profile username (used in the public URL; null if unset) */
   profileUsername: string | null
+  /** Profile display name (artist name on labels and the title wall) */
+  profileDisplayName: string | null
+  /** Profile avatar URL (drawn on the title wall) */
+  profileAvatarUrl: string | null
   /** The signed-in user's hakoniwa row (null = none created yet). DB is the source of truth */
   myGallery: GalleryRow | null
   /** Visitor mode: overridden with read-only exhibition data on public pages */
@@ -182,6 +186,8 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   user: null,
   cloudArtworks: [],
   profileUsername: null,
+  profileDisplayName: null,
+  profileAvatarUrl: null,
   myGallery: null,
   visitor: null,
 
@@ -200,7 +206,14 @@ export const useGallery = create<GalleryStore>((set, get) => ({
       const u = session?.user
       if (!u) {
         // Signed out: back to guest mode (restore this browser's local settings)
-        set({ user: null, cloudArtworks: [], myGallery: null, ...loadSettings() })
+        set({
+          user: null,
+          cloudArtworks: [],
+          myGallery: null,
+          profileDisplayName: null,
+          profileAvatarUrl: null,
+          ...loadSettings(),
+        })
         return
       }
       const displayName =
@@ -218,11 +231,16 @@ export const useGallery = create<GalleryStore>((set, get) => ({
       // Use the profile's display name as the artist name on name plates
       const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name, username')
+        .select('display_name, username, avatar_url')
         .eq('id', user.id)
         .maybeSingle()
       const artist = profile?.display_name || user.displayName
-      set({ cloudArtworks: await listMyArtworks(artist), profileUsername: profile?.username ?? null })
+      set({
+        cloudArtworks: await listMyArtworks(artist),
+        profileUsername: profile?.username ?? null,
+        profileDisplayName: artist,
+        profileAvatarUrl: profile?.avatar_url ?? null,
+      })
       // Works changed (upload/delete) — keep a public hakoniwa's placements in step
       if (get().myGallery) scheduleGallerySync(get)
     } catch (e) {

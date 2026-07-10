@@ -1,30 +1,77 @@
 'use client'
-// Title wall (shows the exhibition name on the west accent wall)
-// In the public gallery (visitor mode) it's swapped for the exhibition title and artist name
-import { useEffect, useMemo } from 'react'
+// Title wall — the artist's board on the west accent wall.
+// Visitors see the exhibition title + artist + statement; a signed-in owner sees
+// THEIR board (title / name / concept, edited from the dashboard) with their avatar;
+// guests on /demo keep the HAKONIWA demo copy.
+import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { useGallery } from '@/lib/store'
-import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll } from './textures'
+import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll, type TitleWallText } from './textures'
+import { loadImage } from '@/lib/upload'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
 
+// Split a free-form statement into the two note lines (second may be empty)
+function statementNotes(statement: string, fallback1: string, fallback2: string) {
+  const s = statement.trim()
+  if (!s) return { note1: fallback1, note2: fallback2 }
+  return { note1: s, note2: '' } // makeTitleTexture wraps note1 over both lines
+}
+
 export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: LayoutDef }) {
   const visitor = useGallery((s) => s.visitor)
+  const user = useGallery((s) => s.user)
+  const myGallery = useGallery((s) => s.myGallery)
+  const profileDisplayName = useGallery((s) => s.profileDisplayName)
+  const profileAvatarUrl = useGallery((s) => s.profileAvatarUrl)
+
+  // Whose board is this?
+  const { text, avatarUrl } = useMemo((): { text: TitleWallText; avatarUrl: string | null } => {
+    if (visitor) {
+      return {
+        text: {
+          main: visitor.title,
+          sub: `— ${visitor.ownerName} —`,
+          ...statementNotes(visitor.statement, `@${visitor.username}`, ''),
+        },
+        avatarUrl: visitor.ownerAvatar,
+      }
+    }
+    if (user && myGallery) {
+      return {
+        text: {
+          main: myGallery.title,
+          sub: `— ${profileDisplayName || user.displayName} —`,
+          ...statementNotes(
+            myGallery.statement,
+            'Tell visitors what this exhibition is about —',
+            'add your intro from the dashboard (Edit details).'
+          ),
+        },
+        avatarUrl: profileAvatarUrl,
+      }
+    }
+    return { text: DEFAULT_TITLE_TEXT, avatarUrl: null }
+  }, [visitor, user, myGallery, profileDisplayName, profileAvatarUrl])
+
+  // Avatar loads async; the texture bakes once it's ready (or immediately without one)
+  const [avatarImg, setAvatarImg] = useState<HTMLImageElement | null>(null)
+  useEffect(() => {
+    let alive = true
+    setAvatarImg(null)
+    if (!avatarUrl) return
+    loadImage(avatarUrl, true)
+      .then((img) => alive && setAvatarImg(img))
+      .catch(() => {}) // CORS or 404 — board simply renders without the icon
+    return () => {
+      alive = false
+    }
+  }, [avatarUrl])
+
   const tex = useMemo(
-    () =>
-      makeTitleTexture(
-        theme.titleInk === 'dark',
-        visitor
-          ? {
-              main: visitor.title,
-              sub: `— ${visitor.ownerName} —`,
-              note1: visitor.statement || `@${visitor.username}`,
-              note2: visitor.statement ? `@${visitor.username}` : '',
-            }
-          : DEFAULT_TITLE_TEXT
-      ),
-    [theme.titleInk, visitor]
+    () => makeTitleTexture(theme.titleInk === 'dark', text, avatarImg),
+    [theme.titleInk, text, avatarImg]
   )
   useEffect(() => () => disposeAll([tex]), [tex])
 
