@@ -13,8 +13,9 @@ import { loadImage } from '@/lib/upload'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
 
-// The artist's board: [title] avatar name — statement — bio. With no real title
-// (empty or the old "My Gallery" default), the ARTIST leads instead of a canned name.
+// The artist's board, grouped into two blocks: the EXHIBITION (title +
+// statement) and the ARTIST (avatar + name + handle + bio). With no real title
+// (empty or the old "My Gallery" default), the artist's name leads the title.
 function boardText(opts: {
   title: string
   name: string
@@ -24,11 +25,13 @@ function boardText(opts: {
 }): TitleWallText {
   const placeholder = isPlaceholderTitle(opts.title)
   return {
-    main: placeholder ? opts.name : opts.title,
-    sub: placeholder ? (opts.username ? `@${opts.username}` : '') : `— ${opts.name} —`,
-    note1: opts.statement.trim(),
-    note2: '',
-    bio: opts.bio.trim(),
+    title: placeholder ? opts.name : opts.title,
+    statement: opts.statement.trim(),
+    artist: {
+      name: opts.name,
+      handle: opts.username ?? undefined,
+      bio: opts.bio.trim(),
+    },
   }
 }
 
@@ -63,9 +66,9 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
         statement: myGallery.statement,
         bio: profileBio ?? '',
       })
-      // Nothing personal written yet — nudge once, in the notes slot
-      if (!text.note1 && !text.bio) {
-        text.note1 = 'Tell visitors about this exhibition — add your intro and bio from the dashboard.'
+      // Nothing personal written yet — nudge once, in the statement slot
+      if (!text.statement && !text.artist?.bio) {
+        text.statement = 'Tell visitors about this exhibition — add your intro and bio from the dashboard.'
       }
       return { text, avatarUrl: profileAvatarUrl }
     }

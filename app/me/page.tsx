@@ -1,7 +1,7 @@
 'use client'
 // Dashboard: manage your hakoniwa (create / rename / publish / delete), profile, and links.
 // Designed for multiple galleries; the release plan caps creation at PLAN.galleries.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
@@ -298,9 +298,10 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
-  const [mode, setMode] = useState<'view' | 'details'>('view')
   const [nameInput, setNameInput] = useState(row.title)
   const [statementInput, setStatementInput] = useState(row.statement)
+  const [detailsState, setDetailsState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const detailsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copied, setCopied] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -330,6 +331,33 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     setWorkSaved(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
+
+  // Title + statement are ALWAYS editable — typing autosaves after a short pause
+  // (no "Edit details" mode). Debounce lives in a ref so re-renders don't reset it.
+  function editDetails(next: { title?: string; statement?: string }) {
+    if (next.title !== undefined) setNameInput(next.title)
+    if (next.statement !== undefined) setStatementInput(next.statement)
+    setDetailsState('saving')
+    if (detailsTimer.current) clearTimeout(detailsTimer.current)
+    const title = next.title ?? nameInput
+    const statement = next.statement ?? statementInput
+    detailsTimer.current = setTimeout(() => {
+      updateGalleryDetails(row.id, { title, statement })
+        .then(async () => {
+          await refreshMyGallery()
+          onChanged()
+          setDetailsState('saved')
+          setTimeout(() => setDetailsState('idle'), 1600)
+        })
+        .catch((e) => {
+          alert(`Could not save the details: ${e instanceof Error ? e.message : e}`)
+          setDetailsState('idle')
+        })
+    }, 900)
+  }
+  useEffect(() => () => {
+    if (detailsTimer.current) clearTimeout(detailsTimer.current)
+  }, [])
 
   // Visitor engagement counts (needs migration 0008; hide quietly if unapplied)
   useEffect(() => {
@@ -481,11 +509,29 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           background: `linear-gradient(90deg, ${hex(themeDef.wall)}, ${hex(themeDef.accentWall)} 45%, ${hex(themeDef.spotColor)})`,
         }}
       />
+      {/* Title + statement are edited right here — no separate edit mode */}
       <div className="hako-head">
-        <span className="hako-title" style={isPlaceholderTitle(row.title) ? { color: 'var(--muted)' } : undefined}>
-          {isPlaceholderTitle(row.title) ? 'Untitled exhibition' : row.title}
-        </span>
+        <input
+          className="hako-title-input"
+          type="text"
+          value={nameInput}
+          placeholder="Untitled exhibition — name it"
+          aria-label="Exhibition title"
+          onChange={(e) => editDetails({ title: e.target.value })}
+        />
+        {detailsState !== 'idle' && (
+          <span className="hako-save-state">{detailsState === 'saving' ? 'saving…' : 'saved'}</span>
+        )}
       </div>
+      <textarea
+        className="hako-statement-input"
+        rows={2}
+        maxLength={200}
+        placeholder="Concept / intro — shown on the board at the back of your room"
+        aria-label="Exhibition statement"
+        value={statementInput}
+        onChange={(e) => editDetails({ statement: e.target.value })}
+      />
       {/* The URL and its state live together: flip the switch to open / close the room */}
       {username ? (
         <div className="hako-url-row">
@@ -521,39 +567,6 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         <div className="stat"><b>{stats ? stats.guestbook : '–'}</b><span>Guest notes</span></div>
       </div>
 
-      {mode === 'details' && (
-        <>
-          <label className="me-field">
-            <span>Exhibition title</span>
-            <input type="text" value={nameInput} onChange={(e) => setNameInput(e.target.value)} />
-          </label>
-          <label className="me-field">
-            <span>Concept / intro — shown on the board at the back of your room</span>
-            <textarea
-              rows={3}
-              maxLength={200}
-              placeholder="What is this exhibition about? Who are you?"
-              value={statementInput}
-              onChange={(e) => setStatementInput(e.target.value)}
-            />
-          </label>
-          <div className="hako-actions">
-            <button
-              className="btn-line"
-              disabled={busy}
-              onClick={() =>
-                void run('Save details', async () => {
-                  await updateGalleryDetails(row.id, { title: nameInput, statement: statementInput })
-                  setMode('view')
-                })
-              }
-            >
-              Save
-            </button>
-            <button className="btn-line" onClick={() => setMode('view')}>Cancel</button>
-          </div>
-        </>
-      )}
       {!username && (
         <div className="field-row">
           <input
@@ -568,49 +581,36 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </div>
       )}
 
-      {mode === 'view' && (
-        <>
-          {/* Primary actions: walk the room, share it (open/close lives on the URL row) */}
-          <div className="hako-actions">
-            <Link className="btn-line btn-gold" href="/demo">Preview in 3D</Link>
-            {row.is_public && publicUrl && (
-              <button
-                className="btn-line"
-                onClick={() => {
-                  void navigator.clipboard.writeText(publicUrl).then(() => {
-                    setCopied(true)
-                    setTimeout(() => setCopied(false), 1600)
-                  })
-                }}
-              >
-                {copied ? 'Copied' : 'Copy URL'}
-              </button>
-            )}
-          </div>
-          {/* Quiet row for rare / destructive housekeeping — not peers of the actions above */}
-          <div className="hako-secondary">
-            <button
-              onClick={() => {
-                setNameInput(row.title)
-                setStatementInput(row.statement)
-                setMode('details')
-              }}
-            >
-              Edit details
-            </button>
-            <button
-              className="danger"
-              disabled={busy}
-              onClick={() => {
-                if (!confirm(`Delete “${isPlaceholderTitle(row.title) ? 'your hakoniwa' : row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
-                void run('Delete', () => deleteGallery(row.id))
-              }}
-            >
-              Delete
-            </button>
-          </div>
-        </>
-      )}
+      {/* Primary actions: walk the room, share it (open/close lives on the URL row) */}
+      <div className="hako-actions">
+        <Link className="btn-line btn-gold" href="/demo">Preview in 3D</Link>
+        {row.is_public && publicUrl && (
+          <button
+            className="btn-line"
+            onClick={() => {
+              void navigator.clipboard.writeText(publicUrl).then(() => {
+                setCopied(true)
+                setTimeout(() => setCopied(false), 1600)
+              })
+            }}
+          >
+            {copied ? 'Copied' : 'Copy URL'}
+          </button>
+        )}
+      </div>
+      {/* Quiet row for rare / destructive housekeeping — not peers of the actions above */}
+      <div className="hako-secondary">
+        <button
+          className="danger"
+          disabled={busy}
+          onClick={() => {
+            if (!confirm(`Delete “${isPlaceholderTitle(row.title) ? 'your hakoniwa' : row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
+            void run('Delete', () => deleteGallery(row.id))
+          }}
+        >
+          Delete
+        </button>
+      </div>
 
       {/* ---- The workbench: works on the left, live preview + every control on the right ---- */}
       <div className="works-editor" style={{ marginTop: '1.4rem' }}>

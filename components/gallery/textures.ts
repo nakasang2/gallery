@@ -180,19 +180,19 @@ function wrapLeft(ctx: CanvasRenderingContext2D, s: string, maxW: number, maxLin
 /* ---- Title wall ---- */
 
 export interface TitleWallText {
-  main: string
-  sub: string
-  note1: string
-  note2: string
-  /** Artist biography, set apart at the foot of the board */
-  bio?: string
+  /** Exhibition block: eyebrow + title + statement */
+  title: string
+  /** Strapline under the title (the guest demo board uses this) */
+  subtitle?: string
+  statement?: string
+  /** Artist block: avatar + name + handle + bio, grouped together */
+  artist?: { name: string; handle?: string; bio?: string }
 }
 
 export const DEFAULT_TITLE_TEXT: TitleWallText = {
-  main: 'HAKONIWA',
-  sub: '— A Permanent Collection of Ten Artists —',
-  note1: 'From a feed that scrolls past, to a room you walk through.',
-  note2: 'This space is waiting to become yours.',
+  title: 'HAKONIWA',
+  subtitle: '— A Permanent Collection of Ten Artists —',
+  statement: 'From a feed that scrolls past, to a room you walk through. This space is waiting to become yours.',
 }
 
 // Wrap a long note into at most `maxLines` centred lines (statement text is free-form)
@@ -213,6 +213,18 @@ function wrapNote(ctx: CanvasRenderingContext2D, s: string, maxW: number, maxLin
   return lines
 }
 
+type BoardRow = { h: number; draw: (top: number) => void }
+
+// Draw a list of measured rows as one vertically-centred block
+function drawRows(rows: BoardRow[], areaTop: number, areaH: number) {
+  const total = rows.reduce((s, r) => s + r.h, 0)
+  let y = areaTop + Math.max(20, (areaH - total) / 2)
+  for (const row of rows) {
+    row.draw(y)
+    y += row.h
+  }
+}
+
 export function makeTitleTexture(
   dark: boolean,
   text: TitleWallText = DEFAULT_TITLE_TEXT,
@@ -222,110 +234,139 @@ export function makeTitleTexture(
   c.width = 2048
   c.height = 1024
   const ctx = c.getContext('2d')!
-  ctx.textAlign = 'center'
-  const CX = 1024
   const ink = dark ? '#22201c' : '#ece7de'
   const muted = dark ? '#6b665e' : '#9a938a'
   const gold = '#d4a24e'
 
-  // Measure the wrapped blocks first, then centre the whole composition
-  // vertically — the board stays balanced whatever combination is present
-  const NOTE_FONT = '300 44px "Geist", sans-serif'
-  const BIO_FONT = '300 37px "Geist", sans-serif'
-  ctx.font = NOTE_FONT
-  const noteLines = text.note1 ? wrapNote(ctx, text.note1, 1660, text.note2 ? 1 : 2) : []
-  if (text.note2) noteLines.push(text.note2)
-  ctx.font = BIO_FONT
-  const bioLines = text.bio ? wrapNote(ctx, text.bio, 1560, 2) : []
+  const hasArtist = !!text.artist || !!avatar
+  // With an artist, the board splits into two GROUPED blocks: the exhibition
+  // (eyebrow / title / statement) on the left, the artist (avatar / name /
+  // handle / bio) on the right, separated by a hairline. The guest demo board
+  // keeps the single centred column.
+  const exCX = hasArtist ? 740 : 1024
+  const exMaxW = hasArtist ? 1160 : 1660
 
-  type Row = { h: number; draw: (top: number) => void }
-  const rows: Row[] = []
-  const R = 84
-  if (avatar) {
-    rows.push({
-      h: R * 2 + 48,
-      draw: (top) => {
-        const cy = top + R
-        ctx.save()
-        ctx.beginPath()
-        ctx.arc(CX, cy, R, 0, Math.PI * 2)
-        ctx.clip()
-        ctx.drawImage(avatar, CX - R, cy - R, R * 2, R * 2)
-        ctx.restore()
-        ctx.beginPath()
-        ctx.arc(CX, cy, R + 4, 0, Math.PI * 2)
-        ctx.strokeStyle = gold
-        ctx.lineWidth = 4
-        ctx.stroke()
-      },
-    })
-  }
-  rows.push({
-    h: 82,
+  const exRows: BoardRow[] = []
+  ctx.textAlign = 'center'
+  exRows.push({
+    h: 84,
     draw: (top) => {
       ctx.fillStyle = gold
       ctx.font = '500 38px "Geist", sans-serif'
-      ctx.fillText('E X H I B I T I O N', CX, top + 40)
+      ctx.fillText('E X H I B I T I O N', exCX, top + 40)
     },
   })
-  rows.push({
-    h: 188,
+  exRows.push({
+    h: 186,
     draw: (top) => {
       ctx.fillStyle = ink
-      // Shrink the title to fit the width when it's too long
-      ctx.font = '400 180px "Instrument Serif", serif'
-      const w = ctx.measureText(text.main).width
-      if (w > 1800) ctx.font = `400 ${Math.max(80, Math.floor(180 * (1800 / w)))}px "Instrument Serif", serif`
-      ctx.fillText(text.main, CX, top + 152)
+      // Shrink the title to fit the column when it's too long
+      ctx.font = '400 170px "Instrument Serif", serif'
+      const w = ctx.measureText(text.title).width
+      if (w > exMaxW) ctx.font = `400 ${Math.max(76, Math.floor(170 * (exMaxW / w)))}px "Instrument Serif", serif`
+      ctx.fillText(text.title, exCX, top + 148)
     },
   })
-  if (text.sub) {
-    rows.push({
-      h: 104,
+  if (text.subtitle) {
+    exRows.push({
+      h: 100,
       draw: (top) => {
         ctx.fillStyle = ink
-        ctx.font = '400 70px "Instrument Serif", serif'
-        ctx.fillText(text.sub, CX, top + 70)
+        ctx.font = '400 68px "Instrument Serif", serif'
+        ctx.fillText(text.subtitle!, exCX, top + 66)
       },
     })
   }
-  if (noteLines.length || bioLines.length) {
-    // A short gold rule sets the reading text apart from the heading block
-    rows.push({
-      h: 52,
+  const STMT_FONT = '300 42px "Geist", sans-serif'
+  ctx.font = STMT_FONT
+  const stmtLines = text.statement ? wrapNote(ctx, text.statement, exMaxW, 4) : []
+  if (stmtLines.length) {
+    exRows.push({
+      h: 50,
       draw: (top) => {
         ctx.fillStyle = gold
-        ctx.fillRect(CX - 56, top + 26, 112, 3)
+        ctx.fillRect(exCX - 56, top + 24, 112, 3)
       },
     })
+    for (const line of stmtLines) {
+      exRows.push({
+        h: 64,
+        draw: (top) => {
+          ctx.fillStyle = muted
+          ctx.font = STMT_FONT
+          ctx.fillText(line, exCX, top + 46)
+        },
+      })
+    }
   }
-  for (const line of noteLines) {
-    rows.push({
-      h: 68,
-      draw: (top) => {
-        ctx.fillStyle = muted
-        ctx.font = NOTE_FONT
-        ctx.fillText(line, CX, top + 48)
-      },
-    })
-  }
-  if (bioLines.length && noteLines.length) rows.push({ h: 26, draw: () => {} }) // breathing room
-  for (const line of bioLines) {
-    rows.push({
-      h: 56,
-      draw: (top) => {
-        ctx.fillStyle = muted
-        ctx.font = BIO_FONT
-        ctx.fillText(line, CX, top + 40)
-      },
-    })
-  }
+  drawRows(exRows, 0, 1024)
 
-  const total = rows.reduce((s, r) => s + r.h, 0)
-  let y = Math.max(28, (1024 - total) / 2)
-  for (const row of rows) {
-    row.draw(y)
-    y += row.h
+  if (hasArtist) {
+    // Hairline between the two blocks
+    ctx.fillStyle = dark ? 'rgba(34,32,28,0.28)' : 'rgba(236,231,222,0.22)'
+    ctx.fillRect(1398, 212, 2, 600)
+
+    const aCX = 1712
+    const artist = text.artist
+    const BIO_FONT = '300 34px "Geist", sans-serif'
+    ctx.font = BIO_FONT
+    const bioLines = artist?.bio ? wrapNote(ctx, artist.bio, 560, 4) : []
+    const aRows: BoardRow[] = []
+    const R = 92
+    if (avatar) {
+      aRows.push({
+        h: R * 2 + 44,
+        draw: (top) => {
+          const cy = top + R
+          ctx.save()
+          ctx.beginPath()
+          ctx.arc(aCX, cy, R, 0, Math.PI * 2)
+          ctx.clip()
+          ctx.drawImage(avatar, aCX - R, cy - R, R * 2, R * 2)
+          ctx.restore()
+          ctx.beginPath()
+          ctx.arc(aCX, cy, R + 4, 0, Math.PI * 2)
+          ctx.strokeStyle = gold
+          ctx.lineWidth = 4
+          ctx.stroke()
+        },
+      })
+    }
+    // Skip the name line when the exhibition title already IS the artist's name
+    if (artist?.name && artist.name !== text.title) {
+      aRows.push({
+        h: 84,
+        draw: (top) => {
+          ctx.fillStyle = ink
+          ctx.font = '400 62px "Instrument Serif", serif'
+          ctx.fillText(artist.name, aCX, top + 58)
+        },
+      })
+    }
+    if (artist?.handle) {
+      aRows.push({
+        h: 62,
+        draw: (top) => {
+          ctx.fillStyle = gold
+          ctx.font = '400 34px "Geist", sans-serif'
+          ctx.fillText(`@${artist.handle}`, aCX, top + 36)
+        },
+      })
+    }
+    if (bioLines.length) {
+      aRows.push({ h: 18, draw: () => {} })
+      for (const line of bioLines) {
+        aRows.push({
+          h: 52,
+          draw: (top) => {
+            ctx.fillStyle = muted
+            ctx.font = BIO_FONT
+            ctx.fillText(line, aCX, top + 38)
+          },
+        })
+      }
+    }
+    drawRows(aRows, 0, 1024)
   }
 
   const tex = new THREE.CanvasTexture(c)
