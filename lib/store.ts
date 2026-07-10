@@ -6,7 +6,7 @@ import type { ArtworkData } from './artworks'
 import {
   THEMES,
   LAYOUTS,
-  FRAMES,
+  isFrameKey,
   MATS,
   HANGINGS,
   CAPTIONS,
@@ -31,7 +31,7 @@ function rowSpace(row: GalleryRow): Partial<Settings> {
     ...(THEMES[row.theme] ? { theme: row.theme } : {}),
     ...(LAYOUTS[row.layout] || row.layout === 'custom' ? { layout: row.layout } : {}),
     ...(row.layout === 'custom' ? { layoutParams: normalizeLayoutParams(row.layout_params) } : {}),
-    ...(FRAMES[row.frame_default] ? { frame: row.frame_default } : {}),
+    ...(isFrameKey(row.frame_default) ? { frame: row.frame_default } : {}),
     ...(MATS[row.mat_default] ? { mat: row.mat_default } : {}),
     ...(HANGINGS[row.hanging_default] ? { hanging: row.hanging_default } : {}),
     ...(CAPTIONS[row.caption_default] ? { caption: row.caption_default } : {}),
@@ -121,7 +121,7 @@ export function loadSettings(): Settings {
     if (!THEMES[s.theme]) s.theme = DEFAULT_SETTINGS.theme
     if (!LAYOUTS[s.layout] && s.layout !== 'custom') s.layout = DEFAULT_SETTINGS.layout
     s.layoutParams = normalizeLayoutParams(s.layoutParams)
-    if (!FRAMES[s.frame]) s.frame = DEFAULT_SETTINGS.frame
+    if (!isFrameKey(s.frame)) s.frame = DEFAULT_SETTINGS.frame
     if (!MATS[s.mat]) s.mat = DEFAULT_SETTINGS.mat
     if (!HANGINGS[s.hanging]) s.hanging = DEFAULT_SETTINGS.hanging
     if (!CAPTIONS[s.caption]) s.caption = DEFAULT_SETTINGS.caption

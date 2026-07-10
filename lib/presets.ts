@@ -239,6 +239,95 @@ export const FRAMES: Record<string, FrameDef> = {
   none: { label: 'None', mat: null },
 }
 
+/* ================= Parametric frames (material × colour × thickness) =================
+   The presets above are curated bundles; the structured design panel decomposes a
+   frame into material / colour / bar width. A custom combination serialises to the
+   key "c:<material>:<hex6>:<barMm>", which travels through the exact same string
+   columns (frame_default / frame_override / localStorage) as a preset key — no
+   schema change. frameDefFor() is THE resolution point for both shapes. */
+
+export type FrameMaterial = 'wood' | 'metal' | 'paint'
+
+export const FRAME_MATERIALS: Record<FrameMaterial, { label: string; roughness: number; metalness: number }> = {
+  wood: { label: 'Wood', roughness: 0.52, metalness: 0.08 },
+  metal: { label: 'Metal', roughness: 0.34, metalness: 1.0 },
+  paint: { label: 'Paint', roughness: 0.62, metalness: 0.05 },
+}
+
+export const FRAME_COLORS: { key: string; label: string; hex: number }[] = [
+  { key: 'ink', label: 'Ink', hex: 0x141210 },
+  { key: 'white', label: 'White', hex: 0xf4f1ea },
+  { key: 'gold', label: 'Gold', hex: 0xa8853c },
+  { key: 'silver', label: 'Silver', hex: 0xb9babd },
+  { key: 'oak', label: 'Oak', hex: 0x7a5c3e },
+  { key: 'walnut', label: 'Walnut', hex: 0x46311f },
+  { key: 'navy', label: 'Navy', hex: 0x2e3f54 },
+  { key: 'wine', label: 'Wine', hex: 0x6e2f36 },
+]
+
+export interface FrameSpec {
+  framed: boolean
+  material: FrameMaterial
+  color: number
+  /** Bar (frame border) width in millimetres */
+  barMm: number
+}
+
+const CUSTOM_FRAME_RE = /^c:(wood|metal|paint):([0-9a-f]{6}):(\d{2,3})$/
+export const FRAME_BAR_MM = { min: 30, max: 150 }
+
+const clampBarMm = (mm: number) => Math.min(FRAME_BAR_MM.max, Math.max(FRAME_BAR_MM.min, Math.round(mm)))
+
+export function isFrameKey(key?: string | null): boolean {
+  return !!key && (!!FRAMES[key] || CUSTOM_FRAME_RE.test(key))
+}
+
+/** Resolve a preset OR custom frame key to a renderable FrameDef */
+export function frameDefFor(key?: string | null): FrameDef {
+  if (key && FRAMES[key]) return FRAMES[key]
+  const m = key?.match(CUSTOM_FRAME_RE)
+  if (m) {
+    const material = m[1] as FrameMaterial
+    const props = FRAME_MATERIALS[material]
+    const color = parseInt(m[2], 16)
+    return {
+      label: `${FRAME_COLORS.find((c) => c.hex === color)?.label ?? 'Custom'} ${props.label.toLowerCase()}`,
+      mat: 0xf1ede4,
+      bar: clampBarMm(parseInt(m[3], 10)) / 1000,
+      gap: 0.07,
+      color,
+      roughness: props.roughness,
+      metalness: props.metalness,
+      finish: material,
+    }
+  }
+  return FRAMES.black
+}
+
+/** Read a frame key back as its structured spec (for the design panel controls) */
+export function frameSpecFor(key?: string | null): FrameSpec {
+  const def = frameDefFor(key)
+  if (def.mat === null) return { framed: false, material: 'wood', color: 0x141210, barMm: 70 }
+  return {
+    framed: true,
+    material: def.finish ?? 'wood',
+    color: def.color ?? 0x141210,
+    barMm: clampBarMm((def.bar ?? 0.07) * 1000),
+  }
+}
+
+/** Serialise a spec to a key — collapsing back to a preset key when it matches one,
+ *  so "same as the gallery default" keeps clearing per-work overrides */
+export function makeFrameKey(spec: Omit<FrameSpec, 'framed'>): string {
+  const barMm = clampBarMm(spec.barMm)
+  for (const [k, f] of Object.entries(FRAMES)) {
+    if (f.mat !== null && f.finish === spec.material && f.color === spec.color && Math.round(f.bar! * 1000) === barMm) {
+      return k
+    }
+  }
+  return `c:${spec.material}:${spec.color.toString(16).padStart(6, '0')}:${barMm}`
+}
+
 /* ================= Mats (the paper border inside the frame) ================= */
 
 export interface MatDef {

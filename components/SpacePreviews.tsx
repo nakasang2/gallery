@@ -7,6 +7,7 @@ import {
   LAYOUTS,
   TEMPLATES,
   FRAMES,
+  frameDefFor,
   HANGINGS,
   CAPTIONS,
   applyMat,
@@ -45,7 +46,7 @@ export function FramedArt({
   ratio?: [number, number]
   className?: string
 }) {
-  const f = applyMat(FRAMES[frameKey] ?? FRAMES.black, matKey)
+  const f = applyMat(frameDefFor(frameKey), matKey)
   // Real artworks keep their aspect: fixed 3.6em width, height clamped for sanity
   const h = ratio ? Math.min(5.4, Math.max(2, (3.6 * ratio[1]) / ratio[0])) : 2.7
   const imgStyle: React.CSSProperties = src
@@ -134,7 +135,7 @@ export function WallPreview({
   const caption = CAPTIONS[captionKey]?.place ?? 'side'
   // Mirror FramedArt's sizing so the ledge and caption plate track the REAL art's
   // edges (a tall portrait must not swallow its own caption)
-  const f = applyMat(FRAMES[frameKey] ?? FRAMES.black, matKey)
+  const f = applyMat(frameDefFor(frameKey), matKey)
   const artH = artRatio ? Math.min(5.4, Math.max(2, (3.6 * artRatio[1]) / artRatio[0])) : 2.7
   const pad = f.mat === null ? 0.06 : ((f.bar! + f.gap!) / 1.3) * 3.6
   const halfW = 1.8 + pad

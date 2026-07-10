@@ -7,7 +7,7 @@ import { useEffect } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { THEMES, FRAMES, HANGINGS, CAPTIONS, CEIL_H, applyMat, type SlotDef } from '@/lib/presets'
+import { THEMES, frameDefFor, HANGINGS, CAPTIONS, CEIL_H, applyMat, type SlotDef } from '@/lib/presets'
 import { artSize } from '@/lib/exhibition'
 import Exhibit from '@/components/gallery/Exhibit'
 import type { ArtworkData } from '@/lib/artworks'
@@ -109,7 +109,7 @@ export default function Preview3D({
         index={0}
         slot={SLOT}
         theme={theme}
-        frameDef={applyMat(FRAMES[frameKey] ?? FRAMES.black, matKey)}
+        frameDef={applyMat(frameDefFor(frameKey), matKey)}
         hangingDef={HANGINGS[hangingKey] ?? HANGINGS.wire}
         captionDef={CAPTIONS[captionKey] ?? CAPTIONS.side}
       />

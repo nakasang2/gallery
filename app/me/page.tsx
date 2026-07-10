@@ -7,17 +7,10 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS, FRAMES, MATS, HANGINGS, CAPTIONS } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS, frameDefFor } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
-import {
-  ThemeSwatch,
-  LayoutPlan,
-  TemplateCard,
-  WallPreview,
-  FramedArt,
-  HangingIcon,
-  CaptionIcon,
-} from '@/components/SpacePreviews'
+import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
+import WorkDesign from '@/components/WorkDesign'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -445,7 +438,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           />
           <p className="me-note">
             How a work hangs right now — {THEMES[row.theme]?.label ?? row.theme} theme,{' '}
-            {FRAMES[row.frame_default]?.label ?? row.frame_default} frame. Picking a theme applies its
+            {frameDefFor(row.frame_default).label} frame. Picking a theme applies its
             recommended framing.
           </p>
           <p className="me-note" style={{ marginTop: 0 }}>Theme</p>
@@ -741,73 +734,29 @@ function WorksCard() {
           )}
           {selected && myGallery && (
             <>
-              <p className="me-note" style={{ marginBottom: '0.4rem' }}>
+              <p className="me-note" style={{ marginBottom: 0 }}>
                 “{selected.title}” — design for <b style={{ color: 'var(--ink)' }}>this work</b>
                 {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
               </p>
-              <div className="chips we-chips">
-                {Object.entries(FRAMES).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${frame === key ? ' active' : ''}`}
-                    title={`${def.label} frame`}
-                    onClick={() =>
-                      updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, key, baseFrame) })
-                    }
-                  >
-                    <FramedArt frameKey={key} className="chip-frame" />
-                    {def.label}
-                  </button>
-                ))}
-              </div>
-              <div className="chips we-chips">
-                {Object.entries(MATS).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${mat === key ? ' active' : ''}`}
-                    title={`${def.label} mat`}
-                    onClick={() =>
-                      updateSettings({ matOverrides: setOverride(matOverrides, selected.id, key, baseMat) })
-                    }
-                  >
-                    <FramedArt frameKey={frame} matKey={key} className="chip-frame" />
-                    {def.label}
-                  </button>
-                ))}
-              </div>
-              <div className="chips we-chips">
-                {Object.entries(HANGINGS).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${hanging === key ? ' active' : ''}`}
-                    title={`${def.label} hanging`}
-                    onClick={() =>
-                      updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, key, baseHanging) })
-                    }
-                  >
-                    <HangingIcon hangingKey={key} />
-                    {def.label}
-                  </button>
-                ))}
-              </div>
-              <div className="chips we-chips">
-                {Object.entries(CAPTIONS).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${caption === key ? ' active' : ''}`}
-                    title={`${def.label} caption`}
-                    onClick={() =>
-                      updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, key, baseCaption) })
-                    }
-                  >
-                    <CaptionIcon captionKey={key} />
-                    {def.label}
-                  </button>
-                ))}
-              </div>
+              <WorkDesign
+                frameKey={frame}
+                matKey={mat}
+                hangingKey={hanging}
+                captionKey={caption}
+                onFrame={(k) =>
+                  updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, k, baseFrame) })
+                }
+                onMat={(k) => updateSettings({ matOverrides: setOverride(matOverrides, selected.id, k, baseMat) })}
+                onHanging={(k) =>
+                  updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, k, baseHanging) })
+                }
+                onCaption={(k) =>
+                  updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, baseCaption) })
+                }
+              />
               <p className="me-note" style={{ marginTop: '0.5rem' }}>
                 The theme picks these for the whole room; anything you change here applies to this
-                work only. Picking the room's value clears the override.
+                work only. Matching the room&apos;s setting clears the override.
               </p>
             </>
           )}
