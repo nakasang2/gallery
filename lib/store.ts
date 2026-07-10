@@ -54,7 +54,10 @@ export interface Settings {
   caption: string
   showDemo: boolean
   artworks: ArtworkData[]
+  /** Per-work design overrides, keyed by artwork id (absent = gallery default) */
   frameOverrides: Record<string, string>
+  hangingOverrides: Record<string, string>
+  captionOverrides: Record<string, string>
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -67,6 +70,8 @@ export const DEFAULT_SETTINGS: Settings = {
   showDemo: true,
   artworks: [],
   frameOverrides: {},
+  hangingOverrides: {},
+  captionOverrides: {},
 }
 
 const STORAGE_KEY = 'hakoniwa.settings.v1'
@@ -120,10 +125,16 @@ export function loadSettings(): Settings {
 
 function saveSettings(s: Settings): boolean {
   try {
-    const { theme, layout, layoutParams, frame, hanging, caption, showDemo, artworks, frameOverrides } = s
+    const {
+      theme, layout, layoutParams, frame, hanging, caption,
+      showDemo, artworks, frameOverrides, hangingOverrides, captionOverrides,
+    } = s
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ theme, layout, layoutParams, frame, hanging, caption, showDemo, artworks, frameOverrides })
+      JSON.stringify({
+        theme, layout, layoutParams, frame, hanging, caption,
+        showDemo, artworks, frameOverrides, hangingOverrides, captionOverrides,
+      })
     )
     return true
   } catch {
@@ -261,12 +272,20 @@ export const useGallery = create<GalleryStore>((set, get) => ({
       }
       // The gallery row is the source of truth for a signed-in user's space settings
       set({ myGallery: row, ...rowSpace(row) })
-      // Per-work framing may have been set on another device — the placements table
-      // is the shared record; merge it under any local (newer) overrides
+      // Per-work design (frame/hanging/caption) may have been set on another device —
+      // the placements table is the shared record; merge it under any local (newer) overrides
       try {
         const saved = await fetchPlacementOverrides(row.id)
-        if (Object.keys(saved).length) {
-          set({ frameOverrides: { ...saved, ...get().frameOverrides } })
+        if (
+          Object.keys(saved.frames).length ||
+          Object.keys(saved.hangings).length ||
+          Object.keys(saved.captions).length
+        ) {
+          set({
+            frameOverrides: { ...saved.frames, ...get().frameOverrides },
+            hangingOverrides: { ...saved.hangings, ...get().hangingOverrides },
+            captionOverrides: { ...saved.captions, ...get().captionOverrides },
+          })
           saveSettings(get())
         }
       } catch {
@@ -353,6 +372,8 @@ export function useSettings(): Settings {
             showDemo: false,
             artworks: EMPTY_ARTWORKS,
             frameOverrides: s.visitor.frameOverrides,
+            hangingOverrides: s.visitor.hangingOverrides,
+            captionOverrides: s.visitor.captionOverrides,
           }
         : {
             theme: s.theme,
@@ -364,6 +385,8 @@ export function useSettings(): Settings {
             showDemo: s.showDemo,
             artworks: s.artworks,
             frameOverrides: s.frameOverrides,
+            hangingOverrides: s.hangingOverrides,
+            captionOverrides: s.captionOverrides,
           }
     )
   )

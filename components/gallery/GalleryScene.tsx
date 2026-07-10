@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { THEMES, FRAMES, HANGINGS, CAPTIONS, resolveLayout } from '@/lib/presets'
-import { useExhibitionList, frameKeyFor } from '@/lib/exhibition'
+import { useExhibitionList, frameKeyFor, hangingKeyFor, captionKeyFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
 import { LOW_POWER } from '@/lib/controller'
 import Room from './Room'
@@ -39,8 +39,6 @@ export default function GalleryScene() {
   // Fall back in case the published data keys are outdated
   const theme = THEMES[settings.theme] ?? THEMES.chic
   const layout = resolveLayout(settings.layout, settings.layoutParams)
-  const hangingDef = HANGINGS[settings.hanging] ?? HANGINGS.wire
-  const captionDef = CAPTIONS[settings.caption] ?? CAPTIONS.side
   const list = useExhibitionList()
 
   // Environment map: faint room light reflects in the floor sheen and metal frame parts
@@ -78,7 +76,7 @@ export default function GalleryScene() {
       gl.shadowMap.needsUpdate = true
     })
     return () => cancelAnimationFrame(id)
-  }, [gl, scene, settings.theme, settings.layout, settings.layoutParams, settings.frame, settings.hanging, settings.caption, settings.frameOverrides, list])
+  }, [gl, scene, settings.theme, settings.layout, settings.layoutParams, settings.frame, settings.hanging, settings.caption, settings.frameOverrides, settings.hangingOverrides, settings.captionOverrides, list])
 
   return (
     <>
@@ -91,8 +89,8 @@ export default function GalleryScene() {
           slot={layout.slots[i]}
           theme={theme}
           frameDef={FRAMES[frameKeyFor(settings, art)]}
-          hangingDef={hangingDef}
-          captionDef={captionDef}
+          hangingDef={HANGINGS[hangingKeyFor(settings, art)] ?? HANGINGS.wire}
+          captionDef={CAPTIONS[captionKeyFor(settings, art)] ?? CAPTIONS.side}
         />
       ))}
       <TitleWall theme={theme} layout={layout} />

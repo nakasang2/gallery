@@ -6,8 +6,17 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
-import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
+import { TEMPLATES, THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS } from '@/lib/presets'
+import { setOverride } from '@/lib/exhibition'
+import {
+  ThemeSwatch,
+  LayoutPlan,
+  TemplateCard,
+  WallPreview,
+  FramedArt,
+  HangingIcon,
+  CaptionIcon,
+} from '@/components/SpacePreviews'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -20,6 +29,8 @@ import {
   rebuildPlacements,
   fetchPlacementOverrides,
   rowToSettings,
+  EMPTY_OVERRIDES,
+  type PlacementOverrides,
   type GalleryRow,
 } from '@/lib/galleries'
 import { getProfile, saveProfile, setUsername, USERNAME_RE } from '@/lib/publish'
@@ -230,6 +241,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
   const frameOverrides = useGallery((s) => s.frameOverrides)
+  const hangingOverrides = useGallery((s) => s.hangingOverrides)
+  const captionOverrides = useGallery((s) => s.captionOverrides)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [usernameInput, setUsernameInput] = useState('')
@@ -268,11 +281,15 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
-  // Per-work framing may have been set on another device — merge the placements'
+  // Per-work design may have been set on another device — merge the placements'
   // stored overrides under this browser's, or a rebuild here would wipe them
-  async function mergedOverrides(): Promise<Record<string, string>> {
-    const saved = await fetchPlacementOverrides(row.id).catch(() => ({}))
-    return { ...saved, ...frameOverrides }
+  async function mergedOverrides(): Promise<PlacementOverrides> {
+    const saved = await fetchPlacementOverrides(row.id).catch(() => EMPTY_OVERRIDES)
+    return {
+      frames: { ...saved.frames, ...frameOverrides },
+      hangings: { ...saved.hangings, ...hangingOverrides },
+      captions: { ...saved.captions, ...captionOverrides },
+    }
   }
 
   async function togglePublic() {
@@ -537,13 +554,23 @@ function WorksCard() {
   const myGallery = useGallery((s) => s.myGallery)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const frameOverrides = useGallery((s) => s.frameOverrides)
+  const hangingOverrides = useGallery((s) => s.hangingOverrides)
+  const captionOverrides = useGallery((s) => s.captionOverrides)
+  const updateSettings = useGallery((s) => s.updateSettings)
+  const syncState = useGallery((s) => s.syncState)
   const [uploading, setUploading] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
   // The wall the preview hangs on: the user's real room, or the defaults before one exists
   const theme = myGallery?.theme ?? 'chic'
-  const frame = (selected && frameOverrides[selected.id]) || myGallery?.frame_default || 'black'
+  const baseFrame = myGallery?.frame_default ?? 'black'
+  const baseHanging = myGallery?.hanging_default ?? 'wire'
+  const baseCaption = myGallery?.caption_default ?? 'side'
+  // Effective per-work design: the override when set, else the gallery default
+  const frame = (selected && frameOverrides[selected.id]) || baseFrame
+  const hanging = (selected && hangingOverrides[selected.id]) || baseHanging
+  const caption = (selected && captionOverrides[selected.id]) || baseCaption
   // Videos hang by their poster; a poster-less video previews as the placeholder
   const previewSrc = selected
     ? selected.kind === 'video'
@@ -664,30 +691,85 @@ function WorksCard() {
           </p>
         </div>
 
-        {/* Live preview: the selected upload inside the room's real frame, wall and caption */}
+        {/* Live preview: the selected upload inside the room's real frame, wall and caption —
+            and the per-work design controls right under what they change */}
         <div className="we-right">
           <WallPreview
             themeKey={theme}
             frameKey={frame}
-            hangingKey={myGallery?.hanging_default ?? 'wire'}
-            captionKey={myGallery?.caption_default ?? 'side'}
+            hangingKey={hanging}
+            captionKey={caption}
             artSrc={previewSrc}
             artRatio={selected?.ratio}
             className="wall-preview--lg"
           />
-          <p className="me-note">
-            {selected ? (
-              <>
-                “{selected.title}” on the {THEMES[theme]?.label ?? theme} wall ·{' '}
-                {FRAMES[frame]?.label ?? frame} frame
-                {selected && frameOverrides[selected.id] ? ' (per-work override)' : ''}. Change the
-                space under “My hakoniwa”, or reframe a single work in the{' '}
-                <Link href="/demo" style={{ color: 'var(--gold)' }}>editor</Link>.
-              </>
-            ) : (
-              <>Upload a work to see it hanging in your theme and frame before you publish.</>
-            )}
-          </p>
+          {!selected && (
+            <p className="me-note">
+              Upload a work to see it hanging in your theme and frame before you publish.
+            </p>
+          )}
+          {selected && !myGallery && (
+            <p className="me-note">
+              “{selected.title}” with the default framing — create your hakoniwa to style it.
+            </p>
+          )}
+          {selected && myGallery && (
+            <>
+              <p className="me-note" style={{ marginBottom: '0.4rem' }}>
+                “{selected.title}” — design for <b style={{ color: 'var(--ink)' }}>this work</b>
+                {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
+              </p>
+              <div className="chips we-chips">
+                {Object.entries(FRAMES).map(([key, def]) => (
+                  <button
+                    key={key}
+                    className={`chip chip-visual${frame === key ? ' active' : ''}`}
+                    title={`${def.label} frame`}
+                    onClick={() =>
+                      updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, key, baseFrame) })
+                    }
+                  >
+                    <FramedArt frameKey={key} className="chip-frame" />
+                    {def.label}
+                  </button>
+                ))}
+              </div>
+              <div className="chips we-chips">
+                {Object.entries(HANGINGS).map(([key, def]) => (
+                  <button
+                    key={key}
+                    className={`chip chip-visual${hanging === key ? ' active' : ''}`}
+                    title={`${def.label} hanging`}
+                    onClick={() =>
+                      updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, key, baseHanging) })
+                    }
+                  >
+                    <HangingIcon hangingKey={key} />
+                    {def.label}
+                  </button>
+                ))}
+              </div>
+              <div className="chips we-chips">
+                {Object.entries(CAPTIONS).map(([key, def]) => (
+                  <button
+                    key={key}
+                    className={`chip chip-visual${caption === key ? ' active' : ''}`}
+                    title={`${def.label} caption`}
+                    onClick={() =>
+                      updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, key, baseCaption) })
+                    }
+                  >
+                    <CaptionIcon captionKey={key} />
+                    {def.label}
+                  </button>
+                ))}
+              </div>
+              <p className="me-note" style={{ marginTop: '0.5rem' }}>
+                The theme picks these for the whole room; anything you change here applies to this
+                work only. Picking the room's value clears the override.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
