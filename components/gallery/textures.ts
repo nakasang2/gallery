@@ -144,10 +144,37 @@ export function makePlaqueTexture(art: ArtworkData, index: number): THREE.Canvas
   ctx.font = '400 30px "Geist", sans-serif'
   ctx.fillText(`${art.artist} / ${art.year}`, 42, 190)
   ctx.font = '300 24px "Geist", sans-serif'
-  ctx.fillText((art.tags || []).join(' · '), 42, 244)
+  // The caption line(s): the artist's own text when present, tags otherwise
+  const capText = (art.desc || '').trim() || (art.tags || []).join(' · ')
+  const capLines = wrapLeft(ctx, capText, 428, 2)
+  capLines.forEach((line, i) => ctx.fillText(line, 42, 240 + i * 32))
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
+}
+
+// Wrap free-form caption text into at most `maxLines` left-aligned lines,
+// ellipsising the remainder. Character-greedy so CJK (no spaces) wraps too —
+// the plate is a small label, not a reading panel.
+function wrapLeft(ctx: CanvasRenderingContext2D, s: string, maxW: number, maxLines: number): string[] {
+  const lines: string[] = []
+  let cur = ''
+  let truncated = false
+  for (const ch of s.replace(/\s+/g, ' ')) {
+    if (ctx.measureText(cur + ch).width > maxW) {
+      if (lines.length === maxLines - 1) {
+        truncated = true
+        break
+      }
+      lines.push(cur.trimEnd())
+      cur = ch === ' ' ? '' : ch
+    } else {
+      cur += ch
+    }
+  }
+  if (cur.trim() && !truncated) lines.push(cur.trimEnd())
+  if (truncated) lines.push(`${cur.trimEnd()}…`)
+  return lines
 }
 
 /* ---- Title wall ---- */

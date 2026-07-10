@@ -70,6 +70,7 @@ function SettleFrames({ artId }: { artId: string }) {
 
 export default function Preview3D({
   art,
+  index = 0,
   themeKey,
   frameKey,
   matKey,
@@ -77,6 +78,8 @@ export default function Preview3D({
   captionKey,
 }: {
   art: ArtworkData
+  /** Slot number shown on the name plate (NO. xx) */
+  index?: number
   themeKey: string
   frameKey: string
   matKey?: string
@@ -106,7 +109,7 @@ export default function Preview3D({
       </mesh>
       <Exhibit
         art={art}
-        index={0}
+        index={index}
         slot={SLOT}
         theme={theme}
         frameDef={applyMat(frameDefFor(frameKey), matKey)}

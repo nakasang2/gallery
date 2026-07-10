@@ -182,6 +182,19 @@ export async function uploadVideoArtwork(params: {
   }
 }
 
+/** Rename a work / edit its caption (the plate text). Shown on the name plate,
+ *  the artwork panel and the public page — placements join artworks live */
+export async function updateArtworkDetails(
+  artworkId: string,
+  fields: { title: string; description: string }
+): Promise<void> {
+  const { error } = await supabase!
+    .from('artworks')
+    .update({ title: fields.title.trim() || 'Untitled', description: fields.description.trim() })
+    .eq('id', artworkId)
+  if (error) throw error
+}
+
 /** Save the display order of works (takes an array of ids and assigns sort_order in that order) */
 export async function reorderArtworks(orderedIds: string[]): Promise<void> {
   const sb = supabase!
