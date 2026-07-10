@@ -144,10 +144,37 @@ export function makePlaqueTexture(art: ArtworkData, index: number): THREE.Canvas
   ctx.font = '400 30px "Geist", sans-serif'
   ctx.fillText(`${art.artist} / ${art.year}`, 42, 190)
   ctx.font = '300 24px "Geist", sans-serif'
-  ctx.fillText((art.tags || []).join(' · '), 42, 244)
+  // The caption line(s): the artist's own text when present, tags otherwise
+  const capText = (art.desc || '').trim() || (art.tags || []).join(' · ')
+  const capLines = wrapLeft(ctx, capText, 428, 2)
+  capLines.forEach((line, i) => ctx.fillText(line, 42, 240 + i * 32))
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
+}
+
+// Wrap free-form caption text into at most `maxLines` left-aligned lines,
+// ellipsising the remainder. Character-greedy so CJK (no spaces) wraps too —
+// the plate is a small label, not a reading panel.
+function wrapLeft(ctx: CanvasRenderingContext2D, s: string, maxW: number, maxLines: number): string[] {
+  const lines: string[] = []
+  let cur = ''
+  let truncated = false
+  for (const ch of s.replace(/\s+/g, ' ')) {
+    if (ctx.measureText(cur + ch).width > maxW) {
+      if (lines.length === maxLines - 1) {
+        truncated = true
+        break
+      }
+      lines.push(cur.trimEnd())
+      cur = ch === ' ' ? '' : ch
+    } else {
+      cur += ch
+    }
+  }
+  if (cur.trim() && !truncated) lines.push(cur.trimEnd())
+  if (truncated) lines.push(`${cur.trimEnd()}…`)
+  return lines
 }
 
 /* ---- Title wall ---- */
@@ -157,6 +184,8 @@ export interface TitleWallText {
   sub: string
   note1: string
   note2: string
+  /** Artist biography, set apart at the foot of the board */
+  bio?: string
 }
 
 export const DEFAULT_TITLE_TEXT: TitleWallText = {
@@ -194,42 +223,111 @@ export function makeTitleTexture(
   c.height = 1024
   const ctx = c.getContext('2d')!
   ctx.textAlign = 'center'
+  const CX = 1024
+  const ink = dark ? '#22201c' : '#ece7de'
+  const muted = dark ? '#6b665e' : '#9a938a'
+  const gold = '#d4a24e'
 
-  // Artist icon above the eyebrow (circle-clipped, thin gold ring)
+  // Measure the wrapped blocks first, then centre the whole composition
+  // vertically — the board stays balanced whatever combination is present
+  const NOTE_FONT = '300 44px "Geist", sans-serif'
+  const BIO_FONT = '300 37px "Geist", sans-serif'
+  ctx.font = NOTE_FONT
+  const noteLines = text.note1 ? wrapNote(ctx, text.note1, 1660, text.note2 ? 1 : 2) : []
+  if (text.note2) noteLines.push(text.note2)
+  ctx.font = BIO_FONT
+  const bioLines = text.bio ? wrapNote(ctx, text.bio, 1560, 2) : []
+
+  type Row = { h: number; draw: (top: number) => void }
+  const rows: Row[] = []
+  const R = 84
   if (avatar) {
-    const cx = 1024
-    const cy = 96
-    const r = 62
-    ctx.save()
-    ctx.beginPath()
-    ctx.arc(cx, cy, r, 0, Math.PI * 2)
-    ctx.clip()
-    ctx.drawImage(avatar, cx - r, cy - r, r * 2, r * 2)
-    ctx.restore()
-    ctx.beginPath()
-    ctx.arc(cx, cy, r + 3, 0, Math.PI * 2)
-    ctx.strokeStyle = '#d4a24e'
-    ctx.lineWidth = 4
-    ctx.stroke()
+    rows.push({
+      h: R * 2 + 48,
+      draw: (top) => {
+        const cy = top + R
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(CX, cy, R, 0, Math.PI * 2)
+        ctx.clip()
+        ctx.drawImage(avatar, CX - R, cy - R, R * 2, R * 2)
+        ctx.restore()
+        ctx.beginPath()
+        ctx.arc(CX, cy, R + 4, 0, Math.PI * 2)
+        ctx.strokeStyle = gold
+        ctx.lineWidth = 4
+        ctx.stroke()
+      },
+    })
+  }
+  rows.push({
+    h: 82,
+    draw: (top) => {
+      ctx.fillStyle = gold
+      ctx.font = '500 38px "Geist", sans-serif'
+      ctx.fillText('E X H I B I T I O N', CX, top + 40)
+    },
+  })
+  rows.push({
+    h: 188,
+    draw: (top) => {
+      ctx.fillStyle = ink
+      // Shrink the title to fit the width when it's too long
+      ctx.font = '400 180px "Instrument Serif", serif'
+      const w = ctx.measureText(text.main).width
+      if (w > 1800) ctx.font = `400 ${Math.max(80, Math.floor(180 * (1800 / w)))}px "Instrument Serif", serif`
+      ctx.fillText(text.main, CX, top + 152)
+    },
+  })
+  if (text.sub) {
+    rows.push({
+      h: 104,
+      draw: (top) => {
+        ctx.fillStyle = ink
+        ctx.font = '400 70px "Instrument Serif", serif'
+        ctx.fillText(text.sub, CX, top + 70)
+      },
+    })
+  }
+  if (noteLines.length || bioLines.length) {
+    // A short gold rule sets the reading text apart from the heading block
+    rows.push({
+      h: 52,
+      draw: (top) => {
+        ctx.fillStyle = gold
+        ctx.fillRect(CX - 56, top + 26, 112, 3)
+      },
+    })
+  }
+  for (const line of noteLines) {
+    rows.push({
+      h: 68,
+      draw: (top) => {
+        ctx.fillStyle = muted
+        ctx.font = NOTE_FONT
+        ctx.fillText(line, CX, top + 48)
+      },
+    })
+  }
+  if (bioLines.length && noteLines.length) rows.push({ h: 26, draw: () => {} }) // breathing room
+  for (const line of bioLines) {
+    rows.push({
+      h: 56,
+      draw: (top) => {
+        ctx.fillStyle = muted
+        ctx.font = BIO_FONT
+        ctx.fillText(line, CX, top + 40)
+      },
+    })
   }
 
-  ctx.fillStyle = '#d4a24e'
-  ctx.font = '500 40px "Geist", sans-serif'
-  ctx.fillText('E X H I B I T I O N', 1024, 230)
-  ctx.fillStyle = dark ? '#22201c' : '#ece7de'
-  // Shrink the title to fit the width when it's too long
-  ctx.font = '400 190px "Instrument Serif", serif'
-  const mainWidth = ctx.measureText(text.main).width
-  if (mainWidth > 1800) ctx.font = `400 ${Math.max(80, Math.floor(190 * (1800 / mainWidth)))}px "Instrument Serif", serif`
-  ctx.fillText(text.main, 1024, 460)
-  ctx.font = '400 74px "Instrument Serif", serif'
-  ctx.fillText(text.sub, 1024, 605)
-  ctx.fillStyle = dark ? '#6b665e' : '#9a938a'
-  ctx.font = '300 44px "Geist", sans-serif'
-  // note1 may be a free-form statement — wrap it; note2 renders on the remaining line
-  const noteLines = wrapNote(ctx, text.note1, 1700, text.note2 ? 1 : 2)
-  if (text.note2) noteLines.push(text.note2)
-  noteLines.forEach((line, i) => ctx.fillText(line, 1024, 750 + i * 80))
+  const total = rows.reduce((s, r) => s + r.h, 0)
+  let y = Math.max(28, (1024 - total) / 2)
+  for (const row of rows) {
+    row.draw(y)
+    y += row.h
+  }
+
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   tex.anisotropy = 8

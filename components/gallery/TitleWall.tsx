@@ -7,53 +7,70 @@ import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { useGallery } from '@/lib/store'
+import { isPlaceholderTitle } from '@/lib/publish'
 import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll, type TitleWallText } from './textures'
 import { loadImage } from '@/lib/upload'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
 
-// Split a free-form statement into the two note lines (second may be empty)
-function statementNotes(statement: string, fallback1: string, fallback2: string) {
-  const s = statement.trim()
-  if (!s) return { note1: fallback1, note2: fallback2 }
-  return { note1: s, note2: '' } // makeTitleTexture wraps note1 over both lines
+// The artist's board: [title] avatar name — statement — bio. With no real title
+// (empty or the old "My Gallery" default), the ARTIST leads instead of a canned name.
+function boardText(opts: {
+  title: string
+  name: string
+  username: string | null
+  statement: string
+  bio: string
+}): TitleWallText {
+  const placeholder = isPlaceholderTitle(opts.title)
+  return {
+    main: placeholder ? opts.name : opts.title,
+    sub: placeholder ? (opts.username ? `@${opts.username}` : '') : `— ${opts.name} —`,
+    note1: opts.statement.trim(),
+    note2: '',
+    bio: opts.bio.trim(),
+  }
 }
 
 export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: LayoutDef }) {
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
   const myGallery = useGallery((s) => s.myGallery)
+  const profileUsername = useGallery((s) => s.profileUsername)
   const profileDisplayName = useGallery((s) => s.profileDisplayName)
   const profileAvatarUrl = useGallery((s) => s.profileAvatarUrl)
+  const profileBio = useGallery((s) => s.profileBio)
 
   // Whose board is this?
   const { text, avatarUrl } = useMemo((): { text: TitleWallText; avatarUrl: string | null } => {
     if (visitor) {
       return {
-        text: {
-          main: visitor.title,
-          sub: `— ${visitor.ownerName} —`,
-          ...statementNotes(visitor.statement, `@${visitor.username}`, ''),
-        },
+        text: boardText({
+          title: visitor.title,
+          name: visitor.ownerName,
+          username: visitor.username,
+          statement: visitor.statement,
+          bio: visitor.ownerBio,
+        }),
         avatarUrl: visitor.ownerAvatar,
       }
     }
     if (user && myGallery) {
-      return {
-        text: {
-          main: myGallery.title,
-          sub: `— ${profileDisplayName || user.displayName} —`,
-          ...statementNotes(
-            myGallery.statement,
-            'Tell visitors what this exhibition is about —',
-            'add your intro from the dashboard (Edit details).'
-          ),
-        },
-        avatarUrl: profileAvatarUrl,
+      const text = boardText({
+        title: myGallery.title,
+        name: profileDisplayName || user.displayName,
+        username: profileUsername,
+        statement: myGallery.statement,
+        bio: profileBio ?? '',
+      })
+      // Nothing personal written yet — nudge once, in the notes slot
+      if (!text.note1 && !text.bio) {
+        text.note1 = 'Tell visitors about this exhibition — add your intro and bio from the dashboard.'
       }
+      return { text, avatarUrl: profileAvatarUrl }
     }
     return { text: DEFAULT_TITLE_TEXT, avatarUrl: null }
-  }, [visitor, user, myGallery, profileDisplayName, profileAvatarUrl])
+  }, [visitor, user, myGallery, profileUsername, profileDisplayName, profileAvatarUrl, profileBio])
 
   // Avatar loads async; the texture bakes once it's ready (or immediately without one)
   const [avatarImg, setAvatarImg] = useState<HTMLImageElement | null>(null)

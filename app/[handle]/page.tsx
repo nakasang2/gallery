@@ -5,7 +5,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { fetchPublicProfile, fetchPublicExhibition } from '@/lib/publish'
+import { fetchPublicProfile, fetchPublicExhibition, isPlaceholderTitle } from '@/lib/publish'
 import VisitorGallery from '@/components/gallery/VisitorGallery'
 
 export const dynamic = 'force-dynamic'
@@ -31,7 +31,9 @@ export async function generateMetadata({
   if (p.galleries.length === 1) {
     const ex = await fetchPublicExhibition(username, p.galleries[0].slug)
     if (ex) {
-      const title = `${ex.title} | ${ex.ownerName} — HAKONIWA`
+      const title = isPlaceholderTitle(ex.title)
+        ? `${ex.ownerName} — HAKONIWA`
+        : `${ex.title} | ${ex.ownerName} — HAKONIWA`
       const description =
         ex.statement ||
         `A 3D gallery by ${ex.ownerName}. Walk through ${ex.artworks.length} works in your browser.`
@@ -101,7 +103,9 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
                   <div className="artist-cover artist-cover-empty" />
                 )}
                 <div className="artist-gallery-meta">
-                  <span className="artist-gallery-title">{g.title}</span>
+                  <span className="artist-gallery-title">
+                    {isPlaceholderTitle(g.title) ? 'Exhibition' : g.title}
+                  </span>
                   <span className="artist-gallery-sub">
                     {g.workCount} work{g.workCount === 1 ? '' : 's'} · walk through in 3D →
                   </span>

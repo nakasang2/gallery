@@ -3,20 +3,14 @@
 // Designed for multiple galleries; the release plan caps creation at PLAN.galleries.
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS, FRAMES, HANGINGS, CAPTIONS } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
-import {
-  ThemeSwatch,
-  LayoutPlan,
-  TemplateCard,
-  WallPreview,
-  FramedArt,
-  HangingIcon,
-  CaptionIcon,
-} from '@/components/SpacePreviews'
+import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
+import WorkDesign from '@/components/WorkDesign'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -33,12 +27,13 @@ import {
   type PlacementOverrides,
   type GalleryRow,
 } from '@/lib/galleries'
-import { getProfile, saveProfile, setUsername, USERNAME_RE } from '@/lib/publish'
+import { getProfile, saveProfile, setUsername, isPlaceholderTitle, USERNAME_RE } from '@/lib/publish'
 import {
   getStorageUsage,
   uploadArtwork,
   uploadAvatar,
   deleteArtwork,
+  updateArtworkDetails,
   artworkPlacementCount,
   deleteMyAccount,
 } from '@/lib/cloud'
@@ -52,6 +47,10 @@ import {
 import { fileToDataUrl, loadImage } from '@/lib/upload'
 import type { ArtworkData } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
+
+// The works preview is the REAL renderer (three.js), loaded only when needed;
+// until the chunk arrives the flat CSS preview holds the same footprint
+const Preview3D = dynamic(() => import('@/components/Preview3D'), { ssr: false })
 
 function fmtDate(iso: string | null): string {
   if (!iso) return ''
@@ -155,7 +154,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   const updateSettings = useGallery((s) => s.updateSettings)
   const router = useRouter()
   const [step, setStep] = useState<1 | 2>(1)
-  const [title, setTitle] = useState('My Gallery')
+  const [title, setTitle] = useState('')
   const [statement, setStatement] = useState('')
   const [templateId, setTemplateId] = useState('salon')
   const [busy, setBusy] = useState(false)
@@ -173,9 +172,13 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
           theme: t.theme,
           layout: t.layout,
           frame: t.frame,
+          mat: 'auto',
           hanging: t.hanging,
           caption: t.caption,
           frameOverrides: {},
+          matOverrides: {},
+          hangingOverrides: {},
+          captionOverrides: {},
         })
       }
       onCreated()
@@ -210,11 +213,17 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
     <div className="me-card">
       <p className="me-note" style={{ marginTop: 0 }}>
         <b style={{ color: 'var(--ink)' }}>Step 2 of 2</b> — name your hakoniwa. This is the exhibition
-        title visitors will see.
+        title visitors will see; leave it blank and your artist name leads instead.
       </p>
       <label className="me-field">
-        <span>Name</span>
-        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+        <span>Exhibition title (optional)</span>
+        <input
+          type="text"
+          placeholder="e.g. Blue Hours"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          autoFocus
+        />
       </label>
       <label className="me-field">
         <span>Concept / intro (optional) — shown on the board at the back of your room</span>
@@ -236,22 +245,55 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   )
 }
 
+// The hakoniwa card IS the gallery workbench: status + publish on top, then the
+// works library on the left and the real-3D preview with every design control —
+// per-work title/caption/frame and the room-wide theme/layout — on the right.
 function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => void }) {
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
   const frameOverrides = useGallery((s) => s.frameOverrides)
+  const matOverrides = useGallery((s) => s.matOverrides)
   const hangingOverrides = useGallery((s) => s.hangingOverrides)
   const captionOverrides = useGallery((s) => s.captionOverrides)
+  const updateSettings = useGallery((s) => s.updateSettings)
+  const syncState = useGallery((s) => s.syncState)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
-  const [mode, setMode] = useState<'view' | 'details' | 'space'>('view')
+  const [mode, setMode] = useState<'view' | 'details'>('view')
   const [nameInput, setNameInput] = useState(row.title)
   const [statementInput, setStatementInput] = useState(row.statement)
   const [copied, setCopied] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [titleInput, setTitleInput] = useState('')
+  const [captionInput, setCaptionInput] = useState('')
+  const [workSaved, setWorkSaved] = useState(false)
+
+  const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
+  const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
+  // Effective per-work design: the override when set, else the gallery default
+  const frame = (selected && frameOverrides[selected.id]) || row.frame_default
+  const mat = (selected && matOverrides[selected.id]) || row.mat_default
+  const hanging = (selected && hangingOverrides[selected.id]) || row.hanging_default
+  const captionKey = (selected && captionOverrides[selected.id]) || row.caption_default
+  // Videos hang by their poster; a poster-less video previews as the placeholder
+  const previewSrc = selected
+    ? selected.kind === 'video'
+      ? selected.poster
+      : selected.poster ?? selected.src
+    : undefined
+
+  // The plate fields follow whichever work is selected
+  useEffect(() => {
+    setTitleInput(selected?.title ?? '')
+    setCaptionInput(selected?.desc ?? '')
+    setWorkSaved(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id])
 
   // Visitor engagement counts (needs migration 0008; hide quietly if unapplied)
   useEffect(() => {
@@ -287,6 +329,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     const saved = await fetchPlacementOverrides(row.id).catch(() => EMPTY_OVERRIDES)
     return {
       frames: { ...saved.frames, ...frameOverrides },
+      mats: { ...saved.mats, ...matOverrides },
       hangings: { ...saved.hangings, ...hangingOverrides },
       captions: { ...saved.captions, ...captionOverrides },
     }
@@ -304,7 +347,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
 
   // Quick space change without opening the editor. Theme changes are cosmetic;
   // layout changes re-cap the placements, so public rooms are rebuilt too
-  async function setSpace(partial: Partial<Pick<ReturnType<typeof rowToSettings>, 'theme' | 'layout' | 'frame' | 'hanging' | 'caption'>>) {
+  async function setSpace(partial: Partial<Pick<ReturnType<typeof rowToSettings>, 'theme' | 'layout' | 'frame' | 'mat' | 'hanging' | 'caption'>>) {
     await run('Space change', async () => {
       const s = { ...rowToSettings(row, await mergedOverrides()), ...partial }
       await saveGallerySpace(row.id, s)
@@ -330,36 +373,73 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
-  // Cover: the chosen OGP work, else the first exhibited work, else the theme itself
-  // (videos show their poster; a poster-less video falls back to the swatch)
-  const coverArt = cloudArtworks.find((a) => a.id === row.cover_artwork_id) ?? cloudArtworks[0]
-  const coverSrc = coverArt
-    ? coverArt.kind === 'video'
-      ? coverArt.poster
-      : coverArt.poster ?? coverArt.src
-    : undefined
+  // OGP/artist-page cover (decision 10.8-7: slot 0 unless chosen here)
+  async function toggleCover(art: ArtworkData) {
+    const next = row.cover_artwork_id === art.id ? null : art.id
+    await run('Set cover', () => setGalleryCover(row.id, next))
+  }
+
+  async function onFiles(files: FileList | null) {
+    if (!files?.length) return
+    setUploading(true)
+    try {
+      for (const f of Array.from(files)) {
+        if (f.type.startsWith('video/')) {
+          alert(`Videos are uploaded from the 3D preview (“Exhibit your work”) — skipped “${f.name}”.`)
+          continue
+        }
+        const title = f.name.replace(/\.[^.]+$/, '') || 'Untitled'
+        const { dataUrl, w, h } = await fileToDataUrl(f, 1600)
+        await uploadArtwork({ ownerId: user.id, dataUrl, title, w, h })
+      }
+      await refreshCloud()
+    } catch (e) {
+      alert(`Upload failed: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function removeWork(art: ArtworkData) {
+    let msg = `Remove “${art.title}” from your library?`
+    try {
+      if ((await artworkPlacementCount(art.id)) > 0) {
+        msg = `“${art.title}” is hanging in your public hakoniwa. Removing it also takes it off the wall. Continue?`
+      }
+    } catch {
+      /* placements unreadable — fall back to the generic confirm */
+    }
+    if (!confirm(msg)) return
+    try {
+      await deleteArtwork(user.id, art.id)
+      await refreshCloud()
+    } catch (e) {
+      alert(`Could not remove the work: ${e instanceof Error ? e.message : e}`)
+    }
+  }
+
+  // Title + caption as shown on the work's name plate (and the public page)
+  async function saveWorkDetails() {
+    if (!selected) return
+    setBusy(true)
+    try {
+      await updateArtworkDetails(selected.id, { title: titleInput, description: captionInput })
+      await refreshCloud()
+      setWorkSaved(true)
+      setTimeout(() => setWorkSaved(false), 1600)
+    } catch (e) {
+      alert(`Could not save the work details: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="me-card">
-      {/* What the room looks like: cover work, theme colours, floor plan */}
-      <div className="hako-visual">
-        {coverSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img className="hako-cover" src={coverSrc} alt="" />
-        ) : (
-          <ThemeSwatch themeKey={row.theme} className="hako-cover-swatch" />
-        )}
-        <span className="hako-plan-chip">
-          <LayoutPlan layoutKey={row.layout} params={row.layout_params} />
-        </span>
-        {/* Text only — the big cover/swatch next to it already IS the theme preview */}
-        <span className="hako-space-tag">
-          {THEMES[row.theme]?.label ?? row.theme} ·{' '}
-          {row.layout === 'custom' ? 'Custom room' : LAYOUTS[row.layout]?.label ?? row.layout}
-        </span>
-      </div>
       <div className="hako-head">
-        <span className="hako-title">{row.title}</span>
+        <span className="hako-title" style={isPlaceholderTitle(row.title) ? { color: 'var(--muted)' } : undefined}>
+          {isPlaceholderTitle(row.title) ? 'Untitled exhibition' : row.title}
+        </span>
         <span className={`hako-badge${row.is_public ? ' public' : ''}`}>
           {row.is_public ? 'PUBLIC' : 'PRIVATE'}
         </span>
@@ -425,75 +505,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </div>
       )}
 
-      {mode === 'space' && (
-        <>
-          {/* The room's current look: wall + YOUR cover work in its frame, hanging and caption */}
-          <WallPreview
-            themeKey={row.theme}
-            frameKey={row.frame_default}
-            hangingKey={row.hanging_default}
-            captionKey={row.caption_default}
-            artSrc={coverSrc}
-            artRatio={coverArt?.ratio}
-          />
-          <p className="me-note">
-            How a work hangs right now — {THEMES[row.theme]?.label ?? row.theme} theme,{' '}
-            {FRAMES[row.frame_default]?.label ?? row.frame_default} frame. Picking a theme applies its
-            recommended framing.
-          </p>
-          <p className="me-note" style={{ marginTop: 0 }}>Theme</p>
-          <div className="chips" style={{ marginBottom: '0.9rem' }}>
-            {Object.entries(THEMES).map(([key, def]) => (
-              <button
-                key={key}
-                className={`chip chip-visual${key === row.theme ? ' active' : ''}`}
-                disabled={busy}
-                onClick={() => void setSpace({ theme: key, ...def.recommends })}
-              >
-                <ThemeSwatch themeKey={key} />
-                {def.label}
-              </button>
-            ))}
-          </div>
-          <p className="me-note" style={{ marginTop: 0 }}>Layout</p>
-          <div className="chips" style={{ marginBottom: '0.9rem' }}>
-            {Object.entries(LAYOUTS).map(([key, def]) => (
-              <button
-                key={key}
-                className={`chip chip-visual${key === row.layout ? ' active' : ''}`}
-                disabled={busy}
-                onClick={() => void setSpace({ layout: key })}
-              >
-                <LayoutPlan layoutKey={key} className="chip-plan" />
-                {def.label}
-              </button>
-            ))}
-            {/* layout_params survive preset switches (saveGallerySpace preserves them),
-                so a saved custom room is always one click away */}
-            <button
-              className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}`}
-              disabled={busy}
-              onClick={() => void setSpace({ layout: 'custom' })}
-            >
-              <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
-              Custom
-            </button>
-          </div>
-          <p className="me-note">
-            Framing, hanging, captions and the custom room live in the{' '}
-            <Link href="/demo" style={{ color: 'var(--gold)' }}>editor</Link>, where you see them on the walls.
-          </p>
-          <button className="btn-line" onClick={() => setMode('view')}>Done</button>
-        </>
-      )}
       {mode === 'view' && (
         <>
-          {/* Primary actions: enter the room, style it, share it */}
+          {/* Primary actions: walk the room, share it */}
           <div className="hako-actions">
-            <Link className="btn-line btn-gold" href="/demo">Open editor</Link>
-            <button className="btn-line" disabled={busy} onClick={() => setMode('space')}>
-              Change space
-            </button>
+            <Link className="btn-line btn-gold" href="/demo">Preview in 3D</Link>
             <button
               className="btn-line"
               disabled={busy || (!row.is_public && !username)}
@@ -531,7 +547,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               className="danger"
               disabled={busy}
               onClick={() => {
-                if (!confirm(`Delete “${row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
+                if (!confirm(`Delete “${isPlaceholderTitle(row.title) ? 'your hakoniwa' : row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
                 void run('Delete', () => deleteGallery(row.id))
               }}
             >
@@ -540,98 +556,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           </div>
         </>
       )}
-    </div>
-  )
-}
 
-// Works library (REQUIREMENTS 10.3): user-level assets, reusable across hakoniwa.
-// Two columns: upload + library on the left, and the SELECTED work hanging in the
-// room's actual frame/theme on the right — upload, click, confirm in one view.
-function WorksCard() {
-  const user = useGallery((s) => s.user)!
-  const cloudArtworks = useGallery((s) => s.cloudArtworks)
-  const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
-  const myGallery = useGallery((s) => s.myGallery)
-  const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
-  const frameOverrides = useGallery((s) => s.frameOverrides)
-  const hangingOverrides = useGallery((s) => s.hangingOverrides)
-  const captionOverrides = useGallery((s) => s.captionOverrides)
-  const updateSettings = useGallery((s) => s.updateSettings)
-  const syncState = useGallery((s) => s.syncState)
-  const [uploading, setUploading] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-
-  const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
-  // The wall the preview hangs on: the user's real room, or the defaults before one exists
-  const theme = myGallery?.theme ?? 'chic'
-  const baseFrame = myGallery?.frame_default ?? 'black'
-  const baseHanging = myGallery?.hanging_default ?? 'wire'
-  const baseCaption = myGallery?.caption_default ?? 'side'
-  // Effective per-work design: the override when set, else the gallery default
-  const frame = (selected && frameOverrides[selected.id]) || baseFrame
-  const hanging = (selected && hangingOverrides[selected.id]) || baseHanging
-  const caption = (selected && captionOverrides[selected.id]) || baseCaption
-  // Videos hang by their poster; a poster-less video previews as the placeholder
-  const previewSrc = selected
-    ? selected.kind === 'video'
-      ? selected.poster
-      : selected.poster ?? selected.src
-    : undefined
-
-  // OGP/artist-page cover (decision 10.8-7: slot 0 unless chosen here)
-  async function toggleCover(art: ArtworkData) {
-    if (!myGallery) return
-    const next = myGallery.cover_artwork_id === art.id ? null : art.id
-    try {
-      await setGalleryCover(myGallery.id, next)
-      await refreshMyGallery()
-    } catch (e) {
-      alert(`Could not set the cover: ${e instanceof Error ? e.message : e}`)
-    }
-  }
-
-  async function onFiles(files: FileList | null) {
-    if (!files?.length) return
-    setUploading(true)
-    try {
-      for (const f of Array.from(files)) {
-        if (f.type.startsWith('video/')) {
-          alert(`Videos are uploaded from the editor (“Exhibit your work”) — skipped “${f.name}”.`)
-          continue
-        }
-        const title = f.name.replace(/\.[^.]+$/, '') || 'Untitled'
-        const { dataUrl, w, h } = await fileToDataUrl(f, 1600)
-        await uploadArtwork({ ownerId: user.id, dataUrl, title, w, h })
-      }
-      await refreshCloud()
-    } catch (e) {
-      alert(`Upload failed: ${e instanceof Error ? e.message : e}`)
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  async function remove(art: ArtworkData) {
-    let msg = `Remove “${art.title}” from your library?`
-    try {
-      if ((await artworkPlacementCount(art.id)) > 0) {
-        msg = `“${art.title}” is hanging in your public hakoniwa. Removing it also takes it off the wall. Continue?`
-      }
-    } catch {
-      /* placements unreadable — fall back to the generic confirm */
-    }
-    if (!confirm(msg)) return
-    try {
-      await deleteArtwork(user.id, art.id)
-      await refreshCloud()
-    } catch (e) {
-      alert(`Could not remove the work: ${e instanceof Error ? e.message : e}`)
-    }
-  }
-
-  return (
-    <div className="me-card">
-      <div className="works-editor">
+      {/* ---- The workbench: works on the left, live preview + every control on the right ---- */}
+      <div className="works-editor" style={{ marginTop: '1.4rem' }}>
         <div className="we-left">
           {cloudArtworks.length === 0 && (
             <p className="me-note" style={{ marginTop: 0 }}>
@@ -656,17 +583,15 @@ function WorksCard() {
                     onClick={() => setSelectedId(art.id)}
                   />
                   <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
-                  <button aria-label={`Remove ${art.title}`} onClick={() => void remove(art)}>×</button>
-                  {myGallery && (
-                    <button
-                      className={`works-star${myGallery.cover_artwork_id === art.id ? ' active' : ''}`}
-                      aria-label={`Use ${art.title} as the share cover`}
-                      title="Use as share cover (OGP)"
-                      onClick={() => void toggleCover(art)}
-                    >
-                      {myGallery.cover_artwork_id === art.id ? '★' : '☆'}
-                    </button>
-                  )}
+                  <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
+                  <button
+                    className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
+                    aria-label={`Use ${art.title} as the share cover`}
+                    title="Use as share cover (OGP)"
+                    onClick={() => void toggleCover(art)}
+                  >
+                    {row.cover_artwork_id === art.id ? '★' : '☆'}
+                  </button>
                 </figure>
               ))}
             </div>
@@ -687,89 +612,147 @@ function WorksCard() {
           </label>
           <p className="me-note">
             Works are library assets — deleting a hakoniwa never deletes them. Videos are uploaded
-            from the editor.
+            from the 3D preview.
           </p>
         </div>
 
-        {/* Live preview: the selected upload inside the room's real frame, wall and caption —
-            and the per-work design controls right under what they change */}
+        {/* Live preview: the ACTUAL 3D pipeline (same Exhibit component as the room).
+            Everything below it changes what it shows — plate text, per-work design,
+            and the room itself. Poster-less videos / empty state fall back to CSS. */}
         <div className="we-right">
-          <WallPreview
-            themeKey={theme}
-            frameKey={frame}
-            hangingKey={hanging}
-            captionKey={caption}
-            artSrc={previewSrc}
-            artRatio={selected?.ratio}
-            className="wall-preview--lg"
-          />
+          {selected && previewSrc ? (
+            <div className="wall-preview3d">
+              <Preview3D
+                art={selected.kind === 'video' ? { ...selected, kind: 'image', src: previewSrc } : selected}
+                index={selectedIndex}
+                themeKey={row.theme}
+                frameKey={frame}
+                matKey={mat}
+                hangingKey={hanging}
+                captionKey={captionKey}
+              />
+            </div>
+          ) : (
+            <WallPreview
+              themeKey={row.theme}
+              frameKey={frame}
+              matKey={mat}
+              hangingKey={hanging}
+              captionKey={captionKey}
+              artSrc={previewSrc}
+              artRatio={selected?.ratio}
+              className="wall-preview--lg"
+            />
+          )}
           {!selected && (
             <p className="me-note">
               Upload a work to see it hanging in your theme and frame before you publish.
             </p>
           )}
-          {selected && !myGallery && (
-            <p className="me-note">
-              “{selected.title}” with the default framing — create your hakoniwa to style it.
-            </p>
-          )}
-          {selected && myGallery && (
+
+          {selected && (
             <>
-              <p className="me-note" style={{ marginBottom: '0.4rem' }}>
-                “{selected.title}” — design for <b style={{ color: 'var(--ink)' }}>this work</b>
+              <p className="me-note" style={{ marginBottom: 0 }}>
+                “{selected.title}” — <b style={{ color: 'var(--ink)' }}>this work</b>
                 {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
               </p>
-              <div className="chips we-chips">
-                {Object.entries(FRAMES).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${frame === key ? ' active' : ''}`}
-                    title={`${def.label} frame`}
-                    onClick={() =>
-                      updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, key, baseFrame) })
-                    }
-                  >
-                    <FramedArt frameKey={key} className="chip-frame" />
-                    {def.label}
-                  </button>
-                ))}
+
+              {/* The name plate's text: title + caption, straight onto the plate above */}
+              <div className="wd-group" style={{ marginTop: '0.6rem' }}>
+                <div className="wd-title"><span>Title &amp; caption</span></div>
+                <label className="me-field" style={{ margin: '0.45rem 0' }}>
+                  <span>Title</span>
+                  <input type="text" value={titleInput} onChange={(e) => setTitleInput(e.target.value)} />
+                </label>
+                <label className="me-field" style={{ margin: '0.45rem 0' }}>
+                  <span>Caption — shown on the name plate</span>
+                  <textarea
+                    rows={2}
+                    maxLength={140}
+                    placeholder="A line about this work (year, medium, a thought…)"
+                    value={captionInput}
+                    onChange={(e) => setCaptionInput(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="btn-line"
+                  disabled={busy || (titleInput === selected.title && captionInput === (selected.desc ?? ''))}
+                  onClick={() => void saveWorkDetails()}
+                >
+                  {workSaved ? 'Saved' : 'Save plate'}
+                </button>
               </div>
-              <div className="chips we-chips">
-                {Object.entries(HANGINGS).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${hanging === key ? ' active' : ''}`}
-                    title={`${def.label} hanging`}
-                    onClick={() =>
-                      updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, key, baseHanging) })
-                    }
-                  >
-                    <HangingIcon hangingKey={key} />
-                    {def.label}
-                  </button>
-                ))}
-              </div>
-              <div className="chips we-chips">
-                {Object.entries(CAPTIONS).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${caption === key ? ' active' : ''}`}
-                    title={`${def.label} caption`}
-                    onClick={() =>
-                      updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, key, baseCaption) })
-                    }
-                  >
-                    <CaptionIcon captionKey={key} />
-                    {def.label}
-                  </button>
-                ))}
-              </div>
-              <p className="me-note" style={{ marginTop: '0.5rem' }}>
-                The theme picks these for the whole room; anything you change here applies to this
-                work only. Picking the room's value clears the override.
-              </p>
+
+              <WorkDesign
+                frameKey={frame}
+                matKey={mat}
+                hangingKey={hanging}
+                captionKey={captionKey}
+                onFrame={(k) =>
+                  updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, k, row.frame_default) })
+                }
+                onMat={(k) =>
+                  updateSettings({ matOverrides: setOverride(matOverrides, selected.id, k, row.mat_default) })
+                }
+                onHanging={(k) =>
+                  updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, k, row.hanging_default) })
+                }
+                onCaption={(k) =>
+                  updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, row.caption_default) })
+                }
+              />
             </>
           )}
+
+          {/* Room-wide space: theme recolours the preview wall live; layout is the floor plan */}
+          <div className="wd-group">
+            <div className="wd-title"><span>Room — whole gallery</span></div>
+            <div className="wd-row">
+              <span className="wd-label">Theme</span>
+              <div className="chips">
+                {Object.entries(THEMES).map(([key, def]) => (
+                  <button
+                    key={key}
+                    className={`chip chip-visual${key === row.theme ? ' active' : ''}`}
+                    disabled={busy}
+                    onClick={() => void setSpace({ theme: key, ...def.recommends, mat: 'auto' })}
+                  >
+                    <ThemeSwatch themeKey={key} />
+                    {def.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="wd-row">
+              <span className="wd-label">Layout</span>
+              <div className="chips">
+                {Object.entries(LAYOUTS).map(([key, def]) => (
+                  <button
+                    key={key}
+                    className={`chip chip-visual${key === row.layout ? ' active' : ''}`}
+                    disabled={busy}
+                    onClick={() => void setSpace({ layout: key })}
+                  >
+                    <LayoutPlan layoutKey={key} className="chip-plan" />
+                    {def.label}
+                  </button>
+                ))}
+                {/* layout_params survive preset switches (saveGallerySpace preserves them) */}
+                <button
+                  className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}`}
+                  disabled={busy}
+                  onClick={() => void setSpace({ layout: 'custom' })}
+                >
+                  <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
+                  Custom
+                </button>
+              </div>
+            </div>
+          </div>
+          <p className="me-note" style={{ marginTop: '0.5rem' }}>
+            The theme sets the room-wide design; the controls above it apply to the selected work
+            only, and matching the room&apos;s setting clears the override.
+          </p>
         </div>
       </div>
     </div>
@@ -1080,7 +1063,6 @@ export default function MePage() {
         <div className="me-top">
           <Link href="/" className="auth-logo">HAKONIWA</Link>
           <div className="me-top-actions">
-            <Link className="btn-line" href="/demo">Editor</Link>
             {user && (
               <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
             )}
@@ -1131,11 +1113,6 @@ export default function MePage() {
                       You can create {PLAN.galleries - galleries.length} more hakoniwa on your plan.
                     </p>
                   )}
-                </section>
-
-                <section className="me-section">
-                  <h2>Works</h2>
-                  <WorksCard />
                   {usage !== null && (
                     <p className="me-note">
                       Storage: {(usage / 1024 / 1024).toFixed(1)} MB of{' '}

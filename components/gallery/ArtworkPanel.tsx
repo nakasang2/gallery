@@ -1,11 +1,10 @@
 'use client'
 // Artwork info panel (details for the focused work, plus per-work framing / visitor likes)
 import { useEffect, useState } from 'react'
-import { FRAMES, HANGINGS, CAPTIONS } from '@/lib/presets'
-import { useExhibitionList, frameKeyFor, hangingKeyFor, captionKeyFor, setOverride } from '@/lib/exhibition'
+import { useExhibitionList, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, setOverride } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { addLike, hasLiked, likeCount } from '@/lib/engagement'
-import { FramedArt, HangingIcon, CaptionIcon } from '@/components/SpacePreviews'
+import WorkDesign from '@/components/WorkDesign'
 
 // Visitor-only like button (anonymous; dedupe per browser)
 function LikeButton({ galleryId, artworkId }: { galleryId: string; artworkId: string }) {
@@ -82,65 +81,33 @@ export default function ArtworkPanel() {
               <span key={t}>{t}</span>
             ))}
           </div>
-          {/* Per-work design (frame / hanging / caption) cannot be changed in visitor mode */}
+          {/* Per-work design (frame / mat / hanging / caption) cannot be changed in visitor mode */}
           {!visitor && (
-            <>
-              <div className="panel-frame">
-                <div className="panel-frame-label">Framing — this work</div>
-                <div className="chips">
-                  {Object.entries(FRAMES).map(([key, def]) => (
-                    <button
-                      key={key}
-                      className={`chip chip-visual${frameKeyFor(settings, art) === key ? ' active' : ''}`}
-                      onClick={() =>
-                        updateSettings({ frameOverrides: setOverride(settings.frameOverrides, art.id, key, settings.frame) })
-                      }
-                    >
-                      <FramedArt frameKey={key} className="chip-frame" />
-                      {def.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="panel-frame">
-                <div className="panel-frame-label">Hanging — this work</div>
-                <div className="chips">
-                  {Object.entries(HANGINGS).map(([key, def]) => (
-                    <button
-                      key={key}
-                      className={`chip chip-visual${hangingKeyFor(settings, art) === key ? ' active' : ''}`}
-                      onClick={() =>
-                        updateSettings({ hangingOverrides: setOverride(settings.hangingOverrides, art.id, key, settings.hanging) })
-                      }
-                    >
-                      <HangingIcon hangingKey={key} />
-                      {def.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="panel-frame">
-                <div className="panel-frame-label">Caption — this work</div>
-                <div className="chips">
-                  {Object.entries(CAPTIONS).map(([key, def]) => (
-                    <button
-                      key={key}
-                      className={`chip chip-visual${captionKeyFor(settings, art) === key ? ' active' : ''}`}
-                      onClick={() =>
-                        updateSettings({ captionOverrides: setOverride(settings.captionOverrides, art.id, key, settings.caption) })
-                      }
-                    >
-                      <CaptionIcon captionKey={key} />
-                      {def.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="settings-note" style={{ marginTop: '0.6rem' }}>
-                  These apply to this work only. Picking the gallery-wide value clears the
-                  override, so the work follows the theme again.
-                </p>
-              </div>
-            </>
+            <div className="panel-frame">
+              <div className="panel-frame-label">Design — this work</div>
+              <WorkDesign
+                frameKey={frameKeyFor(settings, art)}
+                matKey={matKeyFor(settings, art)}
+                hangingKey={hangingKeyFor(settings, art)}
+                captionKey={captionKeyFor(settings, art)}
+                onFrame={(k) =>
+                  updateSettings({ frameOverrides: setOverride(settings.frameOverrides, art.id, k, settings.frame) })
+                }
+                onMat={(k) =>
+                  updateSettings({ matOverrides: setOverride(settings.matOverrides, art.id, k, settings.mat) })
+                }
+                onHanging={(k) =>
+                  updateSettings({ hangingOverrides: setOverride(settings.hangingOverrides, art.id, k, settings.hanging) })
+                }
+                onCaption={(k) =>
+                  updateSettings({ captionOverrides: setOverride(settings.captionOverrides, art.id, k, settings.caption) })
+                }
+              />
+              <p className="settings-note" style={{ marginTop: '0.6rem' }}>
+                These apply to this work only. Matching the gallery-wide setting clears the
+                override, so the work follows the theme again.
+              </p>
+            </div>
           )}
         </>
       )}

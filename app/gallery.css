@@ -662,6 +662,97 @@ body.gallery-mode {
   margin-bottom: 0.7rem;
 }
 
+/* ---- 作品デザインパネル(構造化): グループ > 行(ラベル+適材コントロール) ---- */
+.wd-group { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--hairline); }
+.work-design .wd-group:first-child { margin-top: 0.6rem; padding-top: 0; border-top: none; }
+.wd-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.62rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.65rem;
+}
+.wd-row { display: flex; align-items: center; gap: 0.7rem; margin: 0.55rem 0; flex-wrap: wrap; }
+.wd-label { width: 72px; flex: none; font-size: 0.68rem; letter-spacing: 0.08em; color: var(--muted); }
+.wd-note { font-size: 0.74rem; line-height: 1.8; color: var(--muted); }
+
+/* セグメント(素材) */
+.seg { display: inline-flex; border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden; }
+.seg button {
+  font-family: var(--sans);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 0.42em 0.85em;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+.seg button + button { border-left: 1px solid var(--hairline); }
+.seg button:hover { color: var(--ink); }
+.seg button.active { color: var(--gold); background: rgba(212, 162, 78, 0.12); }
+.seg button:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+/* カラースウォッチ(丸) */
+.swatches { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+.swatch {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  border: 1px solid rgba(236, 231, 222, 0.22);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.swatch:hover { transform: scale(1.15); }
+.swatch:active { transform: scale(0.98); }
+.swatch.active { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--gold); }
+.swatch.auto { border-style: dashed; border-color: rgba(236, 231, 222, 0.45); }
+.swatch:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* 太さスライダー */
+.wd-slider { display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 150px; }
+.wd-slider input[type='range'] { flex: 1; accent-color: var(--gold); cursor: pointer; }
+.wd-value {
+  font-size: 0.66rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 3.4em;
+  text-align: right;
+}
+
+/* スイッチ(フレーム/マットの有無) */
+.switch { display: inline-flex; align-items: center; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .knob {
+  width: 34px;
+  height: 20px;
+  border-radius: 100px;
+  border: 1px solid var(--hairline);
+  background: rgba(236, 231, 222, 0.06);
+  position: relative;
+  transition: border-color 0.2s, background 0.2s;
+}
+.switch .knob::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.2s, background 0.2s;
+}
+.switch input:checked + .knob { border-color: var(--gold); background: rgba(212, 162, 78, 0.16); }
+.switch input:checked + .knob::after { transform: translateX(14px); background: var(--gold); }
+.switch input:focus-visible + .knob { outline: 2px solid var(--gold); outline-offset: 2px; }
+.work-design .chip { font-size: 0.64rem; padding: 0.4em 0.8em; }
+
 /* ---- 空間設定パネル ---- */
 .settings {
   position: fixed;

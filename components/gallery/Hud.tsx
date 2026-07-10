@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useGallery } from '@/lib/store'
+import { isPlaceholderTitle } from '@/lib/publish'
 import { useExhibitionList } from '@/lib/exhibition'
 import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
@@ -13,7 +14,9 @@ export function HudTop() {
     <header className="hud-top">
       <Link className="hud-back" href="/">← HAKONIWA</Link>
       <div className="hud-title">
-        <span className="hud-title-main">{visitor ? visitor.title : 'HAKONIWA COLLECTION'}</span>
+        <span className="hud-title-main">
+          {visitor ? (isPlaceholderTitle(visitor.title) ? visitor.ownerName : visitor.title) : 'HAKONIWA COLLECTION'}
+        </span>
         <span className="hud-title-sub">
           {visitor ? (
             <>

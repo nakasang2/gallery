@@ -1,7 +1,7 @@
 // Logic for deriving the exhibition list (both the 3D scene and the UI panel read the same result)
 import { useMemo } from 'react'
 import { ARTWORKS, type ArtworkData } from './artworks'
-import { FRAMES, HANGINGS, CAPTIONS, resolveLayout, type LayoutDef } from './presets'
+import { isFrameKey, MATS, HANGINGS, CAPTIONS, resolveLayout, type LayoutDef } from './presets'
 import { effectiveSlotCount } from './limits'
 import { useGallery, useSettings, type Settings } from './store'
 
@@ -39,7 +39,12 @@ export function useExhibitionList(): ArtworkData[] {
 // Effective design per work: the override when set (and valid), else the gallery default
 export function frameKeyFor(s: Settings, art: ArtworkData): string {
   const key = s.frameOverrides[art.id]
-  return key && FRAMES[key] ? key : s.frame
+  return key && isFrameKey(key) ? key : s.frame
+}
+
+export function matKeyFor(s: Settings, art: ArtworkData): string {
+  const key = s.matOverrides[art.id]
+  return key && MATS[key] ? key : s.mat
 }
 
 export function hangingKeyFor(s: Settings, art: ArtworkData): string {

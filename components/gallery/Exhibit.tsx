@@ -142,11 +142,13 @@ export default function Exhibit({
                 bumpScale={0.35}
               />
             </mesh>
-            {/* Mat board */}
-            <mesh position={[0, 0, 0.035]}>
-              <planeGeometry args={[width + frameDef.gap! * 2 + 0.02, height + frameDef.gap! * 2 + 0.02]} />
-              <meshStandardMaterial color={frameDef.mat!} roughness={0.9} />
-            </mesh>
+            {/* Mat board (gap 0 = "no mat": the work sits right against the frame) */}
+            {frameDef.gap! > 0 && (
+              <mesh position={[0, 0, 0.035]}>
+                <planeGeometry args={[width + frameDef.gap! * 2 + 0.02, height + frameDef.gap! * 2 + 0.02]} />
+                <meshStandardMaterial color={frameDef.mat!} roughness={0.9} />
+              </mesh>
+            )}
             <mesh position={[0, 0, 0.04]} onClick={onClick} onPointerOver={onOver} onPointerOut={onOut}>
               <planeGeometry args={[width, height]} />
               <meshStandardMaterial

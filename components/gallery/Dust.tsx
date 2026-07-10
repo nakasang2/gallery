@@ -10,7 +10,7 @@ export default function Dust({ layout }: { layout: LayoutDef }) {
   const points = useRef<THREE.Points>(null!)
 
   const geo = useMemo(() => {
-    const N = 260
+    const N = 380 // finer grains, slightly denser so the air still reads as alive
     const positions = new Float32Array(N * 3)
     for (let i = 0; i < N; i++) {
       positions[i * 3] = (Math.random() - 0.5) * layout.hw * 2
@@ -53,9 +53,9 @@ export default function Dust({ layout }: { layout: LayoutDef }) {
     <points ref={points} geometry={geo}>
       <pointsMaterial
         map={tex}
-        size={0.04}
+        size={0.02}
         transparent
-        opacity={0.35}
+        opacity={0.32}
         blending={THREE.AdditiveBlending}
         depthWrite={false}
       />

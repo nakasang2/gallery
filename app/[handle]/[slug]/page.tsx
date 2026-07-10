@@ -2,7 +2,7 @@
 // Fetch the exhibition data server-side to attach OGP tags; leave the 3D rendering to the client
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { fetchPublicExhibition } from '@/lib/publish'
+import { fetchPublicExhibition, isPlaceholderTitle } from '@/lib/publish'
 import VisitorGallery from '@/components/gallery/VisitorGallery'
 
 // Always fetch the latest from Supabase (so changes appear right after publishing)
@@ -25,7 +25,9 @@ export async function generateMetadata({
   if (!p) return {}
   const ex = await fetchPublicExhibition(p.username, p.slug)
   if (!ex) return {}
-  const title = `${ex.title} | ${ex.ownerName} — HAKONIWA`
+  const title = isPlaceholderTitle(ex.title)
+    ? `${ex.ownerName} — HAKONIWA`
+    : `${ex.title} | ${ex.ownerName} — HAKONIWA`
   const description =
     ex.statement || `A 3D gallery by ${ex.ownerName}. Walk through ${ex.artworks.length} works in your browser.`
   // OG image comes from the opengraph-image.tsx file convention (a composed card)
