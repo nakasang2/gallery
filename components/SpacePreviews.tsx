@@ -29,14 +29,35 @@ const ART_GRADIENT =
   'linear-gradient(135deg, #dcbd8e 0%, #b0764e 36%, #64503c 62%, #2b3947 82%, #18222c 100%)'
 
 /** How a work actually looks in a given frame: bar, mat and canvas straight from FRAMES.
- *  Sized in em so the same component scales from chip to card via CSS font-size. */
-export function FramedArt({ frameKey, className = '' }: { frameKey: string; className?: string }) {
+ *  Sized in em so the same component scales from chip to card via CSS font-size.
+ *  Pass `src` (+ `ratio`) to frame a REAL artwork instead of the placeholder. */
+export function FramedArt({
+  frameKey,
+  src,
+  ratio,
+  className = '',
+}: {
+  frameKey: string
+  src?: string
+  ratio?: [number, number]
+  className?: string
+}) {
   const f = FRAMES[frameKey] ?? FRAMES.black
+  // Real artworks keep their aspect: fixed 3.6em width, height clamped for sanity
+  const h = ratio ? Math.min(5.4, Math.max(2, (3.6 * ratio[1]) / ratio[0])) : 2.7
+  const imgStyle: React.CSSProperties = src
+    ? {
+        backgroundImage: `url(${src})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        height: `${h.toFixed(2)}em`,
+      }
+    : { background: ART_GRADIENT, height: `${h.toFixed(2)}em` }
   if (f.mat === null) {
     // Stretched canvas: no frame, just the work with a dark edge
     return (
       <span className={`framed-art frameless ${className}`} aria-hidden="true">
-        <span className="framed-art-img" style={{ background: ART_GRADIENT }} />
+        <span className="framed-art-img" style={imgStyle} />
       </span>
     )
   }
@@ -50,7 +71,7 @@ export function FramedArt({ frameKey, className = '' }: { frameKey: string; clas
       style={{ background: hex(f.color!), padding: `${bar.toFixed(2)}em` }}
     >
       <span className="framed-art-mat" style={{ background: hex(f.mat), padding: `${gap.toFixed(2)}em` }}>
-        <span className="framed-art-img" style={{ background: ART_GRADIENT }} />
+        <span className="framed-art-img" style={imgStyle} />
       </span>
     </span>
   )
@@ -89,18 +110,30 @@ export function WallPreview({
   frameKey,
   hangingKey,
   captionKey,
+  artSrc,
+  artRatio,
   className = '',
 }: {
   themeKey: string
   frameKey: string
   hangingKey: string
   captionKey: string
+  /** A real uploaded work to hang instead of the placeholder gradient */
+  artSrc?: string
+  artRatio?: [number, number]
   className?: string
 }) {
   const t = THEMES[themeKey] ?? THEMES.chic
   const floor = mul(t.floorTint, 0x9a7a55)
   const hanging = HANGINGS[hangingKey]?.kind ?? 'wire'
   const caption = CAPTIONS[captionKey]?.place ?? 'side'
+  // Mirror FramedArt's sizing so the ledge and caption plate track the REAL art's
+  // edges (a tall portrait must not swallow its own caption)
+  const f = FRAMES[frameKey] ?? FRAMES.black
+  const artH = artRatio ? Math.min(5.4, Math.max(2, (3.6 * artRatio[1]) / artRatio[0])) : 2.7
+  const pad = f.mat === null ? 0.06 : ((f.bar! + f.gap!) / 1.3) * 3.6
+  const halfW = 1.8 + pad
+  const halfH = artH / 2 + pad
   return (
     <div
       className={`wall-preview ${className}`}
@@ -120,11 +153,15 @@ export function WallPreview({
         </>
       )}
       <span className="wp-art">
-        <FramedArt frameKey={frameKey} />
+        <FramedArt frameKey={frameKey} src={artSrc} ratio={artRatio} />
       </span>
-      {hanging === 'ledge' && <span className="wp-ledge" />}
-      {caption === 'side' && <span className="wp-plate" style={{ left: 'calc(50% + 3.1em)', top: 'calc(46% + 0.7em)' }} />}
-      {caption === 'under' && <span className="wp-plate" style={{ left: 'calc(50% - 0.85em)', top: 'calc(46% + 2.7em)' }} />}
+      {hanging === 'ledge' && <span className="wp-ledge" style={{ top: `calc(46% + ${(halfH + 0.28).toFixed(2)}em)` }} />}
+      {caption === 'side' && (
+        <span className="wp-plate" style={{ left: `calc(50% + ${(halfW + 1.0).toFixed(2)}em)`, top: 'calc(46% + 0.7em)' }} />
+      )}
+      {caption === 'under' && (
+        <span className="wp-plate" style={{ left: 'calc(50% - 0.85em)', top: `calc(46% + ${(halfH + 1.0).toFixed(2)}em)` }} />
+      )}
     </div>
   )
 }
