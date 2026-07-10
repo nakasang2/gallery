@@ -6,8 +6,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS } from '@/lib/presets'
-import { ThemeSwatch, LayoutPlan, TemplateCard } from '@/components/SpacePreviews'
+import { TEMPLATES, THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
+import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -186,6 +186,18 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
             <TemplateCard key={key} templateId={key} active={key === templateId} onClick={() => setTemplateId(key)} />
           ))}
         </div>
+        {/* Large wall preview of the selected template: how a work will actually hang */}
+        {TEMPLATES[templateId] && (
+          <>
+            <WallPreview
+              themeKey={TEMPLATES[templateId].theme}
+              frameKey={TEMPLATES[templateId].frame}
+              hangingKey={TEMPLATES[templateId].hanging}
+              captionKey={TEMPLATES[templateId].caption}
+            />
+            <p className="me-note">How a work will hang in “{TEMPLATES[templateId].label}”.</p>
+          </>
+        )}
         <button className="btn-line" onClick={() => setStep(2)}>
           Continue with {TEMPLATES[templateId]?.label} →
         </button>
@@ -274,7 +286,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
 
   // Quick space change without opening the editor. Theme changes are cosmetic;
   // layout changes re-cap the placements, so public rooms are rebuilt too
-  async function setSpace(partial: { theme?: string; layout?: string }) {
+  async function setSpace(partial: Partial<Pick<ReturnType<typeof rowToSettings>, 'theme' | 'layout' | 'frame' | 'hanging' | 'caption'>>) {
     await run('Space change', async () => {
       const s = { ...rowToSettings(row, await mergedOverrides()), ...partial }
       await saveGallerySpace(row.id, s)
@@ -377,6 +389,18 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
 
       {mode === 'space' && (
         <>
+          {/* The room's current look: wall + the art in ITS frame, hanging and caption */}
+          <WallPreview
+            themeKey={row.theme}
+            frameKey={row.frame_default}
+            hangingKey={row.hanging_default}
+            captionKey={row.caption_default}
+          />
+          <p className="me-note">
+            How a work hangs right now — {THEMES[row.theme]?.label ?? row.theme} theme,{' '}
+            {FRAMES[row.frame_default]?.label ?? row.frame_default} frame. Picking a theme applies its
+            recommended framing.
+          </p>
           <p className="me-note" style={{ marginTop: 0 }}>Theme</p>
           <div className="chips" style={{ marginBottom: '0.9rem' }}>
             {Object.entries(THEMES).map(([key, def]) => (
@@ -384,7 +408,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 key={key}
                 className={`chip chip-visual${key === row.theme ? ' active' : ''}`}
                 disabled={busy}
-                onClick={() => void setSpace({ theme: key })}
+                onClick={() => void setSpace({ theme: key, ...def.recommends })}
               >
                 <ThemeSwatch themeKey={key} />
                 {def.label}

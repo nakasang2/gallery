@@ -81,6 +81,54 @@ export function ThemeSwatch({ themeKey, className = '' }: { themeKey: string; cl
   )
 }
 
+/** A wide wall preview: the theme's wall + floor with a work hanging in the given
+ *  frame, wires/ledge per the hanging style, and the caption plate in place.
+ *  This is the dashboard's answer to "how will my art actually look?" */
+export function WallPreview({
+  themeKey,
+  frameKey,
+  hangingKey,
+  captionKey,
+  className = '',
+}: {
+  themeKey: string
+  frameKey: string
+  hangingKey: string
+  captionKey: string
+  className?: string
+}) {
+  const t = THEMES[themeKey] ?? THEMES.chic
+  const floor = mul(t.floorTint, 0x9a7a55)
+  const hanging = HANGINGS[hangingKey]?.kind ?? 'wire'
+  const caption = CAPTIONS[captionKey]?.place ?? 'side'
+  return (
+    <div
+      className={`wall-preview ${className}`}
+      aria-hidden="true"
+      style={{
+        background: `linear-gradient(180deg, ${hex(t.wall)} 0%, ${hex(t.wall)} 78%, ${hex(floor)} 78%)`,
+      }}
+    >
+      <span
+        className="wp-spot"
+        style={{ background: `radial-gradient(ellipse 46% 70% at 50% 0%, ${hex(t.spotColor)}54, transparent 74%)` }}
+      />
+      {hanging === 'wire' && (
+        <>
+          <span className="wp-wire" style={{ left: 'calc(50% - 1.15em)' }} />
+          <span className="wp-wire" style={{ left: 'calc(50% + 1.15em)' }} />
+        </>
+      )}
+      <span className="wp-art">
+        <FramedArt frameKey={frameKey} />
+      </span>
+      {hanging === 'ledge' && <span className="wp-ledge" />}
+      {caption === 'side' && <span className="wp-plate" style={{ left: 'calc(50% + 3.1em)', top: 'calc(46% + 0.7em)' }} />}
+      {caption === 'under' && <span className="wp-plate" style={{ left: 'calc(50% - 0.85em)', top: 'calc(46% + 2.7em)' }} />}
+    </div>
+  )
+}
+
 /** Hanging style at a glance: rail wires / flush / shelf ledge */
 export function HangingIcon({ hangingKey, className = '' }: { hangingKey: string; className?: string }) {
   const kind = HANGINGS[hangingKey]?.kind ?? 'wire'
