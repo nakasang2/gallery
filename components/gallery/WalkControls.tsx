@@ -46,6 +46,10 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     dragActive: false,
     // Two-finger vertical drag = explicit look up/down (tilt)
     tilting: false,
+    // Preview mode (info panel open): a horizontal swipe steps between works
+    // instead of walking — the mode only ends via the panel's close button
+    previewDrag: false,
+    swipeConsumed: false,
     startX: 0,
     startY: 0,
     dragX: 0,
@@ -117,6 +121,8 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
   }
 
   function walkTo(point: THREE.Vector3) {
+    // Preview mode is sticky: floor taps must not dismiss it (close button only)
+    if (useGallery.getState().focusedIndex >= 0) return
     cancelTweens()
     const from = camera.position.clone()
     const to = clampToRoom(new THREE.Vector3(point.x, EYE, point.z))
@@ -260,7 +266,9 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
     }
 
     const onPointerDown = (e: PointerEvent) => {
-      useGallery.getState().setTourActive(false)
+      const preview = useGallery.getState().focusedIndex >= 0
+      // Preview mode: drags become swipes, they must not end the tour or the panel
+      if (!preview) useGallery.getState().setTourActive(false)
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
       try {
         el.setPointerCapture(e.pointerId)
@@ -271,10 +279,19 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
         // Second finger switches from walking to tilting
         s.dragging = false
         s.dragActive = false
+        s.previewDrag = false
         s.dragX = 0
         s.dragY = 0
         s.tilting = true
         hideStick()
+        return
+      }
+      if (preview) {
+        s.previewDrag = true
+        s.swipeConsumed = false
+        s.dragging = false
+        s.startX = e.clientX
+        s.startY = e.clientY
         return
       }
       s.dragging = true
@@ -297,6 +314,17 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       if (p) {
         p.x = e.clientX
         p.y = e.clientY
+      }
+      // Preview swipe: a clear horizontal gesture steps to the next/previous work
+      // (once per gesture); the panel stays open the whole time
+      if (s.previewDrag && !s.swipeConsumed) {
+        const dx = e.clientX - s.startX
+        const dy = e.clientY - s.startY
+        if (Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+          s.swipeConsumed = true
+          focusStep(dx < 0 ? 1 : -1)
+        }
+        return
       }
       if (!s.dragging) return
       const dx = e.clientX - s.startX
@@ -321,6 +349,8 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       if (pointers.size > 0) return
       s.dragging = false
       s.dragActive = false
+      s.previewDrag = false
+      s.swipeConsumed = false
       s.dragX = 0
       s.dragY = 0
       el.style.cursor = ''
@@ -332,6 +362,13 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
       if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable]')) return
       const k = e.key.toLowerCase()
       if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
+        // Preview mode is sticky: sideways keys page through works, the rest do
+        // nothing — walking out of the mode is reserved for the close button
+        if (useGallery.getState().focusedIndex >= 0) {
+          if (k === 'a' || k === 'arrowleft') focusStep(-1)
+          if (k === 'd' || k === 'arrowright') focusStep(1)
+          return
+        }
         s.keys.add(k)
         cancelTweens()
         stopTourAndPanel()

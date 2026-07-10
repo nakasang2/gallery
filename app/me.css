@@ -187,6 +187,21 @@
 .upload-hero b { font-family: var(--serif); font-size: 1.1rem; font-weight: 500; }
 .upload-hero span { font-size: 0.72rem; line-height: 1.7; color: var(--muted); }
 
+/* URLと公開状態はワンセット: スイッチで開閉する */
+.hako-url-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; flex-wrap: wrap; }
+.hako-url {
+  font-size: 0.8rem;
+  color: var(--gold);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.hako-url:hover { text-decoration: underline; text-underline-offset: 3px; }
+.hako-url.off { color: var(--muted); }
+.hako-state { font-size: 0.6rem; letter-spacing: 0.2em; color: var(--muted); }
+.hako-state.open { color: var(--gold); }
+
 .hako-head { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
 .hako-title { font-family: var(--serif); font-size: 1.35rem; font-weight: 500; }
 .hako-badge {

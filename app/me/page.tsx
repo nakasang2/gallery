@@ -485,21 +485,34 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         <span className="hako-title" style={isPlaceholderTitle(row.title) ? { color: 'var(--muted)' } : undefined}>
           {isPlaceholderTitle(row.title) ? 'Untitled exhibition' : row.title}
         </span>
-        <span className={`hako-badge${row.is_public ? ' public' : ''}`}>
-          {row.is_public ? 'PUBLIC' : 'PRIVATE'}
-        </span>
       </div>
-      <p className="hako-meta">
-        {row.updated_at ? `Updated ${fmtDate(row.updated_at)}` : ''}
-        {row.is_public && publicUrl ? (
-          <>
-            {' · live at '}
-            <a href={publicUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>
+      {/* The URL and its state live together: flip the switch to open / close the room */}
+      {username ? (
+        <div className="hako-url-row">
+          {row.is_public && publicUrl ? (
+            <a className="hako-url" href={publicUrl} target="_blank" rel="noreferrer">
               {publicUrl.replace(/^https?:\/\//, '')}
             </a>
-          </>
-        ) : null}
-      </p>
+          ) : (
+            <span className="hako-url off">{(publicUrl || `/@${username}`).replace(/^https?:\/\//, '')}</span>
+          )}
+          <label
+            className="switch"
+            title={
+              row.is_public
+                ? 'Open — anyone with the URL can visit'
+                : cloudArtworks.length
+                  ? 'Private — flip to open your gallery to the public'
+                  : 'Exhibit at least one work before opening'
+            }
+          >
+            <input type="checkbox" checked={row.is_public} disabled={busy} onChange={() => void togglePublic()} />
+            <span className="knob" aria-hidden="true" />
+          </label>
+          <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? 'OPEN' : 'PRIVATE'}</span>
+        </div>
+      ) : null}
+      <p className="hako-meta">{row.updated_at ? `Updated ${fmtDate(row.updated_at)}` : ''}</p>
       {/* How the exhibition is doing, at a glance */}
       <div className="stat-row">
         <div className="stat"><b>{cloudArtworks.length}</b><span>Works</span></div>
@@ -557,17 +570,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
 
       {mode === 'view' && (
         <>
-          {/* Primary actions: walk the room, share it */}
+          {/* Primary actions: walk the room, share it (open/close lives on the URL row) */}
           <div className="hako-actions">
             <Link className="btn-line btn-gold" href="/demo">Preview in 3D</Link>
-            <button
-              className="btn-line"
-              disabled={busy || (!row.is_public && !username)}
-              title={!row.is_public && !username ? 'Set a username first' : undefined}
-              onClick={() => void togglePublic()}
-            >
-              {row.is_public ? 'Make private' : 'Open to the public'}
-            </button>
             {row.is_public && publicUrl && (
               <button
                 className="btn-line"

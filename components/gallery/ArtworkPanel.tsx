@@ -1,6 +1,7 @@
 'use client'
 // Artwork info panel (details for the focused work, plus per-work framing / visitor likes)
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { walkRef } from '@/lib/controller'
 import { useExhibitionList, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, setOverride } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { addLike, hasLiked, likeCount } from '@/lib/engagement'
@@ -56,8 +57,31 @@ export default function ArtworkPanel() {
   const art = focusedIndex >= 0 ? list[focusedIndex] : null
   const open = !!art
 
+  // Swiping the sheet itself also pages between works (vertical scroll untouched)
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
+
   return (
-    <aside id="panel" className={`panel${open ? ' open' : ''}`} aria-hidden={!open} inert={!open}>
+    <aside
+      id="panel"
+      className={`panel${open ? ' open' : ''}`}
+      aria-hidden={!open}
+      inert={!open}
+      onTouchStart={(e) => {
+        const t = e.touches[0]
+        touchStart.current = { x: t.clientX, y: t.clientY }
+      }}
+      onTouchEnd={(e) => {
+        const s = touchStart.current
+        touchStart.current = null
+        if (!s) return
+        const t = e.changedTouches[0]
+        const dx = t.clientX - s.x
+        const dy = t.clientY - s.y
+        if (Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+          walkRef.current?.focusStep(dx < 0 ? 1 : -1)
+        }
+      }}
+    >
       <button
         className="panel-close"
         aria-label="Close"
