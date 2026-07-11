@@ -8,7 +8,6 @@ export interface LoadingExhibition {
   title: string
   ownerName: string
   ownerAvatar: string | null
-  username: string
 }
 
 export default function LoadingScreen({
@@ -32,9 +31,8 @@ export default function LoadingScreen({
           )}
           <div className="loading-eyebrow">Now showing</div>
           <div className="loading-title">{title}</div>
-          <div className="loading-by">
-            {untitled ? `@${exhibition.username}` : `by ${exhibition.ownerName} — @${exhibition.username}`}
-          </div>
+          {/* Just the artist's name — the title already carries it when untitled */}
+          {!untitled && <div className="loading-by">{exhibition.ownerName}</div>}
           <div className="loading-bar"><span /></div>
           <div className="loading-text">Opening the doors…</div>
         </div>

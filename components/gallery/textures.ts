@@ -195,22 +195,57 @@ export const DEFAULT_TITLE_TEXT: TitleWallText = {
   statement: 'From a feed that scrolls past, to a room you walk through. This space is waiting to become yours.',
 }
 
-// Wrap a long note into at most `maxLines` centred lines (statement text is free-form)
+// Wrap free-form text into at most `maxLines` lines that actually FIT maxW.
+// Prefers space boundaries, but breaks by character inside any token wider than
+// a line — Japanese statements have no spaces and must never overflow the board.
 function wrapNote(ctx: CanvasRenderingContext2D, s: string, maxW: number, maxLines: number): string[] {
-  const words = s.split(/\s+/).filter(Boolean)
-  const lines: string[] = []
+  const fits = (t: string) => ctx.measureText(t).width <= maxW
+  const out: string[] = []
   let line = ''
-  for (const w of words) {
-    const test = line ? `${line} ${w}` : w
-    if (ctx.measureText(test).width > maxW && line) {
-      lines.push(line)
-      line = w
-      if (lines.length === maxLines) break
-    } else line = test
+  let overflow = false
+  const words = s.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean)
+  outer: for (const word of words) {
+    let w = word
+    while (w) {
+      const attempt = line ? `${line} ${w}` : w
+      if (fits(attempt)) {
+        line = attempt
+        break
+      }
+      if (line) {
+        out.push(line)
+        line = ''
+        if (out.length === maxLines) {
+          overflow = true
+          break outer
+        }
+        continue
+      }
+      // A single token wider than the line: take the widest fitting chunk
+      let chunk = ''
+      for (const ch of w) {
+        if (!fits(chunk + ch)) break
+        chunk += ch
+      }
+      if (!chunk) chunk = w[0] ?? ''
+      out.push(chunk)
+      w = w.slice(chunk.length)
+      if (out.length === maxLines) {
+        overflow = true
+        break outer
+      }
+    }
   }
-  if (lines.length < maxLines && line) lines.push(line)
-  else if (lines.length === maxLines && line) lines[maxLines - 1] = `${lines[maxLines - 1]}…`
-  return lines
+  if (!overflow && line) {
+    if (out.length < maxLines) out.push(line)
+    else overflow = true
+  }
+  if (overflow && out.length) {
+    let last = out[out.length - 1]
+    while (last && !fits(`${last}…`)) last = last.slice(0, -1)
+    out[out.length - 1] = `${last}…`
+  }
+  return out
 }
 
 type BoardRow = { h: number; draw: (top: number) => void }
