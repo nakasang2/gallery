@@ -2,18 +2,11 @@
 // 3D gallery (guest experience). WebGL is browser-only, so load it with SSR disabled
 import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
+import LoadingScreen from '@/components/gallery/LoadingScreen'
 
 const GalleryApp = dynamic(() => import('@/components/gallery/GalleryApp'), {
   ssr: false,
-  loading: () => (
-    <div id="loading">
-      <div className="loading-inner">
-        <div className="loading-logo">HAKONIWA</div>
-        <div className="loading-bar"><span></span></div>
-        <div className="loading-text">Preparing the gallery…</div>
-      </div>
-    </div>
-  ),
+  loading: () => <LoadingScreen />,
 })
 
 export default function DemoPage() {

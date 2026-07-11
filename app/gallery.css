@@ -82,6 +82,53 @@ body.gallery-mode {
   color: var(--muted);
 }
 
+/* 入場演出: 来場者向けは「その作家の展示のドア」— カードがふわっと立ち上がる */
+.loading-inner { animation: loading-in 0.9s ease both; }
+@keyframes loading-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.loading-avatar {
+  display: block;
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 1.2rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--gold);
+}
+.loading-avatar.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-size: 1.7rem;
+  color: var(--gold);
+  background: rgba(212, 162, 78, 0.08);
+  border: 1px solid var(--hairline);
+}
+.loading-eyebrow {
+  font-size: 0.6rem;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 0.8rem;
+}
+.loading-title {
+  font-family: var(--serif);
+  font-size: 1.7rem;
+  line-height: 1.25;
+  max-width: min(86vw, 560px);
+  margin: 0 auto 0.55rem;
+  text-wrap: balance;
+}
+.loading-by {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+
 /* ---- HUD ---- */
 .hud-top {
   position: fixed;
