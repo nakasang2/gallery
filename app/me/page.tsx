@@ -612,85 +612,84 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </button>
       </div>
 
-      {/* ---- The workbench: works on the left, live preview + every control on the right ---- */}
-      <div className="works-editor" style={{ marginTop: '1.4rem' }}>
-        <div className="we-left">
-          {cloudArtworks.length === 0 && (
-            <label className="upload-hero" aria-disabled={uploading}>
-              <b>{uploading ? 'Uploading…' : 'Hang your first work'}</b>
-              <span>
-                Drop in images from your camera roll or portfolio —<br />
-                the preview alongside shows them framed on your wall.
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                hidden
-                disabled={uploading}
-                onChange={(e) => {
-                  void onFiles(e.target.files)
-                  e.target.value = ''
-                }}
-              />
-            </label>
-          )}
-          {cloudArtworks.length > 0 && (
-            <p className="me-note" style={{ marginTop: 0, marginBottom: '0.8rem' }}>
-              Click a work to preview it framed · ★ share cover (OGP) · × delete from library
-            </p>
-          )}
-          {cloudArtworks.length > 0 && (
-            <div className="works-grid">
-              {cloudArtworks.map((art) => (
-                <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={art.poster ?? art.src}
-                    alt={art.title}
-                    loading="lazy"
-                    onClick={() => setSelectedId(art.id)}
-                  />
-                  <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
-                  <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
-                  <button
-                    className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
-                    aria-label={`Use ${art.title} as the share cover`}
-                    title="Use as share cover (OGP)"
-                    onClick={() => void toggleCover(art)}
-                  >
-                    {row.cover_artwork_id === art.id ? '★' : '☆'}
-                  </button>
-                </figure>
-              ))}
-            </div>
-          )}
-          {cloudArtworks.length > 0 && (
-            <label className="btn-line file-btn" aria-disabled={uploading}>
-              {uploading ? 'Uploading…' : 'Upload images'}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                hidden
-                disabled={uploading}
-                onChange={(e) => {
-                  void onFiles(e.target.files)
-                  e.target.value = ''
-                }}
-              />
-            </label>
-          )}
-          <p className="me-note">
-            Works are library assets — deleting a hakoniwa never deletes them. Videos are uploaded
-            from the 3D preview.
-          </p>
-        </div>
+      {/* ---- The workbench: a filmstrip of the 10 slots on top, the selected work's
+           full-width detail (3D preview + every control) below ---- */}
+      {cloudArtworks.length === 0 ? (
+        <label className="upload-hero" aria-disabled={uploading} style={{ marginTop: '1.4rem' }}>
+          <b>{uploading ? 'Uploading…' : 'Hang your first work'}</b>
+          <span>
+            Drop in images from your camera roll or portfolio —<br />
+            the preview below shows them framed on your wall.
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            disabled={uploading}
+            onChange={(e) => {
+              void onFiles(e.target.files)
+              e.target.value = ''
+            }}
+          />
+        </label>
+      ) : (
+        <>
+          <div className="works-head">
+            <span className="works-count">
+              {cloudArtworks.length} / {PLAN.worksPerGallery} works
+            </span>
+            <span className="works-legend">Select a work · ★ cover · × remove</span>
+          </div>
+          {/* Filmstrip: the 10 slots as a horizontal, scrollable rail */}
+          <div className="works-strip">
+            {cloudArtworks.map((art) => (
+              <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={art.poster ?? art.src}
+                  alt={art.title}
+                  loading="lazy"
+                  onClick={() => setSelectedId(art.id)}
+                />
+                <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
+                <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
+                <button
+                  className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
+                  aria-label={`Use ${art.title} as the share cover`}
+                  title="Use as share cover (OGP)"
+                  onClick={() => void toggleCover(art)}
+                >
+                  {row.cover_artwork_id === art.id ? '★' : '☆'}
+                </button>
+              </figure>
+            ))}
+            {/* The add tile lives at the end of the strip */}
+            {cloudArtworks.length < PLAN.worksPerGallery && (
+              <label className="works-add" aria-disabled={uploading} title="Upload images">
+                <span aria-hidden="true">{uploading ? '…' : '+'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  disabled={uploading}
+                  onChange={(e) => {
+                    void onFiles(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            )}
+          </div>
+        </>
+      )}
 
-        {/* Live preview: the ACTUAL 3D pipeline (same Exhibit component as the room).
-            Everything below it changes what it shows — plate text, per-work design,
-            and the room itself. Poster-less videos / empty state fall back to CSS. */}
-        <div className="we-right">
+      {/* Detail: full width below the strip — 3D preview left, every control right.
+          Everything here changes what the preview shows — plate text, per-work
+          design, and the room itself. Poster-less videos / empty state fall to CSS. */}
+      <div className="works-detail">
+        <div className="we-left">
           {selected && previewSrc ? (
             <div className="wall-preview3d">
               <Preview3D
@@ -720,10 +719,12 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               Upload a work to see it hanging in your theme and frame before you publish.
             </p>
           )}
+        </div>
 
+        <div className="we-right">
           {selected && (
             <>
-              <p className="me-note" style={{ marginBottom: 0 }}>
+              <p className="me-note" style={{ marginTop: 0, marginBottom: 0 }}>
                 “{selected.title}” — <b style={{ color: 'var(--ink)' }}>this work</b>
                 {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
               </p>
@@ -821,8 +822,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             </div>
           </div>
           <p className="me-note" style={{ marginTop: '0.5rem' }}>
-            The theme sets the room-wide design; the controls above it apply to the selected work
-            only, and matching the room&apos;s setting clears the override.
+            The theme sets the room-wide design; the per-work controls above it apply to the
+            selected work only, and matching the room&apos;s setting clears the override. Works are
+            library assets — deleting a hakoniwa never deletes them.
           </p>
         </div>
       </div>

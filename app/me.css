@@ -288,42 +288,30 @@
   .hako-actions .btn-line { flex: 1 1 44%; }
 }
 
-/* 作品ライブラリ: 左=アップロード+グリッド / 右=選択作品の額装ライブプレビュー */
-.works-editor {
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-  gap: 1.4rem;
-  align-items: start;
+/* 作品ワークベンチ: 上=10枠のフィルムストリップ / 下=選択作品の詳細(全幅) */
+.works-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin: 1.4rem 0 0.6rem;
+  flex-wrap: wrap;
 }
-.we-right { position: sticky; top: 1rem; }
-/* 選択作品のデザインチップ(プレビュー直下、狭いカラム向けにやや小さく) */
-.we-chips { margin-top: 0.45rem; gap: 0.35rem; }
-.we-chips .chip { font-size: 0.66rem; padding: 0.4em 0.85em; }
-.wall-preview--lg { height: 250px; font-size: 18px; }
-/* 実3Dプレビュー(ルームと同じExhibitを小キャンバスで描画) */
-.wall-preview3d {
-  height: 250px;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--hairline);
-  background: #101010;
-}
-.wall-preview3d canvas { display: block; width: 100%; height: 100%; }
-@media (max-width: 720px) {
-  .works-editor { grid-template-columns: 1fr; }
-  /* Preview first on phones: pick a work below, see it framed right above */
-  .we-right { position: static; order: -1; }
-  .wall-preview--lg { height: 210px; font-size: 15px; }
-  .wall-preview3d { height: 210px; }
-}
+.works-count { font-size: 0.72rem; letter-spacing: 0.14em; color: var(--ink); }
+.works-legend { font-size: 0.68rem; color: var(--muted); }
 
-.works-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+/* フィルムストリップ: 10枠を横一列にスクロール。スクロールバーは細く控えめに */
+.works-strip {
+  display: flex;
   gap: 0.7rem;
-  margin-bottom: 1.1rem;
+  overflow-x: auto;
+  padding: 0.2rem 0.1rem 0.7rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline) transparent;
 }
-.works-cell { position: relative; margin: 0; }
+.works-strip::-webkit-scrollbar { height: 6px; }
+.works-strip::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 100px; }
+.works-cell { position: relative; margin: 0; flex: 0 0 130px; }
 .works-cell img {
   width: 100%;
   aspect-ratio: 1;
@@ -344,6 +332,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 130px;
 }
 .works-cell button {
   position: absolute;
@@ -360,6 +349,52 @@
 }
 .works-cell button { color: #c96a5a; } /* 完全削除であることが静置状態でも伝わる色 */
 .works-cell button:hover { border-color: #e08a7a; color: #e08a7a; }
+
+/* ストリップ末尾の追加タイル */
+.works-add {
+  flex: 0 0 130px;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--muted);
+  border: 1px dashed rgba(212, 162, 78, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.works-add:hover { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.05); }
+
+/* 詳細: プレビュー左 / 設定右。全幅なので余裕を持って2カラム */
+.works-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 1.6rem;
+  align-items: start;
+  margin-top: 0.4rem;
+}
+.works-detail .we-left { position: sticky; top: 1rem; }
+.we-chips { margin-top: 0.45rem; gap: 0.35rem; }
+.wall-preview--lg { height: 320px; font-size: 22px; }
+/* 実3Dプレビュー(ルームと同じExhibitを小キャンバスで描画) */
+.wall-preview3d {
+  height: 320px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  background: #101010;
+}
+.wall-preview3d canvas { display: block; width: 100%; height: 100%; }
+@media (max-width: 720px) {
+  .works-detail { grid-template-columns: 1fr; }
+  /* Preview stays on top on phones so the picked work is seen while you tweak */
+  .works-detail .we-left { position: static; }
+  .wall-preview--lg { height: 230px; font-size: 16px; }
+  .wall-preview3d { height: 230px; }
+  .works-cell, .works-add { flex-basis: 108px; }
+  .works-cell figcaption { max-width: 108px; }
+}
 
 /* 二次操作(Rename/Delete): 主要ボタンと並列にしない静かなテキスト行 */
 .hako-secondary {
