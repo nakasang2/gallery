@@ -360,5 +360,6 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - `lib/limits.ts`: 無料枠 `worksPerGallery` を10→5に改定。`effectiveSlotCount` は部屋ごとの`cap`を受け取れるよう拡張(省略時は現行プラン値にフォールバック)
 - migration 0013: `galleries.work_cap`(既定10 = 既存室の据え置き値)を追加。新規 `createGallery` は作成時点の `PLAN.worksPerGallery`(5)を明示的に書き込み — 既存室を遡って縮小しない
 - `Settings`/`PublicExhibition` に `workCap` を追加し、オーナー編集・訪問者表示の両方で「その部屋自身のキャパ」を`effectiveSlotCount`/`rebuildPlacements`/ダッシュボードの残枠表示に反映
-- `lib/entitlements.ts`: Video Pass・Design Tools・所有テーマ/レイアウトIDのための型を新設。現状は全員フルアクセス(`FULL_ACCESS_ENTITLEMENTS`)を返すのみで、UIのロック表示や決済とはまだ未接続
-- 未着手: Stripe連携、🔒付きアップセルUI、Design Tools自体のカラーピッカー/照明ムード実装
+- `lib/entitlements.ts`: Video Pass・Design Tools・所有テーマ/レイアウトIDのための型を新設。現状は全員フルアクセス(`FULL_ACCESS_ENTITLEMENTS`)を返すのみ
+- **🔒ロックUI(v0.44)**: `isThemeUnlocked`/`isLayoutUnlocked`(既存3テーマ・4レイアウト+customは`FOREVER_FREE_*_IDS`として永久無料判定、それ以外は`ownedThemeIds`/`ownedLayoutIds`を参照)を追加し、`chip-visual`パターンに🔒表示とタップ時のヒント(`components/LockToast.tsx`、「まだ購入できません」+自動消滅)を実装(`SettingsPanel.tsx`のテーマ/レイアウトチップ、`app/me/page.tsx`の同チップ)。ロック中のチップはタップしても適用されない。現行の全テーマ/レイアウトは`FOREVER_FREE_*_IDS`に含まれるため、**今のところどのチップにも🔒は表示されない**(将来テーマ/レイアウトを追加した時に自動でロック対象になる下地)
+- 未着手: Stripe連携、購入モーダル(単品/Collection選択)、Design Tools自体のカラーピッカー/照明ムード実装

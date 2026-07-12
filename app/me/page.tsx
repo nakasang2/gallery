@@ -11,6 +11,8 @@ import { TEMPLATES, THEMES, LAYOUTS } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
+import LockToast from '@/components/LockToast'
+import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -309,6 +311,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [workSaved, setWorkSaved] = useState(false)
+  const [lockedHint, setLockedHint] = useState<string | null>(null)
+  const entitlements = getEntitlements(user.id)
 
   const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
@@ -782,33 +786,47 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             <div className="wd-row">
               <span className="wd-label">Theme</span>
               <div className="chips">
-                {Object.entries(THEMES).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${key === row.theme ? ' active' : ''}`}
-                    disabled={busy}
-                    onClick={() => void setSpace({ theme: key, ...def.recommends, mat: 'auto' })}
-                  >
-                    <ThemeSwatch themeKey={key} />
-                    {def.label}
-                  </button>
-                ))}
+                {Object.entries(THEMES).map(([key, def]) => {
+                  const unlocked = isThemeUnlocked(key, entitlements)
+                  return (
+                    <button
+                      key={key}
+                      className={`chip chip-visual${key === row.theme ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      disabled={busy}
+                      onClick={() => {
+                        if (!unlocked) { setLockedHint(def.label); return }
+                        void setSpace({ theme: key, ...def.recommends, mat: 'auto' })
+                      }}
+                    >
+                      <ThemeSwatch themeKey={key} />
+                      {def.label}
+                      {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+                    </button>
+                  )
+                })}
               </div>
             </div>
             <div className="wd-row">
               <span className="wd-label">Layout</span>
               <div className="chips">
-                {Object.entries(LAYOUTS).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${key === row.layout ? ' active' : ''}`}
-                    disabled={busy}
-                    onClick={() => void setSpace({ layout: key })}
-                  >
-                    <LayoutPlan layoutKey={key} className="chip-plan" />
-                    {def.label}
-                  </button>
-                ))}
+                {Object.entries(LAYOUTS).map(([key, def]) => {
+                  const unlocked = isLayoutUnlocked(key, entitlements)
+                  return (
+                    <button
+                      key={key}
+                      className={`chip chip-visual${key === row.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      disabled={busy}
+                      onClick={() => {
+                        if (!unlocked) { setLockedHint(def.label); return }
+                        void setSpace({ layout: key })
+                      }}
+                    >
+                      <LayoutPlan layoutKey={key} className="chip-plan" />
+                      {def.label}
+                      {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+                    </button>
+                  )
+                })}
                 {/* layout_params survive preset switches (saveGallerySpace preserves them) */}
                 <button
                   className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}`}
@@ -828,6 +846,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           </p>
         </div>
       </div>
+      {lockedHint && <LockToast label={lockedHint} onClose={() => setLockedHint(null)} />}
     </div>
   )
 }

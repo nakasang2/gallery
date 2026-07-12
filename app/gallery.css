@@ -709,6 +709,46 @@ body.gallery-mode {
 .chip:hover { border-color: var(--gold); color: var(--gold); }
 .chip.active { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.1); }
 
+/* Locked (not yet purchasable) theme/layout — tappable for an upsell hint, but
+   never turns gold like a real selection would */
+.chip.locked { opacity: 0.6; }
+.chip.locked:hover { border-color: var(--hairline); color: var(--muted); }
+.chip-lock { margin-left: 0.15em; font-size: 0.9em; }
+
+/* ---- ロックされたチップをタップした時のヒント ---- */
+.lock-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  max-width: min(420px, 88vw);
+  padding: 0.8em 1.1em;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: rgba(15, 14, 12, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+.lock-toast button {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+}
+.lock-toast button:hover { color: var(--ink); }
+
 .panel-frame { margin-top: 1.6rem; padding-top: 1.4rem; border-top: 1px solid var(--hairline); }
 .panel-frame-label {
   font-size: 0.68rem;
