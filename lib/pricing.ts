@@ -7,6 +7,11 @@ export const PRICE_THEME_COLLECTION = '¥2,480'
 export const PRICE_DESIGN_TOOLS = '¥1,480'
 export const PRICE_ROOM = '¥1,480 / room'
 export const PRICE_VIDEO_PASS = '¥980 / year'
+/** §11.5 axis ② — an add-on for an EXISTING room, distinct from "展示室を追加"
+ *  (a whole new room). Cheaper than a new room since there's no new URL/theme
+ *  bundled in, just more slots in the room you already have. */
+export const PRICE_CAPACITY_ADDON = '¥580'
+export const CAPACITY_ADDON_SIZE = 5
 
 export interface PurchaseOption {
   key: string
@@ -32,6 +37,19 @@ export function purchaseOptionsFor(kind: 'theme' | 'layout', label: string): Pur
       label: 'Theme Collection Vol.1',
       price: PRICE_THEME_COLLECTION,
       description: 'Every theme released up to now, in one purchase. Future volumes are separate.',
+    },
+  ]
+}
+
+/** Capacity add-on for the room you're already in — a single option, not a
+ *  catalog (there's nothing to bundle into a "collection" here) */
+export function capacityPurchaseOptions(): PurchaseOption[] {
+  return [
+    {
+      key: 'addon',
+      label: `+${CAPACITY_ADDON_SIZE} works`,
+      price: PRICE_CAPACITY_ADDON,
+      description: `Raises this room's cap by ${CAPACITY_ADDON_SIZE}, once, forever — stacks with future purchases.`,
     },
   ]
 }

@@ -11,11 +11,14 @@ export default function PurchaseModal({
   itemLabel,
   preview,
   options,
+  previewNote = 'This is a preview of how buying a theme or layout will work.',
   onClose,
 }: {
   itemLabel: string
   preview?: React.ReactNode
   options: PurchaseOption[]
+  /** Footer copy while the CTA is untried — override for non-theme/layout purchases */
+  previewNote?: string
   onClose: () => void
 }) {
   const [selected, setSelected] = useState(options[0]?.key ?? '')
@@ -68,7 +71,7 @@ export default function PurchaseModal({
             <button className="btn-line purchase-cta" onClick={() => setTried(true)}>
               Continue to checkout
             </button>
-            <p className="purchase-note">This is a preview of how buying a theme or layout will work.</p>
+            <p className="purchase-note">{previewNote}</p>
           </>
         )}
       </div>

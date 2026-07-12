@@ -13,7 +13,7 @@ import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components
 import WorkDesign from '@/components/WorkDesign'
 import LockToast from '@/components/LockToast'
 import PurchaseModal from '@/components/PurchaseModal'
-import { purchaseOptionsFor } from '@/lib/pricing'
+import { purchaseOptionsFor, capacityPurchaseOptions, CAPACITY_ADDON_SIZE } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import { PLAN } from '@/lib/limits'
 import {
@@ -316,7 +316,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [captionInput, setCaptionInput] = useState('')
   const [workSaved, setWorkSaved] = useState(false)
   const [lockedHint, setLockedHint] = useState<string | null>(null)
-  const [purchaseItem, setPurchaseItem] = useState<{ kind: 'theme' | 'layout'; key: string; label: string } | null>(null)
+  const [purchaseItem, setPurchaseItem] = useState<{ kind: 'theme' | 'layout' | 'capacity'; key: string; label: string } | null>(null)
   const entitlements = getEntitlements(user.id)
   const [design, setDesign] = useState<DesignOverrides>(() => normalizeDesignOverrides(row.design_overrides))
   const [logoUploading, setLogoUploading] = useState(false)
@@ -681,7 +681,16 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             <span className="works-count">
               {cloudArtworks.length} / {row.work_cap} works
             </span>
-            <span className="works-legend">Select a work · ★ cover · × remove</span>
+            {cloudArtworks.length >= row.work_cap ? (
+              <button
+                className="works-upsell"
+                onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
+              >
+                🔒 Room is full — get {CAPACITY_ADDON_SIZE} more slots
+              </button>
+            ) : (
+              <span className="works-legend">Select a work · ★ cover · × remove</span>
+            )}
           </div>
           {/* Filmstrip: the 10 slots as a horizontal, scrollable rail */}
           <div className="works-strip">
@@ -995,11 +1004,20 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           preview={
             purchaseItem.kind === 'theme' ? (
               <ThemeSwatch themeKey={purchaseItem.key} />
-            ) : (
+            ) : purchaseItem.kind === 'layout' ? (
               <LayoutPlan layoutKey={purchaseItem.key} className="chip-plan" />
-            )
+            ) : undefined
           }
-          options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)}
+          options={
+            purchaseItem.kind === 'capacity'
+              ? capacityPurchaseOptions()
+              : purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)
+          }
+          previewNote={
+            purchaseItem.kind === 'capacity'
+              ? 'This is a preview of how buying more room capacity will work.'
+              : undefined
+          }
           onClose={() => setPurchaseItem(null)}
         />
       )}

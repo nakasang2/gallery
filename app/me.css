@@ -316,6 +316,18 @@
 }
 .works-count { font-size: 0.72rem; letter-spacing: 0.14em; color: var(--ink); }
 .works-legend { font-size: 0.68rem; color: var(--muted); }
+.works-upsell {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  background: transparent;
+  border: 1px solid rgba(212, 162, 78, 0.4);
+  border-radius: 100px;
+  padding: 0.35em 0.9em;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.works-upsell:hover { border-color: var(--gold); background: rgba(212, 162, 78, 0.08); }
 
 /* フィルムストリップ: 10枠を横一列にスクロール。スクロールバーは細く控えめに */
 .works-strip {
