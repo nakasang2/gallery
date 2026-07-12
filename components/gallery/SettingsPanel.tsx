@@ -14,7 +14,7 @@ import { setGalleryPublic } from '@/lib/galleries'
 import { walkRef } from '@/lib/controller'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import PurchaseModal from '@/components/PurchaseModal'
-import { purchaseOptionsFor } from '@/lib/pricing'
+import { purchaseOptionsFor, purchaseEyebrow, PRICE_SINGLE_ITEM } from '@/lib/pricing'
 import {
   ThemeSwatch,
   LayoutPlan,
@@ -574,7 +574,7 @@ export default function SettingsPanel() {
               >
                 <ThemeSwatch themeKey={key} />
                 {def.label}
-                {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+                {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
               </button>
             )
           })}
@@ -599,7 +599,7 @@ export default function SettingsPanel() {
               >
                 <LayoutPlan layoutKey={key} className="chip-plan" />
                 {def.label}
-                {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+                {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
               </button>
             )
           })}
@@ -614,6 +614,7 @@ export default function SettingsPanel() {
         {purchaseItem && (
           <PurchaseModal
             itemLabel={purchaseItem.label}
+            eyebrow={purchaseEyebrow(purchaseItem.kind)}
             preview={
               purchaseItem.kind === 'theme' ? (
                 <ThemeSwatch themeKey={purchaseItem.key} />

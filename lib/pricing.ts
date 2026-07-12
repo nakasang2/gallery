@@ -53,3 +53,29 @@ export function capacityPurchaseOptions(): PurchaseOption[] {
     },
   ]
 }
+
+/** Design Tools — a single capability unlock, not sold per item */
+export function designToolsPurchaseOptions(): PurchaseOption[] {
+  return [
+    {
+      key: 'unlock',
+      label: 'Design Tools',
+      price: PRICE_DESIGN_TOOLS,
+      description: 'Every wall/floor colour, light mood and logo placement — once, forever, in every room you own.',
+    },
+  ]
+}
+
+/** Small eyebrow label above the modal title — gives the price context at a glance */
+export function purchaseEyebrow(kind: 'theme' | 'layout' | 'capacity' | 'design-tools'): string {
+  switch (kind) {
+    case 'theme':
+      return 'New theme'
+    case 'layout':
+      return 'New layout'
+    case 'capacity':
+      return 'Room capacity'
+    case 'design-tools':
+      return 'Design Tools'
+  }
+}

@@ -11,9 +11,16 @@ import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, type DesignOverri
 import { setOverride } from '@/lib/exhibition'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
-import LockToast from '@/components/LockToast'
 import PurchaseModal from '@/components/PurchaseModal'
-import { purchaseOptionsFor, capacityPurchaseOptions, CAPACITY_ADDON_SIZE } from '@/lib/pricing'
+import {
+  purchaseOptionsFor,
+  capacityPurchaseOptions,
+  designToolsPurchaseOptions,
+  purchaseEyebrow,
+  CAPACITY_ADDON_SIZE,
+  PRICE_SINGLE_ITEM,
+  PRICE_DESIGN_TOOLS,
+} from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import { PLAN } from '@/lib/limits'
 import {
@@ -315,8 +322,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [workSaved, setWorkSaved] = useState(false)
-  const [lockedHint, setLockedHint] = useState<string | null>(null)
-  const [purchaseItem, setPurchaseItem] = useState<{ kind: 'theme' | 'layout' | 'capacity'; key: string; label: string } | null>(null)
+  const [purchaseItem, setPurchaseItem] = useState<
+    { kind: 'theme' | 'layout' | 'capacity' | 'design-tools'; key: string; label: string } | null
+  >(null)
   const entitlements = getEntitlements(user.id)
   const [design, setDesign] = useState<DesignOverrides>(() => normalizeDesignOverrides(row.design_overrides))
   const [logoUploading, setLogoUploading] = useState(false)
@@ -847,7 +855,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     >
                       <ThemeSwatch themeKey={key} />
                       {def.label}
-                      {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+                      {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
                     </button>
                   )
                 })}
@@ -870,7 +878,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     >
                       <LayoutPlan layoutKey={key} className="chip-plan" />
                       {def.label}
-                      {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+                      {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
                     </button>
                   )
                 })}
@@ -984,39 +992,57 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 </p>
               </>
             ) : (
-              <button className="chip chip-visual locked" onClick={() => setLockedHint('Design Tools')}>
-                🔒 Unlock Design Tools — custom colours, lighting &amp; logo
-              </button>
+              <div className="dt-teaser">
+                <div className="swatch-strip" aria-hidden="true">
+                  <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).wall) }} />
+                  <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).floorTint) }} />
+                  <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).spotColor) }} />
+                </div>
+                <div className="dt-teaser-copy">
+                  <p className="dt-teaser-title">Recolour the room, tune the light, add your logo</p>
+                  <p className="dt-teaser-sub">One-time unlock — works in this room and every room after</p>
+                </div>
+                <button
+                  className="dt-teaser-cta"
+                  onClick={() => setPurchaseItem({ kind: 'design-tools', key: 'design-tools', label: 'Design Tools' })}
+                >
+                  Unlock — {PRICE_DESIGN_TOOLS}
+                </button>
+              </div>
             )}
           </div>
         </div>
       </div>
-      {lockedHint && (
-        <LockToast
-          label={lockedHint}
-          detail="it's a one-time unlock for the whole toolset, not sold per item."
-          onClose={() => setLockedHint(null)}
-        />
-      )}
       {purchaseItem && (
         <PurchaseModal
           itemLabel={purchaseItem.label}
+          eyebrow={purchaseEyebrow(purchaseItem.kind)}
           preview={
             purchaseItem.kind === 'theme' ? (
               <ThemeSwatch themeKey={purchaseItem.key} />
             ) : purchaseItem.kind === 'layout' ? (
               <LayoutPlan layoutKey={purchaseItem.key} className="chip-plan" />
+            ) : purchaseItem.kind === 'design-tools' ? (
+              <div className="swatch-strip" aria-hidden="true">
+                <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).wall) }} />
+                <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).floorTint) }} />
+                <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).spotColor) }} />
+              </div>
             ) : undefined
           }
           options={
             purchaseItem.kind === 'capacity'
               ? capacityPurchaseOptions()
-              : purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)
+              : purchaseItem.kind === 'design-tools'
+                ? designToolsPurchaseOptions()
+                : purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)
           }
           previewNote={
             purchaseItem.kind === 'capacity'
               ? 'This is a preview of how buying more room capacity will work.'
-              : undefined
+              : purchaseItem.kind === 'design-tools'
+                ? 'This is a preview of how unlocking Design Tools will work.'
+                : undefined
           }
           onClose={() => setPurchaseItem(null)}
         />
