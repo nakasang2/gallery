@@ -7,7 +7,7 @@ import { useGallery, useSettings, type Settings } from './store'
 
 /** Usable slots for the current layout (layout slots capped by the plan's works-per-gallery) */
 export function slotCount(s: Settings): number {
-  return effectiveSlotCount(resolveLayout(s.layout, s.layoutParams).slots.length)
+  return effectiveSlotCount(resolveLayout(s.layout, s.layoutParams).slots.length, s.workCap)
 }
 
 export function buildExhibitionList(s: Settings, own: ArtworkData[]): ArtworkData[] {

@@ -35,6 +35,66 @@ export interface ThemeDef {
   recommends: { frame: string; hanging: string; caption: string }
 }
 
+/** Design Tools (buy-once capability, REQUIREMENTS.md §11.5/§11.8) — a small
+ *  set of overrides layered on top of whichever preset theme is chosen, so an
+ *  owner can recolour the room and add a mark without forking a whole theme.
+ *  The title/accent wall and every other theme parameter (fog, mist, ceiling
+ *  strip, skylight…) stay theme-controlled; this only ever touches the three
+ *  main walls, the floor tint, the spotlight colour/strength, and a logo. */
+export interface DesignOverrides {
+  /** '#rrggbb' — overrides ThemeDef.wall (north/south/east walls only) */
+  wall: string | null
+  /** '#rrggbb' — overrides ThemeDef.floorTint */
+  floor: string | null
+  /** '#rrggbb' — overrides ThemeDef.spotColor ("light temperature") */
+  lightColor: string | null
+  /** Multiplier on ambient+hemi intensity, ~0.4–1.8 ("light mood") */
+  lightIntensity: number | null
+  /** Small mark composited into the title wall's corner */
+  logoUrl: string | null
+}
+
+export const EMPTY_DESIGN_OVERRIDES: DesignOverrides = {
+  wall: null,
+  floor: null,
+  lightColor: null,
+  lightIntensity: null,
+  logoUrl: null,
+}
+
+export function normalizeDesignOverrides(raw: unknown): DesignOverrides {
+  const r = (raw ?? {}) as Partial<DesignOverrides>
+  return {
+    wall: typeof r.wall === 'string' ? r.wall : null,
+    floor: typeof r.floor === 'string' ? r.floor : null,
+    lightColor: typeof r.lightColor === 'string' ? r.lightColor : null,
+    lightIntensity:
+      typeof r.lightIntensity === 'number' ? Math.min(1.8, Math.max(0.4, r.lightIntensity)) : null,
+    logoUrl: typeof r.logoUrl === 'string' ? r.logoUrl : null,
+  }
+}
+
+function hexToNum(hex: string): number {
+  return parseInt(hex.replace('#', ''), 16)
+}
+
+/** The theme actually rendered: the preset merged with this room's Design Tools
+ *  overrides, if any. The single point every 3D consumer (GalleryScene) reads
+ *  through, so a new override field only ever needs wiring here once. */
+export function resolveTheme(themeKey: string, overrides?: DesignOverrides | null): ThemeDef {
+  const base = THEMES[themeKey] ?? THEMES.chic
+  if (!overrides) return base
+  const intensity = overrides.lightIntensity ?? 1
+  return {
+    ...base,
+    ...(overrides.wall ? { wall: hexToNum(overrides.wall) } : {}),
+    ...(overrides.floor ? { floorTint: hexToNum(overrides.floor) } : {}),
+    ...(overrides.lightColor ? { spotColor: hexToNum(overrides.lightColor) } : {}),
+    ambient: base.ambient * intensity,
+    hemi: base.hemi * intensity,
+  }
+}
+
 export interface SlotDef {
   x: number
   z: number

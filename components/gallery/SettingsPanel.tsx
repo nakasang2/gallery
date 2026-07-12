@@ -12,6 +12,10 @@ import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
 import { getProfile, saveProfile } from '@/lib/publish'
 import { setGalleryPublic } from '@/lib/galleries'
 import { walkRef } from '@/lib/controller'
+import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
+import LockToast from '@/components/LockToast'
+import PurchaseModal from '@/components/PurchaseModal'
+import { purchaseOptionsFor } from '@/lib/pricing'
 import {
   ThemeSwatch,
   LayoutPlan,
@@ -226,9 +230,12 @@ export default function SettingsPanel() {
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const settings = useSettings()
   const ownArtworks = useOwnArtworks()
+  const entitlements = getEntitlements(user?.id ?? null)
 
   const [igNote, setIgNote] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [lockedHint, setLockedHint] = useState<string | null>(null)
+  const [purchaseItem, setPurchaseItem] = useState<{ kind: 'theme' | 'layout'; key: string; label: string } | null>(null)
   const titleRef = useRef<HTMLInputElement>(null!)
   const artistRef = useRef<HTMLInputElement>(null)
   const urlRef = useRef<HTMLInputElement>(null!)
@@ -547,27 +554,32 @@ export default function SettingsPanel() {
         <h3>Theme</h3>
         {/* Wall / floor / light colours shown right on the chip */}
         <div className="chips">
-          {Object.entries(THEMES).map(([key, def]) => (
-            <button
-              key={key}
-              className={`chip chip-visual${key === settings.theme ? ' active' : ''}`}
-              onClick={() => {
-                if (!confirmOverrideReset(...allOverrideMaps)) return
-                updateSettings({
-                  theme: key,
-                  ...def.recommends,
-                  mat: 'auto',
-                  frameOverrides: {},
-                  matOverrides: {},
-                  hangingOverrides: {},
-                  captionOverrides: {},
-                })
-              }}
-            >
-              <ThemeSwatch themeKey={key} />
-              {def.label}
-            </button>
-          ))}
+          {Object.entries(THEMES).map(([key, def]) => {
+            const unlocked = isThemeUnlocked(key, entitlements)
+            return (
+              <button
+                key={key}
+                className={`chip chip-visual${key === settings.theme ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                onClick={() => {
+                  if (!unlocked) { setPurchaseItem({ kind: 'theme', key, label: def.label }); return }
+                  if (!confirmOverrideReset(...allOverrideMaps)) return
+                  updateSettings({
+                    theme: key,
+                    ...def.recommends,
+                    mat: 'auto',
+                    frameOverrides: {},
+                    matOverrides: {},
+                    hangingOverrides: {},
+                    captionOverrides: {},
+                  })
+                }}
+              >
+                <ThemeSwatch themeKey={key} />
+                {def.label}
+                {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+              </button>
+            )
+          })}
         </div>
         <p className="settings-note">Switching theme applies its recommended framing; adjust below to taste.</p>
       </section>
@@ -576,16 +588,23 @@ export default function SettingsPanel() {
         <h3>Layout</h3>
         {/* Floor plans generated from the real layout data: room, hanging spots, benches */}
         <div className="chips">
-          {Object.entries(LAYOUTS).map(([key, def]) => (
-            <button
-              key={key}
-              className={`chip chip-visual${key === settings.layout ? ' active' : ''}`}
-              onClick={() => updateSettings({ layout: key })}
-            >
-              <LayoutPlan layoutKey={key} className="chip-plan" />
-              {def.label}
-            </button>
-          ))}
+          {Object.entries(LAYOUTS).map(([key, def]) => {
+            const unlocked = isLayoutUnlocked(key, entitlements)
+            return (
+              <button
+                key={key}
+                className={`chip chip-visual${key === settings.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                onClick={() => {
+                  if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: def.label }); return }
+                  updateSettings({ layout: key })
+                }}
+              >
+                <LayoutPlan layoutKey={key} className="chip-plan" />
+                {def.label}
+                {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+              </button>
+            )
+          })}
           <button
             className={`chip chip-visual${settings.layout === 'custom' ? ' active' : ''}`}
             onClick={() => updateSettings({ layout: 'custom' })}
@@ -594,6 +613,21 @@ export default function SettingsPanel() {
             Custom
           </button>
         </div>
+        {lockedHint && <LockToast label={lockedHint} onClose={() => setLockedHint(null)} />}
+        {purchaseItem && (
+          <PurchaseModal
+            itemLabel={purchaseItem.label}
+            preview={
+              purchaseItem.kind === 'theme' ? (
+                <ThemeSwatch themeKey={purchaseItem.key} />
+              ) : (
+                <LayoutPlan layoutKey={purchaseItem.key} className="chip-plan" />
+              )
+            }
+            options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)}
+            onClose={() => setPurchaseItem(null)}
+          />
+        )}
         {settings.layout === 'custom' && (
           <div className="custom-layout">
             <label className="slider-row">

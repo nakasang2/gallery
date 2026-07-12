@@ -223,6 +223,22 @@ export async function uploadAvatar(ownerId: string, file: File): Promise<string>
   return url
 }
 
+/** Upload a Design Tools logo/branding mark ({uid}/{galleryId}-logo.jpg) and
+ *  return its URL — the caller saves it into that gallery's design_overrides
+ *  (this does not write to any table itself, unlike uploadAvatar) */
+export async function uploadLogo(ownerId: string, galleryId: string, file: File): Promise<string> {
+  const sb = supabase!
+  const { dataUrl } = await fileToDataUrl(file, 400)
+  const blob = await dataUrlToJpegBlob(dataUrl, 400)
+  const path = `${ownerId}/${galleryId}-logo.jpg`
+  const up = await sb.storage.from('artworks').upload(path, blob, {
+    contentType: 'image/jpeg',
+    upsert: true,
+  })
+  if (up.error) throw up.error
+  return `${publicUrl(path)}?v=${Date.now()}` // cache-bust so a replaced logo shows immediately
+}
+
 /** How many placements (public walls) an artwork hangs on — used for delete warnings */
 export async function artworkPlacementCount(artworkId: string): Promise<number> {
   const { count, error } = await supabase!

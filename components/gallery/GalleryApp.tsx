@@ -16,18 +16,7 @@ import { HudTop, HudActions, HudStepper, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
 import SettingsPanel from './SettingsPanel'
 import GuestbookPanel from './GuestbookPanel'
-
-function LoadingOverlay({ done }: { done: boolean }) {
-  return (
-    <div id="loading" className={done ? 'done' : ''}>
-      <div className="loading-inner">
-        <div className="loading-logo">HAKONIWA</div>
-        <div className="loading-bar"><span></span></div>
-        <div className="loading-text">Preparing the gallery…</div>
-      </div>
-    </div>
-  )
-}
+import LoadingScreen from './LoadingScreen'
 
 // Guided tour: focus works in order, pausing to view each before moving on
 function useTour() {
@@ -55,8 +44,9 @@ function useTour() {
   }, [tourActive, count])
 }
 
-export default function GalleryApp() {
+export default function GalleryApp({ onShellReady }: { onShellReady?: () => void }) {
   const ready = useGallery((s) => s.ready)
+  const visitor = useGallery((s) => s.visitor)
   const [loadingDone, setLoadingDone] = useState(false)
   // null = still detecting; false = no WebGL → 2D list fallback
   const [webgl, setWebgl] = useState<boolean | null>(null)
@@ -79,6 +69,8 @@ export default function GalleryApp() {
   useEffect(() => {
     ;(window as unknown as Record<string, unknown>).__hakoniwa = { store: useGallery, walkRef }
     useGallery.getState().initAuth()
+    onShellReady?.() // our own LoadingScreen has taken over from any outer fallback
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Ambient and video audio start on first interaction due to browser autoplay limits
@@ -145,7 +137,8 @@ export default function GalleryApp() {
       <HudActions />
       <SettingsPanel />
       <GuestbookPanel />
-      <LoadingOverlay done={loadingDone} />
+      {/* Personalised for a public gallery (visitor mode), house-branded on /demo */}
+      <LoadingScreen exhibition={visitor} done={loadingDone} />
     </>
   )
 }

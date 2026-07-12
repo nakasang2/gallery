@@ -15,12 +15,15 @@ export interface PlanLimits {
 
 export const PLAN: PlanLimits = {
   galleries: 1,
-  worksPerGallery: 10,
+  worksPerGallery: 5,
   storageBytes: 300 * 1024 * 1024,
   videoBytes: 40 * 1024 * 1024,
 }
 
-/** Effective number of usable slots for a layout under the current plan */
-export function effectiveSlotCount(layoutSlotCount: number): number {
-  return Math.min(layoutSlotCount, PLAN.worksPerGallery)
+/** Effective number of usable slots for a layout. `cap` is the OWNING gallery's own
+ *  work_cap (REQUIREMENTS.md §11.5/§11.7 — capacity is fixed per room at purchase
+ *  time, not one account-wide constant); omit it where no gallery row is in scope
+ *  (template previews, a signed-out guest's local scene) to fall back to the plan default. */
+export function effectiveSlotCount(layoutSlotCount: number, cap: number = PLAN.worksPerGallery): number {
+  return Math.min(layoutSlotCount, cap)
 }

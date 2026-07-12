@@ -12,10 +12,14 @@ import {
   CAPTIONS,
   CUSTOM_LAYOUT_DEFAULTS,
   normalizeLayoutParams,
+  normalizeDesignOverrides,
+  EMPTY_DESIGN_OVERRIDES,
   type CustomLayoutParams,
+  type DesignOverrides,
 } from './presets'
 import { supabase } from './supabase'
 import { listMyArtworks, reorderArtworks } from './cloud'
+import { PLAN } from './limits'
 import type { PublicExhibition } from './publish'
 import {
   getMyGalleryRow,
@@ -35,6 +39,8 @@ function rowSpace(row: GalleryRow): Partial<Settings> {
     ...(MATS[row.mat_default] ? { mat: row.mat_default } : {}),
     ...(HANGINGS[row.hanging_default] ? { hanging: row.hanging_default } : {}),
     ...(CAPTIONS[row.caption_default] ? { caption: row.caption_default } : {}),
+    workCap: row.work_cap ?? PLAN.worksPerGallery,
+    designOverrides: normalizeDesignOverrides(row.design_overrides),
   }
 }
 
@@ -63,6 +69,11 @@ export interface Settings {
   matOverrides: Record<string, string>
   hangingOverrides: Record<string, string>
   captionOverrides: Record<string, string>
+  /** This room's own work-slot cap (REQUIREMENTS.md §11.5/§11.7) — travels with
+   *  the gallery row rather than one account-wide plan constant */
+  workCap: number
+  /** Design Tools overrides (§11.5/§11.8) layered on top of the theme */
+  designOverrides: DesignOverrides
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -79,6 +90,8 @@ export const DEFAULT_SETTINGS: Settings = {
   matOverrides: {},
   hangingOverrides: {},
   captionOverrides: {},
+  workCap: PLAN.worksPerGallery,
+  designOverrides: EMPTY_DESIGN_OVERRIDES,
 }
 
 const STORAGE_KEY = 'hakoniwa.settings.v1'
@@ -125,6 +138,8 @@ export function loadSettings(): Settings {
     if (!MATS[s.mat]) s.mat = DEFAULT_SETTINGS.mat
     if (!HANGINGS[s.hanging]) s.hanging = DEFAULT_SETTINGS.hanging
     if (!CAPTIONS[s.caption]) s.caption = DEFAULT_SETTINGS.caption
+    if (!Number.isFinite(s.workCap) || s.workCap < 1) s.workCap = DEFAULT_SETTINGS.workCap
+    s.designOverrides = normalizeDesignOverrides(s.designOverrides)
     return s
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -135,13 +150,15 @@ function saveSettings(s: Settings): boolean {
   try {
     const {
       theme, layout, layoutParams, frame, mat, hanging, caption,
-      showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides,
+      showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides, workCap,
+      designOverrides,
     } = s
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         theme, layout, layoutParams, frame, mat, hanging, caption,
-        showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides,
+        showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides, workCap,
+        designOverrides,
       })
     )
     return true
@@ -391,6 +408,8 @@ export function useSettings(): Settings {
             matOverrides: s.visitor.matOverrides,
             hangingOverrides: s.visitor.hangingOverrides,
             captionOverrides: s.visitor.captionOverrides,
+            workCap: s.visitor.workCap,
+            designOverrides: s.visitor.designOverrides,
           }
         : {
             theme: s.theme,
@@ -406,6 +425,8 @@ export function useSettings(): Settings {
             matOverrides: s.matOverrides,
             hangingOverrides: s.hangingOverrides,
             captionOverrides: s.captionOverrides,
+            workCap: s.workCap,
+            designOverrides: s.designOverrides,
           }
     )
   )

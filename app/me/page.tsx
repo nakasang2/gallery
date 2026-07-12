@@ -1,16 +1,20 @@
 'use client'
 // Dashboard: manage your hakoniwa (create / rename / publish / delete), profile, and links.
 // Designed for multiple galleries; the release plan caps creation at PLAN.galleries.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, type DesignOverrides } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
+import LockToast from '@/components/LockToast'
+import PurchaseModal from '@/components/PurchaseModal'
+import { purchaseOptionsFor } from '@/lib/pricing'
+import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -20,6 +24,7 @@ import {
   setGalleryPublic,
   setGalleryCover,
   saveGallerySpace,
+  saveDesignOverrides,
   rebuildPlacements,
   fetchPlacementOverrides,
   rowToSettings,
@@ -32,6 +37,7 @@ import {
   getStorageUsage,
   uploadArtwork,
   uploadAvatar,
+  uploadLogo,
   deleteArtwork,
   updateArtworkDetails,
   artworkPlacementCount,
@@ -62,6 +68,42 @@ function fmtDate(iso: string | null): string {
 }
 
 const IMPORT_DISMISS_KEY = 'hakoniwa.importDismissed.v1'
+
+const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
+
+// The first thing a signed-in artist sees: their own face and name, not a form
+function Hero() {
+  const user = useGallery((s) => s.user)!
+  const displayName = useGallery((s) => s.profileDisplayName)
+  const avatarUrl = useGallery((s) => s.profileAvatarUrl)
+  const username = useGallery((s) => s.profileUsername)
+  const name = displayName || user.displayName
+  const h = new Date().getHours()
+  const greet = h < 5 ? 'Working late' : h < 11 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+  return (
+    <div className="me-hero">
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="me-hero-avatar" src={avatarUrl} alt="" />
+      ) : (
+        <div className="me-hero-avatar empty">{name.slice(0, 1).toUpperCase()}</div>
+      )}
+      <div>
+        <div className="me-hero-greet">{greet}, {name}.</div>
+        <p className="me-hero-sub">
+          {username ? (
+            <>
+              Your gallery lives at{' '}
+              <a href={`/@${username}`} target="_blank" rel="noreferrer">/@{username}</a>
+            </>
+          ) : (
+            'Set a username to claim your public URL.'
+          )}
+        </p>
+      </div>
+    </div>
+  )
+}
 
 // Guest migration (REQUIREMENTS 10.1): offer to move this browser's local works into the account
 function GuestImportCard() {
@@ -262,9 +304,10 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
-  const [mode, setMode] = useState<'view' | 'details'>('view')
   const [nameInput, setNameInput] = useState(row.title)
   const [statementInput, setStatementInput] = useState(row.statement)
+  const [detailsState, setDetailsState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const detailsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copied, setCopied] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -272,6 +315,12 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [workSaved, setWorkSaved] = useState(false)
+  const [lockedHint, setLockedHint] = useState<string | null>(null)
+  const [purchaseItem, setPurchaseItem] = useState<{ kind: 'theme' | 'layout'; key: string; label: string } | null>(null)
+  const entitlements = getEntitlements(user.id)
+  const [design, setDesign] = useState<DesignOverrides>(() => normalizeDesignOverrides(row.design_overrides))
+  const [logoUploading, setLogoUploading] = useState(false)
+  const designTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
@@ -294,6 +343,33 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     setWorkSaved(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
+
+  // Title + statement are ALWAYS editable — typing autosaves after a short pause
+  // (no "Edit details" mode). Debounce lives in a ref so re-renders don't reset it.
+  function editDetails(next: { title?: string; statement?: string }) {
+    if (next.title !== undefined) setNameInput(next.title)
+    if (next.statement !== undefined) setStatementInput(next.statement)
+    setDetailsState('saving')
+    if (detailsTimer.current) clearTimeout(detailsTimer.current)
+    const title = next.title ?? nameInput
+    const statement = next.statement ?? statementInput
+    detailsTimer.current = setTimeout(() => {
+      updateGalleryDetails(row.id, { title, statement })
+        .then(async () => {
+          await refreshMyGallery()
+          onChanged()
+          setDetailsState('saved')
+          setTimeout(() => setDetailsState('idle'), 1600)
+        })
+        .catch((e) => {
+          alert(`Could not save the details: ${e instanceof Error ? e.message : e}`)
+          setDetailsState('idle')
+        })
+    }, 900)
+  }
+  useEffect(() => () => {
+    if (detailsTimer.current) clearTimeout(detailsTimer.current)
+  }, [])
 
   // Visitor engagement counts (needs migration 0008; hide quietly if unapplied)
   useEffect(() => {
@@ -353,6 +429,36 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
       await saveGallerySpace(row.id, s)
       if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
     })
+  }
+
+  // Design Tools (§11.5/§11.8) — purely cosmetic, so this skips setSpace's
+  // placement rebuild entirely. Debounced like the title/statement autosave:
+  // colour pickers/sliders fire on every drag frame, not just on commit.
+  function editDesign(partial: Partial<DesignOverrides>) {
+    const next = { ...design, ...partial }
+    setDesign(next)
+    if (designTimer.current) clearTimeout(designTimer.current)
+    designTimer.current = setTimeout(() => {
+      saveDesignOverrides(row.id, next)
+        .then(() => refreshMyGallery())
+        .catch((e) => alert(`Could not save design: ${e instanceof Error ? e.message : e}`))
+    }, 500)
+  }
+  useEffect(() => () => {
+    if (designTimer.current) clearTimeout(designTimer.current)
+  }, [])
+
+  async function onLogoFile(file: File | undefined) {
+    if (!file) return
+    setLogoUploading(true)
+    try {
+      const url = await uploadLogo(user.id, row.id, file)
+      editDesign({ logoUrl: url })
+    } catch (e) {
+      alert(`Logo upload failed: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setLogoUploading(false)
+    }
   }
 
   // Publishing needs a username — set it right here instead of hunting for the Profile section
@@ -434,63 +540,75 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
+  const themeDef = THEMES[row.theme] ?? THEMES.chic
+
   return (
     <div className="me-card">
+      {/* The room's own colours, as a ribbon — this card IS that room */}
+      <div
+        className="hako-ribbon"
+        style={{
+          background: `linear-gradient(90deg, ${hex(themeDef.wall)}, ${hex(themeDef.accentWall)} 45%, ${hex(themeDef.spotColor)})`,
+        }}
+      />
+      {/* Title + statement are edited right here — no separate edit mode */}
       <div className="hako-head">
-        <span className="hako-title" style={isPlaceholderTitle(row.title) ? { color: 'var(--muted)' } : undefined}>
-          {isPlaceholderTitle(row.title) ? 'Untitled exhibition' : row.title}
-        </span>
-        <span className={`hako-badge${row.is_public ? ' public' : ''}`}>
-          {row.is_public ? 'PUBLIC' : 'PRIVATE'}
-        </span>
+        <input
+          className="hako-title-input"
+          type="text"
+          value={nameInput}
+          placeholder="Untitled exhibition — name it"
+          aria-label="Exhibition title"
+          onChange={(e) => editDetails({ title: e.target.value })}
+        />
+        {detailsState !== 'idle' && (
+          <span className="hako-save-state">{detailsState === 'saving' ? 'saving…' : 'saved'}</span>
+        )}
       </div>
-      <p className="hako-meta">
-        {cloudArtworks.length} work{cloudArtworks.length === 1 ? '' : 's'} exhibited
-        {stats ? ` · ${stats.visits} visit${stats.visits === 1 ? '' : 's'} · ♥ ${stats.likes} · ✎ ${stats.guestbook}` : ''}
-        {row.updated_at ? ` · updated ${fmtDate(row.updated_at)}` : ''}
-        {row.is_public && publicUrl ? (
-          <>
-            {' · '}
-            <a href={publicUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>
+      <textarea
+        className="hako-statement-input"
+        rows={2}
+        maxLength={200}
+        placeholder="Concept / intro — shown on the board at the back of your room"
+        aria-label="Exhibition statement"
+        value={statementInput}
+        onChange={(e) => editDetails({ statement: e.target.value })}
+      />
+      {/* The URL and its state live together: flip the switch to open / close the room */}
+      {username ? (
+        <div className="hako-url-row">
+          {row.is_public && publicUrl ? (
+            <a className="hako-url" href={publicUrl} target="_blank" rel="noreferrer">
               {publicUrl.replace(/^https?:\/\//, '')}
             </a>
-          </>
-        ) : null}
-      </p>
+          ) : (
+            <span className="hako-url off">{(publicUrl || `/@${username}`).replace(/^https?:\/\//, '')}</span>
+          )}
+          <label
+            className="switch"
+            title={
+              row.is_public
+                ? 'Open — anyone with the URL can visit'
+                : cloudArtworks.length
+                  ? 'Private — flip to open your gallery to the public'
+                  : 'Exhibit at least one work before opening'
+            }
+          >
+            <input type="checkbox" checked={row.is_public} disabled={busy} onChange={() => void togglePublic()} />
+            <span className="knob" aria-hidden="true" />
+          </label>
+          <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? 'OPEN' : 'PRIVATE'}</span>
+        </div>
+      ) : null}
+      <p className="hako-meta">{row.updated_at ? `Updated ${fmtDate(row.updated_at)}` : ''}</p>
+      {/* How the exhibition is doing, at a glance */}
+      <div className="stat-row">
+        <div className="stat"><b>{cloudArtworks.length}</b><span>Works</span></div>
+        <div className="stat"><b>{stats ? stats.visits : '–'}</b><span>Visits</span></div>
+        <div className="stat"><b>{stats ? stats.likes : '–'}</b><span>Likes</span></div>
+        <div className="stat"><b>{stats ? stats.guestbook : '–'}</b><span>Guest notes</span></div>
+      </div>
 
-      {mode === 'details' && (
-        <>
-          <label className="me-field">
-            <span>Exhibition title</span>
-            <input type="text" value={nameInput} onChange={(e) => setNameInput(e.target.value)} />
-          </label>
-          <label className="me-field">
-            <span>Concept / intro — shown on the board at the back of your room</span>
-            <textarea
-              rows={3}
-              maxLength={200}
-              placeholder="What is this exhibition about? Who are you?"
-              value={statementInput}
-              onChange={(e) => setStatementInput(e.target.value)}
-            />
-          </label>
-          <div className="hako-actions">
-            <button
-              className="btn-line"
-              disabled={busy}
-              onClick={() =>
-                void run('Save details', async () => {
-                  await updateGalleryDetails(row.id, { title: nameInput, statement: statementInput })
-                  setMode('view')
-                })
-              }
-            >
-              Save
-            </button>
-            <button className="btn-line" onClick={() => setMode('view')}>Cancel</button>
-          </div>
-        </>
-      )}
       {!username && (
         <div className="field-row">
           <input
@@ -505,121 +623,115 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </div>
       )}
 
-      {mode === 'view' && (
+      {/* Primary actions: walk the room, share it (open/close lives on the URL row) */}
+      <div className="hako-actions">
+        <Link className="btn-line btn-gold" href="/demo">Preview in 3D</Link>
+        {row.is_public && publicUrl && (
+          <button
+            className="btn-line"
+            onClick={() => {
+              void navigator.clipboard.writeText(publicUrl).then(() => {
+                setCopied(true)
+                setTimeout(() => setCopied(false), 1600)
+              })
+            }}
+          >
+            {copied ? 'Copied' : 'Copy URL'}
+          </button>
+        )}
+      </div>
+      {/* Quiet row for rare / destructive housekeeping — not peers of the actions above */}
+      <div className="hako-secondary">
+        <button
+          className="danger"
+          disabled={busy}
+          onClick={() => {
+            if (!confirm(`Delete “${isPlaceholderTitle(row.title) ? 'your hakoniwa' : row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
+            void run('Delete', () => deleteGallery(row.id))
+          }}
+        >
+          Delete
+        </button>
+      </div>
+
+      {/* ---- The workbench: a filmstrip of the 10 slots on top, the selected work's
+           full-width detail (3D preview + every control) below ---- */}
+      {cloudArtworks.length === 0 ? (
+        <label className="upload-hero" aria-disabled={uploading} style={{ marginTop: '1.4rem' }}>
+          <b>{uploading ? 'Uploading…' : 'Hang your first work'}</b>
+          <span>
+            Drop in images from your camera roll or portfolio —<br />
+            the preview below shows them framed on your wall.
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            disabled={uploading}
+            onChange={(e) => {
+              void onFiles(e.target.files)
+              e.target.value = ''
+            }}
+          />
+        </label>
+      ) : (
         <>
-          {/* Primary actions: walk the room, share it */}
-          <div className="hako-actions">
-            <Link className="btn-line btn-gold" href="/demo">Preview in 3D</Link>
-            <button
-              className="btn-line"
-              disabled={busy || (!row.is_public && !username)}
-              title={!row.is_public && !username ? 'Set a username first' : undefined}
-              onClick={() => void togglePublic()}
-            >
-              {row.is_public ? 'Make private' : 'Open to the public'}
-            </button>
-            {row.is_public && publicUrl && (
-              <button
-                className="btn-line"
-                onClick={() => {
-                  void navigator.clipboard.writeText(publicUrl).then(() => {
-                    setCopied(true)
-                    setTimeout(() => setCopied(false), 1600)
-                  })
-                }}
-              >
-                {copied ? 'Copied' : 'Copy URL'}
-              </button>
-            )}
+          <div className="works-head">
+            <span className="works-count">
+              {cloudArtworks.length} / {row.work_cap} works
+            </span>
+            <span className="works-legend">Select a work · ★ cover · × remove</span>
           </div>
-          {/* Quiet row for rare / destructive housekeeping — not peers of the actions above */}
-          <div className="hako-secondary">
-            <button
-              onClick={() => {
-                setNameInput(row.title)
-                setStatementInput(row.statement)
-                setMode('details')
-              }}
-            >
-              Edit details
-            </button>
-            <button
-              className="danger"
-              disabled={busy}
-              onClick={() => {
-                if (!confirm(`Delete “${isPlaceholderTitle(row.title) ? 'your hakoniwa' : row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
-                void run('Delete', () => deleteGallery(row.id))
-              }}
-            >
-              Delete
-            </button>
+          {/* Filmstrip: the 10 slots as a horizontal, scrollable rail */}
+          <div className="works-strip">
+            {cloudArtworks.map((art) => (
+              <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={art.poster ?? art.src}
+                  alt={art.title}
+                  loading="lazy"
+                  onClick={() => setSelectedId(art.id)}
+                />
+                <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
+                <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
+                <button
+                  className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
+                  aria-label={`Use ${art.title} as the share cover`}
+                  title="Use as share cover (OGP)"
+                  onClick={() => void toggleCover(art)}
+                >
+                  {row.cover_artwork_id === art.id ? '★' : '☆'}
+                </button>
+              </figure>
+            ))}
+            {/* The add tile lives at the end of the strip */}
+            {cloudArtworks.length < row.work_cap && (
+              <label className="works-add" aria-disabled={uploading} title="Upload images">
+                <span aria-hidden="true">{uploading ? '…' : '+'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  disabled={uploading}
+                  onChange={(e) => {
+                    void onFiles(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            )}
           </div>
         </>
       )}
 
-      {/* ---- The workbench: works on the left, live preview + every control on the right ---- */}
-      <div className="works-editor" style={{ marginTop: '1.4rem' }}>
+      {/* Detail: full width below the strip — 3D preview left, every control right.
+          Everything here changes what the preview shows — plate text, per-work
+          design, and the room itself. Poster-less videos / empty state fall to CSS. */}
+      <div className="works-detail">
         <div className="we-left">
-          {cloudArtworks.length === 0 && (
-            <p className="me-note" style={{ marginTop: 0 }}>
-              No works in your library yet. Upload images here — the preview alongside shows how
-              each one hangs in your room.
-            </p>
-          )}
-          {cloudArtworks.length > 0 && (
-            <p className="me-note" style={{ marginTop: 0, marginBottom: '0.8rem' }}>
-              Click a work to preview it framed · ★ share cover (OGP) · × delete from library
-            </p>
-          )}
-          {cloudArtworks.length > 0 && (
-            <div className="works-grid">
-              {cloudArtworks.map((art) => (
-                <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={art.poster ?? art.src}
-                    alt={art.title}
-                    loading="lazy"
-                    onClick={() => setSelectedId(art.id)}
-                  />
-                  <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
-                  <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
-                  <button
-                    className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
-                    aria-label={`Use ${art.title} as the share cover`}
-                    title="Use as share cover (OGP)"
-                    onClick={() => void toggleCover(art)}
-                  >
-                    {row.cover_artwork_id === art.id ? '★' : '☆'}
-                  </button>
-                </figure>
-              ))}
-            </div>
-          )}
-          <label className="btn-line file-btn" aria-disabled={uploading}>
-            {uploading ? 'Uploading…' : 'Upload images'}
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              hidden
-              disabled={uploading}
-              onChange={(e) => {
-                void onFiles(e.target.files)
-                e.target.value = ''
-              }}
-            />
-          </label>
-          <p className="me-note">
-            Works are library assets — deleting a hakoniwa never deletes them. Videos are uploaded
-            from the 3D preview.
-          </p>
-        </div>
-
-        {/* Live preview: the ACTUAL 3D pipeline (same Exhibit component as the room).
-            Everything below it changes what it shows — plate text, per-work design,
-            and the room itself. Poster-less videos / empty state fall back to CSS. */}
-        <div className="we-right">
           {selected && previewSrc ? (
             <div className="wall-preview3d">
               <Preview3D
@@ -649,10 +761,12 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               Upload a work to see it hanging in your theme and frame before you publish.
             </p>
           )}
+        </div>
 
+        <div className="we-right">
           {selected && (
             <>
-              <p className="me-note" style={{ marginBottom: 0 }}>
+              <p className="me-note" style={{ marginTop: 0, marginBottom: 0 }}>
                 “{selected.title}” — <b style={{ color: 'var(--ink)' }}>this work</b>
                 {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
               </p>
@@ -710,33 +824,47 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             <div className="wd-row">
               <span className="wd-label">Theme</span>
               <div className="chips">
-                {Object.entries(THEMES).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${key === row.theme ? ' active' : ''}`}
-                    disabled={busy}
-                    onClick={() => void setSpace({ theme: key, ...def.recommends, mat: 'auto' })}
-                  >
-                    <ThemeSwatch themeKey={key} />
-                    {def.label}
-                  </button>
-                ))}
+                {Object.entries(THEMES).map(([key, def]) => {
+                  const unlocked = isThemeUnlocked(key, entitlements)
+                  return (
+                    <button
+                      key={key}
+                      className={`chip chip-visual${key === row.theme ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      disabled={busy}
+                      onClick={() => {
+                        if (!unlocked) { setPurchaseItem({ kind: 'theme', key, label: def.label }); return }
+                        void setSpace({ theme: key, ...def.recommends, mat: 'auto' })
+                      }}
+                    >
+                      <ThemeSwatch themeKey={key} />
+                      {def.label}
+                      {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+                    </button>
+                  )
+                })}
               </div>
             </div>
             <div className="wd-row">
               <span className="wd-label">Layout</span>
               <div className="chips">
-                {Object.entries(LAYOUTS).map(([key, def]) => (
-                  <button
-                    key={key}
-                    className={`chip chip-visual${key === row.layout ? ' active' : ''}`}
-                    disabled={busy}
-                    onClick={() => void setSpace({ layout: key })}
-                  >
-                    <LayoutPlan layoutKey={key} className="chip-plan" />
-                    {def.label}
-                  </button>
-                ))}
+                {Object.entries(LAYOUTS).map(([key, def]) => {
+                  const unlocked = isLayoutUnlocked(key, entitlements)
+                  return (
+                    <button
+                      key={key}
+                      className={`chip chip-visual${key === row.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      disabled={busy}
+                      onClick={() => {
+                        if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: def.label }); return }
+                        void setSpace({ layout: key })
+                      }}
+                    >
+                      <LayoutPlan layoutKey={key} className="chip-plan" />
+                      {def.label}
+                      {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+                    </button>
+                  )
+                })}
                 {/* layout_params survive preset switches (saveGallerySpace preserves them) */}
                 <button
                   className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}`}
@@ -750,11 +878,125 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             </div>
           </div>
           <p className="me-note" style={{ marginTop: '0.5rem' }}>
-            The theme sets the room-wide design; the controls above it apply to the selected work
-            only, and matching the room&apos;s setting clears the override.
+            The theme sets the room-wide design; the per-work controls above it apply to the
+            selected work only, and matching the room&apos;s setting clears the override. Works are
+            library assets — deleting a hakoniwa never deletes them.
           </p>
+
+          {/* Design Tools (§11.5/§11.8) — a buy-once capability layered on top of the
+              theme: recolour walls/floor, tune the light mood, add a small logo mark */}
+          <div className="wd-group">
+            <div className="wd-title"><span>Design Tools</span></div>
+            {entitlements.designToolsEnabled ? (
+              <>
+                <div className="wd-row">
+                  <span className="wd-label">Wall colour</span>
+                  <div className="design-controls">
+                    <input
+                      type="color"
+                      value={design.wall ?? hex((THEMES[row.theme] ?? THEMES.chic).wall)}
+                      onChange={(e) => editDesign({ wall: e.target.value })}
+                    />
+                    {design.wall && (
+                      <button className="btn-line" onClick={() => editDesign({ wall: null })}>Reset</button>
+                    )}
+                  </div>
+                </div>
+                <div className="wd-row">
+                  <span className="wd-label">Floor colour</span>
+                  <div className="design-controls">
+                    <input
+                      type="color"
+                      value={design.floor ?? hex((THEMES[row.theme] ?? THEMES.chic).floorTint)}
+                      onChange={(e) => editDesign({ floor: e.target.value })}
+                    />
+                    {design.floor && (
+                      <button className="btn-line" onClick={() => editDesign({ floor: null })}>Reset</button>
+                    )}
+                  </div>
+                </div>
+                <div className="wd-row">
+                  <span className="wd-label">Light colour</span>
+                  <div className="design-controls">
+                    <input
+                      type="color"
+                      value={design.lightColor ?? hex((THEMES[row.theme] ?? THEMES.chic).spotColor)}
+                      onChange={(e) => editDesign({ lightColor: e.target.value })}
+                    />
+                    {design.lightColor && (
+                      <button className="btn-line" onClick={() => editDesign({ lightColor: null })}>Reset</button>
+                    )}
+                  </div>
+                </div>
+                <div className="wd-row">
+                  <span className="wd-label">Light mood</span>
+                  <div className="design-controls">
+                    <input
+                      type="range"
+                      min={0.5}
+                      max={1.5}
+                      step={0.05}
+                      value={design.lightIntensity ?? 1}
+                      onChange={(e) => editDesign({ lightIntensity: Number(e.target.value) })}
+                    />
+                    <span className="design-value">{Math.round((design.lightIntensity ?? 1) * 100)}%</span>
+                    {design.lightIntensity != null && (
+                      <button className="btn-line" onClick={() => editDesign({ lightIntensity: null })}>Reset</button>
+                    )}
+                  </div>
+                </div>
+                <div className="wd-row">
+                  <span className="wd-label">Logo</span>
+                  <div className="design-controls">
+                    {design.logoUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={design.logoUrl} alt="" className="design-logo-preview" />
+                    )}
+                    <label className="btn-line file-btn" aria-disabled={logoUploading} style={{ marginTop: 0 }}>
+                      {logoUploading ? 'Uploading…' : design.logoUrl ? 'Change logo' : 'Upload logo'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        disabled={logoUploading}
+                        onChange={(e) => {
+                          void onLogoFile(e.target.files?.[0])
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                    {design.logoUrl && (
+                      <button className="btn-line" onClick={() => editDesign({ logoUrl: null })}>Remove</button>
+                    )}
+                  </div>
+                </div>
+                <p className="me-note" style={{ marginTop: '0.3rem' }}>
+                  These sit on top of your theme — switching themes later keeps every override here.
+                </p>
+              </>
+            ) : (
+              <button className="chip chip-visual locked" onClick={() => setLockedHint('Design Tools')}>
+                🔒 Unlock Design Tools — custom colours, lighting &amp; logo
+              </button>
+            )}
+          </div>
         </div>
       </div>
+      {lockedHint && <LockToast label={lockedHint} onClose={() => setLockedHint(null)} />}
+      {purchaseItem && (
+        <PurchaseModal
+          itemLabel={purchaseItem.label}
+          preview={
+            purchaseItem.kind === 'theme' ? (
+              <ThemeSwatch themeKey={purchaseItem.key} />
+            ) : (
+              <LayoutPlan layoutKey={purchaseItem.key} className="chip-plan" />
+            )
+          }
+          options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)}
+          onClose={() => setPurchaseItem(null)}
+        />
+      )}
     </div>
   )
 }
@@ -882,6 +1124,9 @@ function ProfileCard() {
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [snsX, setSnsX] = useState('')
+  const [snsInstagram, setSnsInstagram] = useState('')
+  const [snsWebsite, setSnsWebsite] = useState('')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -893,6 +1138,9 @@ function ProfileCard() {
         setDisplayName(p.displayName)
         setBio(p.bio)
         setAvatarUrl(p.avatarUrl)
+        setSnsX(p.sns.x)
+        setSnsInstagram(p.sns.instagram)
+        setSnsWebsite(p.sns.website)
       })
       .catch(() => {})
     return () => {
@@ -933,7 +1181,11 @@ function ProfileCard() {
   async function save() {
     setBusy(true)
     try {
-      await saveProfile(user.id, { displayName, bio })
+      await saveProfile(user.id, {
+        displayName,
+        bio,
+        sns: { x: snsX, instagram: snsInstagram, website: snsWebsite },
+      })
       await refreshCloud()
       setSaved(true)
       setTimeout(() => setSaved(false), 1600)
@@ -988,6 +1240,42 @@ function ProfileCard() {
       <label className="me-field">
         <span>Bio / statement</span>
         <textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
+      </label>
+      <p className="me-field-group-label">
+        Link your SNS — shown on your public page and while visitors walk your room, so they can follow you elsewhere.
+      </p>
+      <label className="me-field">
+        <span>X (Twitter) handle</span>
+        <div className="field-row" style={{ marginTop: 0 }}>
+          <span className="field-prefix">@</span>
+          <input
+            type="text"
+            placeholder="yourhandle"
+            value={snsX}
+            onChange={(e) => setSnsX(e.target.value.replace(/^@/, ''))}
+          />
+        </div>
+      </label>
+      <label className="me-field">
+        <span>Instagram handle</span>
+        <div className="field-row" style={{ marginTop: 0 }}>
+          <span className="field-prefix">@</span>
+          <input
+            type="text"
+            placeholder="yourhandle"
+            value={snsInstagram}
+            onChange={(e) => setSnsInstagram(e.target.value.replace(/^@/, ''))}
+          />
+        </div>
+      </label>
+      <label className="me-field">
+        <span>Website / portfolio</span>
+        <input
+          type="text"
+          placeholder="yoursite.com"
+          value={snsWebsite}
+          onChange={(e) => setSnsWebsite(e.target.value)}
+        />
       </label>
       <button className="btn-line" disabled={busy} onClick={() => void save()}>
         {saved ? 'Saved' : 'Save profile'}
@@ -1063,6 +1351,7 @@ export default function MePage() {
         <div className="me-top">
           <Link href="/" className="auth-logo">HAKONIWA</Link>
           <div className="me-top-actions">
+            <Link className="btn-line" href="/explore">Explore</Link>
             {user && (
               <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
             )}
@@ -1081,7 +1370,7 @@ export default function MePage() {
 
         {user && (
           <>
-            <h1 className="me-h1">Dashboard</h1>
+            <Hero />
             <nav className="me-tabs" aria-label="Dashboard sections">
               {ME_TABS.map(([key, label]) => (
                 <button

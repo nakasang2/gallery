@@ -4,23 +4,20 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useGallery } from '@/lib/store'
 import { recordVisit } from '@/lib/engagement'
+import LoadingScreen from '@/components/gallery/LoadingScreen'
 import type { PublicExhibition } from '@/lib/publish'
 
+// No dynamic() fallback here — the personalised LoadingScreen below covers the
+// chunk load, and GalleryApp renders the IDENTICAL screen the moment it mounts
+// (visitor mode is already in the store), so the door never flickers.
 const GalleryApp = dynamic(() => import('@/components/gallery/GalleryApp'), {
   ssr: false,
-  loading: () => (
-    <div id="loading">
-      <div className="loading-inner">
-        <div className="loading-logo">HAKONIWA</div>
-        <div className="loading-bar"><span></span></div>
-        <div className="loading-text">Preparing the gallery…</div>
-      </div>
-    </div>
-  ),
+  loading: () => null,
 })
 
 export default function VisitorGallery({ exhibition }: { exhibition: PublicExhibition }) {
   const [armed, setArmed] = useState(false)
+  const [shellUp, setShellUp] = useState(false)
 
   useEffect(() => {
     document.body.classList.add('gallery-mode')
@@ -33,5 +30,10 @@ export default function VisitorGallery({ exhibition }: { exhibition: PublicExhib
     }
   }, [exhibition])
 
-  return armed ? <GalleryApp /> : null
+  return (
+    <>
+      {armed && <GalleryApp onShellReady={() => setShellUp(true)} />}
+      {!shellUp && <LoadingScreen exhibition={exhibition} />}
+    </>
+  )
 }
