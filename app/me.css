@@ -283,6 +283,23 @@
 }
 .me-field input:focus, .me-field textarea:focus { border-color: var(--gold); }
 
+.me-field-group-label {
+  font-size: 0.76rem;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 1.6rem 0 0;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--hairline);
+}
+.field-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 0.2rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  flex: none;
+}
+
 @media (max-width: 640px) {
   .me-page { padding-top: 1.4rem; }
   .hako-actions .btn-line { flex: 1 1 44%; }
@@ -503,6 +520,35 @@
 .artist-name { font-family: var(--serif); font-size: 2.1rem; font-weight: 500; }
 .artist-handle { font-size: 0.78rem; letter-spacing: 0.14em; color: var(--gold); margin-top: 0.3rem; }
 .artist-bio { font-size: 0.88rem; line-height: 2; color: #cdc7bd; margin-top: 1.1rem; max-width: 56ch; }
+
+/* ---- SNS icon row (artist page header, 3D HUD) — follow-through for inbound traffic ---- */
+.sns-links { display: inline-flex; align-items: center; gap: 0.7em; }
+.sns-links a { color: var(--muted); display: inline-flex; line-height: 0; transition: color 0.2s; }
+.sns-links a:hover { color: var(--gold); }
+.artist-head .sns-links { margin-top: 0.5rem; font-size: 1.05rem; }
+
+/* ---- Explore feed (/explore) — every public hakoniwa on the platform ---- */
+.feed-intro { max-width: 56ch; font-size: 0.88rem; line-height: 1.9; color: #cdc7bd; margin: 0.6rem 0 2rem; }
+.feed-card-artist { display: flex; align-items: center; gap: 0.55em; padding: 0.9rem 1rem 0; }
+.feed-card-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--hairline);
+  flex: none;
+}
+.feed-card-avatar.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(236, 231, 222, 0.08);
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.feed-card-artist-name { font-size: 0.74rem; letter-spacing: 0.06em; color: var(--muted); }
+.artist-gallery-card .artist-gallery-meta { padding-top: 0.5rem; }
+.feed-empty { color: var(--muted); font-size: 0.88rem; margin-top: 1rem; }
 
 .artist-galleries { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
 .artist-gallery-card {

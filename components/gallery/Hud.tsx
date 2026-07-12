@@ -7,6 +7,7 @@ import { isPlaceholderTitle } from '@/lib/publish'
 import { useExhibitionList } from '@/lib/exhibition'
 import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
+import SnsLinks from '@/components/SnsLinks'
 
 export function HudTop() {
   const visitor = useGallery((s) => s.visitor)
@@ -23,6 +24,9 @@ export function HudTop() {
               <Link className="hud-artist-link" href={`/@${visitor.username}`}>
                 {visitor.ownerName} — @{visitor.username}
               </Link>
+              <SnsLinks sns={visitor.ownerSns} className="hud-sns" />
+              {' · '}
+              <Link className="hud-report" href="/explore">Explore</Link>
               {' · '}
               <Link
                 className="hud-report"

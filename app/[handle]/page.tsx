@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { fetchPublicProfile, fetchPublicExhibition, isPlaceholderTitle } from '@/lib/publish'
 import VisitorGallery from '@/components/gallery/VisitorGallery'
+import SnsLinks from '@/components/SnsLinks'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,6 +75,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
       <div className="me-inner">
         <div className="me-top">
           <Link href="/" className="auth-logo">HAKONIWA</Link>
+          <Link href="/explore" className="btn-line">Explore</Link>
         </div>
 
         <div className="artist-head">
@@ -84,6 +86,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ handle:
           <div>
             <h1 className="artist-name">{p.displayName}</h1>
             <p className="artist-handle">@{p.username}</p>
+            <SnsLinks sns={p.sns} />
           </div>
         </div>
         {p.bio && <p className="artist-bio">{p.bio}</p>}

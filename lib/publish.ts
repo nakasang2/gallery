@@ -6,6 +6,28 @@ import type { ArtworkData } from './artworks'
 import { normalizeLayoutParams, type CustomLayoutParams } from './presets'
 import { PLAN } from './limits'
 
+/** Handles/URL the artist wants visitors to follow them on — set from the
+ *  dashboard, shown wherever the artist's name appears in public (§ SNS/inflow) */
+export interface SnsLinks {
+  /** X (Twitter) handle, no leading @ */
+  x: string
+  /** Instagram handle, no leading @ */
+  instagram: string
+  /** Any URL — portfolio, Linktree, etc. */
+  website: string
+}
+
+export const EMPTY_SNS: SnsLinks = { x: '', instagram: '', website: '' }
+
+function readSns(raw: unknown): SnsLinks {
+  const r = (raw ?? {}) as Partial<SnsLinks>
+  return {
+    x: typeof r.x === 'string' ? r.x : '',
+    instagram: typeof r.instagram === 'string' ? r.instagram : '',
+    website: typeof r.website === 'string' ? r.website : '',
+  }
+}
+
 export interface PublicExhibition {
   galleryId: string
   title: string
@@ -13,6 +35,7 @@ export interface PublicExhibition {
   ownerName: string
   ownerAvatar: string | null
   ownerBio: string
+  ownerSns: SnsLinks
   username: string
   slug: string
   theme: string
@@ -57,12 +80,13 @@ export interface ProfileFields {
   displayName: string
   bio: string
   avatarUrl: string | null
+  sns: SnsLinks
 }
 
 export async function getProfile(userId: string): Promise<ProfileFields> {
   const { data, error } = await supabase!
     .from('profiles')
-    .select('display_name, bio, avatar_url')
+    .select('display_name, bio, avatar_url, sns')
     .eq('id', userId)
     .maybeSingle()
   if (error) throw error
@@ -70,17 +94,28 @@ export async function getProfile(userId: string): Promise<ProfileFields> {
     displayName: data?.display_name ?? '',
     bio: data?.bio ?? '',
     avatarUrl: data?.avatar_url ?? null,
+    sns: readSns(data?.sns),
   }
 }
 
 export async function saveProfile(
   userId: string,
-  fields: Pick<ProfileFields, 'displayName' | 'bio'>
+  // sns is optional so the lightweight in-canvas editor (name + bio only) doesn't
+  // have to round-trip it — omitting the key leaves the column untouched
+  fields: Pick<ProfileFields, 'displayName' | 'bio'> & { sns?: SnsLinks }
 ): Promise<void> {
-  const { error } = await supabase!
-    .from('profiles')
-    .update({ display_name: fields.displayName.trim() || null, bio: fields.bio.trim() })
-    .eq('id', userId)
+  const update: Record<string, unknown> = {
+    display_name: fields.displayName.trim() || null,
+    bio: fields.bio.trim(),
+  }
+  if (fields.sns) {
+    update.sns = {
+      x: fields.sns.x.trim().replace(/^@/, ''),
+      instagram: fields.sns.instagram.trim().replace(/^@/, ''),
+      website: fields.sns.website.trim(),
+    }
+  }
+  const { error } = await supabase!.from('profiles').update(update).eq('id', userId)
   if (error) throw error
 }
 
@@ -91,6 +126,7 @@ export interface PublicProfile {
   displayName: string
   bio: string
   avatarUrl: string | null
+  sns: SnsLinks
   galleries: {
     slug: string
     title: string
@@ -107,7 +143,7 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
   try {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('id, username, display_name, bio, avatar_url')
+      .select('id, username, display_name, bio, avatar_url, sns')
       .eq('username', username)
       .maybeSingle()
     if (!profile) return null
@@ -124,6 +160,7 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
       displayName: profile.display_name || profile.username || '',
       bio: profile.bio ?? '',
       avatarUrl: profile.avatar_url ?? null,
+      sns: readSns(profile.sns),
       galleries: [],
     }
     for (const g of galleries ?? []) {
@@ -173,7 +210,7 @@ async function fetchPublicExhibitionInner(
 ): Promise<PublicExhibition | null> {
   const { data: profile } = await supabase!
     .from('profiles')
-    .select('id, username, display_name, avatar_url, bio')
+    .select('id, username, display_name, avatar_url, bio, sns')
     .eq('username', username)
     .maybeSingle()
   if (!profile) return null
@@ -260,6 +297,7 @@ async function fetchPublicExhibitionInner(
     ownerName,
     ownerAvatar: profile.avatar_url ?? null,
     ownerBio: profile.bio ?? '',
+    ownerSns: readSns(profile.sns),
     username: profile.username!,
     slug,
     theme: gallery.theme,
@@ -277,5 +315,85 @@ async function fetchPublicExhibitionInner(
     hangingOverrides,
     captionOverrides,
     artworks,
+  }
+}
+
+/* ---- Explore feed (/explore) — every public hakoniwa across the platform ---- */
+
+export interface FeedItem {
+  username: string
+  ownerName: string
+  ownerAvatar: string | null
+  slug: string
+  title: string
+  /** Cover image URL (manually chosen work, else slot 0) */
+  cover: string | null
+  workCount: number
+}
+
+/** Latest public hakoniwa across all artists, newest-edited first. RLS already
+ *  allows anon to read any is_public gallery / any profile (see 0001_init.sql),
+ *  so this is a broad, unscoped version of the same query fetchPublicProfile
+ *  runs per-artist — a single page, no pagination yet (small user base). */
+export async function fetchPublicFeed(limit = 48): Promise<FeedItem[]> {
+  if (!supabase) return []
+  try {
+    const { data: galleries, error } = await supabase
+      .from('galleries')
+      .select('id, slug, title, cover_artwork_id, updated_at, profiles (username, display_name, avatar_url)')
+      .eq('is_public', true)
+      .order('updated_at', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+
+    type OwnerProfile = { username: string | null; display_name: string | null; avatar_url: string | null }
+    type Row = {
+      id: string
+      slug: string
+      title: string
+      cover_artwork_id: string | null
+      profiles: unknown
+    }
+    const withOwner = ((galleries ?? []) as Row[]).map((g) => ({
+      ...g,
+      profiles: g.profiles as OwnerProfile | null,
+    }))
+    // Skip anyone who hasn't finished picking a username yet — there's no public URL to link to
+    const rows = withOwner.filter((g) => g.profiles?.username)
+    if (!rows.length) return []
+
+    const { data: placementRows } = await supabase
+      .from('placements')
+      .select('gallery_id, slot_index, artworks (*)')
+      .in('gallery_id', rows.map((g) => g.id))
+      .order('slot_index', { ascending: true })
+    type PlacementRow = { gallery_id: string; artworks: unknown }
+    const byGallery = new Map<string, Parameters<typeof rowToArtwork>[0][]>()
+    for (const p of (placementRows ?? []) as PlacementRow[]) {
+      const row = p.artworks as Parameters<typeof rowToArtwork>[0] | null
+      if (!row) continue
+      const list = byGallery.get(p.gallery_id) ?? []
+      list.push(row)
+      byGallery.set(p.gallery_id, list)
+    }
+
+    return rows.map((g): FeedItem => {
+      const ownerName = g.profiles!.display_name || g.profiles!.username || ''
+      const artworkRows = byGallery.get(g.id) ?? []
+      const coverRow = artworkRows.find((r) => r.id === g.cover_artwork_id) ?? artworkRows[0]
+      const cover = coverRow ? rowToArtwork(coverRow, ownerName) : null
+      return {
+        username: g.profiles!.username!,
+        ownerName,
+        ownerAvatar: g.profiles!.avatar_url ?? null,
+        slug: g.slug,
+        title: g.title,
+        cover: cover ? (cover.kind === 'video' ? cover.poster ?? null : cover.src ?? null) : null,
+        workCount: artworkRows.length,
+      }
+    })
+  } catch (e) {
+    console.error('fetchPublicFeed failed:', e)
+    return []
   }
 }

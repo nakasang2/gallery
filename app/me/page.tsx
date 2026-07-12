@@ -974,6 +974,9 @@ function ProfileCard() {
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [snsX, setSnsX] = useState('')
+  const [snsInstagram, setSnsInstagram] = useState('')
+  const [snsWebsite, setSnsWebsite] = useState('')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -985,6 +988,9 @@ function ProfileCard() {
         setDisplayName(p.displayName)
         setBio(p.bio)
         setAvatarUrl(p.avatarUrl)
+        setSnsX(p.sns.x)
+        setSnsInstagram(p.sns.instagram)
+        setSnsWebsite(p.sns.website)
       })
       .catch(() => {})
     return () => {
@@ -1025,7 +1031,11 @@ function ProfileCard() {
   async function save() {
     setBusy(true)
     try {
-      await saveProfile(user.id, { displayName, bio })
+      await saveProfile(user.id, {
+        displayName,
+        bio,
+        sns: { x: snsX, instagram: snsInstagram, website: snsWebsite },
+      })
       await refreshCloud()
       setSaved(true)
       setTimeout(() => setSaved(false), 1600)
@@ -1080,6 +1090,42 @@ function ProfileCard() {
       <label className="me-field">
         <span>Bio / statement</span>
         <textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
+      </label>
+      <p className="me-field-group-label">
+        Link your SNS — shown on your public page and while visitors walk your room, so they can follow you elsewhere.
+      </p>
+      <label className="me-field">
+        <span>X (Twitter) handle</span>
+        <div className="field-row" style={{ marginTop: 0 }}>
+          <span className="field-prefix">@</span>
+          <input
+            type="text"
+            placeholder="yourhandle"
+            value={snsX}
+            onChange={(e) => setSnsX(e.target.value.replace(/^@/, ''))}
+          />
+        </div>
+      </label>
+      <label className="me-field">
+        <span>Instagram handle</span>
+        <div className="field-row" style={{ marginTop: 0 }}>
+          <span className="field-prefix">@</span>
+          <input
+            type="text"
+            placeholder="yourhandle"
+            value={snsInstagram}
+            onChange={(e) => setSnsInstagram(e.target.value.replace(/^@/, ''))}
+          />
+        </div>
+      </label>
+      <label className="me-field">
+        <span>Website / portfolio</span>
+        <input
+          type="text"
+          placeholder="yoursite.com"
+          value={snsWebsite}
+          onChange={(e) => setSnsWebsite(e.target.value)}
+        />
       </label>
       <button className="btn-line" disabled={busy} onClick={() => void save()}>
         {saved ? 'Saved' : 'Save profile'}
@@ -1155,6 +1201,7 @@ export default function MePage() {
         <div className="me-top">
           <Link href="/" className="auth-logo">HAKONIWA</Link>
           <div className="me-top-actions">
+            <Link className="btn-line" href="/explore">Explore</Link>
             {user && (
               <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
             )}

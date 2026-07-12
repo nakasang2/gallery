@@ -281,6 +281,8 @@ body.gallery-mode {
 .hud-artist-link:hover { color: var(--gold); }
 .hud-report { color: inherit; text-decoration: none; opacity: 0.75; }
 .hud-report:hover { color: var(--gold); opacity: 1; }
+.hud-sns.sns-links { margin-left: 0.6em; opacity: 0.85; }
+.hud-sns.sns-links a { color: inherit; }
 
 /* ---- HUD アクション ---- */
 .hud-actions {
