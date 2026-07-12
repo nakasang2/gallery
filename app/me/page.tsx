@@ -637,7 +637,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         <>
           <div className="works-head">
             <span className="works-count">
-              {cloudArtworks.length} / {PLAN.worksPerGallery} works
+              {cloudArtworks.length} / {row.work_cap} works
             </span>
             <span className="works-legend">Select a work · ★ cover · × remove</span>
           </div>
@@ -665,7 +665,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               </figure>
             ))}
             {/* The add tile lives at the end of the strip */}
-            {cloudArtworks.length < PLAN.worksPerGallery && (
+            {cloudArtworks.length < row.work_cap && (
               <label className="works-add" aria-disabled={uploading} title="Upload images">
                 <span aria-hidden="true">{uploading ? '…' : '+'}</span>
                 <input

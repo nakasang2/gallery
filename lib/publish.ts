@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 import { rowToArtwork } from './cloud'
 import type { ArtworkData } from './artworks'
 import { normalizeLayoutParams, type CustomLayoutParams } from './presets'
+import { PLAN } from './limits'
 
 export interface PublicExhibition {
   galleryId: string
@@ -26,6 +27,9 @@ export interface PublicExhibition {
   matOverrides: Record<string, string>
   hangingOverrides: Record<string, string>
   captionOverrides: Record<string, string>
+  /** This room's own work-slot cap (§11.5/§11.7) — the placements are already
+   *  trimmed to it server-side; carried through so slotCount() agrees */
+  workCap: number
   artworks: ArtworkData[]
 }
 
@@ -177,12 +181,24 @@ async function fetchPublicExhibitionInner(
   let gRes = await supabase!
     .from('galleries')
     .select(
-      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public'
+      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap'
     )
     .eq('owner_id', profile.id)
     .eq('slug', slug)
     .eq('is_public', true)
     .maybeSingle()
+  if (gRes.error) {
+    // Migration 0013 (work_cap) not applied
+    gRes = (await supabase!
+      .from('galleries')
+      .select(
+        'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public'
+      )
+      .eq('owner_id', profile.id)
+      .eq('slug', slug)
+      .eq('is_public', true)
+      .maybeSingle()) as unknown as typeof gRes
+  }
   if (gRes.error) {
     // Migration 0012 (mat) not applied — the public page must still render
     gRes = (await supabase!
@@ -196,7 +212,7 @@ async function fetchPublicExhibitionInner(
       .maybeSingle()) as unknown as typeof gRes
   }
   const gallery = gRes.data as
-    | (NonNullable<typeof gRes.data> & { mat_default?: string | null })
+    | (NonNullable<typeof gRes.data> & { mat_default?: string | null; work_cap?: number | null })
     | null
   if (!gallery) return null
 
@@ -255,6 +271,7 @@ async function fetchPublicExhibitionInner(
     hanging: gallery.hanging_default ?? 'wire',
     caption: gallery.caption_default ?? 'side',
     coverArtworkId: gallery.cover_artwork_id ?? null,
+    workCap: gallery.work_cap ?? PLAN.worksPerGallery,
     frameOverrides,
     matOverrides,
     hangingOverrides,
