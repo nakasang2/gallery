@@ -169,6 +169,67 @@ body.gallery-mode {
   margin-top: 0.3rem;
 }
 
+/* Visitor mode: THIS gallery's name/artist on the left, a sign-up CTA on the
+   right — every visitor here is a prospective artist, not just a browser */
+.hud-identity {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-right: 1rem;
+}
+.hud-identity-home {
+  align-self: flex-start;
+  font-family: var(--sans);
+  font-size: 0.58rem;
+  letter-spacing: 0.26em;
+  color: var(--muted);
+  text-decoration: none;
+  opacity: 0.75;
+  margin-bottom: 0.3rem;
+  transition: opacity 0.2s, color 0.2s;
+}
+.hud-identity-home:hover { opacity: 1; color: var(--gold); }
+.hud-identity-main {
+  display: block;
+  font-family: var(--serif);
+  font-size: 0.92rem;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+  text-decoration: none;
+  max-width: 62vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+.hud-identity-main:hover { color: var(--gold); }
+.hud-identity-sub {
+  display: block;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-top: 0.3rem;
+}
+.hud-signup-cta {
+  pointer-events: auto;
+  flex: none;
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #1a1510;
+  background: linear-gradient(135deg, #e6bb70, var(--gold));
+  border-radius: 100px;
+  padding: 0.6em 1.3em;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(212, 162, 78, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.hud-signup-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(212, 162, 78, 0.36); }
+.hud-signup-cta:active { transform: translateY(0) scale(0.98); }
+
 /* ---- 操作ヒント(ページャーの上に重ならないよう配置) ---- */
 .hint {
   position: fixed;
@@ -263,6 +324,23 @@ body.gallery-mode {
   border-radius: 100px;
   padding: 0.32em 0.9em;
 }
+.panel-buy {
+  display: inline-block;
+  margin-top: 1.4rem;
+  font-family: var(--sans);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #1a1510;
+  background: linear-gradient(135deg, #e6bb70, var(--gold));
+  border-radius: 100px;
+  padding: 0.65em 1.3em;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(212, 162, 78, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.panel-buy:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(212, 162, 78, 0.34); }
+.panel-buy:active { transform: translateY(0) scale(0.98); }
 
 @media (max-width: 480px) {
   /* コンパクトヘッダー: 戻るリンクの折返しとタイトル衝突を防ぐ */
@@ -275,10 +353,10 @@ body.gallery-mode {
     display: block;
   }
   .hud-title-sub { display: none; }
+  .hud-identity-main { max-width: 44vw; font-size: 0.8rem; }
+  .hud-identity-sub { display: none; }
+  .hud-signup-cta { font-size: 0.64rem; padding: 0.55em 1em; }
 }
-
-.hud-artist-link { color: inherit; text-decoration: none; }
-.hud-artist-link:hover { color: var(--gold); }
 .hud-report { color: inherit; text-decoration: none; opacity: 0.75; }
 .hud-report:hover { color: var(--gold); opacity: 1; }
 .hud-sns.sns-links { margin-left: 0.6em; opacity: 0.85; }
@@ -1222,6 +1300,7 @@ body.gallery-mode {
     border-radius: 16px;
   }
   .hud-title-main { font-size: 0.72rem; letter-spacing: 0.14em; }
+  .hud-identity-main { font-size: 0.76rem; letter-spacing: 0.02em; }
   /* タッチターゲット 44px + ジェスチャバーの安全域 */
   .chip { min-height: 44px; padding: 0.55em 1.2em; }
   .panel-close { width: 44px; height: 44px; }

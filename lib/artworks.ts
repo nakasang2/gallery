@@ -19,6 +19,9 @@ export interface ArtworkData {
   kind?: 'image' | 'video'
   /** Poster image URL for video (used for list thumbnails, OGP, and the pre-play frame). */
   poster?: string
+  /** Where to buy this specific work (the artist's shop, Etsy, a DM link…). Shown
+   *  to visitors on the artwork panel; unset means "not for sale here". */
+  purchaseUrl?: string
   /** The following are for demo generative art. */
   style?: string
   palette?: keyof typeof PALETTES

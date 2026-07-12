@@ -321,6 +321,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
+  const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
   const [workSaved, setWorkSaved] = useState(false)
   const [purchaseItem, setPurchaseItem] = useState<
     { kind: 'theme' | 'layout' | 'capacity' | 'design-tools'; key: string; label: string } | null
@@ -348,6 +349,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   useEffect(() => {
     setTitleInput(selected?.title ?? '')
     setCaptionInput(selected?.desc ?? '')
+    setPurchaseUrlInput(selected?.purchaseUrl ?? '')
     setWorkSaved(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
@@ -537,7 +539,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     if (!selected) return
     setBusy(true)
     try {
-      await updateArtworkDetails(selected.id, { title: titleInput, description: captionInput })
+      await updateArtworkDetails(selected.id, {
+        title: titleInput,
+        description: captionInput,
+        purchaseUrl: purchaseUrlInput,
+      })
       await refreshCloud()
       setWorkSaved(true)
       setTimeout(() => setWorkSaved(false), 1600)
@@ -805,9 +811,24 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     onChange={(e) => setCaptionInput(e.target.value)}
                   />
                 </label>
+                <label className="me-field" style={{ margin: '0.45rem 0' }}>
+                  <span>Purchase link — shown to visitors as “Available for purchase”</span>
+                  <input
+                    type="text"
+                    inputMode="url"
+                    placeholder="yourshop.com/this-piece (leave blank if not for sale)"
+                    value={purchaseUrlInput}
+                    onChange={(e) => setPurchaseUrlInput(e.target.value)}
+                  />
+                </label>
                 <button
                   className="btn-line"
-                  disabled={busy || (titleInput === selected.title && captionInput === (selected.desc ?? ''))}
+                  disabled={
+                    busy ||
+                    (titleInput === selected.title &&
+                      captionInput === (selected.desc ?? '') &&
+                      purchaseUrlInput === (selected.purchaseUrl ?? ''))
+                  }
                   onClick={() => void saveWorkDetails()}
                 >
                   {workSaved ? 'Saved' : 'Save plate'}

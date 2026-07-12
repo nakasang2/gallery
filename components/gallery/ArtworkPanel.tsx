@@ -7,6 +7,11 @@ import { useGallery, useSettings } from '@/lib/store'
 import { addLike, hasLiked, likeCount } from '@/lib/engagement'
 import WorkDesign from '@/components/WorkDesign'
 
+// The artist may type "myshop.com/item" without a protocol — assume https
+function toHref(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`
+}
+
 // Visitor-only like button (anonymous; dedupe per browser)
 function LikeButton({ galleryId, artworkId }: { galleryId: string; artworkId: string }) {
   const [count, setCount] = useState<number | null>(null)
@@ -105,6 +110,11 @@ export default function ArtworkPanel() {
               <span key={t}>{t}</span>
             ))}
           </div>
+          {art.purchaseUrl && (
+            <a className="panel-buy" href={toHref(art.purchaseUrl)} target="_blank" rel="noopener noreferrer">
+              Available for purchase ↗
+            </a>
+          )}
           {/* Per-work design (frame / mat / hanging / caption) cannot be changed in visitor mode */}
           {!visitor && (
             <div className="panel-frame">

@@ -415,3 +415,18 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
   - 3D内の簡易エディタ(`SettingsPanel.tsx`)には「選択中」の概念がないため、手持ちの最初の作品(`ownArtworks[0]`)を使用
 - レイアウト購入: プレビューのサイズをチップと同じ小ささ(`chip-plan`)から、モーダル用に一回り大きい`purchase-plan-preview`へ。テーマ側が大きくなった分、見劣りしないよう底上げ
 - 検証: 一時的な検証用ルートで、作品ありのテーマプレビュー・作品なしのフォールバック・拡大レイアウト図の3パターンを確認(削除済み)。`tsc`・`next build`ともにクリーン
+
+### 11.14 訪問者向けHUDの登録導線 + 作品ごとの購入リンク(v0.49)
+
+ユーザーから2点: (a)「作家のギャラリーにユーザー登録動線を作りたい。左上がギャラリー名とユーザー名、右上が登録動線になるように」、(b)「ユーザーのキャプションに商品の売買リンクなどを設定できるように」。
+
+**(a) 訪問者HUD(`components/gallery/Hud.tsx`の`HudTop`)**: `visitor`ステート(本物の`/@username`ページを見ている時だけ非null。デモ/オーナー自身のプレビューでは常にnullなので、この判定一つで安全に分岐できる)で分岐:
+- 訪問者モードでは、左上の「← HAKONIWA」ブランドリンクをやめ、小さな「HAKONIWA」ホームリンク→ギャラリー名(タイトルが未設定のプレースホルダーなら代わりに作家名)→サブ行に作家名(タイトルと重複しない時だけ)・@ハンドル・SNSアイコン・Explore・Reportの導線を配置
+- 右上には金色の「Start free」ボタン(`/signup`へ)を新設。訪問者は全員「将来の作家候補」でもあるため、閲覧の対極cornerを登録導線に充てた
+- デモ(`visitor === null`)側の見た目・挙動は一切変更なし
+- 新規CSS: `.hud-identity` / `.hud-identity-home` / `.hud-identity-main` / `.hud-identity-sub` / `.hud-signup-cta`(`app/gallery.css`、モバイル2箇所のブレークポイントにも追記)。使われなくなった`.hud-artist-link`は削除
+
+**(b) 作品ごとの購入リンク**: `supabase/migrations/0015_artwork_purchase_link.sql`で`artworks.purchase_url text`を追加。`ArtworkData`(`lib/artworks.ts`)に`purchaseUrl?: string`、`lib/cloud.ts`の`ArtworkRow`/`rowToArtwork`/`updateArtworkDetails`を対応拡張(0015未適用環境でもtitle/captionの保存は壊れないよう、既存の列欠落パターンに倣ってグレースフルデグレード)。ダッシュボード(`app/me/page.tsx`)の「Title & caption」編集グループに「Purchase link」入力欄を追加(タイトル/キャプションと同じ automatic-save に相乗り)。`ArtworkPanel.tsx`にはリンクが設定されている作品にだけ金色の「Available for purchase ↗」リンクをタグの直後に表示(訪問者・オーナープレビュー両方で表示、プロトコル省略時は`https://`を自動補完)
+
+- 検証: 一時的な検証用ルート(`app/qa-hud/page.tsx`、削除済み)で、実ストアに偽の`PublicExhibition`/`ArtworkData`を注入し、本物の`HudTop`/`ArtworkPanel`をレンダリング。タイトルあり/プレースホルダーの両方でのHUD表示、デモモードが無変化であること、モバイルでの折り返し、購入リンクの表示とhref正規化を確認。`tsc`・`next build`ともにクリーン
+- 変わっていないもの: 「Start free」はまだ本物の登録フォームへのリンクに過ぎず(サインアップ自体は既存の`/signup`をそのまま使用)、購入リンクは外部サイトへの単純なリンクであり決済機能はHAKONIWA側には一切ない

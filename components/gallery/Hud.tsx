@@ -11,34 +11,44 @@ import SnsLinks from '@/components/SnsLinks'
 
 export function HudTop() {
   const visitor = useGallery((s) => s.visitor)
+
+  // Visiting someone's actual gallery: lead with THEIR name/room, not the house
+  // brand, and dedicate the opposite corner to a sign-up funnel — every visitor
+  // here is a prospective artist, not just a browser of the demo collection.
+  if (visitor) {
+    const untitled = isPlaceholderTitle(visitor.title)
+    return (
+      <header className="hud-top">
+        <div className="hud-identity">
+          <Link className="hud-identity-home" href="/">HAKONIWA</Link>
+          <Link className="hud-identity-main" href={`/@${visitor.username}`}>
+            {untitled ? visitor.ownerName : visitor.title}
+          </Link>
+          <span className="hud-identity-sub">
+            {!untitled && `${visitor.ownerName} · `}@{visitor.username}
+            <SnsLinks sns={visitor.ownerSns} className="hud-sns" />
+            {' · '}
+            <Link className="hud-report" href="/explore">Explore</Link>
+            {' · '}
+            <Link
+              className="hud-report"
+              href={`/report?about=${encodeURIComponent(`@${visitor.username}/${visitor.slug}`)}`}
+            >
+              Report
+            </Link>
+          </span>
+        </div>
+        <Link className="hud-signup-cta" href="/signup">Start free</Link>
+      </header>
+    )
+  }
+
   return (
     <header className="hud-top">
       <Link className="hud-back" href="/">← HAKONIWA</Link>
       <div className="hud-title">
-        <span className="hud-title-main">
-          {visitor ? (isPlaceholderTitle(visitor.title) ? visitor.ownerName : visitor.title) : 'HAKONIWA COLLECTION'}
-        </span>
-        <span className="hud-title-sub">
-          {visitor ? (
-            <>
-              <Link className="hud-artist-link" href={`/@${visitor.username}`}>
-                {visitor.ownerName} — @{visitor.username}
-              </Link>
-              <SnsLinks sns={visitor.ownerSns} className="hud-sns" />
-              {' · '}
-              <Link className="hud-report" href="/explore">Explore</Link>
-              {' · '}
-              <Link
-                className="hud-report"
-                href={`/report?about=${encodeURIComponent(`@${visitor.username}/${visitor.slug}`)}`}
-              >
-                Report
-              </Link>
-            </>
-          ) : (
-            'A permanent collection — ten artists'
-          )}
-        </span>
+        <span className="hud-title-main">HAKONIWA COLLECTION</span>
+        <span className="hud-title-sub">A permanent collection — ten artists</span>
       </div>
     </header>
   )
