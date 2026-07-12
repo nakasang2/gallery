@@ -372,3 +372,13 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - `lib/entitlements.ts`: Video Pass・Design Tools・所有テーマ/レイアウトIDのための型を新設。現状は全員フルアクセス(`FULL_ACCESS_ENTITLEMENTS`)を返すのみ
 - **🔒ロックUI(v0.44)**: `isThemeUnlocked`/`isLayoutUnlocked`(既存3テーマ・4レイアウト+customは`FOREVER_FREE_*_IDS`として永久無料判定、それ以外は`ownedThemeIds`/`ownedLayoutIds`を参照)を追加し、`chip-visual`パターンに🔒表示とタップ時のヒント(`components/LockToast.tsx`、「まだ購入できません」+自動消滅)を実装(`SettingsPanel.tsx`のテーマ/レイアウトチップ、`app/me/page.tsx`の同チップ)。ロック中のチップはタップしても適用されない。現行の全テーマ/レイアウトは`FOREVER_FREE_*_IDS`に含まれるため、**今のところどのチップにも🔒は表示されない**(将来テーマ/レイアウトを追加した時に自動でロック対象になる下地)
 - 未着手: Stripe連携、購入モーダル(単品/Collection選択)、Design Tools自体のカラーピッカー/照明ムード実装
+
+### 11.10 実装状況(v0.45 — 購入モーダルとDesign Tools本体)
+
+前節の続き。決済は依然未接続だが、UIと3D側の実体を実装:
+
+- **購入モーダル**(`components/PurchaseModal.tsx` + `lib/pricing.ts`): ロックされたテーマ/レイアウトのチップをタップすると、鍵アイコンのトースト(`LockToast`)の代わりにこのモーダルが開く。単品(¥400)/ テーマのみ「Theme Collection Vol.1」(¥2,480、レイアウトには非該当 — §11.8の記述どおりレイアウト単独のCollectionは設けない)の2択(テーマ)/1択(レイアウト)を提示し、価格は`REQUIREMENTS.md`のたたき台をそのまま転記。決済ボタンは押すと「決済はまだ準備中です」という誠実な文言を表示するのみ(偽の購入を成立させない)。Design Toolsのロック(単一機能・カタログではない)は引き続き`LockToast`のみで、購入モーダルは開かない
+- **Design Tools本体**(migration 0014・`galleries.design_overrides` jsonb): 壁色・床色・光の色・光の強さ(0.5〜1.5倍)・ロゴ(タイトル壁の角に合成)の5項目を、選択中テーマの上に上書きできるように。`lib/presets.ts`の`resolveTheme(themeKey, overrides)`が全ての3D描画(`GalleryScene.tsx`)の唯一の注入点で、タイトル壁(アクセント壁)自体の色や`titleInk`など他のテーマパラメータには一切触れない(意図的なスコープ限定)。ロゴは`TitleWall`が既にアバターをタイトル壁のキャンバステクスチャに合成しているのと全く同じ経路(`makeTitleTexture`)を使い、固定の右上コーナーに小さく重ねる
+- 訪問者側にも反映: `PublicExhibition.designOverrides`を追加し、オーナー編集時だけでなく実際に公開ページを訪れた来場者にも同じ壁色/照明/ロゴが見える
+- `entitlements.designToolsEnabled`(現状全員true)でDesign Tools全体をゲート — 無効化されれば自動的に🔒ロック表示に切り替わる下地は用意済み、UIの実体はまだ有効時の1パターンのみ検証
+- 未着手: Stripe連携、購入モーダルの「Continue to checkout」を実際の決済に接続、Design Toolsの追加軸(例: 天井/什器の質感、複数ロゴ配置)

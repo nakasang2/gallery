@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { THEMES, frameDefFor, HANGINGS, CAPTIONS, resolveLayout, applyMat } from '@/lib/presets'
+import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat } from '@/lib/presets'
 import { useExhibitionList, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
 import { LOW_POWER } from '@/lib/controller'
@@ -36,8 +36,9 @@ export default function GalleryScene() {
   }, [camera, scene])
 
   const settings = useSettings()
-  // Fall back in case the published data keys are outdated
-  const theme = THEMES[settings.theme] ?? THEMES.chic
+  // Falls back to chic when the published data key is outdated; layers this
+  // room's Design Tools overrides (wall/floor/light colour) on top (§11.5/§11.8)
+  const theme = resolveTheme(settings.theme, settings.designOverrides)
   const layout = resolveLayout(settings.layout, settings.layoutParams)
   const list = useExhibitionList()
 

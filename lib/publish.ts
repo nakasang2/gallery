@@ -3,7 +3,12 @@
 import { supabase } from './supabase'
 import { rowToArtwork } from './cloud'
 import type { ArtworkData } from './artworks'
-import { normalizeLayoutParams, type CustomLayoutParams } from './presets'
+import {
+  normalizeLayoutParams,
+  normalizeDesignOverrides,
+  type CustomLayoutParams,
+  type DesignOverrides,
+} from './presets'
 import { PLAN } from './limits'
 
 /** Handles/URL the artist wants visitors to follow them on — set from the
@@ -53,6 +58,8 @@ export interface PublicExhibition {
   /** This room's own work-slot cap (§11.5/§11.7) — the placements are already
    *  trimmed to it server-side; carried through so slotCount() agrees */
   workCap: number
+  /** Design Tools overrides (§11.5/§11.8) — rendered for every visitor, not just the owner */
+  designOverrides: DesignOverrides
   artworks: ArtworkData[]
 }
 
@@ -218,12 +225,24 @@ async function fetchPublicExhibitionInner(
   let gRes = await supabase!
     .from('galleries')
     .select(
-      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap'
+      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides'
     )
     .eq('owner_id', profile.id)
     .eq('slug', slug)
     .eq('is_public', true)
     .maybeSingle()
+  if (gRes.error) {
+    // Migration 0014 (design_overrides) not applied
+    gRes = (await supabase!
+      .from('galleries')
+      .select(
+        'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap'
+      )
+      .eq('owner_id', profile.id)
+      .eq('slug', slug)
+      .eq('is_public', true)
+      .maybeSingle()) as unknown as typeof gRes
+  }
   if (gRes.error) {
     // Migration 0013 (work_cap) not applied
     gRes = (await supabase!
@@ -249,7 +268,11 @@ async function fetchPublicExhibitionInner(
       .maybeSingle()) as unknown as typeof gRes
   }
   const gallery = gRes.data as
-    | (NonNullable<typeof gRes.data> & { mat_default?: string | null; work_cap?: number | null })
+    | (NonNullable<typeof gRes.data> & {
+        mat_default?: string | null
+        work_cap?: number | null
+        design_overrides?: unknown
+      })
     | null
   if (!gallery) return null
 
@@ -310,6 +333,7 @@ async function fetchPublicExhibitionInner(
     caption: gallery.caption_default ?? 'side',
     coverArtworkId: gallery.cover_artwork_id ?? null,
     workCap: gallery.work_cap ?? PLAN.worksPerGallery,
+    designOverrides: normalizeDesignOverrides(gallery.design_overrides),
     frameOverrides,
     matOverrides,
     hangingOverrides,

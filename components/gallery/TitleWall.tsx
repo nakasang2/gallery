@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
-import { useGallery } from '@/lib/store'
+import { useGallery, useSettings } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
 import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll, type TitleWallText } from './textures'
 import { loadImage } from '@/lib/upload'
@@ -36,6 +36,7 @@ function boardText(opts: {
 }
 
 export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: LayoutDef }) {
+  const settings = useSettings()
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
   const myGallery = useGallery((s) => s.myGallery)
@@ -89,9 +90,24 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
     }
   }, [avatarUrl])
 
+  // Design Tools logo (§11.5/§11.8) — same async-load-then-bake pattern as the avatar
+  const logoUrl = settings.designOverrides.logoUrl
+  const [logoImg, setLogoImg] = useState<HTMLImageElement | null>(null)
+  useEffect(() => {
+    let alive = true
+    setLogoImg(null)
+    if (!logoUrl) return
+    loadImage(logoUrl, true)
+      .then((img) => alive && setLogoImg(img))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [logoUrl])
+
   const tex = useMemo(
-    () => makeTitleTexture(theme.titleInk === 'dark', text, avatarImg),
-    [theme.titleInk, text, avatarImg]
+    () => makeTitleTexture(theme.titleInk === 'dark', text, avatarImg, logoImg),
+    [theme.titleInk, text, avatarImg, logoImg]
   )
   useEffect(() => () => disposeAll([tex]), [tex])
 

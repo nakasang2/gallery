@@ -3,7 +3,14 @@
 // the plan variable caps how many hakoniwa one user can own.
 import { supabase } from './supabase'
 import { PLAN, effectiveSlotCount } from './limits'
-import { TEMPLATES, resolveLayout, normalizeLayoutParams, type CustomLayoutParams } from './presets'
+import {
+  TEMPLATES,
+  resolveLayout,
+  normalizeLayoutParams,
+  normalizeDesignOverrides,
+  type CustomLayoutParams,
+  type DesignOverrides,
+} from './presets'
 import type { Settings } from './store'
 import type { ArtworkData } from './artworks'
 
@@ -24,14 +31,18 @@ export interface GalleryRow {
   updated_at: string | null
   /** This room's own work-slot cap, fixed at creation time (§11.5/§11.7) */
   work_cap: number
+  /** Design Tools overrides (§11.5/§11.8), jsonb — null on pre-0014 rows */
+  design_overrides: unknown
 }
 
 const COLS =
-  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap'
+  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides'
+// Post-0013/pre-0014 shape (no design_overrides column yet)
+const COLS_NO_DESIGN = COLS.replace(', design_overrides', '')
 // Post-0012/pre-0013 shape (no work_cap column yet)
-const COLS_NO_CAP = COLS.replace(', work_cap', '')
-// Pre-0012 shape (no mat, no work_cap) — reads fall back to this so an unapplied
-// migration never breaks the dashboard; mat then defaults to 'auto', cap to the plan default
+const COLS_NO_CAP = COLS_NO_DESIGN.replace(', work_cap', '')
+// Pre-0012 shape (no mat, no work_cap, no design_overrides) — reads fall back to this so an
+// unapplied migration never breaks the dashboard; mat then defaults to 'auto', cap to the plan default
 const LEGACY_COLS = COLS_NO_CAP.replace('mat_default, ', '')
 
 export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
@@ -40,6 +51,13 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
     .select(COLS)
     .eq('owner_id', userId)
     .order('created_at', { ascending: true })
+  if (res.error && missingOverrideColumns(res.error)) {
+    res = (await supabase!
+      .from('galleries')
+      .select(COLS_NO_DESIGN)
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: true })) as unknown as typeof res
+  }
   if (res.error && missingOverrideColumns(res.error)) {
     res = (await supabase!
       .from('galleries')
@@ -59,6 +77,7 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
     ...(r as object),
     mat_default: (r as { mat_default?: string }).mat_default ?? 'auto',
     work_cap: (r as { work_cap?: number }).work_cap ?? PLAN.worksPerGallery,
+    design_overrides: (r as { design_overrides?: unknown }).design_overrides ?? null,
   })) as GalleryRow[]
 }
 
@@ -99,6 +118,11 @@ export async function createGallery(
   }
   let res = await supabase!.from('galleries').insert(row).select(COLS).single()
   if (res.error && missingOverrideColumns(res.error)) {
+    // 0014 not applied — design_overrides was never in the insert payload,
+    // only the ?select= shape needs to shrink
+    res = (await supabase!.from('galleries').insert(row).select(COLS_NO_DESIGN).single()) as unknown as typeof res
+  }
+  if (res.error && missingOverrideColumns(res.error)) {
     // 0013 not applied — an unknown column in the insert payload fails before it runs
     const { work_cap: _workCap, ...rowNoCap } = row
     res = (await supabase!.from('galleries').insert(rowNoCap).select(COLS_NO_CAP).single()) as unknown as typeof res
@@ -110,7 +134,12 @@ export async function createGallery(
     res = (await supabase!.from('galleries').insert(rowLegacy).select(LEGACY_COLS).single()) as unknown as typeof res
   }
   if (res.error) throw res.error
-  return { mat_default: 'auto', work_cap: PLAN.worksPerGallery, ...(res.data as object) } as GalleryRow
+  return {
+    mat_default: 'auto',
+    work_cap: PLAN.worksPerGallery,
+    design_overrides: null,
+    ...(res.data as object),
+  } as GalleryRow
 }
 
 export const SLUG_RE = /^[a-z0-9-]{1,40}$/
@@ -149,7 +178,7 @@ export async function deleteGallery(id: string): Promise<void> {
   if (error) throw error
 }
 
-/** Persist the space settings (theme/layout/framing/mat/hanging/caption) to the gallery row */
+/** Persist the space settings (theme/layout/framing/mat/hanging/caption/design) to the gallery row */
 export async function saveGallerySpace(id: string, s: Settings): Promise<void> {
   const fields: Record<string, unknown> = {
     theme: s.theme,
@@ -158,16 +187,30 @@ export async function saveGallerySpace(id: string, s: Settings): Promise<void> {
     mat_default: s.mat,
     hanging_default: s.hanging,
     caption_default: s.caption,
+    design_overrides: s.designOverrides,
   }
   // Only overwrite layout_params while ON the custom layout — switching to a preset
   // must not destroy a saved custom room (switching back recovers it)
   if (s.layout === 'custom') fields.layout_params = s.layoutParams
   let { error } = await supabase!.from('galleries').update(fields).eq('id', id)
   if (error && missingOverrideColumns(error)) {
+    // 0014 not applied — design tools stay local until then
+    delete fields.design_overrides
+    ;({ error } = await supabase!.from('galleries').update(fields).eq('id', id))
+  }
+  if (error && missingOverrideColumns(error)) {
     // 0012 not applied — save everything else, mat stays local until then
     delete fields.mat_default
     ;({ error } = await supabase!.from('galleries').update(fields).eq('id', id))
   }
+  if (error) throw error
+}
+
+/** Design Tools overrides only (wall/floor/light colour, logo) — purely cosmetic,
+ *  so unlike saveGallerySpace this never touches placements */
+export async function saveDesignOverrides(id: string, overrides: DesignOverrides): Promise<void> {
+  const { error } = await supabase!.from('galleries').update({ design_overrides: overrides }).eq('id', id)
+  if (error && missingOverrideColumns(error)) return // 0014 not applied — no column to save to yet
   if (error) throw error
 }
 
@@ -182,7 +225,7 @@ function missingOverrideColumns(error: { code?: string; message?: string }): boo
   return (
     error.code === 'PGRST204' ||
     error.code === '42703' ||
-    /hanging_override|caption_override|mat_override|mat_default|work_cap/.test(error.message ?? '')
+    /hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides/.test(error.message ?? '')
   )
 }
 
@@ -297,5 +340,6 @@ export function rowToSettings(row: GalleryRow, overrides: PlacementOverrides = E
     hangingOverrides: overrides.hangings,
     captionOverrides: overrides.captions,
     workCap: row.work_cap ?? PLAN.worksPerGallery,
+    designOverrides: normalizeDesignOverrides(row.design_overrides),
   }
 }

@@ -7,11 +7,13 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, type DesignOverrides } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
 import LockToast from '@/components/LockToast'
+import PurchaseModal from '@/components/PurchaseModal'
+import { purchaseOptionsFor } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import { PLAN } from '@/lib/limits'
 import {
@@ -22,6 +24,7 @@ import {
   setGalleryPublic,
   setGalleryCover,
   saveGallerySpace,
+  saveDesignOverrides,
   rebuildPlacements,
   fetchPlacementOverrides,
   rowToSettings,
@@ -34,6 +37,7 @@ import {
   getStorageUsage,
   uploadArtwork,
   uploadAvatar,
+  uploadLogo,
   deleteArtwork,
   updateArtworkDetails,
   artworkPlacementCount,
@@ -312,7 +316,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [captionInput, setCaptionInput] = useState('')
   const [workSaved, setWorkSaved] = useState(false)
   const [lockedHint, setLockedHint] = useState<string | null>(null)
+  const [purchaseItem, setPurchaseItem] = useState<{ kind: 'theme' | 'layout'; key: string; label: string } | null>(null)
   const entitlements = getEntitlements(user.id)
+  const [design, setDesign] = useState<DesignOverrides>(() => normalizeDesignOverrides(row.design_overrides))
+  const [logoUploading, setLogoUploading] = useState(false)
+  const designTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
@@ -421,6 +429,36 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
       await saveGallerySpace(row.id, s)
       if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
     })
+  }
+
+  // Design Tools (§11.5/§11.8) — purely cosmetic, so this skips setSpace's
+  // placement rebuild entirely. Debounced like the title/statement autosave:
+  // colour pickers/sliders fire on every drag frame, not just on commit.
+  function editDesign(partial: Partial<DesignOverrides>) {
+    const next = { ...design, ...partial }
+    setDesign(next)
+    if (designTimer.current) clearTimeout(designTimer.current)
+    designTimer.current = setTimeout(() => {
+      saveDesignOverrides(row.id, next)
+        .then(() => refreshMyGallery())
+        .catch((e) => alert(`Could not save design: ${e instanceof Error ? e.message : e}`))
+    }, 500)
+  }
+  useEffect(() => () => {
+    if (designTimer.current) clearTimeout(designTimer.current)
+  }, [])
+
+  async function onLogoFile(file: File | undefined) {
+    if (!file) return
+    setLogoUploading(true)
+    try {
+      const url = await uploadLogo(user.id, row.id, file)
+      editDesign({ logoUrl: url })
+    } catch (e) {
+      alert(`Logo upload failed: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setLogoUploading(false)
+    }
   }
 
   // Publishing needs a username — set it right here instead of hunting for the Profile section
@@ -794,7 +832,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                       className={`chip chip-visual${key === row.theme ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                       disabled={busy}
                       onClick={() => {
-                        if (!unlocked) { setLockedHint(def.label); return }
+                        if (!unlocked) { setPurchaseItem({ kind: 'theme', key, label: def.label }); return }
                         void setSpace({ theme: key, ...def.recommends, mat: 'auto' })
                       }}
                     >
@@ -817,7 +855,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                       className={`chip chip-visual${key === row.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                       disabled={busy}
                       onClick={() => {
-                        if (!unlocked) { setLockedHint(def.label); return }
+                        if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: def.label }); return }
                         void setSpace({ layout: key })
                       }}
                     >
@@ -844,9 +882,121 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             selected work only, and matching the room&apos;s setting clears the override. Works are
             library assets — deleting a hakoniwa never deletes them.
           </p>
+
+          {/* Design Tools (§11.5/§11.8) — a buy-once capability layered on top of the
+              theme: recolour walls/floor, tune the light mood, add a small logo mark */}
+          <div className="wd-group">
+            <div className="wd-title"><span>Design Tools</span></div>
+            {entitlements.designToolsEnabled ? (
+              <>
+                <div className="wd-row">
+                  <span className="wd-label">Wall colour</span>
+                  <div className="design-controls">
+                    <input
+                      type="color"
+                      value={design.wall ?? hex((THEMES[row.theme] ?? THEMES.chic).wall)}
+                      onChange={(e) => editDesign({ wall: e.target.value })}
+                    />
+                    {design.wall && (
+                      <button className="btn-line" onClick={() => editDesign({ wall: null })}>Reset</button>
+                    )}
+                  </div>
+                </div>
+                <div className="wd-row">
+                  <span className="wd-label">Floor colour</span>
+                  <div className="design-controls">
+                    <input
+                      type="color"
+                      value={design.floor ?? hex((THEMES[row.theme] ?? THEMES.chic).floorTint)}
+                      onChange={(e) => editDesign({ floor: e.target.value })}
+                    />
+                    {design.floor && (
+                      <button className="btn-line" onClick={() => editDesign({ floor: null })}>Reset</button>
+                    )}
+                  </div>
+                </div>
+                <div className="wd-row">
+                  <span className="wd-label">Light colour</span>
+                  <div className="design-controls">
+                    <input
+                      type="color"
+                      value={design.lightColor ?? hex((THEMES[row.theme] ?? THEMES.chic).spotColor)}
+                      onChange={(e) => editDesign({ lightColor: e.target.value })}
+                    />
+                    {design.lightColor && (
+                      <button className="btn-line" onClick={() => editDesign({ lightColor: null })}>Reset</button>
+                    )}
+                  </div>
+                </div>
+                <div className="wd-row">
+                  <span className="wd-label">Light mood</span>
+                  <div className="design-controls">
+                    <input
+                      type="range"
+                      min={0.5}
+                      max={1.5}
+                      step={0.05}
+                      value={design.lightIntensity ?? 1}
+                      onChange={(e) => editDesign({ lightIntensity: Number(e.target.value) })}
+                    />
+                    <span className="design-value">{Math.round((design.lightIntensity ?? 1) * 100)}%</span>
+                    {design.lightIntensity != null && (
+                      <button className="btn-line" onClick={() => editDesign({ lightIntensity: null })}>Reset</button>
+                    )}
+                  </div>
+                </div>
+                <div className="wd-row">
+                  <span className="wd-label">Logo</span>
+                  <div className="design-controls">
+                    {design.logoUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={design.logoUrl} alt="" className="design-logo-preview" />
+                    )}
+                    <label className="btn-line file-btn" aria-disabled={logoUploading} style={{ marginTop: 0 }}>
+                      {logoUploading ? 'Uploading…' : design.logoUrl ? 'Change logo' : 'Upload logo'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        disabled={logoUploading}
+                        onChange={(e) => {
+                          void onLogoFile(e.target.files?.[0])
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                    {design.logoUrl && (
+                      <button className="btn-line" onClick={() => editDesign({ logoUrl: null })}>Remove</button>
+                    )}
+                  </div>
+                </div>
+                <p className="me-note" style={{ marginTop: '0.3rem' }}>
+                  These sit on top of your theme — switching themes later keeps every override here.
+                </p>
+              </>
+            ) : (
+              <button className="chip chip-visual locked" onClick={() => setLockedHint('Design Tools')}>
+                🔒 Unlock Design Tools — custom colours, lighting &amp; logo
+              </button>
+            )}
+          </div>
         </div>
       </div>
       {lockedHint && <LockToast label={lockedHint} onClose={() => setLockedHint(null)} />}
+      {purchaseItem && (
+        <PurchaseModal
+          itemLabel={purchaseItem.label}
+          preview={
+            purchaseItem.kind === 'theme' ? (
+              <ThemeSwatch themeKey={purchaseItem.key} />
+            ) : (
+              <LayoutPlan layoutKey={purchaseItem.key} className="chip-plan" />
+            )
+          }
+          options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)}
+          onClose={() => setPurchaseItem(null)}
+        />
+      )}
     </div>
   )
 }

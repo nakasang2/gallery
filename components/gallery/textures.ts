@@ -263,7 +263,10 @@ function drawRows(rows: BoardRow[], areaTop: number, areaH: number) {
 export function makeTitleTexture(
   dark: boolean,
   text: TitleWallText = DEFAULT_TITLE_TEXT,
-  avatar?: HTMLImageElement | null
+  avatar?: HTMLImageElement | null,
+  /** Design Tools logo/branding mark (§11.5/§11.8) — composited into the corner,
+   *  independent of the exhibition/artist column layout above */
+  logo?: HTMLImageElement | null
 ): THREE.CanvasTexture {
   const c = document.createElement('canvas')
   c.width = 2048
@@ -402,6 +405,19 @@ export function makeTitleTexture(
       }
     }
     drawRows(aRows, 0, 1024)
+  }
+
+  // Design Tools logo mark — a small, fixed corner badge independent of the
+  // exhibition/artist columns above, so it never fights their layout math
+  if (logo && logo.width && logo.height) {
+    const maxSize = 150
+    const scale = Math.min(maxSize / logo.width, maxSize / logo.height, 1)
+    const lw = logo.width * scale
+    const lh = logo.height * scale
+    const margin = 64
+    ctx.globalAlpha = 0.92
+    ctx.drawImage(logo, c.width - margin - lw, margin, lw, lh)
+    ctx.globalAlpha = 1
   }
 
   const tex = new THREE.CanvasTexture(c)

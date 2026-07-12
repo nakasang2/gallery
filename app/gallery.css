@@ -751,6 +751,72 @@ body.gallery-mode {
 }
 .lock-toast button:hover { color: var(--ink); }
 
+/* ---- Purchase modal — tap-through from a locked theme/layout chip ---- */
+.purchase-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(11, 10, 9, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.4rem;
+}
+.purchase-modal {
+  position: relative;
+  width: min(420px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: rgba(20, 18, 16, 0.98);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 1.8rem 1.6rem 1.6rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+.purchase-close {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.purchase-close:hover { color: var(--ink); }
+.purchase-preview { display: flex; justify-content: center; margin-bottom: 1rem; }
+.purchase-title {
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  color: var(--ink);
+  text-align: center;
+  margin-bottom: 1.2rem;
+}
+.purchase-options { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.3rem; }
+.purchase-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.purchase-option:hover { border-color: rgba(212, 162, 78, 0.4); }
+.purchase-option.selected { border-color: var(--gold); background: rgba(212, 162, 78, 0.06); }
+.purchase-option input[type='radio'] { margin-top: 0.3rem; accent-color: var(--gold); flex: none; }
+.purchase-option-label { font-size: 0.86rem; color: var(--ink); }
+.purchase-price { color: var(--gold); font-size: 0.8rem; margin-left: 0.4em; }
+.purchase-option-desc { font-size: 0.72rem; color: var(--muted); margin-top: 0.25rem; line-height: 1.6; }
+.purchase-cta { width: 100%; text-align: center; }
+.purchase-note { font-size: 0.7rem; line-height: 1.7; color: var(--muted); text-align: center; margin-top: 0.8rem; }
+.purchase-note-active { color: var(--gold); }
+
 .panel-frame { margin-top: 1.6rem; padding-top: 1.4rem; border-top: 1px solid var(--hairline); }
 .panel-frame-label {
   font-size: 0.68rem;
@@ -775,6 +841,28 @@ body.gallery-mode {
 .wd-row { display: flex; align-items: center; gap: 0.7rem; margin: 0.55rem 0; flex-wrap: wrap; }
 .wd-label { width: 72px; flex: none; font-size: 0.68rem; letter-spacing: 0.08em; color: var(--muted); }
 .wd-note { font-size: 0.74rem; line-height: 1.8; color: var(--muted); }
+
+/* ---- Design Tools (§11.5/§11.8): colour/light/logo controls, one wd-row each ---- */
+.design-controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.design-controls input[type='color'] {
+  width: 40px;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.design-controls input[type='range'] { width: 140px; }
+.design-value { font-size: 0.72rem; color: var(--muted); min-width: 3em; }
+.design-logo-preview {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: rgba(236, 231, 222, 0.05);
+}
 
 /* セグメント(素材) */
 .seg { display: inline-flex; border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden; }

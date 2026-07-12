@@ -14,6 +14,8 @@ import { setGalleryPublic } from '@/lib/galleries'
 import { walkRef } from '@/lib/controller'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import LockToast from '@/components/LockToast'
+import PurchaseModal from '@/components/PurchaseModal'
+import { purchaseOptionsFor } from '@/lib/pricing'
 import {
   ThemeSwatch,
   LayoutPlan,
@@ -233,6 +235,7 @@ export default function SettingsPanel() {
   const [igNote, setIgNote] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [lockedHint, setLockedHint] = useState<string | null>(null)
+  const [purchaseItem, setPurchaseItem] = useState<{ kind: 'theme' | 'layout'; key: string; label: string } | null>(null)
   const titleRef = useRef<HTMLInputElement>(null!)
   const artistRef = useRef<HTMLInputElement>(null)
   const urlRef = useRef<HTMLInputElement>(null!)
@@ -558,7 +561,7 @@ export default function SettingsPanel() {
                 key={key}
                 className={`chip chip-visual${key === settings.theme ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                 onClick={() => {
-                  if (!unlocked) { setLockedHint(def.label); return }
+                  if (!unlocked) { setPurchaseItem({ kind: 'theme', key, label: def.label }); return }
                   if (!confirmOverrideReset(...allOverrideMaps)) return
                   updateSettings({
                     theme: key,
@@ -592,7 +595,7 @@ export default function SettingsPanel() {
                 key={key}
                 className={`chip chip-visual${key === settings.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                 onClick={() => {
-                  if (!unlocked) { setLockedHint(def.label); return }
+                  if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: def.label }); return }
                   updateSettings({ layout: key })
                 }}
               >
@@ -611,6 +614,20 @@ export default function SettingsPanel() {
           </button>
         </div>
         {lockedHint && <LockToast label={lockedHint} onClose={() => setLockedHint(null)} />}
+        {purchaseItem && (
+          <PurchaseModal
+            itemLabel={purchaseItem.label}
+            preview={
+              purchaseItem.kind === 'theme' ? (
+                <ThemeSwatch themeKey={purchaseItem.key} />
+              ) : (
+                <LayoutPlan layoutKey={purchaseItem.key} className="chip-plan" />
+              )
+            }
+            options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)}
+            onClose={() => setPurchaseItem(null)}
+          />
+        )}
         {settings.layout === 'custom' && (
           <div className="custom-layout">
             <label className="slider-row">
