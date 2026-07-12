@@ -22,6 +22,7 @@ import {
   FramedArt,
   HangingIcon,
   CaptionIcon,
+  WallPreview,
 } from '@/components/SpacePreviews'
 import type { ArtworkData } from '@/lib/artworks'
 
@@ -617,9 +618,17 @@ export default function SettingsPanel() {
             eyebrow={purchaseEyebrow(purchaseItem.kind)}
             preview={
               purchaseItem.kind === 'theme' ? (
-                <ThemeSwatch themeKey={purchaseItem.key} />
+                <WallPreview
+                  themeKey={purchaseItem.key}
+                  frameKey={(THEMES[purchaseItem.key] ?? THEMES.chic).recommends.frame}
+                  hangingKey={(THEMES[purchaseItem.key] ?? THEMES.chic).recommends.hanging}
+                  captionKey={(THEMES[purchaseItem.key] ?? THEMES.chic).recommends.caption}
+                  artSrc={ownArtworks[0]?.poster ?? ownArtworks[0]?.src}
+                  artRatio={ownArtworks[0]?.ratio}
+                  className="purchase-wall-preview"
+                />
               ) : (
-                <LayoutPlan layoutKey={purchaseItem.key} className="chip-plan" />
+                <LayoutPlan layoutKey={purchaseItem.key} className="purchase-plan-preview" />
               )
             }
             options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)}

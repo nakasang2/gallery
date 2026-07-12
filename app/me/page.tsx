@@ -1019,9 +1019,17 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           eyebrow={purchaseEyebrow(purchaseItem.kind)}
           preview={
             purchaseItem.kind === 'theme' ? (
-              <ThemeSwatch themeKey={purchaseItem.key} />
+              <WallPreview
+                themeKey={purchaseItem.key}
+                frameKey={(THEMES[purchaseItem.key] ?? THEMES.chic).recommends.frame}
+                hangingKey={(THEMES[purchaseItem.key] ?? THEMES.chic).recommends.hanging}
+                captionKey={(THEMES[purchaseItem.key] ?? THEMES.chic).recommends.caption}
+                artSrc={previewSrc}
+                artRatio={selected?.ratio}
+                className="purchase-wall-preview"
+              />
             ) : purchaseItem.kind === 'layout' ? (
-              <LayoutPlan layoutKey={purchaseItem.key} className="chip-plan" />
+              <LayoutPlan layoutKey={purchaseItem.key} className="purchase-plan-preview" />
             ) : purchaseItem.kind === 'design-tools' ? (
               <div className="swatch-strip" aria-hidden="true">
                 <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).wall) }} />
