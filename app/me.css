@@ -316,6 +316,22 @@
 }
 .works-count { font-size: 0.72rem; letter-spacing: 0.14em; color: var(--ink); }
 .works-legend { font-size: 0.68rem; color: var(--muted); }
+.works-upsell {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #1a1510;
+  background: linear-gradient(135deg, #e6bb70, var(--gold));
+  border: none;
+  border-radius: 100px;
+  padding: 0.45em 1.05em;
+  cursor: pointer;
+  box-shadow: 0 5px 16px rgba(212, 162, 78, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.works-upsell:hover { transform: translateY(-1px); box-shadow: 0 7px 20px rgba(212, 162, 78, 0.35); }
+.works-upsell:active { transform: translateY(0) scale(0.98); }
 
 /* フィルムストリップ: 10枠を横一列にスクロール。スクロールバーは細く控えめに */
 .works-strip {

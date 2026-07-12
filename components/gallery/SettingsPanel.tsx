@@ -13,9 +13,8 @@ import { getProfile, saveProfile } from '@/lib/publish'
 import { setGalleryPublic } from '@/lib/galleries'
 import { walkRef } from '@/lib/controller'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
-import LockToast from '@/components/LockToast'
 import PurchaseModal from '@/components/PurchaseModal'
-import { purchaseOptionsFor } from '@/lib/pricing'
+import { purchaseOptionsFor, purchaseEyebrow, PRICE_SINGLE_ITEM } from '@/lib/pricing'
 import {
   ThemeSwatch,
   LayoutPlan,
@@ -23,6 +22,7 @@ import {
   FramedArt,
   HangingIcon,
   CaptionIcon,
+  WallPreview,
 } from '@/components/SpacePreviews'
 import type { ArtworkData } from '@/lib/artworks'
 
@@ -234,7 +234,6 @@ export default function SettingsPanel() {
 
   const [igNote, setIgNote] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [lockedHint, setLockedHint] = useState<string | null>(null)
   const [purchaseItem, setPurchaseItem] = useState<{ kind: 'theme' | 'layout'; key: string; label: string } | null>(null)
   const titleRef = useRef<HTMLInputElement>(null!)
   const artistRef = useRef<HTMLInputElement>(null)
@@ -576,7 +575,7 @@ export default function SettingsPanel() {
               >
                 <ThemeSwatch themeKey={key} />
                 {def.label}
-                {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+                {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
               </button>
             )
           })}
@@ -601,7 +600,7 @@ export default function SettingsPanel() {
               >
                 <LayoutPlan layoutKey={key} className="chip-plan" />
                 {def.label}
-                {!unlocked && <span className="chip-lock" aria-hidden="true">🔒</span>}
+                {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
               </button>
             )
           })}
@@ -613,15 +612,23 @@ export default function SettingsPanel() {
             Custom
           </button>
         </div>
-        {lockedHint && <LockToast label={lockedHint} onClose={() => setLockedHint(null)} />}
         {purchaseItem && (
           <PurchaseModal
             itemLabel={purchaseItem.label}
+            eyebrow={purchaseEyebrow(purchaseItem.kind)}
             preview={
               purchaseItem.kind === 'theme' ? (
-                <ThemeSwatch themeKey={purchaseItem.key} />
+                <WallPreview
+                  themeKey={purchaseItem.key}
+                  frameKey={(THEMES[purchaseItem.key] ?? THEMES.chic).recommends.frame}
+                  hangingKey={(THEMES[purchaseItem.key] ?? THEMES.chic).recommends.hanging}
+                  captionKey={(THEMES[purchaseItem.key] ?? THEMES.chic).recommends.caption}
+                  artSrc={ownArtworks[0]?.poster ?? ownArtworks[0]?.src}
+                  artRatio={ownArtworks[0]?.ratio}
+                  className="purchase-wall-preview"
+                />
               ) : (
-                <LayoutPlan layoutKey={purchaseItem.key} className="chip-plan" />
+                <LayoutPlan layoutKey={purchaseItem.key} className="purchase-plan-preview" />
               )
             }
             options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)}

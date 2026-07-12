@@ -697,6 +697,7 @@ body.gallery-mode {
 /* ---- チップ(テーマ/レイアウト/額装の選択) ---- */
 .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .chip {
+  position: relative;
   font-family: var(--sans);
   font-size: 0.72rem;
   letter-spacing: 0.1em;
@@ -706,52 +707,38 @@ body.gallery-mode {
   border-radius: 100px;
   padding: 0.45em 1.1em;
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
+  transition: border-color 0.2s, color 0.2s, transform 0.15s ease;
 }
 .chip:hover { border-color: var(--gold); color: var(--gold); }
 .chip.active { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.1); }
+.chip:active { transform: scale(0.97); }
 
-/* Locked (not yet purchasable) theme/layout — tappable for an upsell hint, but
-   never turns gold like a real selection would */
-.chip.locked { opacity: 0.6; }
-.chip.locked:hover { border-color: var(--hairline); color: var(--muted); }
+/* Locked (not yet purchasable) theme/layout — the swatch/plan preview stays
+   almost fully visible (that's the point: show what you'd get) and a price
+   tag does the "this is buyable" signalling instead of just greying it out */
+.chip.locked { opacity: 0.92; border-style: dashed; }
+.chip.locked:hover { border-color: rgba(212, 162, 78, 0.55); color: var(--muted); transform: translateY(-1px); }
 .chip-lock { margin-left: 0.15em; font-size: 0.9em; }
-
-/* ---- ロックされたチップをタップした時のヒント ---- */
-.lock-toast {
-  position: fixed;
-  left: 50%;
-  bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  z-index: 40;
-  display: flex;
+.chip-price-tag {
+  position: absolute;
+  top: -0.7em;
+  right: -0.35em;
+  display: inline-flex;
   align-items: center;
-  gap: 0.8em;
-  max-width: min(420px, 88vw);
-  padding: 0.8em 1.1em;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  background: rgba(15, 14, 12, 0.92);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  color: var(--ink);
-  font-size: 0.78rem;
-  line-height: 1.5;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  gap: 0.25em;
+  font-family: var(--sans);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #1a1510;
+  background: var(--gold);
+  border-radius: 100px;
+  padding: 0.2em 0.6em;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.32);
+  pointer-events: none;
 }
-.lock-toast button {
-  flex: none;
-  width: 22px;
-  height: 22px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 1rem;
-}
-.lock-toast button:hover { color: var(--ink); }
 
-/* ---- Purchase modal — tap-through from a locked theme/layout chip ---- */
+/* ---- Purchase modal — tap-through from anything locked ---- */
 .purchase-backdrop {
   position: fixed;
   inset: 0;
@@ -763,6 +750,7 @@ body.gallery-mode {
   align-items: center;
   justify-content: center;
   padding: 1.4rem;
+  animation: purchase-backdrop-in 0.2s ease;
 }
 .purchase-modal {
   position: relative;
@@ -774,6 +762,15 @@ body.gallery-mode {
   border-radius: 16px;
   padding: 1.8rem 1.6rem 1.6rem;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  animation: purchase-modal-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes purchase-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes purchase-modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .purchase-backdrop, .purchase-modal { animation: none; }
 }
 .purchase-close {
   position: absolute;
@@ -788,16 +785,44 @@ body.gallery-mode {
   cursor: pointer;
 }
 .purchase-close:hover { color: var(--ink); }
-.purchase-preview { display: flex; justify-content: center; margin-bottom: 1rem; }
+.purchase-preview {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.2rem;
+  padding: 0.4rem 0;
+}
+.purchase-preview::before {
+  content: '';
+  position: absolute;
+  inset: -22px;
+  z-index: -1;
+  background: radial-gradient(circle, rgba(212, 162, 78, 0.2), transparent 72%);
+}
+/* Theme purchase: a real wall shot (this theme's colours/light + the frame it
+   recommends + your own art if you have any) — the mood a tiny swatch can't
+   sell. Layout purchase: the floor-plan diagram, just bigger than a chip's. */
+.purchase-wall-preview { width: 100%; height: 190px; font-size: 15px; }
+.purchase-plan-preview { width: 9.5em; height: 6em; color: var(--gold); opacity: 0.92; }
+.purchase-eyebrow {
+  font-size: 0.64rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
 .purchase-title {
   font-family: var(--serif);
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   color: var(--ink);
   text-align: center;
-  margin-bottom: 1.2rem;
+  margin-bottom: 1.3rem;
 }
 .purchase-options { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.3rem; }
 .purchase-option {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 0.7rem;
@@ -805,16 +830,55 @@ body.gallery-mode {
   border: 1px solid var(--hairline);
   border-radius: 10px;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background 0.2s;
 }
 .purchase-option:hover { border-color: rgba(212, 162, 78, 0.4); }
 .purchase-option.selected { border-color: var(--gold); background: rgba(212, 162, 78, 0.06); }
 .purchase-option input[type='radio'] { margin-top: 0.3rem; accent-color: var(--gold); flex: none; }
-.purchase-option-label { font-size: 0.86rem; color: var(--ink); }
-.purchase-price { color: var(--gold); font-size: 0.8rem; margin-left: 0.4em; }
-.purchase-option-desc { font-size: 0.72rem; color: var(--muted); margin-top: 0.25rem; line-height: 1.6; }
-.purchase-cta { width: 100%; text-align: center; }
-.purchase-note { font-size: 0.7rem; line-height: 1.7; color: var(--muted); text-align: center; margin-top: 0.8rem; }
+.purchase-option-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6em;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+.purchase-price { color: var(--gold); font-size: 0.84rem; font-weight: 600; white-space: nowrap; }
+.purchase-option-desc { font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem; line-height: 1.6; }
+.purchase-badge {
+  position: absolute;
+  top: -0.65em;
+  right: 0.9rem;
+  background: var(--gold);
+  color: #1a1510;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.22em 0.65em;
+  border-radius: 100px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+.purchase-cta {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #1a1510;
+  background: linear-gradient(135deg, #e6bb70, var(--gold));
+  border: none;
+  border-radius: 8px;
+  padding: 0.85em 1.2em;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(212, 162, 78, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.purchase-cta:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(212, 162, 78, 0.38); }
+.purchase-cta:active { transform: translateY(0) scale(0.98); box-shadow: 0 4px 14px rgba(212, 162, 78, 0.28); }
+.purchase-note { font-size: 0.7rem; line-height: 1.7; color: var(--muted); text-align: center; margin-top: 0.9rem; }
 .purchase-note-active { color: var(--gold); }
 
 .panel-frame { margin-top: 1.6rem; padding-top: 1.4rem; border-top: 1px solid var(--hairline); }
@@ -863,6 +927,52 @@ body.gallery-mode {
   border-radius: 6px;
   background: rgba(236, 231, 222, 0.05);
 }
+
+/* Small "paint chip" strip — the preview both inside the locked Design Tools
+   teaser and inside its purchase modal, built from the room's own colours
+   rather than arbitrary decoration */
+.swatch-strip { display: flex; gap: 0.5rem; }
+.swatch-strip span {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(236, 231, 222, 0.18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Design Tools locked teaser — a proper "product shot" card instead of a bare
+   chip, since this is the single biggest-ticket item in the whole dashboard */
+.dt-teaser {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid rgba(212, 162, 78, 0.3);
+  border-radius: 12px;
+  background: radial-gradient(120% 160% at 0% 0%, rgba(212, 162, 78, 0.08), transparent 60%);
+}
+.dt-teaser-copy { flex: 1 1 200px; min-width: 0; }
+.dt-teaser-title { font-family: var(--serif); font-size: 1rem; color: var(--ink); margin-bottom: 0.3rem; }
+.dt-teaser-sub { font-size: 0.72rem; line-height: 1.6; color: var(--muted); }
+.dt-teaser-cta {
+  flex: none;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #1a1510;
+  background: linear-gradient(135deg, #e6bb70, var(--gold));
+  border: none;
+  border-radius: 100px;
+  padding: 0.6em 1.2em;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(212, 162, 78, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+.dt-teaser-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(212, 162, 78, 0.36); }
+.dt-teaser-cta:active { transform: translateY(0) scale(0.98); }
 
 /* セグメント(素材) */
 .seg { display: inline-flex; border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden; }
