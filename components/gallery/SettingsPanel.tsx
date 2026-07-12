@@ -13,7 +13,6 @@ import { getProfile, saveProfile } from '@/lib/publish'
 import { setGalleryPublic } from '@/lib/galleries'
 import { walkRef } from '@/lib/controller'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
-import LockToast from '@/components/LockToast'
 import PurchaseModal from '@/components/PurchaseModal'
 import { purchaseOptionsFor } from '@/lib/pricing'
 import {
@@ -234,7 +233,6 @@ export default function SettingsPanel() {
 
   const [igNote, setIgNote] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [lockedHint, setLockedHint] = useState<string | null>(null)
   const [purchaseItem, setPurchaseItem] = useState<{ kind: 'theme' | 'layout'; key: string; label: string } | null>(null)
   const titleRef = useRef<HTMLInputElement>(null!)
   const artistRef = useRef<HTMLInputElement>(null)
@@ -613,7 +611,6 @@ export default function SettingsPanel() {
             Custom
           </button>
         </div>
-        {lockedHint && <LockToast label={lockedHint} onClose={() => setLockedHint(null)} />}
         {purchaseItem && (
           <PurchaseModal
             itemLabel={purchaseItem.label}

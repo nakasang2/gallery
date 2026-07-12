@@ -982,7 +982,13 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           </div>
         </div>
       </div>
-      {lockedHint && <LockToast label={lockedHint} onClose={() => setLockedHint(null)} />}
+      {lockedHint && (
+        <LockToast
+          label={lockedHint}
+          detail="it's a one-time unlock for the whole toolset, not sold per item."
+          onClose={() => setLockedHint(null)}
+        />
+      )}
       {purchaseItem && (
         <PurchaseModal
           itemLabel={purchaseItem.label}
