@@ -441,3 +441,13 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - 呼び出し側(`app/me/page.tsx`、`components/gallery/SettingsPanel.tsx`)で`usePurchasedIds`を呼び、`getEntitlements`に渡すよう更新
 - 検証: `tsc`・`next build`ともにクリーン。この変更単体はロジックの配線のみで見た目の差分が無いため、スクリーンショットでの確認は行っていない(既存のテーマ/レイアウト購入モーダルのUI検証は11.12/11.13で実施済み)
 - 変わっていないもの: 実際に有料テーマ/レイアウトが1つも存在しないため`owned`は常に空、UI上のロック挙動は今日時点で一切変化なし。Design Tools/Video Passのゲーティングはまだ未接続(事業判断が必要)。`purchases`への書き込み経路(決済Webhook)自体もまだ存在しない
+
+### 11.16 Exploreフィードのページネーション(v0.51)
+
+`/explore`は今まで`fetchPublicFeed(limit = 48)`で最大48件を1ページで返すだけで、それ以上のギャラリーは表示されなかった(バックログ記載の既知の未対応)。「Exploreフィード進めよう」の指示で対応:
+
+- `lib/publish.ts`: `fetchPublicFeed(offset, limit)`に変更し、`{ items, hasMore }`(`FeedPage`)を返すように。`limit`件のつもりで実際は`limit + 1`件を`.range()`で取得し、余分な1件が来たかどうかで次ページの有無を判定(往復1回で済ませる)。`updated_at`が同値のギャラリーがページを跨いで重複/欠落しないよう、`id`を安定タイブレークとして二次ソートに追加。ページサイズは`EXPLORE_PAGE_SIZE`(24)としてエクスポートし、呼び出し側と共有
+- `components/ExploreFeed.tsx`(新規、クライアントコンポーネント): カード一覧+「Load more」ボタン。`supabase`クライアントはどこでも匿名キーで動く(ダッシュボードの他の画面と同じ)ため、専用のAPIルートを用意せずブラウザから直接`fetchPublicFeed`を呼べる。クリックで次ページを取得し配列に追記、`hasMore=false`になったらボタンごと消える
+- `app/explore/page.tsx`: 初回ページは引き続きサーバーコンポーネントのままSSR(SEO・初期表示速度を維持)し、`ExploreFeed`に`initialItems`/`initialHasMore`を渡す形に縮小
+- 検証: 一時的な検証用ルート(`app/qa-explore/page.tsx`、削除済み)で、偽データ6件+`hasMore=true`での一覧/ボタン表示、0件時の空状態、ボタン押下後にクラッシュせず状態遷移することを確認(このサンドボックスにはSupabaseの実データが無いため、実際に次ページが読み込まれる様子そのものは確認できていない — 正直に申告)。`tsc`・`next build`ともにクリーン
+- 変わっていないもの: 検索/フィルタ/ソート順の変更は無し(newest-edited firstのまま)。実データでの次ページ取得の動作確認は本番のSupabase接続でのみ可能

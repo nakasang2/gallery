@@ -582,6 +582,7 @@
 .artist-cover-empty { background: rgba(236, 231, 222, 0.05); }
 .artist-gallery-meta { padding: 0.9rem 1rem 1rem; display: flex; flex-direction: column; gap: 0.3rem; }
 .artist-gallery-title { font-family: var(--serif); font-size: 1.05rem; }
+.feed-load-more { display: flex; justify-content: center; margin-top: 2rem; }
 .artist-gallery-sub { font-size: 0.7rem; letter-spacing: 0.08em; color: var(--muted); }
 
 .artist-footer {

@@ -355,20 +355,35 @@ export interface FeedItem {
   workCount: number
 }
 
-/** Latest public hakoniwa across all artists, newest-edited first. RLS already
- *  allows anon to read any is_public gallery / any profile (see 0001_init.sql),
- *  so this is a broad, unscoped version of the same query fetchPublicProfile
- *  runs per-artist — a single page, no pagination yet (small user base). */
-export async function fetchPublicFeed(limit = 48): Promise<FeedItem[]> {
-  if (!supabase) return []
+export interface FeedPage {
+  items: FeedItem[]
+  hasMore: boolean
+}
+
+/** Cards per /explore page load (initial SSR page and each "Load more" tap) */
+export const EXPLORE_PAGE_SIZE = 24
+
+/** A page of the public hakoniwa feed, newest-edited first. RLS already
+ *  allows anon to read any is_public gallery / any profile (see 0001_init.sql).
+ *  `supabase` runs the anon key everywhere, so this is safe to call from the
+ *  browser too — that's what powers "Load more" without a separate API route. */
+export async function fetchPublicFeed(offset = 0, limit = EXPLORE_PAGE_SIZE): Promise<FeedPage> {
+  if (!supabase) return { items: [], hasMore: false }
   try {
+    // Fetch one extra row so we know whether another page exists without a second round-trip.
+    // updated_at ties (e.g. bulk-seeded rows) would otherwise let a row hop pages or repeat,
+    // so id is a stable tiebreak.
     const { data: galleries, error } = await supabase
       .from('galleries')
       .select('id, slug, title, cover_artwork_id, updated_at, profiles (username, display_name, avatar_url)')
       .eq('is_public', true)
       .order('updated_at', { ascending: false })
-      .limit(limit)
+      .order('id', { ascending: false })
+      .range(offset, offset + limit)
     if (error) throw error
+
+    const hasMore = (galleries ?? []).length > limit
+    const page = (galleries ?? []).slice(0, limit)
 
     type OwnerProfile = { username: string | null; display_name: string | null; avatar_url: string | null }
     type Row = {
@@ -378,13 +393,13 @@ export async function fetchPublicFeed(limit = 48): Promise<FeedItem[]> {
       cover_artwork_id: string | null
       profiles: unknown
     }
-    const withOwner = ((galleries ?? []) as Row[]).map((g) => ({
+    const withOwner = (page as Row[]).map((g) => ({
       ...g,
       profiles: g.profiles as OwnerProfile | null,
     }))
     // Skip anyone who hasn't finished picking a username yet — there's no public URL to link to
     const rows = withOwner.filter((g) => g.profiles?.username)
-    if (!rows.length) return []
+    if (!rows.length) return { items: [], hasMore }
 
     const { data: placementRows } = await supabase
       .from('placements')
@@ -401,7 +416,7 @@ export async function fetchPublicFeed(limit = 48): Promise<FeedItem[]> {
       byGallery.set(p.gallery_id, list)
     }
 
-    return rows.map((g): FeedItem => {
+    const items = rows.map((g): FeedItem => {
       const ownerName = g.profiles!.display_name || g.profiles!.username || ''
       const artworkRows = byGallery.get(g.id) ?? []
       const coverRow = artworkRows.find((r) => r.id === g.cover_artwork_id) ?? artworkRows[0]
@@ -416,8 +431,9 @@ export async function fetchPublicFeed(limit = 48): Promise<FeedItem[]> {
         workCount: artworkRows.length,
       }
     })
+    return { items, hasMore }
   } catch (e) {
     console.error('fetchPublicFeed failed:', e)
-    return []
+    return { items: [], hasMore: false }
   }
 }
