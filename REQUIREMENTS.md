@@ -415,3 +415,49 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
   - 3D内の簡易エディタ(`SettingsPanel.tsx`)には「選択中」の概念がないため、手持ちの最初の作品(`ownArtworks[0]`)を使用
 - レイアウト購入: プレビューのサイズをチップと同じ小ささ(`chip-plan`)から、モーダル用に一回り大きい`purchase-plan-preview`へ。テーマ側が大きくなった分、見劣りしないよう底上げ
 - 検証: 一時的な検証用ルートで、作品ありのテーマプレビュー・作品なしのフォールバック・拡大レイアウト図の3パターンを確認(削除済み)。`tsc`・`next build`ともにクリーン
+
+### 11.14 訪問者向けHUDの登録導線 + 作品ごとの購入リンク(v0.49)
+
+ユーザーから2点: (a)「作家のギャラリーにユーザー登録動線を作りたい。左上がギャラリー名とユーザー名、右上が登録動線になるように」、(b)「ユーザーのキャプションに商品の売買リンクなどを設定できるように」。
+
+**(a) 訪問者HUD(`components/gallery/Hud.tsx`の`HudTop`)**: `visitor`ステート(本物の`/@username`ページを見ている時だけ非null。デモ/オーナー自身のプレビューでは常にnullなので、この判定一つで安全に分岐できる)で分岐:
+- 訪問者モードでは、左上の「← HAKONIWA」ブランドリンクをやめ、小さな「HAKONIWA」ホームリンク→ギャラリー名(タイトルが未設定のプレースホルダーなら代わりに作家名)→サブ行に作家名(タイトルと重複しない時だけ)・@ハンドル・SNSアイコン・Explore・Reportの導線を配置
+- 右上には金色の「Start free」ボタン(`/signup`へ)を新設。訪問者は全員「将来の作家候補」でもあるため、閲覧の対極cornerを登録導線に充てた
+- デモ(`visitor === null`)側の見た目・挙動は一切変更なし
+- 新規CSS: `.hud-identity` / `.hud-identity-home` / `.hud-identity-main` / `.hud-identity-sub` / `.hud-signup-cta`(`app/gallery.css`、モバイル2箇所のブレークポイントにも追記)。使われなくなった`.hud-artist-link`は削除
+
+**(b) 作品ごとの購入リンク**: `supabase/migrations/0015_artwork_purchase_link.sql`で`artworks.purchase_url text`を追加。`ArtworkData`(`lib/artworks.ts`)に`purchaseUrl?: string`、`lib/cloud.ts`の`ArtworkRow`/`rowToArtwork`/`updateArtworkDetails`を対応拡張(0015未適用環境でもtitle/captionの保存は壊れないよう、既存の列欠落パターンに倣ってグレースフルデグレード)。ダッシュボード(`app/me/page.tsx`)の「Title & caption」編集グループに「Purchase link」入力欄を追加(タイトル/キャプションと同じ automatic-save に相乗り)。`ArtworkPanel.tsx`にはリンクが設定されている作品にだけ金色の「Available for purchase ↗」リンクをタグの直後に表示(訪問者・オーナープレビュー両方で表示、プロトコル省略時は`https://`を自動補完)
+
+- 検証: 一時的な検証用ルート(`app/qa-hud/page.tsx`、削除済み)で、実ストアに偽の`PublicExhibition`/`ArtworkData`を注入し、本物の`HudTop`/`ArtworkPanel`をレンダリング。タイトルあり/プレースホルダーの両方でのHUD表示、デモモードが無変化であること、モバイルでの折り返し、購入リンクの表示とhref正規化を確認。`tsc`・`next build`ともにクリーン
+- 変わっていないもの: 「Start free」はまだ本物の登録フォームへのリンクに過ぎず(サインアップ自体は既存の`/signup`をそのまま使用)、購入リンクは外部サイトへの単純なリンクであり決済機能はHAKONIWA側には一切ない
+
+### 11.15 テーマ/レイアウトの所有権を実データ台帳に(v0.50)
+
+ユーザーから「テーマ/レイアウトを後から追加していける仕組みは合ってる」旨の確認を受け、「決済連携が無くても今のうちにできる開発をしておいて」という指示。`lib/entitlements.ts`の`getEntitlements()`は今まで`_userId`を完全に無視し常に`FULL_ACCESS_ENTITLEMENTS`(全員フルアクセス)を返すだけの仮実装で、`ownedThemeIds`/`ownedLayoutIds`が実データに繋がっていなかった。決済がまだ無い以上「Design Tools/Video Passを今すぐ実際にロックする」のは開発ではなく事業判断(既存ユーザーの無料体験を後から有料化することになる)なのでそこは触らず、実データが繋がっても挙動が一切変わらない部分——テーマ/レイアウトの所有権——だけを配線した(現状フォーエバーフリー対象外のテーマ/レイアウトが1つも存在しないため、繋いでも今日時点でのUIは無変化):
+
+- `supabase/migrations/0016_purchases.sql`: `purchases`台帳テーブル(`user_id, kind('theme'|'layout'|'design_tools'|'video_pass'), item_key, created_at`)。RLSは**selectのみ**許可し、insertポリシーは意図的に用意していない — 本物の購入は将来Stripeのwebhookなどサーバー側(service roleキーはRLSを無視できる)でしか記録できないようにし、クライアントから自分に無料で権利を付与できる穴を作らないため
+- `lib/purchases.ts`(新規): `usePurchasedIds(userId)`フック。`purchases`をkind別に振り分けて`{ themeIds, layoutIds }`を返す。0016未適用/オフライン/未サインインの場合は空配列にフォールバックし、今日までと完全に同じ「全部無料」の見え方を保つ
+- `lib/entitlements.ts`: `getEntitlements(userId, owned?)`が第2引数(`usePurchasedIds`の戻り値)を受け取り、`ownedThemeIds`/`ownedLayoutIds`に実データをマージするように変更。`videoEnabled`/`designToolsEnabled`は引き続き固定`true`(事業判断待ちのため意図的に未接続のまま)
+- 呼び出し側(`app/me/page.tsx`、`components/gallery/SettingsPanel.tsx`)で`usePurchasedIds`を呼び、`getEntitlements`に渡すよう更新
+- 検証: `tsc`・`next build`ともにクリーン。この変更単体はロジックの配線のみで見た目の差分が無いため、スクリーンショットでの確認は行っていない(既存のテーマ/レイアウト購入モーダルのUI検証は11.12/11.13で実施済み)
+- 変わっていないもの: 実際に有料テーマ/レイアウトが1つも存在しないため`owned`は常に空、UI上のロック挙動は今日時点で一切変化なし。Design Tools/Video Passのゲーティングはまだ未接続(事業判断が必要)。`purchases`への書き込み経路(決済Webhook)自体もまだ存在しない
+
+### 11.16 Exploreフィードのページネーション(v0.51)
+
+`/explore`は今まで`fetchPublicFeed(limit = 48)`で最大48件を1ページで返すだけで、それ以上のギャラリーは表示されなかった(バックログ記載の既知の未対応)。「Exploreフィード進めよう」の指示で対応:
+
+- `lib/publish.ts`: `fetchPublicFeed(offset, limit)`に変更し、`{ items, hasMore }`(`FeedPage`)を返すように。`limit`件のつもりで実際は`limit + 1`件を`.range()`で取得し、余分な1件が来たかどうかで次ページの有無を判定(往復1回で済ませる)。`updated_at`が同値のギャラリーがページを跨いで重複/欠落しないよう、`id`を安定タイブレークとして二次ソートに追加。ページサイズは`EXPLORE_PAGE_SIZE`(24)としてエクスポートし、呼び出し側と共有
+- `components/ExploreFeed.tsx`(新規、クライアントコンポーネント): カード一覧+「Load more」ボタン。`supabase`クライアントはどこでも匿名キーで動く(ダッシュボードの他の画面と同じ)ため、専用のAPIルートを用意せずブラウザから直接`fetchPublicFeed`を呼べる。クリックで次ページを取得し配列に追記、`hasMore=false`になったらボタンごと消える
+- `app/explore/page.tsx`: 初回ページは引き続きサーバーコンポーネントのままSSR(SEO・初期表示速度を維持)し、`ExploreFeed`に`initialItems`/`initialHasMore`を渡す形に縮小
+- 検証: 一時的な検証用ルート(`app/qa-explore/page.tsx`、削除済み)で、偽データ6件+`hasMore=true`での一覧/ボタン表示、0件時の空状態、ボタン押下後にクラッシュせず状態遷移することを確認(このサンドボックスにはSupabaseの実データが無いため、実際に次ページが読み込まれる様子そのものは確認できていない — 正直に申告)。`tsc`・`next build`ともにクリーン
+- 変わっていないもの: 検索/フィルタ/ソート順の変更は無し(newest-edited firstのまま)。実データでの次ページ取得の動作確認は本番のSupabase接続でのみ可能
+
+### 11.17 ダッシュボードの設定順序を「部屋→作品」に(v0.52)
+
+ユーザーからのスクリーンショット付き指摘: 「Room — whole gallery」(テーマ/レイアウト)は展示室全体にまつわる上位の設定なので、各作品に対する設定(キャプション等)より上に来るべき。実際`app/me/page.tsx`の`we-right`列は今まで「選択中の作品」設定(Title & caption → per-work frame/mat/hanging)が先、「Room — whole gallery」(テーマ/レイアウト)とDesign Toolsが後、という逆順になっていた。room-levelの設定を先頭に、per-work設定をその下に来るよう並べ替え:
+
+- 新しい順序: 「Room — whole gallery」(テーマ/レイアウト) → Design Tools(同じくroom-level) → 両者の関係を説明する注記 → 「選択中の作品」ステータス行 → Title & caption(作品ごと) → per-work frame/mat/hanging(`WorkDesign`)。上位のスコープ→下位のスコープの順に統一
+- 注記の文言も並び順の変化に合わせて修正: 「the per-work controls **above** it」→「the per-work controls **below**」
+- 副作用として見つけた表示崩れ: 「"{選択作品名}" — this work」の行が元々`marginTop: 0`だったのは、それが`we-right`列の一番最初の要素だったため。並べ替え後は直前にroom注記が来るので、`marginTop: 0`のままだと隙間がほぼ無く詰まって見える。検証用ルートでスクリーンショットを見て発見し、`marginTop: 0`を除去(デフォルトの`0.8rem`に戻す)して修正
+- 検証: 一時的な検証用ルート(`app/qa-order/page.tsx`、削除済み)で、実際のクラス名・コンポーネント(`ThemeSwatch`/`LayoutPlan`/`WorkDesign`)を使い新しい並び順をスクリーンショットで確認。上記の隙間詰まりバグもこの過程で発見・修正。`tsc`・`next build`ともにクリーン
+- 変わっていないもの: 各セクション内部のUI・挙動(テーマ/レイアウトの選択、Design Toolsの操作、作品ごとの編集内容)は一切変更していない。純粋な並べ替えのみ

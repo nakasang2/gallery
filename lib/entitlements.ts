@@ -23,10 +23,22 @@ export const FULL_ACCESS_ENTITLEMENTS: Entitlements = {
   ownedLayoutIds: [],
 }
 
-/** Today this ignores userId entirely; it's the single seam a future
- *  purchases table hooks into without touching every call site again */
-export function getEntitlements(_userId: string | null): Entitlements {
-  return FULL_ACCESS_ENTITLEMENTS
+/** Video Pass and Design Tools still ignore userId — flipping those to
+ *  real gating is a monetization decision, not just wiring, so they stay
+ *  open until that's made explicitly. Theme/layout ownership, meanwhile,
+ *  has nothing to gate yet (every existing one is forever-free — see
+ *  below), so it's safe to already read the real ledger (lib/purchases.ts)
+ *  here: today `owned` is always empty and this changes no behavior, but
+ *  the day a new paid theme/layout ships, ownership just works. */
+export function getEntitlements(
+  _userId: string | null,
+  owned: { themeIds: string[]; layoutIds: string[] } = { themeIds: [], layoutIds: [] }
+): Entitlements {
+  return {
+    ...FULL_ACCESS_ENTITLEMENTS,
+    ownedThemeIds: owned.themeIds,
+    ownedLayoutIds: owned.layoutIds,
+  }
 }
 
 // Snapshot of what shipped free before any paid theme/layout existed (REQUIREMENTS.md

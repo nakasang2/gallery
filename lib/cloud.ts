@@ -16,6 +16,7 @@ interface ArtworkRow {
   tags: string[]
   created_at: string
   kind?: 'image' | 'video'
+  purchase_url?: string | null
 }
 
 function publicUrl(path: string): string {
@@ -35,6 +36,7 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
     kind: video ? 'video' : 'image',
     src: publicUrl(`${row.storage_path}/${video ? 'video' : 'display.jpg'}`),
     poster: video ? publicUrl(`${row.storage_path}/thumb.jpg`) : undefined,
+    purchaseUrl: row.purchase_url ?? undefined,
   }
 }
 
@@ -182,16 +184,24 @@ export async function uploadVideoArtwork(params: {
   }
 }
 
-/** Rename a work / edit its caption (the plate text). Shown on the name plate,
- *  the artwork panel and the public page — placements join artworks live */
+/** Rename a work / edit its caption (the plate text) and/or its purchase link.
+ *  Shown on the name plate, the artwork panel and the public page —
+ *  placements join artworks live */
 export async function updateArtworkDetails(
   artworkId: string,
-  fields: { title: string; description: string }
+  fields: { title: string; description: string; purchaseUrl?: string }
 ): Promise<void> {
-  const { error } = await supabase!
-    .from('artworks')
-    .update({ title: fields.title.trim() || 'Untitled', description: fields.description.trim() })
-    .eq('id', artworkId)
+  const update: Record<string, unknown> = {
+    title: fields.title.trim() || 'Untitled',
+    description: fields.description.trim(),
+  }
+  if (fields.purchaseUrl !== undefined) update.purchase_url = fields.purchaseUrl.trim() || null
+  let { error } = await supabase!.from('artworks').update(update).eq('id', artworkId)
+  if (error && (error.code === 'PGRST204' || error.code === '42703' || /purchase_url/.test(error.message ?? ''))) {
+    // 0015 not applied — title/caption must still save
+    delete update.purchase_url
+    ;({ error } = await supabase!.from('artworks').update(update).eq('id', artworkId))
+  }
   if (error) throw error
 }
 
