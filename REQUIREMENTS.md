@@ -451,3 +451,13 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - `app/explore/page.tsx`: 初回ページは引き続きサーバーコンポーネントのままSSR(SEO・初期表示速度を維持)し、`ExploreFeed`に`initialItems`/`initialHasMore`を渡す形に縮小
 - 検証: 一時的な検証用ルート(`app/qa-explore/page.tsx`、削除済み)で、偽データ6件+`hasMore=true`での一覧/ボタン表示、0件時の空状態、ボタン押下後にクラッシュせず状態遷移することを確認(このサンドボックスにはSupabaseの実データが無いため、実際に次ページが読み込まれる様子そのものは確認できていない — 正直に申告)。`tsc`・`next build`ともにクリーン
 - 変わっていないもの: 検索/フィルタ/ソート順の変更は無し(newest-edited firstのまま)。実データでの次ページ取得の動作確認は本番のSupabase接続でのみ可能
+
+### 11.17 ダッシュボードの設定順序を「部屋→作品」に(v0.52)
+
+ユーザーからのスクリーンショット付き指摘: 「Room — whole gallery」(テーマ/レイアウト)は展示室全体にまつわる上位の設定なので、各作品に対する設定(キャプション等)より上に来るべき。実際`app/me/page.tsx`の`we-right`列は今まで「選択中の作品」設定(Title & caption → per-work frame/mat/hanging)が先、「Room — whole gallery」(テーマ/レイアウト)とDesign Toolsが後、という逆順になっていた。room-levelの設定を先頭に、per-work設定をその下に来るよう並べ替え:
+
+- 新しい順序: 「Room — whole gallery」(テーマ/レイアウト) → Design Tools(同じくroom-level) → 両者の関係を説明する注記 → 「選択中の作品」ステータス行 → Title & caption(作品ごと) → per-work frame/mat/hanging(`WorkDesign`)。上位のスコープ→下位のスコープの順に統一
+- 注記の文言も並び順の変化に合わせて修正: 「the per-work controls **above** it」→「the per-work controls **below**」
+- 副作用として見つけた表示崩れ: 「"{選択作品名}" — this work」の行が元々`marginTop: 0`だったのは、それが`we-right`列の一番最初の要素だったため。並べ替え後は直前にroom注記が来るので、`marginTop: 0`のままだと隙間がほぼ無く詰まって見える。検証用ルートでスクリーンショットを見て発見し、`marginTop: 0`を除去(デフォルトの`0.8rem`に戻す)して修正
+- 検証: 一時的な検証用ルート(`app/qa-order/page.tsx`、削除済み)で、実際のクラス名・コンポーネント(`ThemeSwatch`/`LayoutPlan`/`WorkDesign`)を使い新しい並び順をスクリーンショットで確認。上記の隙間詰まりバグもこの過程で発見・修正。`tsc`・`next build`ともにクリーン
+- 変わっていないもの: 各セクション内部のUI・挙動(テーマ/レイアウトの選択、Design Toolsの操作、作品ごとの編集内容)は一切変更していない。純粋な並べ替えのみ

@@ -789,76 +789,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </div>
 
         <div className="we-right">
-          {selected && (
-            <>
-              <p className="me-note" style={{ marginTop: 0, marginBottom: 0 }}>
-                “{selected.title}” — <b style={{ color: 'var(--ink)' }}>this work</b>
-                {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
-              </p>
-
-              {/* The name plate's text: title + caption, straight onto the plate above */}
-              <div className="wd-group" style={{ marginTop: '0.6rem' }}>
-                <div className="wd-title"><span>Title &amp; caption</span></div>
-                <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Title</span>
-                  <input type="text" value={titleInput} onChange={(e) => setTitleInput(e.target.value)} />
-                </label>
-                <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Caption — shown on the name plate</span>
-                  <textarea
-                    rows={2}
-                    maxLength={140}
-                    placeholder="A line about this work (year, medium, a thought…)"
-                    value={captionInput}
-                    onChange={(e) => setCaptionInput(e.target.value)}
-                  />
-                </label>
-                <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Purchase link — shown to visitors as “Available for purchase”</span>
-                  <input
-                    type="text"
-                    inputMode="url"
-                    placeholder="yourshop.com/this-piece (leave blank if not for sale)"
-                    value={purchaseUrlInput}
-                    onChange={(e) => setPurchaseUrlInput(e.target.value)}
-                  />
-                </label>
-                <button
-                  className="btn-line"
-                  disabled={
-                    busy ||
-                    (titleInput === selected.title &&
-                      captionInput === (selected.desc ?? '') &&
-                      purchaseUrlInput === (selected.purchaseUrl ?? ''))
-                  }
-                  onClick={() => void saveWorkDetails()}
-                >
-                  {workSaved ? 'Saved' : 'Save plate'}
-                </button>
-              </div>
-
-              <WorkDesign
-                frameKey={frame}
-                matKey={mat}
-                hangingKey={hanging}
-                captionKey={captionKey}
-                onFrame={(k) =>
-                  updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, k, row.frame_default) })
-                }
-                onMat={(k) =>
-                  updateSettings({ matOverrides: setOverride(matOverrides, selected.id, k, row.mat_default) })
-                }
-                onHanging={(k) =>
-                  updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, k, row.hanging_default) })
-                }
-                onCaption={(k) =>
-                  updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, row.caption_default) })
-                }
-              />
-            </>
-          )}
-
-          {/* Room-wide space: theme recolours the preview wall live; layout is the floor plan */}
+          {/* Room-wide space: theme recolours the preview wall live; layout is the floor plan.
+              Room-level settings first, then Design Tools (also room-wide), then the
+              per-work controls further down — highest scope to narrowest */}
           <div className="wd-group">
             <div className="wd-title"><span>Room — whole gallery</span></div>
             <div className="wd-row">
@@ -917,11 +850,6 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               </div>
             </div>
           </div>
-          <p className="me-note" style={{ marginTop: '0.5rem' }}>
-            The theme sets the room-wide design; the per-work controls above it apply to the
-            selected work only, and matching the room&apos;s setting clears the override. Works are
-            library assets — deleting a hakoniwa never deletes them.
-          </p>
 
           {/* Design Tools (§11.5/§11.8) — a buy-once capability layered on top of the
               theme: recolour walls/floor, tune the light mood, add a small logo mark */}
@@ -1034,6 +962,81 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               </div>
             )}
           </div>
+
+          <p className="me-note" style={{ marginTop: '0.5rem' }}>
+            The room settings above set the whole gallery; the per-work controls below apply to
+            the selected work only, and matching the room&apos;s setting clears the override.
+            Works are library assets — deleting a hakoniwa never deletes them.
+          </p>
+
+          {selected && (
+            <>
+              <p className="me-note" style={{ marginBottom: 0 }}>
+                “{selected.title}” — <b style={{ color: 'var(--ink)' }}>this work</b>
+                {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
+              </p>
+
+              {/* The name plate's text: title + caption, straight onto the plate above */}
+              <div className="wd-group" style={{ marginTop: '0.6rem' }}>
+                <div className="wd-title"><span>Title &amp; caption</span></div>
+                <label className="me-field" style={{ margin: '0.45rem 0' }}>
+                  <span>Title</span>
+                  <input type="text" value={titleInput} onChange={(e) => setTitleInput(e.target.value)} />
+                </label>
+                <label className="me-field" style={{ margin: '0.45rem 0' }}>
+                  <span>Caption — shown on the name plate</span>
+                  <textarea
+                    rows={2}
+                    maxLength={140}
+                    placeholder="A line about this work (year, medium, a thought…)"
+                    value={captionInput}
+                    onChange={(e) => setCaptionInput(e.target.value)}
+                  />
+                </label>
+                <label className="me-field" style={{ margin: '0.45rem 0' }}>
+                  <span>Purchase link — shown to visitors as “Available for purchase”</span>
+                  <input
+                    type="text"
+                    inputMode="url"
+                    placeholder="yourshop.com/this-piece (leave blank if not for sale)"
+                    value={purchaseUrlInput}
+                    onChange={(e) => setPurchaseUrlInput(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="btn-line"
+                  disabled={
+                    busy ||
+                    (titleInput === selected.title &&
+                      captionInput === (selected.desc ?? '') &&
+                      purchaseUrlInput === (selected.purchaseUrl ?? ''))
+                  }
+                  onClick={() => void saveWorkDetails()}
+                >
+                  {workSaved ? 'Saved' : 'Save plate'}
+                </button>
+              </div>
+
+              <WorkDesign
+                frameKey={frame}
+                matKey={mat}
+                hangingKey={hanging}
+                captionKey={captionKey}
+                onFrame={(k) =>
+                  updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, k, row.frame_default) })
+                }
+                onMat={(k) =>
+                  updateSettings({ matOverrides: setOverride(matOverrides, selected.id, k, row.mat_default) })
+                }
+                onHanging={(k) =>
+                  updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, k, row.hanging_default) })
+                }
+                onCaption={(k) =>
+                  updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, row.caption_default) })
+                }
+              />
+            </>
+          )}
         </div>
       </div>
       {purchaseItem && (
