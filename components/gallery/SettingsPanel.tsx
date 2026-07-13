@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { THEMES, LAYOUTS, FRAMES, MATS, HANGINGS, CAPTIONS, TEMPLATES } from '@/lib/presets'
-import { overflowCount, slotCount, useOwnArtworks } from '@/lib/exhibition'
+import { overflowCount, slotCount, useOwnArtworks, useIsOwnerEditing } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
 import { supabase } from '@/lib/supabase'
@@ -231,6 +231,8 @@ export default function SettingsPanel() {
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const settings = useSettings()
   const ownArtworks = useOwnArtworks()
+  // Signed-in owners edit their real room — the demo collection isn't part of it
+  const ownerEditing = useIsOwnerEditing()
   const owned = usePurchasedIds(user?.id ?? null)
   const entitlements = getEntitlements(user?.id ?? null, owned)
 
@@ -395,7 +397,10 @@ export default function SettingsPanel() {
 
   const reorder = useGallery((s) => s.reorderOwnArtworks)
 
-  const over = overflowCount(settings, ownArtworks.length)
+  const over = overflowCount(
+    ownerEditing && settings.showDemo ? { ...settings, showDemo: false } : settings,
+    ownArtworks.length
+  )
 
   // Template/theme/global picks reset per-work overrides — never silently
   function confirmOverrideReset(...maps: Record<string, string>[]): boolean {
@@ -507,17 +512,21 @@ export default function SettingsPanel() {
         {over > 0 && (
           <p className="settings-note">
             This layout has {slots} slots — {over} work{over > 1 ? 's are' : ' is'} currently not shown.
-            Change the layout or hide the demo works to free up space.
+            {ownerEditing ? ' Change the layout or add capacity to free up space.' : ' Change the layout or hide the demo works to free up space.'}
           </p>
         )}
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={settings.showDemo}
-            onChange={(e) => updateSettings({ showDemo: e.target.checked })}
-          />
-          Show the demo collection
-        </label>
+        {/* The sample collection is a guest concept — a signed-in owner's room only
+            ever shows their own works, so the toggle is hidden for them */}
+        {!ownerEditing && (
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={settings.showDemo}
+              onChange={(e) => updateSettings({ showDemo: e.target.checked })}
+            />
+            Show the demo collection
+          </label>
+        )}
       </section>
 
       <section className="settings-section">

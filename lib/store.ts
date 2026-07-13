@@ -32,9 +32,6 @@ import {
 // Space fields from a gallery row — the DB is the source of truth when signed in
 function rowSpace(row: GalleryRow): Partial<Settings> {
   return {
-    // A signed-in owner edits their OWN room: never blend the fictional demo
-    // collection into it, so what they see here is what publishing produces.
-    showDemo: false,
     ...(THEMES[row.theme] ? { theme: row.theme } : {}),
     ...(LAYOUTS[row.layout] || row.layout === 'custom' ? { layout: row.layout } : {}),
     ...(row.layout === 'custom' ? { layoutParams: normalizeLayoutParams(row.layout_params) } : {}),

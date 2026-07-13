@@ -29,11 +29,32 @@ export function useOwnArtworks(): ArtworkData[] {
   return visitorArts ?? (user ? cloud : local)
 }
 
+/** True when a signed-in owner is looking at their OWN room (the /demo editor),
+ *  as opposed to a guest browsing the sample show or a visitor on a public page.
+ *  The fictional demo collection is a guest concept, so it's never blended into a
+ *  real room — that keeps the editor matching what publishing produces. This lives
+ *  in derived state (not persisted settings), so signing out can't leak an owner's
+ *  "no demo" preference into the guest experience. */
+export function useIsOwnerEditing(): boolean {
+  const user = useGallery((s) => s.user)
+  const visitor = useGallery((s) => s.visitor)
+  return !!user && !visitor
+}
+
+/** Effective settings for display: an owner's room drops the demo collection */
+function effectiveForOwner(s: Settings, ownerEditing: boolean): Settings {
+  return ownerEditing && s.showDemo ? { ...s, showDemo: false } : s
+}
+
 /** The list of currently exhibited works (capped at the number of slots) */
 export function useExhibitionList(): ArtworkData[] {
   const settings = useSettings()
   const own = useOwnArtworks()
-  return useMemo(() => buildExhibitionList(settings, own), [settings, own])
+  const ownerEditing = useIsOwnerEditing()
+  return useMemo(
+    () => buildExhibitionList(effectiveForOwner(settings, ownerEditing), own),
+    [settings, own, ownerEditing]
+  )
 }
 
 // Effective design per work: the override when set (and valid), else the gallery default
