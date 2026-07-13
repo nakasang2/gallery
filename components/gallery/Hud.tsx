@@ -11,6 +11,9 @@ import SnsLinks from '@/components/SnsLinks'
 
 export function HudTop() {
   const visitor = useGallery((s) => s.visitor)
+  const user = useGallery((s) => s.user)
+  const myGallery = useGallery((s) => s.myGallery)
+  const ownerName = useGallery((s) => s.profileDisplayName)
 
   // Visiting someone's actual gallery: lead with THEIR name/room, not the house
   // brand, and dedicate the opposite corner to a sign-up funnel — every visitor
@@ -43,12 +46,32 @@ export function HudTop() {
     )
   }
 
+  // Signed-in owner previewing/editing their OWN room (not the public visitor view,
+  // not the anonymous demo): lead with THEIR exhibition and a way back to the
+  // dashboard — never the house "permanent collection" chrome.
+  if (user && myGallery) {
+    const untitled = isPlaceholderTitle(myGallery.title)
+    return (
+      <header className="hud-top">
+        <div className="hud-identity">
+          <Link className="hud-identity-home" href="/me">← Dashboard</Link>
+          <span className="hud-identity-main">
+            {untitled ? ownerName || 'Your exhibition' : myGallery.title}
+          </span>
+          <span className="hud-identity-sub">
+            Your space · {myGallery.is_public ? 'live — saved edits publish instantly' : 'private draft'}
+          </span>
+        </div>
+      </header>
+    )
+  }
+
   return (
     <header className="hud-top">
       <Link className="hud-back" href="/">← HAKONIWA</Link>
       <div className="hud-title">
         <span className="hud-title-main">HAKONIWA COLLECTION</span>
-        <span className="hud-title-sub">A permanent collection — ten artists</span>
+        <span className="hud-title-sub">A permanent collection — ten works</span>
       </div>
     </header>
   )
