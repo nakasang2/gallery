@@ -34,11 +34,15 @@ export function useOwnArtworks(): ArtworkData[] {
  *  The fictional demo collection is a guest concept, so it's never blended into a
  *  real room — that keeps the editor matching what publishing produces. This lives
  *  in derived state (not persisted settings), so signing out can't leak an owner's
- *  "no demo" preference into the guest experience. */
+ *  "no demo" preference into the guest experience.
+ *  Requires an actual gallery row (matching HudTop's owner branch): a signed-in
+ *  user who hasn't created a room yet is still just walking the sample show, so
+ *  the demo must stay — otherwise they'd get an empty room under a "ten works" HUD. */
 export function useIsOwnerEditing(): boolean {
   const user = useGallery((s) => s.user)
+  const myGallery = useGallery((s) => s.myGallery)
   const visitor = useGallery((s) => s.visitor)
-  return !!user && !visitor
+  return !!user && !!myGallery && !visitor
 }
 
 /** Effective settings for display: an owner's room drops the demo collection */
