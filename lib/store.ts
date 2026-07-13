@@ -18,6 +18,7 @@ import {
   type DesignOverrides,
 } from './presets'
 import { supabase } from './supabase'
+import { showToast } from './toast'
 import { listMyArtworks, reorderArtworks } from './cloud'
 import { PLAN } from './limits'
 import type { PublicExhibition } from './publish'
@@ -335,7 +336,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   updateSettings(partial) {
     set(partial)
     if (!saveSettings(get())) {
-      alert('Browser storage is full. Remove some works or try smaller images.')
+      showToast('Browser storage is full. Remove some works or try smaller images.')
     }
     // Signed-in edits write through to the hakoniwa row (and its public page)
     if (get().user && get().myGallery) scheduleGallerySync(get)
@@ -356,7 +357,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         if (get().myGallery) scheduleGallerySync(get) // new order → new placements when public
       } catch (e) {
         console.error('reorder failed (is 0003_order_profile.sql applied?):', e)
-        alert('Could not save the new order — please try again.')
+        showToast('Could not save the new order — please try again.')
         void get().refreshCloudArtworks()
       }
     } else {

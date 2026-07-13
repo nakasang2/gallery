@@ -2,6 +2,7 @@
 // Visitor guestbook: read what others wrote, leave your own note (public galleries only)
 import { useEffect, useState } from 'react'
 import { useGallery } from '@/lib/store'
+import { showToast } from '@/lib/toast'
 import { listGuestbook, addGuestbookEntry, type GuestbookEntry } from '@/lib/engagement'
 
 function fmtDate(iso: string): string {
@@ -48,7 +49,7 @@ export default function GuestbookPanel() {
       setTimeout(() => setThanks(false), 2400)
       setEntries(await listGuestbook(galleryId))
     } catch (e) {
-      alert(`Could not sign the guestbook: ${e instanceof Error ? e.message : e}`)
+      showToast(`Could not sign the guestbook: ${e instanceof Error ? e.message : e}`)
     } finally {
       setBusy(false)
     }
