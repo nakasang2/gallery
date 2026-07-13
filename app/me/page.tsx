@@ -22,6 +22,7 @@ import {
   PRICE_DESIGN_TOOLS,
 } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
+import { usePurchasedIds } from '@/lib/purchases'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -326,7 +327,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [purchaseItem, setPurchaseItem] = useState<
     { kind: 'theme' | 'layout' | 'capacity' | 'design-tools'; key: string; label: string } | null
   >(null)
-  const entitlements = getEntitlements(user.id)
+  const owned = usePurchasedIds(user.id)
+  const entitlements = getEntitlements(user.id, owned)
   const [design, setDesign] = useState<DesignOverrides>(() => normalizeDesignOverrides(row.design_overrides))
   const [logoUploading, setLogoUploading] = useState(false)
   const designTimer = useRef<ReturnType<typeof setTimeout> | null>(null)

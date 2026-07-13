@@ -430,3 +430,14 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 
 - 検証: 一時的な検証用ルート(`app/qa-hud/page.tsx`、削除済み)で、実ストアに偽の`PublicExhibition`/`ArtworkData`を注入し、本物の`HudTop`/`ArtworkPanel`をレンダリング。タイトルあり/プレースホルダーの両方でのHUD表示、デモモードが無変化であること、モバイルでの折り返し、購入リンクの表示とhref正規化を確認。`tsc`・`next build`ともにクリーン
 - 変わっていないもの: 「Start free」はまだ本物の登録フォームへのリンクに過ぎず(サインアップ自体は既存の`/signup`をそのまま使用)、購入リンクは外部サイトへの単純なリンクであり決済機能はHAKONIWA側には一切ない
+
+### 11.15 テーマ/レイアウトの所有権を実データ台帳に(v0.50)
+
+ユーザーから「テーマ/レイアウトを後から追加していける仕組みは合ってる」旨の確認を受け、「決済連携が無くても今のうちにできる開発をしておいて」という指示。`lib/entitlements.ts`の`getEntitlements()`は今まで`_userId`を完全に無視し常に`FULL_ACCESS_ENTITLEMENTS`(全員フルアクセス)を返すだけの仮実装で、`ownedThemeIds`/`ownedLayoutIds`が実データに繋がっていなかった。決済がまだ無い以上「Design Tools/Video Passを今すぐ実際にロックする」のは開発ではなく事業判断(既存ユーザーの無料体験を後から有料化することになる)なのでそこは触らず、実データが繋がっても挙動が一切変わらない部分——テーマ/レイアウトの所有権——だけを配線した(現状フォーエバーフリー対象外のテーマ/レイアウトが1つも存在しないため、繋いでも今日時点でのUIは無変化):
+
+- `supabase/migrations/0016_purchases.sql`: `purchases`台帳テーブル(`user_id, kind('theme'|'layout'|'design_tools'|'video_pass'), item_key, created_at`)。RLSは**selectのみ**許可し、insertポリシーは意図的に用意していない — 本物の購入は将来Stripeのwebhookなどサーバー側(service roleキーはRLSを無視できる)でしか記録できないようにし、クライアントから自分に無料で権利を付与できる穴を作らないため
+- `lib/purchases.ts`(新規): `usePurchasedIds(userId)`フック。`purchases`をkind別に振り分けて`{ themeIds, layoutIds }`を返す。0016未適用/オフライン/未サインインの場合は空配列にフォールバックし、今日までと完全に同じ「全部無料」の見え方を保つ
+- `lib/entitlements.ts`: `getEntitlements(userId, owned?)`が第2引数(`usePurchasedIds`の戻り値)を受け取り、`ownedThemeIds`/`ownedLayoutIds`に実データをマージするように変更。`videoEnabled`/`designToolsEnabled`は引き続き固定`true`(事業判断待ちのため意図的に未接続のまま)
+- 呼び出し側(`app/me/page.tsx`、`components/gallery/SettingsPanel.tsx`)で`usePurchasedIds`を呼び、`getEntitlements`に渡すよう更新
+- 検証: `tsc`・`next build`ともにクリーン。この変更単体はロジックの配線のみで見た目の差分が無いため、スクリーンショットでの確認は行っていない(既存のテーマ/レイアウト購入モーダルのUI検証は11.12/11.13で実施済み)
+- 変わっていないもの: 実際に有料テーマ/レイアウトが1つも存在しないため`owned`は常に空、UI上のロック挙動は今日時点で一切変化なし。Design Tools/Video Passのゲーティングはまだ未接続(事業判断が必要)。`purchases`への書き込み経路(決済Webhook)自体もまだ存在しない

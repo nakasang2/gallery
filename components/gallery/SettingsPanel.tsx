@@ -13,6 +13,7 @@ import { getProfile, saveProfile } from '@/lib/publish'
 import { setGalleryPublic } from '@/lib/galleries'
 import { walkRef } from '@/lib/controller'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
+import { usePurchasedIds } from '@/lib/purchases'
 import PurchaseModal from '@/components/PurchaseModal'
 import { purchaseOptionsFor, purchaseEyebrow, PRICE_SINGLE_ITEM } from '@/lib/pricing'
 import {
@@ -230,7 +231,8 @@ export default function SettingsPanel() {
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const settings = useSettings()
   const ownArtworks = useOwnArtworks()
-  const entitlements = getEntitlements(user?.id ?? null)
+  const owned = usePurchasedIds(user?.id ?? null)
+  const entitlements = getEntitlements(user?.id ?? null, owned)
 
   const [igNote, setIgNote] = useState(false)
   const [uploading, setUploading] = useState(false)
