@@ -7,6 +7,33 @@ export const PRICE_THEME_COLLECTION = '¥2,480'
 export const PRICE_DESIGN_TOOLS = '¥1,480'
 export const PRICE_ROOM = '¥1,480 / room'
 export const PRICE_VIDEO_PASS = '¥980 / year'
+
+// Numeric amounts (JPY) keyed by SKU — the single source of truth a future Stripe
+// webhook writes into purchases.amount_jpy, and what the admin revenue view sums.
+// Kept in step with the display strings above.
+export const PRICE_JPY = {
+  room: 1480,
+  capacity_addon: 580,
+  single_item: 400,
+  theme_collection: 2480,
+  design_tools: 1480,
+  video_pass: 980,
+} as const
+export type Sku = keyof typeof PRICE_JPY
+
+export const SKU_LABEL: Record<Sku, string> = {
+  room: 'Extra room',
+  capacity_addon: '+5 work slots',
+  single_item: 'Theme / layout',
+  theme_collection: 'Theme Collection Vol.1',
+  design_tools: 'Design Tools',
+  video_pass: 'Video Pass',
+}
+
+/** Format a JPY integer the way the rest of the UI shows prices (¥1,480). */
+export function yen(n: number): string {
+  return `¥${n.toLocaleString('en-US')}`
+}
 /** §11.5 axis ② — an add-on for an EXISTING room, distinct from "展示室を追加"
  *  (a whole new room). Cheaper than a new room since there's no new URL/theme
  *  bundled in, just more slots in the room you already have. */

@@ -23,6 +23,7 @@ import {
 } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
+import { useIsAdmin } from '@/lib/admin'
 import { PLAN } from '@/lib/limits'
 import {
   listMyGalleries,
@@ -1383,6 +1384,7 @@ export default function MePage() {
   const hydrate = useGallery((s) => s.hydrate)
   const signOut = useGallery((s) => s.signOut)
 
+  const isAdmin = useIsAdmin(user?.id ?? null)
   const [tab, setTab] = useState<MeTab>('gallery')
   const [checked, setChecked] = useState(false)
   // null = still loading (prevents flashing the create card at returning users)
@@ -1436,6 +1438,9 @@ export default function MePage() {
           <Link href="/" className="auth-logo">HAKONIWA</Link>
           <div className="me-top-actions">
             <Link className="btn-line" href="/explore">Explore</Link>
+            {isAdmin && (
+              <Link className="btn-line btn-gold" href="/admin">Admin</Link>
+            )}
             {user && (
               <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
             )}
