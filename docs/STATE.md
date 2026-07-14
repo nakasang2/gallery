@@ -16,5 +16,6 @@
 - なし
 
 ## 完了ログ（直近5件）
+- 2026-07-13: デモ→戻ると環境音が鳴り止まないバグを修正。`galleryAudio`（モジュールsingleton）にsuspend/resumeを追加し、`GalleryApp`アンマウントで停止（master gain即0＋`ctx.suspend()`）。動画音声側も`suspendVideoAudio`で対称化。Playwright+同梱Chromiumで離脱後`suspended`を実挙動検証
 - 2026-07-13: リリース品質化。ランディング料金表を実モデル（無料5点+買い切り3軸+Video Pass年額）へ是正／オーナーが`/demo`を開いた時のHUDを自分の展覧会に切替＋デモ作品の混在を除外（派生状態で実装しサインアウト時の副作用を回避）／3D没入中のalert()を非ブロッキングtoastへ（`lib/toast.ts`）／"ten artists"→"ten works"。tsc・next build・全ルートのスモーク(200/404)確認済み
 - 2026-07-09: 自己改善ループを導入（AGENTS.md / docs台帳 / .claude/skills/kaizen）

@@ -9,7 +9,7 @@ import { useGallery } from '@/lib/store'
 import { useToast } from '@/lib/toast'
 import { walkRef, LOW_POWER } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
-import { unlockVideoAudio } from '@/lib/videohub'
+import { unlockVideoAudio, suspendVideoAudio } from '@/lib/videohub'
 import GalleryScene from './GalleryScene'
 import FlatGallery from './FlatGallery'
 import MiniMap from './MiniMap'
@@ -95,6 +95,11 @@ export default function GalleryApp({ onShellReady }: { onShellReady?: () => void
     return () => {
       window.removeEventListener('pointerdown', unlock)
       window.removeEventListener('keydown', unlock)
+      // Leaving the gallery: silence the ambient/video audio. Their contexts are
+      // module singletons that outlive this component, so the loop would otherwise
+      // keep playing on the landing page / dashboard after navigating away.
+      galleryAudio.suspend()
+      suspendVideoAudio()
     }
   }, [])
 
