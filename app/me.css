@@ -104,6 +104,30 @@
   padding: 1.5rem 1.6rem;
 }
 
+/* Embed code panel (dashboard → public gallery → Embed) */
+.embed-panel {
+  margin-top: 0.9rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.embed-code {
+  display: block;
+  margin: 0 0 0.9rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--hairline);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: #cbb790;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+}
+
 /* Checkout return banner (?purchase=success|cancelled) */
 .purchase-return {
   display: flex;

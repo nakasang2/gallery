@@ -318,6 +318,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [detailsState, setDetailsState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const detailsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copied, setCopied] = useState(false)
+  const [embedCopied, setEmbedCopied] = useState(false)
+  const [showEmbed, setShowEmbed] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
   const [uploading, setUploading] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -398,6 +400,12 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   // The shareable URL is just /@name while the plan allows one hakoniwa
   // (the slug mechanism stays in the DB for the multi-gallery future)
   const publicUrl = typeof window !== 'undefined' && username ? `${location.origin}/@${username}` : ''
+  // Embeddable iframe: ?embed=1 trims the HUD to a back-link and opens outbound
+  // links in a new tab. 16:10 keeps the walk usable in a blog's content column.
+  const embedSrc = publicUrl ? `${publicUrl}?embed=1` : ''
+  const embedCode = embedSrc
+    ? `<iframe src="${embedSrc}" width="100%" height="600" style="border:0;border-radius:12px;aspect-ratio:16/10;max-width:100%" allowfullscreen loading="lazy" title="HAKONIWA — ${(isPlaceholderTitle(row.title) ? 'gallery' : row.title).replace(/"/g, '&quot;')}"></iframe>`
+    : ''
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(true)
@@ -656,7 +664,31 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             {copied ? 'Copied' : 'Copy URL'}
           </button>
         )}
+        {row.is_public && embedCode && (
+          <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
+            {showEmbed ? 'Hide embed' : 'Embed'}
+          </button>
+        )}
       </div>
+      {row.is_public && embedCode && showEmbed && (
+        <div className="embed-panel">
+          <p className="me-note" style={{ marginTop: 0 }}>
+            Paste this where you want the walkable gallery to appear — a blog post, a portfolio site, a Notion page.
+          </p>
+          <code className="embed-code">{embedCode}</code>
+          <button
+            className="btn-line btn-gold"
+            onClick={() => {
+              void navigator.clipboard.writeText(embedCode).then(() => {
+                setEmbedCopied(true)
+                setTimeout(() => setEmbedCopied(false), 1600)
+              })
+            }}
+          >
+            {embedCopied ? 'Copied' : 'Copy embed code'}
+          </button>
+        </div>
+      )}
       {/* Quiet row for rare / destructive housekeeping — not peers of the actions above */}
       <div className="hako-secondary">
         <button

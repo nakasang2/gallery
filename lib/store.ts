@@ -196,6 +196,9 @@ interface GalleryStore extends Settings {
   myGallery: GalleryRow | null
   /** Visitor mode: overridden with read-only exhibition data on public pages */
   visitor: PublicExhibition | null
+  /** Embedded on a third-party site (iframe, ?embed=1): trim the HUD to a
+   *  compact back-link and open outbound links in a new tab, never in the frame */
+  embed: boolean
 
   hydrate(): void
   initAuth(): void
@@ -230,6 +233,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   profileBio: null,
   myGallery: null,
   visitor: null,
+  embed: false,
 
   hydrate() {
     set({ ...loadSettings(), ready: true })
