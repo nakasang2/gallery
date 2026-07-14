@@ -65,11 +65,14 @@ export function useIsAdmin(userId: string | null): boolean {
       return
     }
     let alive = true
-    supabase
-      .rpc('is_admin')
-      .then(({ data, error }) => {
+    ;(async () => {
+      try {
+        const { data, error } = await supabase!.rpc('is_admin')
         if (alive) setIsAdmin(!error && data === true)
-      })
+      } catch {
+        if (alive) setIsAdmin(false) // network reject (vs {error}) — stay non-admin, no unhandled rejection
+      }
+    })()
     return () => {
       alive = false
     }
@@ -91,7 +94,13 @@ type GalleryRow = {
 }
 
 /** Pull the whole platform picture for the admin console. Admin RLS (0017) is what
- *  lets these anon-key reads return every user's rows; a non-admin gets empty sets. */
+ *  lets these anon-key reads return every user's rows; a non-admin gets empty sets.
+ *
+ *  KNOWN LIMIT: these are unpaginated selects, so PostgREST's default 1000-row cap
+ *  silently truncates each table. Fine while the platform is small; once any table
+ *  (visits are the first to grow) passes 1000, totals/tallies undercount. The fix
+ *  when it matters is count:'exact' head queries for the totals + a SQL aggregate
+ *  for revenue — deferred until there's data to need it. */
 export async function fetchAdminOverview(): Promise<AdminOverview> {
   const empty: AdminOverview = {
     users: [],

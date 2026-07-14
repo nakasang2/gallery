@@ -222,10 +222,16 @@ function FramedImage({ src, ratio, position, rotationY = 0, w = 1.5 }: { src: st
         <planeGeometry args={[w + mat * 2, h + mat * 2]} />
         <meshStandardMaterial color="#e9e6dd" roughness={0.92} />
       </mesh>
-      <mesh position={[0, 0, 0.03]}>
-        <planeGeometry args={[w, h]} />
-        <meshStandardMaterial map={tex ?? null} color={tex ? '#ffffff' : '#cfc9b6'} roughness={0.55} />
-      </mesh>
+      {/* Mount the art plane only once the texture exists, so its material compiles
+          WITH the map. Toggling map from null→texture on a live material doesn't
+          recompile the shader (no USE_MAP), which would leave the image invisible;
+          the `key` forces a fresh material per source instead. */}
+      {tex && (
+        <mesh key={src} position={[0, 0, 0.03]}>
+          <planeGeometry args={[w, h]} />
+          <meshStandardMaterial map={tex} roughness={0.55} />
+        </mesh>
+      )}
     </group>
   )
 }

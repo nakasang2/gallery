@@ -2,7 +2,7 @@
 // Admin editor for the landing-page hero works (migration 0018). Upload up to three
 // images (center / left / right); an empty slot falls back to the built-in demo art.
 // One setting drives both PC and mobile, since the LP just reads site_config.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGallery } from '@/lib/store'
 import { uploadLpImage } from '@/lib/cloud'
 import { fetchLpHero, saveLpHero, LP_HERO_SLOTS, LP_HERO_SLOT_LABELS, type LpHeroSlot } from '@/lib/siteConfig'
@@ -14,18 +14,22 @@ export default function LpHeroEditor() {
   const [busy, setBusy] = useState<number | null>(null)
   const [saved, setSaved] = useState(false)
   const [dirty, setDirty] = useState(false)
+  // Guards against setState after unmount (navigating away mid-save/upload)
+  const alive = useRef(true)
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    let alive = true
+    alive.current = true
     fetchLpHero()
       .then((s) => {
-        if (!alive) return
+        if (!alive.current) return
         setSlots(s)
         setLoaded(true)
       })
-      .catch(() => setLoaded(true))
+      .catch(() => alive.current && setLoaded(true))
     return () => {
-      alive = false
+      alive.current = false
+      if (savedTimer.current) clearTimeout(savedTimer.current)
     }
   }, [])
 
@@ -34,12 +38,13 @@ export default function LpHeroEditor() {
     setBusy(i)
     try {
       const img = await uploadLpImage(user.id, file)
+      if (!alive.current) return
       setSlots((prev) => prev.map((s, k) => (k === i ? img : s)))
       setDirty(true)
     } catch (e) {
-      alert(`Upload failed: ${e instanceof Error ? e.message : e}`)
+      if (alive.current) alert(`Upload failed: ${e instanceof Error ? e.message : e}`)
     } finally {
-      setBusy(null)
+      if (alive.current) setBusy(null)
     }
   }
 
@@ -52,13 +57,14 @@ export default function LpHeroEditor() {
     setBusy(-1)
     try {
       await saveLpHero(slots)
+      if (!alive.current) return
       setSaved(true)
       setDirty(false)
-      setTimeout(() => setSaved(false), 1800)
+      savedTimer.current = setTimeout(() => setSaved(false), 1800)
     } catch (e) {
-      alert(`Could not save: ${e instanceof Error ? e.message : e}`)
+      if (alive.current) alert(`Could not save: ${e instanceof Error ? e.message : e}`)
     } finally {
-      setBusy(null)
+      if (alive.current) setBusy(null)
     }
   }
 
