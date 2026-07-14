@@ -23,6 +23,7 @@ export default function LandingPage() {
           <a href="#flow">How it works</a>
           <a href="#pricing">Pricing</a>
           <Link href="/explore">Explore</Link>
+          <Link href="/articles">Guides</Link>
           <Link href="/signin">Sign in</Link>
         </div>
         <div className="nav-actions">
@@ -224,6 +225,8 @@ export default function LandingPage() {
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
           <Link href="/demo">Demo</Link>
+          <Link href="/explore">Explore</Link>
+          <Link href="/articles">Guides</Link>
           <Link href="/signin">Sign in</Link>
           <Link href="/signup">Create account</Link>
         </nav>

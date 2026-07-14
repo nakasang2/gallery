@@ -54,6 +54,7 @@ export default async function ExplorePage() {
         <ExploreFeed initialItems={items} initialHasMore={hasMore} />
 
         <footer className="artist-footer">
+          <Link href="/articles">Guides</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/privacy">Privacy</Link>
         </footer>

@@ -1,0 +1,170 @@
+/* Guides / blog: the public index (/articles) and a single guide (/articles/[slug]).
+   Dark, editorial, in HAKONIWA's type system. Also styles the Markdown body. */
+
+/* ---- Index list ---- */
+.article-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.4rem;
+  margin: 1.4rem 0 2rem;
+}
+@media (min-width: 720px) {
+  .article-list { grid-template-columns: 1fr 1fr; }
+}
+.article-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(15, 14, 12, 0.6);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.article-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+.article-card-cover { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.article-card-cover-empty {
+  background: repeating-linear-gradient(45deg, #1c1a16, #1c1a16 14px, #171511 14px, #171511 28px);
+}
+.article-card-body { padding: 1.1rem 1.2rem 1.3rem; }
+.article-card-title {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 1.4rem;
+  font-weight: 400;
+  margin: 0 0 0.4rem;
+  line-height: 1.2;
+}
+.article-card-excerpt { margin: 0 0 0.6rem; font-size: 0.9rem; line-height: 1.6; color: #cdc7bd; }
+.article-card-date {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8c8577;
+}
+
+/* ---- Single guide ---- */
+.article-page { min-height: 100vh; background: #0f0e0c; color: #ece7dd; }
+.article-inner { max-width: 720px; margin: 0 auto; padding: 1.4rem 1.4rem 4rem; }
+.article-header { margin: 2rem 0 1.4rem; }
+.article-title {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: clamp(2.1rem, 5vw, 3.1rem);
+  font-weight: 400;
+  line-height: 1.08;
+  margin: 0 0 0.6rem;
+}
+.article-meta { margin: 0; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: #8c8577; }
+.article-hero {
+  width: 100%;
+  border-radius: 12px;
+  margin: 0 0 2rem;
+  border: 1px solid var(--hairline);
+}
+
+/* ---- Markdown body ---- */
+.article-body { font-size: 1.02rem; line-height: 1.8; color: #ddd6ca; }
+.article-body h2 {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 1.7rem;
+  font-weight: 400;
+  margin: 2.4rem 0 0.8rem;
+  color: #ece7dd;
+}
+.article-body h3 { font-size: 1.25rem; font-weight: 500; margin: 1.8rem 0 0.6rem; color: #ece7dd; }
+.article-body h4 { font-size: 1.05rem; font-weight: 600; margin: 1.4rem 0 0.5rem; color: #ece7dd; }
+.article-body p { margin: 0 0 1.2rem; }
+.article-body a { color: var(--gold); text-underline-offset: 2px; }
+.article-body strong { color: #f2ede2; }
+.article-body ul, .article-body ol { margin: 0 0 1.2rem; padding-left: 1.4rem; }
+.article-body li { margin: 0.3rem 0; }
+.article-body blockquote {
+  margin: 1.4rem 0;
+  padding: 0.4rem 0 0.4rem 1.2rem;
+  border-left: 3px solid var(--gold);
+  color: #cdc7bd;
+  font-style: italic;
+}
+.article-body hr { border: 0; border-top: 1px solid var(--hairline); margin: 2.4rem 0; }
+.article-body .md-code {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 0.86em;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.1em 0.4em;
+  border-radius: 5px;
+}
+.article-body .md-pre {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  margin: 0 0 1.4rem;
+}
+.article-body .md-pre code { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.84rem; color: #cbb790; }
+.article-body .md-figure { margin: 1.6rem 0; }
+.article-body .md-figure img, .article-body .md-inline-img { max-width: 100%; border-radius: 10px; }
+.article-body .md-figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #8c8577;
+  text-align: center;
+}
+
+/* ---- Funnel CTA at the foot of a guide ---- */
+.article-cta {
+  margin: 3.2rem 0 2rem;
+  padding: 2.4rem 1.6rem;
+  border: 1px solid rgba(212, 162, 78, 0.35);
+  border-radius: 16px;
+  background: rgba(212, 162, 78, 0.06);
+  text-align: center;
+}
+.article-cta h2 {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 1.9rem;
+  font-weight: 400;
+  margin: 0 0 0.6rem;
+}
+.article-cta p { margin: 0 auto 1.2rem; max-width: 40ch; color: #cdc7bd; line-height: 1.6; }
+.article-cta-alt { margin-top: 1rem !important; font-size: 0.9rem; }
+.article-cta-alt a { color: #b9b1a2; }
+
+/* ---- Admin articles editor ---- */
+.admin-articles-list { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.8rem 0 1rem; }
+.admin-article-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+}
+.admin-article-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-article-badge {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.2em 0.6em;
+  border-radius: 100px;
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+}
+.admin-article-badge.live { color: #1a1710; background: var(--gold); border-color: var(--gold); }
+.admin-article-editor { margin-top: 1rem; }
+.admin-article-editor textarea.md-input { min-height: 320px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.84rem; line-height: 1.6; }
+.admin-article-preview {
+  margin-top: 1rem;
+  padding: 1.2rem 1.3rem;
+  border: 1px dashed var(--hairline);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+}
+.admin-article-preview-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.8rem;
+}

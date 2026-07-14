@@ -210,7 +210,7 @@
 |---|---|---|---|
 | 8 | ✅ **ウォークスルー動画書き出し**(2026-07-14実装)。順路ツアーを走らせつつ`MediaRecorder`+`canvas.captureStream`でWebM録画→DL。非対応ブラウザはボタン非表示。**残: MP4/GIF変換**(X/IG直投稿にはMP4が要る。cross-browser MP4は要ffmpeg.wasm/サーバ=別タスク)・音声は無し(canvasのみ捕捉) | §4.1-1 | 中 |
 | 9 | ✅ **企画展(特集)メカニズム**(2026-07-14実装)。`/explore`上部に手動キュレーションの特集枠(見出し+作品カード)。`/admin`の「Explore spotlight」で@username/slug・見出し・順序を編集(`site_config`。migration不要)。未公開refは自動で脱落 | §4.1-2 | 中 |
-| 10 | SEO/コンテンツ(「Web個展の開き方」等のガイド記事、検索語LP) | §4.1-3 | 運用 |
+| 10 | ✅ **記事/ガイド機能**(2026-07-14実装)。`/articles`(一覧)+`/articles/[slug]`(SEO/OGP・CTA)、`/admin`でMarkdown執筆・下書き/公開・プレビュー(migration 0020)。zero-dep・XSS安全のMarkdownレンダラ。**残: 実際の記事執筆(運用)**。参考サイト「Ktlyst」は未特定のためHAKONIWA自身のデザインで実装 | §4.1-3 | 運用 |
 
 ### P3 — 市場拡大(中期・大きめ)
 

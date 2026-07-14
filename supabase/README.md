@@ -21,6 +21,7 @@
    - `0017_admin.sql` — 管理者ロール(`admins`表・`is_admin()`)+ 管理者の横断read + 売上金額列
    - `0018_site_config.sql` — サイト設定(公開read/admin write)。LPヒーロー表示作品の管理画面設定に使用
    - `0019_checkout.sql` — Stripe決済対応(purchases.kind拡張 + キャパ加算RPC。RPCはservice roleのみ実行可)
+   - `0020_articles.sql` — 記事/ガイド(公開read/admin write RLS)。`/articles`と`/admin`の記事エディタが使用
 3. 「Success. No rows returned」が出れば完了
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、

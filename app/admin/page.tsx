@@ -10,6 +10,7 @@ import { useIsAdmin, fetchAdminOverview, type AdminOverview } from '@/lib/admin'
 import AdminDashboard from '@/components/AdminDashboard'
 import LpHeroEditor from '@/components/LpHeroEditor'
 import SpotlightEditor from '@/components/SpotlightEditor'
+import ArticlesEditor from '@/components/ArticlesEditor'
 import AuthShell from '@/components/auth/AuthShell'
 
 export default function AdminPage() {
@@ -97,6 +98,7 @@ export default function AdminPage() {
 
         {data && <AdminDashboard data={data} />}
 
+        {isAdmin && <ArticlesEditor />}
         {isAdmin && <SpotlightEditor />}
         {isAdmin && <LpHeroEditor />}
 
