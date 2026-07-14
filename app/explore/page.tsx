@@ -2,8 +2,10 @@
 // first, so visitors can walk from one artist's room into another's.
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { fetchPublicFeed, EXPLORE_PAGE_SIZE } from '@/lib/publish'
+import { fetchPublicFeed, fetchSpotlightGalleries, EXPLORE_PAGE_SIZE } from '@/lib/publish'
+import { fetchSpotlight } from '@/lib/siteConfig'
 import ExploreFeed from '@/components/ExploreFeed'
+import FeedCard from '@/components/FeedCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +15,13 @@ export const metadata: Metadata = {
 }
 
 export default async function ExplorePage() {
-  const { items, hasMore } = await fetchPublicFeed(0, EXPLORE_PAGE_SIZE)
+  // The curated spotlight (企画展 / 特集) and the first feed page load together
+  const [{ items, hasMore }, spotlight] = await Promise.all([
+    fetchPublicFeed(0, EXPLORE_PAGE_SIZE),
+    fetchSpotlight(),
+  ])
+  const spotlightItems =
+    spotlight.title && spotlight.items.length > 0 ? await fetchSpotlightGalleries(spotlight.items) : []
 
   return (
     <main className="artist-page">
@@ -27,6 +35,21 @@ export default async function ExplorePage() {
         <p className="feed-intro">
           Every public hakoniwa on the platform, newest-edited first. Walk in — each room opens in 3D, right in your browser.
         </p>
+
+        {spotlightItems.length > 0 && (
+          <section className="spotlight" aria-label={spotlight.title}>
+            <div className="spotlight-head">
+              <h2 className="spotlight-title">{spotlight.title}</h2>
+              {spotlight.subtitle && <p className="spotlight-sub">{spotlight.subtitle}</p>}
+            </div>
+            <div className="artist-galleries spotlight-grid">
+              {spotlightItems.map((g) => (
+                <FeedCard key={`sp-${g.username}/${g.slug}`} g={g} />
+              ))}
+            </div>
+            <p className="spotlight-divider" aria-hidden="true">All exhibitions</p>
+          </section>
+        )}
 
         <ExploreFeed initialItems={items} initialHasMore={hasMore} />
 

@@ -306,7 +306,7 @@
   color: var(--muted);
   margin-bottom: 0.4rem;
 }
-.me-field input, .me-field textarea {
+.me-field input, .me-field textarea, .spotlight-row input {
   width: 100%;
   font-family: var(--sans);
   font-size: 0.9rem;
@@ -319,7 +319,14 @@
   transition: border-color 0.2s;
   resize: vertical;
 }
-.me-field input:focus, .me-field textarea:focus { border-color: var(--gold); }
+.me-field input:focus, .me-field textarea:focus, .spotlight-row input:focus { border-color: var(--gold); }
+
+/* Admin: spotlight curation rows (@username / slug + reorder/remove) */
+.spotlight-rows { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.9rem; }
+.spotlight-row { display: flex; align-items: center; gap: 0.4rem; }
+.spotlight-row-at, .spotlight-row-sep { color: var(--muted); font-size: 0.9rem; }
+.spotlight-row-slug { max-width: 110px; }
+.spotlight-row .btn-line { padding: 0.45em 0.7em; }
 
 .me-field-group-label {
   font-size: 0.76rem;
@@ -583,6 +590,36 @@
 
 /* ---- Explore feed (/explore) — every public hakoniwa on the platform ---- */
 .feed-intro { max-width: 56ch; font-size: 0.88rem; line-height: 1.9; color: #cdc7bd; margin: 0.6rem 0 2rem; }
+
+/* Explore spotlight (企画展 / 特集): a curated row above the full feed */
+.spotlight { margin: 0 0 2.6rem; }
+.spotlight-head { margin-bottom: 1.1rem; }
+.spotlight-title {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 1.7rem;
+  font-weight: 400;
+  margin: 0;
+  color: var(--gold);
+}
+.spotlight-sub { margin: 0.2rem 0 0; font-size: 0.86rem; color: #cdc7bd; }
+.spotlight-grid { margin-bottom: 1.4rem; }
+.spotlight-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 2rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #8c8577;
+}
+.spotlight-divider::before,
+.spotlight-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
 .feed-card-artist { display: flex; align-items: center; gap: 0.55em; padding: 0.9rem 1rem 0; }
 .feed-card-avatar {
   width: 26px;

@@ -9,6 +9,7 @@ import { useGallery } from '@/lib/store'
 import { useIsAdmin, fetchAdminOverview, type AdminOverview } from '@/lib/admin'
 import AdminDashboard from '@/components/AdminDashboard'
 import LpHeroEditor from '@/components/LpHeroEditor'
+import SpotlightEditor from '@/components/SpotlightEditor'
 import AuthShell from '@/components/auth/AuthShell'
 
 export default function AdminPage() {
@@ -96,6 +97,7 @@ export default function AdminPage() {
 
         {data && <AdminDashboard data={data} />}
 
+        {isAdmin && <SpotlightEditor />}
         {isAdmin && <LpHeroEditor />}
 
         <footer className="artist-footer">

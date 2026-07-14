@@ -3,8 +3,8 @@
 // fast first paint); everything past that is fetched client-side straight
 // through the same anon-key Supabase client the dashboard already uses.
 import { useState } from 'react'
-import Link from 'next/link'
-import { fetchPublicFeed, isPlaceholderTitle, EXPLORE_PAGE_SIZE, type FeedItem } from '@/lib/publish'
+import { fetchPublicFeed, EXPLORE_PAGE_SIZE, type FeedItem } from '@/lib/publish'
+import FeedCard from '@/components/FeedCard'
 
 export default function ExploreFeed({
   initialItems,
@@ -37,31 +37,7 @@ export default function ExploreFeed({
     <>
       <div className="artist-galleries">
         {items.map((g) => (
-          <Link key={`${g.username}/${g.slug}`} className="artist-gallery-card" href={`/@${g.username}/${g.slug}`}>
-            {g.cover ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={g.cover} alt="" className="artist-cover" />
-            ) : (
-              <div className="artist-cover artist-cover-empty" />
-            )}
-            <div className="feed-card-artist">
-              {g.ownerAvatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img className="feed-card-avatar" src={g.ownerAvatar} alt="" />
-              ) : (
-                <div className="feed-card-avatar empty">{(g.ownerName || '•').slice(0, 1).toUpperCase()}</div>
-              )}
-              <span className="feed-card-artist-name">{g.ownerName}</span>
-            </div>
-            <div className="artist-gallery-meta">
-              <span className="artist-gallery-title">
-                {isPlaceholderTitle(g.title) ? g.ownerName : g.title}
-              </span>
-              <span className="artist-gallery-sub">
-                {g.workCount} work{g.workCount === 1 ? '' : 's'} · walk through in 3D →
-              </span>
-            </div>
-          </Link>
+          <FeedCard key={`${g.username}/${g.slug}`} g={g} />
         ))}
       </div>
       {hasMore && (
