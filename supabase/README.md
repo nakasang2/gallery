@@ -97,7 +97,7 @@ select id, 'founder' from auth.users where email = 'あなたのメール@exampl
 コードは実装済み(`app/api/checkout` / `app/api/stripe/webhook`)。**環境変数を設定した時だけ有効**になり、
 未設定のあいだ購入ボタンは従来どおり「Checkout isn't live yet」の正直表示にフォールバックする。
 
-1. `0019_checkout.sql` を適用する(kind拡張 + `apply_capacity_addon` RPC)
+1. `0019_checkout.sql` を適用する(kind拡張 + `record_capacity_purchase` RPC)
 2. [Stripe Dashboard](https://dashboard.stripe.com/apikeys) で Secret key を取得 → サーバー環境変数
    `STRIPE_SECRET_KEY` に設定(Vercelなら Project → Settings → Environment Variables)
 3. [Webhooks](https://dashboard.stripe.com/webhooks) で endpoint `https://本番ドメイン/api/stripe/webhook` を作成し、

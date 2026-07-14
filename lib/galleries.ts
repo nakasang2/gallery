@@ -214,15 +214,6 @@ export async function saveDesignOverrides(id: string, overrides: DesignOverrides
   if (error) throw error
 }
 
-/** §11.5 axis ② capacity add-on for a room that already exists (as opposed to
- *  createGallery, which bakes in the starting cap for a brand-new room). Not
- *  called from any UI yet — no self-serve free unlock — this is the seam a
- *  Stripe webhook calls after a successful "+N works" purchase confirms. */
-export async function addWorkSlots(id: string, currentCap: number, amount: number): Promise<void> {
-  const { error } = await supabase!.from('galleries').update({ work_cap: currentCap + amount }).eq('id', id)
-  if (error) throw error
-}
-
 /** Pick the work used for the OGP card / artist-page cover (null = slot 0) */
 export async function setGalleryCover(id: string, artworkId: string | null): Promise<void> {
   const { error } = await supabase!.from('galleries').update({ cover_artwork_id: artworkId }).eq('id', id)

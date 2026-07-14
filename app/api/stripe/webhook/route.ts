@@ -88,6 +88,12 @@ export async function POST(req: NextRequest) {
           amount_jpy: amount,
         })
         if (marker === 'duplicate') break
+        // WARNING: this is empty today — every theme in THEMES is forever-free
+        // (lib/entitlements FOREVER_FREE_THEME_IDS = Object.keys(THEMES)), so a
+        // collection purchase records revenue but grants no per-theme rows.
+        // That's fine only while no theme is lockable; before shipping the first
+        // paid theme, make FOREVER_FREE a real fixed snapshot so paid ids fall
+        // through here — otherwise buyers pay ¥2,480 and unlock nothing.
         const noOwnership = getEntitlements(null)
         const paidThemeIds = Object.keys(THEMES).filter((id) => !isThemeUnlocked(id, noOwnership))
         for (const id of paidThemeIds) {
@@ -106,28 +112,27 @@ export async function POST(req: NextRequest) {
           console.error('webhook: capacity_addon without gallery_id', session.id)
           break
         }
-        // item_key = session id → each add-on purchase is its own ledger row,
-        // and a redelivered event dedupes instead of incrementing twice
-        const marker = await insertPurchase(db, {
-          user_id: userId,
-          kind: 'capacity',
-          item_key: session.id,
-          sku,
-          amount_jpy: amount,
-        })
-        if (marker === 'duplicate') break
-        const { data: newCap, error: rpcErr } = await db.rpc('apply_capacity_addon', {
+        // One atomic call records the charge (keyed on session.id, so redelivery
+        // is a no-op) AND bumps the cap in the same transaction. It NEVER deletes
+        // the record: a genuinely-charged purchase is always reconcilable even if
+        // the room was deleted between checkout and this webhook.
+        const { data: result, error: rpcErr } = await db.rpc('record_capacity_purchase', {
+          p_session: session.id,
+          p_user: userId,
           p_gallery: galleryId,
-          p_owner: userId,
           p_amount: CAPACITY_ADDON_SIZE,
+          p_amount_jpy: amount,
         })
-        if (rpcErr || newCap == null) {
-          // Roll the ledger row back so a Stripe retry can attempt the whole
-          // unit again — otherwise the row would mark this delivery "done"
-          // while the cap was never raised.
-          await db.from('purchases').delete().eq('user_id', userId).eq('kind', 'capacity').eq('item_key', session.id)
-          console.error('webhook: apply_capacity_addon failed', session.id, rpcErr?.message ?? 'no matching gallery')
+        if (rpcErr) {
+          // A transient DB error — return 500 so Stripe retries; nothing was
+          // recorded (the whole function rolled back), so the retry is clean.
+          console.error('webhook: record_capacity_purchase failed', session.id, rpcErr.message)
           return NextResponse.json({ error: 'Could not apply capacity.' }, { status: 500 })
+        }
+        if (result === 'no_gallery') {
+          // Charge IS recorded; the room is just gone. Retrying won't help, so
+          // ack (200) and log for manual reconciliation instead of looping.
+          console.error('webhook: capacity paid but no matching gallery to raise', session.id, galleryId)
         }
         break
       }
