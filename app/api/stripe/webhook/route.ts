@@ -88,12 +88,10 @@ export async function POST(req: NextRequest) {
           amount_jpy: amount,
         })
         if (marker === 'duplicate') break
-        // WARNING: this is empty today — every theme in THEMES is forever-free
-        // (lib/entitlements FOREVER_FREE_THEME_IDS = Object.keys(THEMES)), so a
-        // collection purchase records revenue but grants no per-theme rows.
-        // That's fine only while no theme is lockable; before shipping the first
-        // paid theme, make FOREVER_FREE a real fixed snapshot so paid ids fall
-        // through here — otherwise buyers pay ¥2,480 and unlock nothing.
+        // The collection grants every PAID theme (those not in FOREVER_FREE).
+        // Empty today because no paid theme has shipped yet; it fills in
+        // automatically the moment one is added to THEMES (FOREVER_FREE is now a
+        // fixed snapshot, so new themes are gatable — lib/entitlements).
         const noOwnership = getEntitlements(null)
         const paidThemeIds = Object.keys(THEMES).filter((id) => !isThemeUnlocked(id, noOwnership))
         for (const id of paidThemeIds) {

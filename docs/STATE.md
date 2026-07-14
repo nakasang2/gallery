@@ -2,7 +2,7 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-14（P0-2/P0-3/P1-4 Stripe/P1-6 embed を実装。/code-review 指摘2件を修正）
+- **最終更新**: 2026-07-14（P0-2/P0-3/P1-4 Stripe/P1-6 embed に加え、FOREVER_FREE固定化・P1-7 PDFカタログを実装）
 
 ## 進行中
 - なし
@@ -10,8 +10,8 @@
 ## 次にやること（再開ポイント）
 - **Stripe本番接続の運用作業**（コードは完成・未接続）: `0019_checkout.sql`適用 → `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`SUPABASE_SERVICE_ROLE_KEY`/`NEXT_PUBLIC_SITE_URL` 設定 → Stripe CLIで実カード確認（手順は supabase/README §5）
 - docs/STRATEGY.md **§7** の残タスク:
-  - P1-5 有料テーマ/レイアウト第1弾。**前提**: `lib/entitlements`のFOREVER_FREEを固定スナップショット化（現状`Object.keys(THEMES)`で全テーマ永久無料=ロック不能。theme_collection購入も現状は空grant）
-  - P1-7 PDFカタログ出力 / P2 成長ループ（ウォークスルー動画・企画展）
+  - P1-5 有料テーマ/レイアウト第1弾。前提(FOREVER_FREE固定化)は**解消済**。残るは実際の有料テーマ/レイアウトの制作という事業/制作判断
+  - P2 成長ループ（ウォークスルー動画・企画展）/ P3（グループ展・音声・AR・立体）
 - レビューで見送った低優先の既知事項:
   - 署名なし決済フローで未サインイン時に「Checkout isn't live yet」と表示（現状モーダルはサインイン文脈でしか開かず到達不可）
   - 購入完了後の再取得はギャラリー（キャパ）のみ更新。テーマ/レイアウト所有は要手動リロード（バナーで案内済み・現状テーマ購入は到達不可）
@@ -22,6 +22,7 @@
 - なし
 
 ## 完了ログ（直近5件）
+- 2026-07-14: P1-5前提解消(`lib/entitlements`のFOREVER_FREEを`Object.keys`→固定リスト['chic','whitecube','noir']/['hall','corridor','island','portrait','custom']化、dev guard付き。以後の新テーマは自動でロック対象)+ P1-7 PDFカタログ(印刷最適化の`/@user/slug/catalog`=`CatalogDoc`+`catalog.css`の@media print、ダッシュボードに「Catalog (PDF)」導線。ライブラリ追加なし)。同梱Chromiumで画面/印刷2面を実描画検証(2作品・画像・sale tag・印刷時toolbar非表示)。tsc・build クリーン
 - 2026-07-14: 戦略ロードマップ§7を実装。P0-2「AI学習に使わない」明文化(Terms/Privacy/LP)・P0-3マルチプレイ低優先度注記・P1-4 Stripe決済(Checkout+署名検証Webhook+冪等RPC `record_capacity_purchase`/migration 0019、未設定時フォールバック)・P1-6 embed(`?embed=1`+iframeコピーUI+認証ルートのframe拒否)。/code-review高で5指摘→CONFIRMED2件修正(キャパ購入の記録喪失を冪等RPCで解消/クリックジャッキング防止ヘッダー)。tsc・build・実挙動(501/401/400・embed HUD・frameヘッダー)検証済
 - 2026-07-14: 競合を調査し docs/STRATEGY.md（競合分析・販売戦略・機能ギャップ・優先度順タスクリスト§7）を作成
 - 2026-07-14: LPヒーローに右の3点目を追加（構図バランス）＋ LP表示作品を`/admin`から設定可能に（migration 0018 `site_config`：公開read/admin write）。中央/左/右3枠に画像アップロード→未設定はデモ作品にフォールバック、PC/モバイル共通。`HeroScene`は設定画像をテクスチャ描画（`FramedImage`）、`components/LpHeroEditor`で編集。tsc/build/描画（LP無リグレッション＋編集UIをスクショ）検証済み。※実画像の差し替え反映は実Supabaseでのみ最終確認可

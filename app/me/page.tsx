@@ -669,6 +669,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             {showEmbed ? 'Hide embed' : 'Embed'}
           </button>
         )}
+        {row.is_public && username && (
+          <a className="btn-line" href={`/@${username}/${row.slug}/catalog`} target="_blank" rel="noreferrer">
+            Catalog (PDF)
+          </a>
+        )}
       </div>
       {row.is_public && embedCode && showEmbed && (
         <div className="embed-panel">
