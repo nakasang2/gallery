@@ -112,6 +112,7 @@ export default function LandingPage() {
             <div className="stat"><b>3 min</b><span>from upload to opening</span></div>
             <div className="stat"><b>Free</b><span>to start, nothing to install</span></div>
             <div className="stat"><b>1 URL</b><span>to invite the world</span></div>
+            <div className="stat"><b>No AI</b><span>your work is never used for training</span></div>
           </div>
         </div>
       </section>

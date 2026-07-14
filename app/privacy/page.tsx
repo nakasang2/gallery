@@ -12,13 +12,13 @@ export default function PrivacyPage() {
         </div>
         <h1 className="me-h1">Privacy Policy</h1>
         <div className="legal-body">
-          <p>Last updated: July 9, 2026.</p>
+          <p>Last updated: July 14, 2026.</p>
 
           <h2>1. What we collect</h2>
           <p>Account data (email address, display name, optional bio and username), the works you upload, and gallery settings. Authentication and storage are provided by Supabase; their infrastructure processes this data on our behalf.</p>
 
           <h2>2. What we use it for</h2>
-          <p>Operating the service: signing you in, storing and serving your works, and rendering your public pages. We do not sell your data or use it for advertising.</p>
+          <p>Operating the service: signing you in, storing and serving your works, and rendering your public pages. We do not sell your data or use it for advertising, and we never use your uploaded works to train AI models or provide them to third parties for AI training (see the Terms).</p>
 
           <h2>3. What is public</h2>
           <p>Anything in a published gallery is public: the works placed in it, its title and statement, and your username, display name and bio on your artist page. Unpublished galleries and works not placed in a public gallery are not visible to others.</p>
