@@ -104,6 +104,20 @@
   padding: 1.5rem 1.6rem;
 }
 
+/* Checkout return banner (?purchase=success|cancelled) */
+.purchase-return {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+  padding: 0.9rem 1.2rem;
+}
+.purchase-return.ok {
+  border-color: rgba(212, 162, 78, 0.45);
+  background: rgba(212, 162, 78, 0.08);
+}
+
 /* 箱庭カードのビジュアルヘッダー(カバー作品 or テーマ色 + 間取り) */
 .hako-visual {
   display: flex;

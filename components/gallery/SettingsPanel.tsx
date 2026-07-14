@@ -644,6 +644,7 @@ export default function SettingsPanel() {
               )
             }
             options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)}
+            intent={{ kind: purchaseItem.kind, itemKey: purchaseItem.key }}
             onClose={() => setPurchaseItem(null)}
           />
         )}
