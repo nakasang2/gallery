@@ -163,7 +163,27 @@
 - **無料5点**(§10.10) — Kunstmatrix STARTERの10点(ただし公開不可)、ARTWORKS βの17点と比べても、
   「公開できる5点」は試用価値と課金動機のバランスとして妥当
 
-## 6. 主な出典
+## 6. 機能ギャップ一覧(グループ展以外・2026-07-14追記)
+
+「動画展示」はKunstmatrix等も対応しているが独立系では強み。それ以外で他社が持ちHAKONIWAに無い機能:
+
+| # | 機能 | 持っている競合 | HAKONIWAの現状 | 影響/優先度 |
+|---|---|---|---|---|
+| 1 | **サイト埋め込み(embed)** | Kunstmatrix(埋め込みコード)、ArtPlacer | 公開URLのみ。iframe提供なし | **高**。自サイト持ちのプロ作家の必須要件。公開ページが既にあるので実装は小さく、買い切りSKU(③軸)にも載る |
+| 2 | **立体作品(3Dモデル)展示** | Artsteps・Kunstmatrix(彫刻・3Dファイル) | 画像+動画のみ | **高(中期)**。彫刻・陶芸・フィギュア・3DCG作家を丸ごと取りこぼしている。glTF対応は負荷・審査の設計が必要で重め |
+| 3 | **音声(BGM/音声ガイド)** | Artsteps(ツアーに音声ナレーション)、Kunstmatrix(音声作品) | 無音。順路ツアーはテキストのみ | **中**。「展覧会として見せる」コンセプトと相性が良い。BGMはフェーズ2に記載済み、作品ごと音声ガイドはツアーステッパーに載せられる |
+| 4 | **AR(実寸で自室の壁に表示)** | GALLERIST3D、ArtPlacer("See on your wall") | なし | **中**。購入リンク(v0.49)と組み合わせると販売支援になる。平面作品なら model-viewer 等で比較的安価 |
+| 5 | **PDFカタログ出力** | GALLERIST3D(PDF・印刷連携) | なし | **中**。卒展・就活・入稿用に需要が明確で実装が軽い。グループ展パックとの相性も良い |
+| 6 | **VR(ヘッドセット)鑑賞** | Artsteps、Spatial、oncyber | ブラウザのみ | 低。R3FはWebXR対応可だが、ターゲット(SNSのフォロワー)はヘッドセットを持たない。当面見送りで可 |
+| 7 | **カスタムドメイン/ホワイトレーベル** | Kunstmatrix、Artsteps Private Space | なし(旧LPに記載があった程度) | 低〜中。将来の上位買い切りSKU候補。今はやらない |
+| 8 | **壁を自由に建てる間取りエディタ** | Artsteps(壁・ドアを自由配置) | スライダー式カスタム(幅・奥行・中央壁) | 低。自由度より「迷わず綺麗にできる」が差別化。パラメトリック路線を維持 |
+| 9 | **解析の深さ(滞在時間・作品別注目度)** | ArtPlacer等 | 訪問数・♥・記帳数のみ | 低〜中。フェーズ2記載どおり。課金作家の継続理由になるので中期で |
+| 10 | **一括アップロード** | 画廊系ツール全般 | 1点ずつ | 低。作品数上限5点の無料枠では問題にならない。キャパ拡張SKUが売れ始めたら対応 |
+
+推奨: 短期は **①埋め込み・⑤PDFカタログ**(軽くて訴求が明確)、中期に **③音声・④AR・②立体対応**、
+⑥⑦⑧は当面見送り。①⑤⑦はいずれも買い切りSKUとして③軸(Design Tools/コンテンツ)の横に自然に並ぶ。
+
+## 7. 主な出典
 
 - Kunstmatrix 料金: https://www.kunstmatrix.com/en/pricing / https://www.kunstmatrix.com/en/info/faqs/how-many-exhibitions-does-each-plan-offer
 - Artsteps: https://www.artsteps.com/ / 料金・Private Space解説: https://panoramastreetline.com/news/virtuelle-ausstellungen-tools-fuer-kuenstler-selbststaendige-und-ausstellungsmacher
