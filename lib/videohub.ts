@@ -31,6 +31,15 @@ export function unlockVideoAudio() {
   if (ctx && ctx.state === 'suspended') void ctx.resume()
   audioUnlocked = true
 }
+
+/** Mirror of unlockVideoAudio for leaving the gallery: the shared AudioListener
+ *  context is a module singleton, so suspend it (and require a fresh gesture to
+ *  re-arm) rather than leaving it running after the 3D tree unmounts. */
+export function suspendVideoAudio() {
+  const ctx = listener?.context
+  if (ctx && ctx.state === 'running') void ctx.suspend()
+  audioUnlocked = false
+}
 let audioUnlocked = false
 
 export interface VideoEntry {

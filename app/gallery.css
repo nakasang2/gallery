@@ -231,6 +231,37 @@ body.gallery-mode {
 .hud-signup-cta:active { transform: translateY(0) scale(0.98); }
 
 /* ---- 操作ヒント(ページャーの上に重ならないよう配置) ---- */
+/* Non-blocking notice (errors / limits) — replaces native alert() inside the
+   immersive walk so the viewer is never yanked out by a browser modal */
+.gallery-toast {
+  position: fixed;
+  bottom: calc(6.4rem + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translate(-50%, 12px);
+  max-width: min(30rem, calc(100vw - 2rem));
+  z-index: 60;
+  padding: 0.8em 1.2em;
+  background: rgba(18, 18, 20, 0.92);
+  color: var(--ink);
+  border: 1px solid rgba(236, 236, 234, 0.16);
+  border-radius: 10px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.gallery-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gallery-toast { transition: opacity 0.2s ease; }
+}
+
 .hint {
   position: fixed;
   bottom: calc(4.9rem + env(safe-area-inset-bottom, 0px));

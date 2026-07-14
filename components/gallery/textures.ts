@@ -191,7 +191,7 @@ export interface TitleWallText {
 
 export const DEFAULT_TITLE_TEXT: TitleWallText = {
   title: 'HAKONIWA',
-  subtitle: '— A Permanent Collection of Ten Artists —',
+  subtitle: '— A Permanent Collection of Ten Works —',
   statement: 'From a feed that scrolls past, to a room you walk through. This space is waiting to become yours.',
 }
 

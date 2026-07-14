@@ -4,8 +4,9 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { THEMES, LAYOUTS, FRAMES, MATS, HANGINGS, CAPTIONS, TEMPLATES } from '@/lib/presets'
-import { overflowCount, slotCount, useOwnArtworks } from '@/lib/exhibition'
+import { overflowCount, slotCount, useOwnArtworks, useIsOwnerEditing } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
+import { showToast } from '@/lib/toast'
 import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
 import { supabase } from '@/lib/supabase'
 import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
@@ -58,7 +59,7 @@ function ProfileEditor() {
       setSaved(true)
       setTimeout(() => setSaved(false), 1600)
     } catch (e) {
-      alert(`Could not save your profile: ${e instanceof Error ? e.message : e}`)
+      showToast(`Could not save your profile: ${e instanceof Error ? e.message : e}`)
     } finally {
       setBusy(false)
     }
@@ -162,7 +163,7 @@ function PublishSection() {
       await setGalleryPublic(myGallery!, nextPublic, settings, ownArtworks)
       await refreshMyGallery()
     } catch (e) {
-      alert(`Publishing failed: ${e instanceof Error ? e.message : e}`)
+      showToast(`Publishing failed: ${e instanceof Error ? e.message : e}`)
     } finally {
       setBusy(false)
     }
@@ -231,6 +232,8 @@ export default function SettingsPanel() {
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const settings = useSettings()
   const ownArtworks = useOwnArtworks()
+  // Signed-in owners edit their real room — the demo collection isn't part of it
+  const ownerEditing = useIsOwnerEditing()
   const owned = usePurchasedIds(user?.id ?? null)
   const entitlements = getEntitlements(user?.id ?? null, owned)
 
@@ -263,7 +266,7 @@ export default function SettingsPanel() {
         revealNew(prevCount)
       } catch (e) {
         console.error('upload failed (are supabase/migrations applied?):', e)
-        alert(`Upload failed: ${e instanceof Error ? e.message : e}`)
+        showToast(`Upload failed: ${e instanceof Error ? e.message : e}`)
       } finally {
         setUploading(false)
       }
@@ -281,11 +284,11 @@ export default function SettingsPanel() {
   async function onVideoFile(file: File, title: string) {
     // Videos are too large for localStorage, so cloud exhibit only
     if (!user) {
-      alert('Exhibiting video works requires an account — see the Account section.')
+      showToast('Exhibiting video works requires an account — see the Account section.')
       return
     }
     if (file.size > VIDEO_MAX_BYTES) {
-      alert(`Videos are limited to ${Math.floor(VIDEO_MAX_BYTES / 1024 / 1024)}MB (“${file.name}” is ${Math.ceil(file.size / 1024 / 1024)}MB).`)
+      showToast(`Videos are limited to ${Math.floor(VIDEO_MAX_BYTES / 1024 / 1024)}MB (“${file.name}” is ${Math.ceil(file.size / 1024 / 1024)}MB).`)
       return
     }
     const prevCount = ownArtworks.length
@@ -304,7 +307,7 @@ export default function SettingsPanel() {
       revealNew(prevCount)
     } catch (e) {
       console.error('video upload failed (is 0002_video.sql applied?):', e)
-      alert(`Video upload failed: ${e instanceof Error ? e.message : e}`)
+      showToast(`Video upload failed: ${e instanceof Error ? e.message : e}`)
     } finally {
       setUploading(false)
     }
@@ -325,7 +328,7 @@ export default function SettingsPanel() {
         const { dataUrl, w, h } = await fileToDataUrl(file, 1600)
         entries.push({ title, dataUrl, w, h })
       } catch {
-        alert(`Could not read “${file.name}”.`)
+        showToast(`Could not read “${file.name}”.`)
       }
     }
     titleRef.current.value = ''
@@ -365,7 +368,7 @@ export default function SettingsPanel() {
       titleRef.current.value = ''
       urlRef.current.value = ''
     } catch {
-      alert('Could not load the image. The host may not allow CORS — try uploading the file instead.')
+      showToast('Could not load the image. The host may not allow CORS — try uploading the file instead.')
     }
   }
 
@@ -375,7 +378,7 @@ export default function SettingsPanel() {
         await deleteArtwork(user.id, art.id)
         await refreshCloud()
       } catch (e) {
-        alert(`Could not remove the work: ${e instanceof Error ? e.message : e}`)
+        showToast(`Could not remove the work: ${e instanceof Error ? e.message : e}`)
       }
     } else {
       const drop = (m: Record<string, string>) => {
@@ -395,7 +398,10 @@ export default function SettingsPanel() {
 
   const reorder = useGallery((s) => s.reorderOwnArtworks)
 
-  const over = overflowCount(settings, ownArtworks.length)
+  const over = overflowCount(
+    ownerEditing && settings.showDemo ? { ...settings, showDemo: false } : settings,
+    ownArtworks.length
+  )
 
   // Template/theme/global picks reset per-work overrides — never silently
   function confirmOverrideReset(...maps: Record<string, string>[]): boolean {
@@ -507,17 +513,21 @@ export default function SettingsPanel() {
         {over > 0 && (
           <p className="settings-note">
             This layout has {slots} slots — {over} work{over > 1 ? 's are' : ' is'} currently not shown.
-            Change the layout or hide the demo works to free up space.
+            {ownerEditing ? ' Change the layout or add capacity to free up space.' : ' Change the layout or hide the demo works to free up space.'}
           </p>
         )}
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={settings.showDemo}
-            onChange={(e) => updateSettings({ showDemo: e.target.checked })}
-          />
-          Show the demo collection
-        </label>
+        {/* The sample collection is a guest concept — a signed-in owner's room only
+            ever shows their own works, so the toggle is hidden for them */}
+        {!ownerEditing && (
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={settings.showDemo}
+              onChange={(e) => updateSettings({ showDemo: e.target.checked })}
+            />
+            Show the demo collection
+          </label>
+        )}
       </section>
 
       <section className="settings-section">

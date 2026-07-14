@@ -32,13 +32,38 @@ class GalleryAudio {
 
   /** Call on the first pointer/key interaction (harmless to call repeatedly afterward) */
   unlock() {
-    if (this.unlocked || typeof window === 'undefined') return
+    if (typeof window === 'undefined') return
+    if (this.unlocked) {
+      // Re-entering the gallery after suspend() on the way out — wake the context
+      // back up and fade the volume back to the user's on/off preference (the
+      // instance is a singleton that persists across client-side navigation).
+      if (this.ctx) {
+        if (this.ctx.state === 'suspended') void this.ctx.resume()
+        if (this.master) {
+          const t = this.ctx.currentTime
+          this.master.gain.cancelScheduledValues(t)
+          this.master.gain.setTargetAtTime(this.enabled ? 1 : 0, t, TOGGLE_FADE)
+        }
+      }
+      return
+    }
     this.unlocked = true
     try {
       this.build()
     } catch {
       // Stays silent in environments without WebAudio support
     }
+  }
+
+  /** Silence the ambient sound when leaving the gallery. The instance is a module
+   *  singleton that outlives the React tree, so without this the looping room tone
+   *  keeps playing after you navigate away from /demo or a public gallery. Mute the
+   *  master gain instantly (ctx.suspend() alone can take ~1s to pause the graph),
+   *  then suspend the context so it isn't burning cycles in the background. */
+  suspend() {
+    if (!this.ctx) return
+    if (this.master) this.master.gain.setValueAtTime(0, this.ctx.currentTime)
+    if (this.ctx.state === 'running') void this.ctx.suspend()
   }
 
   toggle(): boolean {

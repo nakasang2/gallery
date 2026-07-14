@@ -8,14 +8,33 @@ import { isPlaceholderTitle } from '@/lib/publish'
 export default function FlatGallery() {
   const list = useExhibitionList()
   const visitor = useGallery((s) => s.visitor)
+  const user = useGallery((s) => s.user)
+  const myGallery = useGallery((s) => s.myGallery)
+  const ownerName = useGallery((s) => s.profileDisplayName)
+
+  // Header identity mirrors the 3D HUD: a visitor sees the artist, a signed-in
+  // owner sees their own room, and only the anonymous demo shows the house title.
+  const owner = !visitor && user && myGallery
+  const heading = visitor
+    ? isPlaceholderTitle(visitor.title)
+      ? visitor.ownerName
+      : visitor.title
+    : owner
+      ? isPlaceholderTitle(myGallery!.title)
+        ? ownerName || 'Your exhibition'
+        : myGallery!.title
+      : 'HAKONIWA COLLECTION'
+  const subhead = visitor
+    ? `${visitor.ownerName} — @${visitor.username}`
+    : owner
+      ? 'Your space'
+      : 'A permanent collection — ten works'
 
   return (
     <div className="flat-gallery" role="main">
       <header className="flat-head">
-        <h1>{visitor ? (isPlaceholderTitle(visitor.title) ? visitor.ownerName : visitor.title) : 'HAKONIWA COLLECTION'}</h1>
-        <p>
-          {visitor ? `${visitor.ownerName} — @${visitor.username}` : 'A permanent collection — ten artists'}
-        </p>
+        <h1>{heading}</h1>
+        <p>{subhead}</p>
         <p className="flat-note">
           This browser cannot show the 3D room (WebGL unavailable), so the works are listed below.
         </p>

@@ -6,9 +6,10 @@ import { Canvas } from '@react-three/fiber'
 import { resolveLayout } from '@/lib/presets'
 import { useExhibitionList } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
+import { useToast } from '@/lib/toast'
 import { walkRef, LOW_POWER } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
-import { unlockVideoAudio } from '@/lib/videohub'
+import { unlockVideoAudio, suspendVideoAudio } from '@/lib/videohub'
 import GalleryScene from './GalleryScene'
 import FlatGallery from './FlatGallery'
 import MiniMap from './MiniMap'
@@ -17,6 +18,16 @@ import ArtworkPanel from './ArtworkPanel'
 import SettingsPanel from './SettingsPanel'
 import GuestbookPanel from './GuestbookPanel'
 import LoadingScreen from './LoadingScreen'
+
+// Non-blocking notice for errors/limits hit while walking the room (see lib/toast)
+function Toast() {
+  const msg = useToast()
+  return (
+    <div className={`gallery-toast${msg ? ' show' : ''}`} role="status" aria-live="polite">
+      {msg}
+    </div>
+  )
+}
 
 // Guided tour: focus works in order, pausing to view each before moving on
 function useTour() {
@@ -84,6 +95,11 @@ export default function GalleryApp({ onShellReady }: { onShellReady?: () => void
     return () => {
       window.removeEventListener('pointerdown', unlock)
       window.removeEventListener('keydown', unlock)
+      // Leaving the gallery: silence the ambient/video audio. Their contexts are
+      // module singletons that outlive this component, so the loop would otherwise
+      // keep playing on the landing page / dashboard after navigating away.
+      galleryAudio.suspend()
+      suspendVideoAudio()
     }
   }, [])
 
@@ -137,6 +153,7 @@ export default function GalleryApp({ onShellReady }: { onShellReady?: () => void
       <HudActions />
       <SettingsPanel />
       <GuestbookPanel />
+      <Toast />
       {/* Personalised for a public gallery (visitor mode), house-branded on /demo */}
       <LoadingScreen exhibition={visitor} done={loadingDone} />
     </>

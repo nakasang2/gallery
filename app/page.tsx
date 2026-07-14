@@ -1,6 +1,14 @@
 import Link from 'next/link'
 import LandingEffects from '@/components/landing/LandingEffects'
 import HeroCanvas from '@/components/landing/HeroCanvas'
+import { PLAN } from '@/lib/limits'
+import {
+  PRICE_ROOM,
+  PRICE_CAPACITY_ADDON,
+  PRICE_SINGLE_ITEM,
+  PRICE_DESIGN_TOOLS,
+  PRICE_VIDEO_PASS,
+} from '@/lib/pricing'
 
 export default function LandingPage() {
   return (
@@ -141,7 +149,7 @@ export default function LandingPage() {
             <p className="section-eyebrow">Demo Exhibition</p>
             <h2 className="section-title">First,<br />take a walk.</h2>
             <p>
-              The permanent collection shows ten (fictional) artists.
+              The permanent collection shows ten works by fictional artists.
               Drag to look around, tap the floor to move, and click any work
               to read its label.
             </p>
@@ -154,35 +162,41 @@ export default function LandingPage() {
       <section className="pricing" id="pricing">
         <div className="section-head reveal">
           <p className="section-eyebrow">Pricing — concept</p>
-          <h2 className="section-title">Plans</h2>
+          <h2 className="section-title">Free to open. Pay only for more.</h2>
         </div>
         <div className="pricing-grid">
           <div className="price-card reveal">
             <h3>Free</h3>
-            <div className="price"><b>¥0</b><span>/ month</span></div>
+            <div className="price"><b>¥0</b><span>forever</span></div>
             <ul>
               <li>One gallery room</li>
-              <li>Up to 10 works</li>
-              <li>Public URL</li>
+              <li>Up to {PLAN.worksPerGallery} works</li>
+              <li>3 themes · 5 layouts · every frame</li>
+              <li>Public URL &amp; share card</li>
+              <li>Guestbook &amp; basic analytics</li>
               <li>Mobile-ready viewer</li>
             </ul>
             <Link className="btn btn-small price-cta" href="/signup">Start free</Link>
           </div>
           <div className="price-card price-card--pro reveal">
-            <div className="price-badge">For Artists</div>
-            <h3>Pro</h3>
-            <div className="price"><b>¥980</b><span>/ month</span></div>
+            <div className="price-badge">Upgrades</div>
+            <h3>Pay once, keep forever</h3>
+            <div className="price"><b>À la carte</b><span>no subscription</span></div>
             <ul>
-              <li>Unlimited galleries</li>
-              <li>Unlimited works</li>
-              <li>Space customisation — walls, floor, light, sound</li>
-              <li>Visitor analytics</li>
-              <li>Custom domain</li>
+              <li>Add a gallery room<span className="amt">{PRICE_ROOM.replace(' / room', '')}</span></li>
+              <li>+5 work slots for a room<span className="amt">{PRICE_CAPACITY_ADDON}</span></li>
+              <li>New themes &amp; layouts<span className="amt">{PRICE_SINGLE_ITEM} each</span></li>
+              <li>Design Tools — colour, light, logo<span className="amt">{PRICE_DESIGN_TOOLS}</span></li>
+              <li>Video Pass — show video works<span className="amt">{PRICE_VIDEO_PASS}</span></li>
             </ul>
             <span className="btn btn-small price-cta price-cta-soon" aria-disabled="true">Coming soon</span>
           </div>
         </div>
-        <p className="pricing-note reveal">HAKONIWA is a prototype. Pricing is part of the product concept — billing is not implemented.</p>
+        <p className="pricing-note reveal">
+          Everything you make stays yours — publishing is always free. Upgrades are one-time buys
+          (only Video Pass renews yearly). HAKONIWA is a prototype: these prices are the concept,
+          and billing is not implemented yet.
+        </p>
       </section>
 
       {/* ============ CLOSING — the invitation ============ */}

@@ -15,7 +15,11 @@
    - `0007_delete_account.sql` — アカウント削除RPC(本人限定・cascade削除)
    - `0008_engagement.sql` — 訪問記録・芳名帳・いいね(来場者エンゲージメント)
    - `0009_space_extras.sql` — カスタムレイアウトのパラメータ・OGP代表作の指定
-   - `0010_reports.sql` — 通報のDB受付(閲覧はSQL Editor / service roleで)
+   - `0010_reports.sql` — 通報のDB受付(閲覧はSQL Editor / service role / 管理画面で)
+   - `0011`〜`0015` — 作品別上書き・マット・キャパ・Design Tools・購入リンク
+   - `0016_purchases.sql` — 購入台帳(entitlementsの読み取り元。書き込みは将来のStripe webhookのみ)
+   - `0017_admin.sql` — 管理者ロール(`admins`表・`is_admin()`)+ 管理者の横断read + 売上金額列
+   - `0018_site_config.sql` — サイト設定(公開read/admin write)。LPヒーロー表示作品の管理画面設定に使用
 3. 「Success. No rows returned」が出れば完了
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、
@@ -64,6 +68,28 @@ npm install && npm run dev
 http://localhost:3000/demo → 「空間を編集」→ アカウント欄からメールアドレスで
 ログインリンクを送信 → メール内リンクで戻ってくるとログイン状態になる。
 以後の「作品を出展」はクラウド(Storage + DB)に保存され、別ブラウザでも同じ作品が並ぶ。
+
+## 4. 管理画面(`/admin`)を有効化する
+
+`0017_admin.sql` を適用したうえで、自分を管理者に登録する(SQL Editor で1回だけ):
+
+```sql
+insert into public.admins (user_id, note)
+select id, 'founder' from auth.users where email = 'あなたのメール@example.com';
+```
+
+その後 `/admin` にサインインした状態でアクセスすると、総課金額・ユーザーごとの保有パッケージ・
+全展示空間(非公開含む)が見られる。アクセス制御はRLS(`is_admin()`)が本体で、管理者でない
+セッションは何も読めない(クライアント側の判定は表示用)。クライアントから自分を管理者に
+昇格する経路は用意していない(`admins`にinsertポリシーなし。登録はSQL Editor / service roleのみ)。
+
+- **総課金額**は決済未接続のあいだ ¥0 のまま。将来 Stripe webhook が `purchases` に
+  `sku` / `amount_jpy` を記録すれば自動で集計される(下地は 0017 で用意済み)。
+- ユーザーのメールアドレスは `auth.users` にあり anon キーでは読めないため、管理画面には出さない
+  (必要なら Authentication ダッシュボードで確認)。
+- **LPヒーロー表示作品**: `0018` 適用後、`/admin` の「Landing page hero」から中央/左/右の3枠に
+  画像をアップロードして差し替えられる(PC/モバイル共通)。未設定の枠は内蔵のデモ作品にフォールバック。
+  画像は `artworks` バケットの管理者フォルダに保存され、LPは公開URLをテクスチャとして読み込む。
 
 ## 補足
 

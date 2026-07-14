@@ -249,6 +249,20 @@ export async function uploadLogo(ownerId: string, galleryId: string, file: File)
   return `${publicUrl(path)}?v=${Date.now()}` // cache-bust so a replaced logo shows immediately
 }
 
+/** Upload a landing-page hero image ({uid}/lp/{ts}.jpg) and return its URL + resized
+ *  dimensions. Like uploadLogo it only touches storage; the admin LP editor saves the
+ *  URL into site_config. Only admins reach this UI, and the folder is the admin's own
+ *  uid, so the existing "insert into your own folder" storage policy already allows it. */
+export async function uploadLpImage(ownerId: string, file: File): Promise<{ url: string; w: number; h: number }> {
+  const sb = supabase!
+  const { dataUrl, w, h } = await fileToDataUrl(file, 1280)
+  const blob = await dataUrlToJpegBlob(dataUrl, 1280)
+  const path = `${ownerId}/lp/${Date.now()}.jpg`
+  const up = await sb.storage.from('artworks').upload(path, blob, { contentType: 'image/jpeg', upsert: true })
+  if (up.error) throw up.error
+  return { url: publicUrl(path), w, h }
+}
+
 /** How many placements (public walls) an artwork hangs on — used for delete warnings */
 export async function artworkPlacementCount(artworkId: string): Promise<number> {
   const { count, error } = await supabase!
