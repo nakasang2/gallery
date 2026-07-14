@@ -2,7 +2,7 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-14（P0-2/P0-3/P1-4 Stripe/P1-6 embed に加え、FOREVER_FREE固定化・P1-7 PDFカタログを実装）
+- **最終更新**: 2026-07-14（P2-8 ウォークスルー動画書き出しを実装。P0〜P1-7も同日実装済み）
 
 ## 進行中
 - なし
@@ -11,7 +11,8 @@
 - **Stripe本番接続の運用作業**（コードは完成・未接続）: `0019_checkout.sql`適用 → `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`SUPABASE_SERVICE_ROLE_KEY`/`NEXT_PUBLIC_SITE_URL` 設定 → Stripe CLIで実カード確認（手順は supabase/README §5）
 - docs/STRATEGY.md **§7** の残タスク:
   - P1-5 有料テーマ/レイアウト第1弾。前提(FOREVER_FREE固定化)は**解消済**。残るは実際の有料テーマ/レイアウトの制作という事業/制作判断
-  - P2 成長ループ（ウォークスルー動画・企画展）/ P3（グループ展・音声・AR・立体）
+  - P2-8 ウォークスルー動画は**実装済**。フォローアップ: MP4/GIF変換(X/IG直投稿用。要ffmpeg.wasm/サーバ)・録画に音声を載せる
+  - P2-9 企画展(期間限定・特集) / P2-10 SEO記事 / P3（グループ展・音声・AR・立体）
 - レビューで見送った低優先の既知事項:
   - 署名なし決済フローで未サインイン時に「Checkout isn't live yet」と表示（現状モーダルはサインイン文脈でしか開かず到達不可）
   - 購入完了後の再取得はギャラリー（キャパ）のみ更新。テーマ/レイアウト所有は要手動リロード（バナーで案内済み・現状テーマ購入は到達不可）
@@ -22,6 +23,7 @@
 - なし
 
 ## 完了ログ（直近5件）
+- 2026-07-14: P2-8 ウォークスルー動画書き出し。順路ツアーを走らせつつ`MediaRecorder`+`canvas.captureStream`でWebM録画→DL(`lib/recorder.ts`/`components/gallery/RecordButton.tsx`/canvasを`controller.canvasRef`で露出)。非対応ブラウザはボタン非表示(mimeで判定)。バグ回避: 支持判定は`canvasRef`(mount時null)でなくmime能力で行い、canvasは click時に再確認。録画ボタンはminimapと衝突しない位置に配置。同梱Chromium(swiftshader)で実挙動検証: 有効なWebM(vp9・EBMLマジック1a45dfa3・32KB・正しいファイル名)を生成、idle/recording状態遷移、エラー0。tsc・build クリーン。既知の限界: WebMのみ(X/IGはMP4要変換)・無音
 - 2026-07-14: P1-5前提解消(`lib/entitlements`のFOREVER_FREEを`Object.keys`→固定リスト['chic','whitecube','noir']/['hall','corridor','island','portrait','custom']化、dev guard付き。以後の新テーマは自動でロック対象)+ P1-7 PDFカタログ(印刷最適化の`/@user/slug/catalog`=`CatalogDoc`+`catalog.css`の@media print、ダッシュボードに「Catalog (PDF)」導線。ライブラリ追加なし)。同梱Chromiumで画面/印刷2面を実描画検証(2作品・画像・sale tag・印刷時toolbar非表示)。tsc・build クリーン
 - 2026-07-14: 戦略ロードマップ§7を実装。P0-2「AI学習に使わない」明文化(Terms/Privacy/LP)・P0-3マルチプレイ低優先度注記・P1-4 Stripe決済(Checkout+署名検証Webhook+冪等RPC `record_capacity_purchase`/migration 0019、未設定時フォールバック)・P1-6 embed(`?embed=1`+iframeコピーUI+認証ルートのframe拒否)。/code-review高で5指摘→CONFIRMED2件修正(キャパ購入の記録喪失を冪等RPCで解消/クリックジャッキング防止ヘッダー)。tsc・build・実挙動(501/401/400・embed HUD・frameヘッダー)検証済
 - 2026-07-14: 競合を調査し docs/STRATEGY.md（競合分析・販売戦略・機能ギャップ・優先度順タスクリスト§7）を作成

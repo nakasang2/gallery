@@ -425,6 +425,28 @@ body.gallery-mode {
 .hud-btn:hover { border-color: var(--gold); color: var(--gold); }
 .hud-btn.active { border-color: var(--gold); color: var(--gold); }
 
+/* Walkthrough recorder — bottom-left, stacked ABOVE the minimap so the two
+   never collide. Only the canvas is captured, so this button never shows up in
+   the clip itself. */
+.hud-record {
+  position: fixed;
+  left: 1.2rem;
+  bottom: calc(1.2rem + 124px + env(safe-area-inset-bottom, 0px));
+  z-index: 16;
+}
+.hud-record.recording {
+  border-color: #e0574e;
+  color: #f0847c;
+  animation: hud-record-pulse 1.4s ease-in-out infinite;
+}
+@keyframes hud-record-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-record.recording { animation: none; }
+}
+
 /* ---- 作品ステッパー(前へ/次へ:移動と正対を一操作で) ---- */
 .hud-stepper {
   position: fixed;
@@ -1354,6 +1376,8 @@ body.gallery-mode {
   .panel-close { top: 0.8rem; right: 0.9rem; }
   .panel-title { font-size: 1.45rem; }
   .hud-actions { bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px)); }
+  /* Match the mobile minimap (bottom 4.4rem, ~86px tall) — stay stacked above it */
+  .hud-record { left: 1rem; bottom: calc(4.4rem + 96px + env(safe-area-inset-bottom, 0px)); }
   /* While the bottom sheet is open, the pager rides just above it (sheet is max 50vh) */
   .hud-stepper.lifted { bottom: calc(50vh + 0.8rem); z-index: 21; }
   /* Settings become a bottom sheet too, so theme/framing chips are judged with the room visible */

@@ -7,7 +7,7 @@ import { resolveLayout } from '@/lib/presets'
 import { useExhibitionList } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
 import { useToast } from '@/lib/toast'
-import { walkRef, LOW_POWER } from '@/lib/controller'
+import { walkRef, canvasRef, LOW_POWER } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { unlockVideoAudio, suspendVideoAudio } from '@/lib/videohub'
 import GalleryScene from './GalleryScene'
@@ -15,6 +15,7 @@ import FlatGallery from './FlatGallery'
 import MiniMap from './MiniMap'
 import { HudTop, HudActions, HudStepper, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
+import RecordButton from './RecordButton'
 import SettingsPanel from './SettingsPanel'
 import GuestbookPanel from './GuestbookPanel'
 import LoadingScreen from './LoadingScreen'
@@ -100,6 +101,7 @@ export default function GalleryApp({ onShellReady }: { onShellReady?: () => void
       // keep playing on the landing page / dashboard after navigating away.
       galleryAudio.suspend()
       suspendVideoAudio()
+      canvasRef.current = null // the canvas is gone once we unmount
     }
   }, [])
 
@@ -134,6 +136,7 @@ export default function GalleryApp({ onShellReady }: { onShellReady?: () => void
             gl.shadowMap.type = THREE.PCFShadowMap
             gl.shadowMap.autoUpdate = false
             gl.domElement.style.touchAction = 'none'
+            canvasRef.current = gl.domElement // for the walkthrough recorder
           }}
         >
           <GalleryScene />
@@ -148,6 +151,7 @@ export default function GalleryApp({ onShellReady }: { onShellReady?: () => void
           <HudStepper />
           <MiniMap />
           <ArtworkPanel />
+          <RecordButton />
         </>
       ) : null}
       <HudActions />
