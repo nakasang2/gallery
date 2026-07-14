@@ -11,6 +11,7 @@ import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
+import { useLpHero, type LpHeroSlot } from '@/lib/siteConfig'
 
 const WALL_X = 4.7
 const ITEM_Y = 1.6
@@ -25,11 +26,14 @@ const HERO_ART: [number, number][] = [
   [5, 1],
 ]
 
-// 入口の右手前に置くアクセント作品 [作品index, z]。最初のビューで右側が空いて
-// 見えるのを埋める“3点目”。スクロール経路(カメラの止まり位置=HERO_ART)には
-// 加えず、描画だけ足す — 右壁の z を主役より手前(大きい z)にすると画面の右へ寄る。
-const HERO_ACCENT: [number, number][] = [
-  [6, 9.2],
+// 入口に見える3点(中央/左/右)。最初のビューで右側が空いて見えるのを埋める“3点目”を
+// 含む。管理画面(0018)で画像を設定するとこの枠が差し替わる(未設定はデモ作品に
+// フォールバック)。中央/左は HERO_ART と同じ位置で、右(z=9.2)は主役より手前に置くと
+// 画面の右へ寄る。HERO_ART はカメラの止まり位置(anchor)も兼ねるので描画用は別で持つ。
+const HERO_SLOTS: { idx: number; z: number; scale: number }[] = [
+  { idx: 0, z: 6, scale: 1.35 }, // center
+  { idx: 5, z: 1, scale: 1.35 }, // left
+  { idx: 6, z: 9.2, scale: 1.3 }, // right
 ]
 
 // 左壁の機能パネル 01〜06
@@ -170,14 +174,74 @@ function Framed({ idx, position, rotationY = 0, w = 1.5, y }: { idx: number; pos
   )
 }
 
-function CorridorArt({ idx, z, side = 'R', scale = 1 }: { idx: number; z: number; side?: 'L' | 'R'; scale?: number }) {
+// Admin-configured hero image (migration 0018). Loaded as a texture at runtime;
+// until it arrives (or if it fails / CORS-blocks) the frame shows a neutral mat so
+// nothing looks broken. Same shape as Framed otherwise.
+function FramedImage({ src, ratio, position, rotationY = 0, w = 1.5 }: { src: string; ratio: [number, number]; position: [number, number, number]; rotationY?: number; w?: number }) {
+  const texRef = useRef<THREE.Texture | null>(null)
+  const [, bump] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const loader = new THREE.TextureLoader()
+    loader.setCrossOrigin('anonymous')
+    loader.load(
+      src,
+      (t) => {
+        if (!alive) {
+          t.dispose()
+          return
+        }
+        t.colorSpace = THREE.SRGBColorSpace
+        t.anisotropy = 8
+        texRef.current?.dispose()
+        texRef.current = t
+        bump((n) => n + 1)
+      },
+      undefined,
+      () => {
+        /* load/CORS failure — leave the neutral placeholder */
+      }
+    )
+    return () => {
+      alive = false
+      texRef.current?.dispose()
+      texRef.current = null
+    }
+  }, [src])
+  const tex = texRef.current
+  const [rw, rh] = ratio
+  const h = (w * rh) / rw
+  const mat = 0.09 * w
+  return (
+    <group position={position} rotation-y={rotationY}>
+      <mesh position={[0, 0, -0.05]}>
+        <boxGeometry args={[w + mat * 2 + 0.12, h + mat * 2 + 0.12, 0.08]} />
+        <meshStandardMaterial color="#141416" roughness={0.45} metalness={0.25} />
+      </mesh>
+      <mesh position={[0, 0, 0.012]}>
+        <planeGeometry args={[w + mat * 2, h + mat * 2]} />
+        <meshStandardMaterial color="#e9e6dd" roughness={0.92} />
+      </mesh>
+      <mesh position={[0, 0, 0.03]}>
+        <planeGeometry args={[w, h]} />
+        <meshStandardMaterial map={tex ?? null} color={tex ? '#ffffff' : '#cfc9b6'} roughness={0.55} />
+      </mesh>
+    </group>
+  )
+}
+
+function CorridorArt({ idx, z, side = 'R', scale = 1, src, ratio }: { idx: number; z: number; side?: 'L' | 'R'; scale?: number; src?: string; ratio?: [number, number] }) {
   const x = side === 'L' ? -WALL_X + 0.08 : WALL_X - 0.08
   const ry = side === 'L' ? Math.PI / 2 : -Math.PI / 2
   const spotX = side === 'L' ? -WALL_X + 2.6 : WALL_X - 2.6
   const wallX = side === 'L' ? -WALL_X : WALL_X
   return (
     <group>
-      <Framed idx={idx} position={[x, ITEM_Y, z]} rotationY={ry} w={1.5 * scale} />
+      {src && ratio ? (
+        <FramedImage src={src} ratio={ratio} position={[x, ITEM_Y, z]} rotationY={ry} w={1.5 * scale} />
+      ) : (
+        <Framed idx={idx} position={[x, ITEM_Y, z]} rotationY={ry} w={1.5 * scale} />
+      )}
       <Spot pos={[spotX, 4.2, z]} target={[wallX, ITEM_Y, z]} intensity={110} />
     </group>
   )
@@ -377,7 +441,7 @@ function Rig() {
   return <pointLight ref={fill} intensity={12} distance={9} decay={1.4} color="#efe6d4" />
 }
 
-function Scene() {
+function Scene({ heroImages }: { heroImages: LpHeroSlot[] }) {
   return (
     <>
       {/* ローポリを暗さで隠す: フォグを手前に寄せ、環境光は弱く、スポット主体の陰影に */}
@@ -423,12 +487,19 @@ function Scene() {
         )}
       </mesh>
 
-      {HERO_ART.map(([idx, z], k) => (
-        <CorridorArt key={`a${k}`} idx={idx} z={z} scale={1.35} />
-      ))}
-      {HERO_ACCENT.map(([idx, z], k) => (
-        <CorridorArt key={`hac${k}`} idx={idx} z={z} scale={1.3} />
-      ))}
+      {HERO_SLOTS.map((s, k) => {
+        const img = heroImages[k]
+        return (
+          <CorridorArt
+            key={`h${k}`}
+            idx={s.idx}
+            z={s.z}
+            scale={s.scale}
+            src={img?.url}
+            ratio={img ? [img.w, img.h] : undefined}
+          />
+        )
+      })}
       {APPROACH_ART.map(([idx, z, side], k) => (
         <CorridorArt key={`ap${k}`} idx={idx} z={z} side={side} scale={1.15} />
       ))}
@@ -451,6 +522,8 @@ export default function HeroScene() {
   // Wall/label textures bake fonts into canvases once — wait for the webfonts
   // (with a cap) so museum labels don't ship in a fallback serif forever
   const [fontsReady, setFontsReady] = useState(false)
+  // Admin-configured hero images (migration 0018); nulls fall back to the demo art
+  const heroImages = useLpHero()
 
   useEffect(() => {
     const onVis = () => setHalted(document.hidden)
@@ -519,7 +592,7 @@ export default function HeroScene() {
           gl.toneMappingExposure = 1.3
         }}
       >
-        {fontsReady && <Scene />}
+        {fontsReady && <Scene heroImages={heroImages} />}
       </Canvas>
       <div className="hero-grade" aria-hidden="true" />
       <div className={`journey-hud${hudOn ? ' on' : ''}`}>

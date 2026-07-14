@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
 import { useIsAdmin, fetchAdminOverview, type AdminOverview } from '@/lib/admin'
 import AdminDashboard from '@/components/AdminDashboard'
+import LpHeroEditor from '@/components/LpHeroEditor'
 import AuthShell from '@/components/auth/AuthShell'
 
 export default function AdminPage() {
@@ -94,6 +95,8 @@ export default function AdminPage() {
         {!data && !err && <p className="me-note">Loading…</p>}
 
         {data && <AdminDashboard data={data} />}
+
+        {isAdmin && <LpHeroEditor />}
 
         <footer className="artist-footer">
           <Link href="/terms">Terms</Link>

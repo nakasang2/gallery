@@ -19,6 +19,7 @@
    - `0011`〜`0015` — 作品別上書き・マット・キャパ・Design Tools・購入リンク
    - `0016_purchases.sql` — 購入台帳(entitlementsの読み取り元。書き込みは将来のStripe webhookのみ)
    - `0017_admin.sql` — 管理者ロール(`admins`表・`is_admin()`)+ 管理者の横断read + 売上金額列
+   - `0018_site_config.sql` — サイト設定(公開read/admin write)。LPヒーロー表示作品の管理画面設定に使用
 3. 「Success. No rows returned」が出れば完了
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、
@@ -86,6 +87,9 @@ select id, 'founder' from auth.users where email = 'あなたのメール@exampl
   `sku` / `amount_jpy` を記録すれば自動で集計される(下地は 0017 で用意済み)。
 - ユーザーのメールアドレスは `auth.users` にあり anon キーでは読めないため、管理画面には出さない
   (必要なら Authentication ダッシュボードで確認)。
+- **LPヒーロー表示作品**: `0018` 適用後、`/admin` の「Landing page hero」から中央/左/右の3枠に
+  画像をアップロードして差し替えられる(PC/モバイル共通)。未設定の枠は内蔵のデモ作品にフォールバック。
+  画像は `artworks` バケットの管理者フォルダに保存され、LPは公開URLをテクスチャとして読み込む。
 
 ## 補足
 
