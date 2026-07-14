@@ -25,6 +25,13 @@ const HERO_ART: [number, number][] = [
   [5, 1],
 ]
 
+// 入口の右手前に置くアクセント作品 [作品index, z]。最初のビューで右側が空いて
+// 見えるのを埋める“3点目”。スクロール経路(カメラの止まり位置=HERO_ART)には
+// 加えず、描画だけ足す — 右壁の z を主役より手前(大きい z)にすると画面の右へ寄る。
+const HERO_ACCENT: [number, number][] = [
+  [6, 9.2],
+]
+
 // 左壁の機能パネル 01〜06
 const PANELS: { n: string; h: string; b: string; z: number }[] = [
   { n: '01', h: 'A solo show in the browser', b: 'No apps, no plugins. One link opens the gallery, and visitors walk it on desktop or phone.', z: -6 },
@@ -418,6 +425,9 @@ function Scene() {
 
       {HERO_ART.map(([idx, z], k) => (
         <CorridorArt key={`a${k}`} idx={idx} z={z} scale={1.35} />
+      ))}
+      {HERO_ACCENT.map(([idx, z], k) => (
+        <CorridorArt key={`hac${k}`} idx={idx} z={z} scale={1.3} />
       ))}
       {APPROACH_ART.map(([idx, z, side], k) => (
         <CorridorArt key={`ap${k}`} idx={idx} z={z} side={side} scale={1.15} />
