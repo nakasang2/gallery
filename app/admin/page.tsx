@@ -11,6 +11,7 @@ import AdminDashboard from '@/components/AdminDashboard'
 import LpHeroEditor from '@/components/LpHeroEditor'
 import SpotlightEditor from '@/components/SpotlightEditor'
 import ArticlesEditor from '@/components/ArticlesEditor'
+import DemoLookEditor from '@/components/DemoLookEditor'
 import AuthShell from '@/components/auth/AuthShell'
 
 export default function AdminPage() {
@@ -100,6 +101,7 @@ export default function AdminPage() {
 
         {isAdmin && <ArticlesEditor />}
         {isAdmin && <SpotlightEditor />}
+        {isAdmin && <DemoLookEditor />}
         {isAdmin && <LpHeroEditor />}
 
         <footer className="artist-footer">
