@@ -5,19 +5,21 @@ import { walkRef } from '@/lib/controller'
 import { useExhibitionList, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, setOverride } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { addLike, hasLiked, likeCount } from '@/lib/engagement'
-import { audioGuide, useGuidePlaying } from '@/lib/guide'
+import { audioGuide, useGuidePlaying, guideSourceFor, type GuideSource } from '@/lib/guide'
 import WorkDesign from '@/components/WorkDesign'
 
-// Play/pause control for a work's audio guide (shown when the work has one)
-function AudioGuideButton({ url }: { url: string }) {
-  const playing = useGuidePlaying(url)
+// Play/pause control for a work's audio guide — plays an uploaded narration, or
+// reads the caption aloud (src.kind === 'tts') when there's no recording.
+function AudioGuideButton({ source }: { source: GuideSource }) {
+  const playing = useGuidePlaying(source.key)
+  const label = source.kind === 'tts' ? 'Read aloud' : 'Audio guide'
   return (
     <button
       className={`panel-guide${playing ? ' playing' : ''}`}
-      onClick={() => audioGuide.toggle(url)}
+      onClick={() => audioGuide.toggle(source)}
       aria-label={playing ? 'Pause the audio guide' : 'Play the audio guide'}
     >
-      <span aria-hidden="true">{playing ? '❚❚' : '▶'}</span> Audio guide
+      <span aria-hidden="true">{playing ? '❚❚' : '▶'}</span> {label}
     </button>
   )
 }
@@ -77,6 +79,7 @@ export default function ArtworkPanel() {
   const list = useExhibitionList()
   const art = focusedIndex >= 0 ? list[focusedIndex] : null
   const open = !!art
+  const guide = art ? guideSourceFor(art) : null
 
   // During the guided tour, each work's guide auto-plays as it comes into focus
   // (the tour is started by a tap, so autoplay is allowed). Any other focus/tour
@@ -84,7 +87,7 @@ export default function ArtworkPanel() {
   // the tour, or closing the panel all silence the previous narration. Outside
   // the tour the visitor starts a guide by tapping the button.
   useEffect(() => {
-    if (tourActive && art?.audioUrl) audioGuide.play(art.audioUrl)
+    if (tourActive && guide) audioGuide.play(guide)
     else audioGuide.stop()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [art?.id, tourActive])
@@ -137,7 +140,7 @@ export default function ArtworkPanel() {
               <span key={t}>{t}</span>
             ))}
           </div>
-          {art.audioUrl && <AudioGuideButton url={art.audioUrl} />}
+          {guide && <AudioGuideButton source={guide} />}
           {art.purchaseUrl && (
             <a className="panel-buy" href={toHref(art.purchaseUrl)} target="_blank" rel="noopener noreferrer">
               Available for purchase ↗

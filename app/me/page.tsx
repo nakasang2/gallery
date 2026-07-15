@@ -1076,12 +1076,20 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   {workSaved ? 'Saved' : 'Save plate'}
                 </button>
 
-                {/* Audio guide: a short narration that auto-plays on the guided tour */}
+                {/* Audio guide: auto-reads the caption aloud (free, no recording); an
+                    uploaded file overrides that with your own narration. Auto-plays on the tour. */}
                 <div className="wd-audio">
-                  <span className="wd-audio-label">Audio guide {selected.audioUrl ? '· on' : '· none'}</span>
+                  <span className="wd-audio-label">
+                    Audio guide{' '}
+                    {selected.audioUrl
+                      ? '· your recording'
+                      : (selected.desc ?? '').trim()
+                        ? '· reads the caption'
+                        : '· add a caption to enable'}
+                  </span>
                   <div className="wd-audio-actions">
                     <label className="btn-line wd-audio-upload" aria-disabled={busy}>
-                      {selected.audioUrl ? 'Replace' : 'Add audio'}
+                      {selected.audioUrl ? 'Replace' : 'Upload recording'}
                       <input
                         type="file"
                         accept="audio/*"
