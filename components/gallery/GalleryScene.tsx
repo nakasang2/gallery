@@ -13,6 +13,7 @@ import Exhibit from './Exhibit'
 import TitleWall from './TitleWall'
 import Dust from './Dust'
 import WalkControls from './WalkControls'
+import GhostVisitors from './GhostVisitors'
 import Effects from './Effects'
 import { VideoPlaybackManager } from './VideoArt'
 import { getListener } from '@/lib/videohub'
@@ -97,6 +98,7 @@ export default function GalleryScene() {
       <TitleWall theme={theme} layout={layout} />
       <Dust layout={layout} />
       <WalkControls layout={layout} list={list} slots={slots} />
+      <GhostVisitors />
       <VideoPlaybackManager />
       {!LOW_POWER && <Effects theme={theme} />}
     </>

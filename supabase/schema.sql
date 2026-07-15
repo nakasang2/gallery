@@ -818,3 +818,23 @@ grant execute on function public.revoke_entitlement(uuid, text, text) to authent
 -- are unchanged. Mirrored into placements.slot_index on publish.
 alter table public.galleries
   add column if not exists arrangement jsonb;
+
+-- ============================================================================
+-- # 0024_public_visit_count.sql — public visit count for ambient presence (§11.19)
+-- ============================================================================
+-- Returns ONLY the aggregate visit count, and only for a public gallery (no rows,
+-- no timestamps). Drives the past-visitor silhouettes; can't peek at private rooms.
+create or replace function public.public_visit_count(p_gallery uuid)
+returns integer
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select coalesce(count(*), 0)::int
+  from public.visits v
+  where v.gallery_id = p_gallery
+    and exists (select 1 from public.galleries g where g.id = p_gallery and g.is_public);
+$$;
+revoke all on function public.public_visit_count(uuid) from public;
+grant execute on function public.public_visit_count(uuid) to anon, authenticated;

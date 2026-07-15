@@ -15,12 +15,18 @@ const STEP_SPEED_GAIN = 0.08
 const STEP_REVERB_WET = 0.4
 /** Fade for toggling ambient sound on/off (seconds) */
 const TOGGLE_FADE = 0.35
+/** Distant-crowd murmur: peak volume (at a full room) and how fast it eases in/out */
+const CROWD_LEVEL = 0.05
+const CROWD_FADE = 2.2
 
 class GalleryAudio {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
   private convolver: ConvolverNode | null = null
   private stepBus: GainNode | null = null
+  private crowdGain: GainNode | null = null
+  /** Desired crowd murmur (0–1 of CROWD_LEVEL); remembered so it survives (re)build */
+  private crowdTarget = 0
   private unlocked = false
   enabled = true
 
@@ -127,6 +133,42 @@ class GalleryAudio {
     this.stepBus.gain.value = 1
     this.stepBus.connect(this.master)
     this.stepBus.connect(this.convolver)
+
+    /* ---- Distant-crowd murmur (§11.19): bandpassed noise in the vocal range with a
+       slow LFO so it ebbs like real chatter. Fed through the reverb for room depth.
+       Silent until setCrowdLevel() raises it (i.e. only where past visitors are shown). */
+    const crowdBuf = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate)
+    const cd = crowdBuf.getChannelData(0)
+    let pink = 0
+    for (let i = 0; i < cd.length; i++) {
+      pink = (pink + (Math.random() * 2 - 1) * 0.05) * 0.98
+      cd[i] = pink * 2
+    }
+    const crowd = ctx.createBufferSource()
+    crowd.buffer = crowdBuf
+    crowd.loop = true
+    const voiceBand = ctx.createBiquadFilter()
+    voiceBand.type = 'bandpass'
+    voiceBand.frequency.value = 520
+    voiceBand.Q.value = 0.7
+    this.crowdGain = ctx.createGain()
+    this.crowdGain.gain.value = 0
+    crowd.connect(voiceBand)
+    voiceBand.connect(this.crowdGain)
+    this.crowdGain.connect(this.master)
+    this.crowdGain.connect(this.convolver)
+    crowd.start()
+    // Restore any level requested before the graph existed
+    this.crowdGain.gain.setTargetAtTime(this.crowdTarget * CROWD_LEVEL, ctx.currentTime, CROWD_FADE)
+  }
+
+  /** Set the distant-crowd murmur from the number of ambient visitors present (0 = silence).
+   *  Scaled by MAX so a busy room is fuller but never loud; mute/leave still gate it via master. */
+  setCrowdLevel(count: number, max = 4) {
+    this.crowdTarget = Math.max(0, Math.min(1, count / max))
+    if (this.ctx && this.crowdGain) {
+      this.crowdGain.gain.setTargetAtTime(this.crowdTarget * CROWD_LEVEL, this.ctx.currentTime, CROWD_FADE)
+    }
   }
 
   /** A single footstep (intensity: 0–1 walking speed) */
