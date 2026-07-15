@@ -95,7 +95,10 @@ export async function createGallery(
   if (existing.length >= PLAN.galleries) {
     throw new Error(`Your plan allows ${PLAN.galleries} hakoniwa.`)
   }
-  const t = opts.templateId ? TEMPLATES[opts.templateId] : undefined
+  // Default new rooms to the "studio" template (whitecube / corridor) — the free
+  // tier's theme + layout — so a free gallery never starts on paid content (the
+  // DB column default is the older chic/hall, which only paying users can keep).
+  const t = TEMPLATES[opts.templateId ?? 'studio'] ?? TEMPLATES.studio
   const row = {
     owner_id: userId,
     slug: 'main', // slug editing arrives with multi-gallery plans
@@ -106,15 +109,11 @@ export async function createGallery(
     // (§11.7 — "the room inherits the plan's cap at purchase time"), not the
     // column's own default (which only exists to grandfather pre-0013 rooms)
     work_cap: PLAN.worksPerGallery,
-    ...(t
-      ? {
-          theme: t.theme,
-          layout: t.layout,
-          frame_default: t.frame,
-          hanging_default: t.hanging,
-          caption_default: t.caption,
-        }
-      : {}),
+    theme: t.theme,
+    layout: t.layout,
+    frame_default: t.frame,
+    hanging_default: t.hanging,
+    caption_default: t.caption,
   }
   let res = await supabase!.from('galleries').insert(row).select(COLS).single()
   if (res.error && missingOverrideColumns(res.error)) {

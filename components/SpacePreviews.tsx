@@ -241,16 +241,19 @@ export function LayoutPlan({
 export function TemplateCard({
   templateId,
   active,
+  locked = false,
   onClick,
 }: {
   templateId: string
   active: boolean
+  /** Uses a paid theme/layout the user doesn't own — shown with a lock badge */
+  locked?: boolean
   onClick: () => void
 }) {
   const t = TEMPLATES[templateId]
   if (!t) return null
   return (
-    <button type="button" className={`tpl-card${active ? ' active' : ''}`} onClick={onClick}>
+    <button type="button" className={`tpl-card${active ? ' active' : ''}${locked ? ' locked' : ''}`} onClick={onClick}>
       <WallPreview
         themeKey={t.theme}
         frameKey={t.frame}
@@ -261,6 +264,7 @@ export function TemplateCard({
       <span className="tpl-plan-chip">
         <LayoutPlan layoutKey={t.layout} className="tpl-plan" />
       </span>
+      {locked && <span className="tpl-lock" aria-hidden="true">🔒 Premium</span>}
       <span className="tpl-name">{t.label}</span>
       <span className="tpl-sub">
         {THEMES[t.theme]?.label} · {LAYOUTS[t.layout]?.label} · {FRAMES[t.frame]?.label} frame

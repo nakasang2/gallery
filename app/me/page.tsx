@@ -21,7 +21,7 @@ import {
   PRICE_SINGLE_ITEM,
   PRICE_DESIGN_TOOLS,
 } from '@/lib/pricing'
-import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
+import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
 import { PLAN } from '@/lib/limits'
@@ -205,20 +205,32 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const updateSettings = useGallery((s) => s.updateSettings)
   const router = useRouter()
+  const owned = usePurchasedIds(user.id)
+  const entitlements = getEntitlements(user.id, owned)
   const [step, setStep] = useState<1 | 2>(1)
   const [title, setTitle] = useState('')
   const [statement, setStatement] = useState('')
-  const [templateId, setTemplateId] = useState('salon')
+  // Start on the free template so a free user's default choice never uses paid content
+  const [templateId, setTemplateId] = useState('studio')
   const [busy, setBusy] = useState(false)
 
+  const selectedLocked = (() => {
+    const t = TEMPLATES[templateId]
+    return t ? !isTemplateUnlocked(t, entitlements) : false
+  })()
+
   async function create() {
+    // Defense in depth — the Continue button is already disabled for premium
+    // templates, but never create a free gallery from paid content.
+    const chosen = TEMPLATES[templateId]
+    const safeTemplate = chosen && isTemplateUnlocked(chosen, entitlements) ? templateId : 'studio'
     setBusy(true)
     try {
-      await createGallery(user.id, { title, templateId, statement })
+      await createGallery(user.id, { title, templateId: safeTemplate, statement })
       await refreshMyGallery()
       // Persist the template locally too, so the editor's hydrate() can't fall back
       // to stale localStorage defaults after the client-side navigation
-      const t = TEMPLATES[templateId]
+      const t = TEMPLATES[safeTemplate]
       if (t) {
         updateSettings({
           theme: t.theme,
@@ -250,13 +262,33 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
         </p>
         {/* One preview per card (the card top IS the wall preview) — no duplicate block */}
         <div className="tpl-grid">
-          {Object.keys(TEMPLATES).map((key) => (
-            <TemplateCard key={key} templateId={key} active={key === templateId} onClick={() => setTemplateId(key)} />
-          ))}
+          {Object.keys(TEMPLATES).map((key) => {
+            const t = TEMPLATES[key]
+            return (
+              <TemplateCard
+                key={key}
+                templateId={key}
+                active={key === templateId}
+                locked={!!t && !isTemplateUnlocked(t, entitlements)}
+                onClick={() => setTemplateId(key)}
+              />
+            )
+          })}
         </div>
-        <button className="btn-line" onClick={() => setStep(2)}>
-          Continue with {TEMPLATES[templateId]?.label} →
-        </button>
+        {selectedLocked ? (
+          <>
+            <button className="btn-line" disabled aria-disabled="true">
+              {TEMPLATES[templateId]?.label} is premium 🔒
+            </button>
+            <p className="me-note" style={{ marginTop: '0.5rem' }}>
+              This template uses a paid theme or layout. Start from a free template now — you can buy and switch to it anytime after.
+            </p>
+          </>
+        ) : (
+          <button className="btn-line" onClick={() => setStep(2)}>
+            Continue with {TEMPLATES[templateId]?.label} →
+          </button>
+        )}
       </div>
     )
   }

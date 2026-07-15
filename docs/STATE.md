@@ -2,7 +2,7 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-15（無課金ベースを有効化=有料軸 Video Pass / Design Tools をロック。全SQL統合 schema.sql 追加）
+- **最終更新**: 2026-07-15（フリー枠を whitecube / corridor のみに変更。有料軸ロック・schema.sql も同日）
 
 ## 進行中
 - なし
@@ -27,6 +27,7 @@
 - なし
 
 ## 完了ログ（直近5件）
+- 2026-07-15: **フリー枠のテーマ/レイアウトを whitecube / corridor のみに変更**（ユーザー指定）。`FOREVER_FREE_THEME_IDS=['whitecube']`・`FOREVER_FREE_LAYOUT_IDS=['corridor']`。chic/noir・hall/island/portrait/custom は有料化。連動対応: 新規ギャラリー既定を無料の`studio`テンプレ(whitecube/corridor)へ(`createGallery`。DB既定chic/hallに落ちないよう)、CreateCardの既定を`studio`に、有料テンプレ(salon/noir/tower)は🔒Premium表示+作成ブロック(`isTemplateUnlocked`=テーマ&レイアウト両方所有時のみ)。同梱Chromiumで検証: whitecube/corridor=解放・他=施錠・studioのみ無料テンプレ(towerはportraitが有料で施錠)。tsc・build クリーン。**未変更(要判断)**: `/demo`のDEFAULT_SETTINGSは chic/hall のまま(ショーケースの見た目維持)。既存galleriesがchic/hall使用中でもレンダリングは継続(再選択のみ要購入)
 - 2026-07-15: **無課金ベースを有効化**（有料軸をロック）。今まで`getEntitlements`が`videoEnabled`/`designToolsEnabled`を常に`true`で返し全機能が無料開放だった（意図的な事業判断保留）。本番公開前・実ユーザー無しをユーザーが確認したうえで、§11.5のフリー枠に合わせて有料2軸をロック: `lib/purchases.ts`が台帳から`design_tools`/`video_pass`所有を読み(未所有=フリー枠にfail-closed)、`lib/entitlements.ts`の`getEntitlements`が`videoEnabled=owned.videoPass`/`designToolsEnabled=owned.designTools`を返す（`FULL_ACCESS_ENTITLEMENTS`→`FREE_TIER_ENTITLEMENTS`にリネーム）。動画アップロードを`SettingsPanel.onVideoFile`でVideo Passゲート、UI文言更新。Design Toolsはダッシュボードで既にロック分岐あり→自動でロックカード表示。**テーマ3種/レイアウト5種は forever-free のまま全員無料**（既存無料機能の剥奪なし）。同梱Chromiumで検証: フリー=video/designTools偽・chic/hall解放・仮想有料テーマ施錠、所有時=全解放。tsc・build クリーン
 - 2026-07-15: 全マイグレーション0001〜0021を統合した`supabase/schema.sql`を追加（一発適用・冪等）。Postgres 16で全文実行+二重実行しエラーゼロ・12テーブル/35ポリシー生成を確認。0016の"read own purchases"ポリシーに`drop if exists`を補って冪等性の穴を修正
 - 2026-07-14: P3-12+ キャプション自動読み上げ(無料TTS)。ユーザーの「音声は自作しないといけないのか／こちらで用意できないか」に対し①無料案を採用。アップロード音声が無い作品は、来場者ブラウザのWeb Speech API(`SpeechSynthesisUtterance`)でキャプションを読み上げる(録音不要)。**既存の再生ボタンがそのまま読み上げに使える**(`guideSourceFor`が upload優先→無ければcaption→TTS を返し、`audioGuide`がurl(HTMLAudio)/tts(speechSynthesis)両対応)。mute連動・退出停止・ツアー自動再生は共通。ダッシュボード文言を更新(「reads the caption / your recording / add a caption to enable」)。`ArtworkPanel`はdynamic ssr:falseで常にクライアント描画のためSSR差分なし。同梱Chromiumで検証: caption→speak(本文一致)・upload優先・空caption非表示・**mute時は読み上げない**。tsc・build クリーン

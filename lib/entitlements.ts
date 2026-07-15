@@ -46,16 +46,22 @@ export function getEntitlements(
   }
 }
 
-// Snapshot of what shipped free before any paid theme/layout existed (REQUIREMENTS.md
-// §11.8) — these ids stay free forever, no matter what a user's entitlements say.
-// Only themes/layouts added AFTER this list was captured can ever be gated.
+// The free tier's themes/layouts — everyone gets these without paying; everything
+// else in THEMES/LAYOUTS requires a purchase. Set pre-launch to a single free
+// theme + layout (whitecube / corridor); the rest (chic, noir; hall, island,
+// portrait, custom) are paid. These are also the defaults new free galleries
+// start from (the "studio" template in lib/galleries → createGallery).
 //
 // MUST be a hardcoded list, NOT Object.keys(THEMES/LAYOUTS): deriving it from the
-// live presets would make every future theme/layout forever-free too, so nothing
-// could ever be sold. The dev tests below assert these ids still exist in the
-// presets, so a rename is caught immediately rather than silently un-gating.
-const FOREVER_FREE_THEME_IDS: readonly string[] = ['chic', 'whitecube', 'noir']
-const FOREVER_FREE_LAYOUT_IDS: readonly string[] = ['hall', 'corridor', 'island', 'portrait', 'custom']
+// live presets would make every future theme/layout free too, so nothing could
+// ever be sold. The dev guard below asserts these ids still exist in the presets,
+// so a rename is caught immediately rather than silently un-gating.
+const FOREVER_FREE_THEME_IDS: readonly string[] = ['whitecube']
+const FOREVER_FREE_LAYOUT_IDS: readonly string[] = ['corridor']
+
+/** The default theme/layout a new free gallery starts on (the free-tier options). */
+export const FREE_DEFAULT_THEME_ID = FOREVER_FREE_THEME_IDS[0]
+export const FREE_DEFAULT_LAYOUT_ID = FOREVER_FREE_LAYOUT_IDS[0]
 
 // Dev guard (stripped from prod): if a forever-free id is renamed/removed in the
 // presets, fail loudly here instead of accidentally locking a shipped-free option.
@@ -74,4 +80,13 @@ export function isThemeUnlocked(themeId: string, ent: Entitlements): boolean {
 
 export function isLayoutUnlocked(layoutId: string, ent: Entitlements): boolean {
   return FOREVER_FREE_LAYOUT_IDS.includes(layoutId) || ent.ownedLayoutIds.includes(layoutId)
+}
+
+/** A starting template is usable only when the user has BOTH its theme and its
+ *  layout — otherwise creating from it would hand a free user paid content. */
+export function isTemplateUnlocked(
+  tpl: { theme: string; layout: string },
+  ent: Entitlements
+): boolean {
+  return isThemeUnlocked(tpl.theme, ent) && isLayoutUnlocked(tpl.layout, ent)
 }
