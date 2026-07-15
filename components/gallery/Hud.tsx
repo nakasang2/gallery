@@ -7,6 +7,7 @@ import { isPlaceholderTitle } from '@/lib/publish'
 import { useExhibitionList } from '@/lib/exhibition'
 import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
+import { audioGuide } from '@/lib/guide'
 import SnsLinks from '@/components/SnsLinks'
 
 export function HudTop() {
@@ -126,7 +127,9 @@ export function HudActions() {
         title={audioOn ? 'Ambience on' : 'Ambience off'}
         onClick={() => {
           galleryAudio.unlock()
-          setAudioOn(galleryAudio.toggle())
+          const on = galleryAudio.toggle()
+          setAudioOn(on)
+          if (!on) audioGuide.stop() // one mute silences the narration too
         }}
       >
         ♪

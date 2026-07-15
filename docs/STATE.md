@@ -2,7 +2,7 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-14（P2-10 記事/ガイド機能を実装。P0〜P2-9も同日実装済み）
+- **最終更新**: 2026-07-14（P3-12 作品ごと音声ガイドを実装。P0〜P2-10も同日実装済み）
 
 ## 進行中
 - なし
@@ -14,7 +14,9 @@
   - P2-8 ウォークスルー動画は**実装済**。フォローアップ: MP4/GIF変換(X/IG直投稿用。要ffmpeg.wasm/サーバ)・録画に音声を載せる
   - P2-9 企画展(特集)は**実装済**。運用: `/admin`で特集を設定するだけ。フォローアップ候補: 期間の自動切替・作家からの応募フロー
   - P2-10 記事/ガイド機能は**実装済**(migration 0020)。運用: `/admin`の「Guides」で執筆・公開するだけ。「Ktlyst参考に」の指定は同名企業が複数あり特定できず・候補サイトも403のため、HAKONIWA自身のデザインで実装(参考URLをもらえれば個別に寄せる)。フォローアップ候補: 記事内の作品/箱庭埋め込み、タグ/カテゴリ、関連記事
-  - P3（グループ展・音声・AR・立体）
+  - P3-12 音声ガイドは**作品ごとガイドを実装済**(migration 0021)。残: 空間BGM(WebAudio経由・1トラックloop)
+  - P3-11 グループ展(卒展向け・最高価値)は**設計判断待ち**: 「複数作家でどう共同編集するか」(招待制の共同編集 / 主催者が他人の公開作品をキュレーション)。Stripe本番にも依存
+  - P3-13 AR / P3-14 立体(glTF)
 - レビューで見送った低優先の既知事項:
   - 署名なし決済フローで未サインイン時に「Checkout isn't live yet」と表示（現状モーダルはサインイン文脈でしか開かず到達不可）
   - 購入完了後の再取得はギャラリー（キャパ）のみ更新。テーマ/レイアウト所有は要手動リロード（バナーで案内済み・現状テーマ購入は到達不可）
@@ -25,6 +27,7 @@
 - なし
 
 ## 完了ログ（直近5件）
+- 2026-07-14: P3-12 作品ごと音声ガイド。鑑賞パネルに再生/一時停止ボタン、ガイドツアー中は各作品にフォーカスした瞬間に自動再生(タップ起点なのでautoplay可)。migration 0021(`artworks.audio_url`)。`lib/guide.ts`=HTMLAudioElement singleton(WebAudioグラフ非経由でCORS/アップロード両対応、`useGuidePlaying`フック、mute連動=`galleryAudio.enabled`、退出・unmountで`suspend()`)。`lib/cloud.ts`に`uploadArtworkAudio`(15MB上限+quota)、`updateArtworkDetails`をaudio_url対応(purchase_urlと同じgraceful degradation)。ダッシュボードの「Title & caption」にアップロード/差替/削除UI。同梱Chromiumで実HTMLAudio再生を検証(play→playイベントで再生確認・toggle停止・**mute時は再生されない**・エラー0)。バグ修正: ツアー中にガイド無し作品へ移ると前作品のガイドが鳴り続ける件を、フォーカス/ツアー変化時に必ずstopするよう修正。tsc・build クリーン。残:空間BGM
 - 2026-07-14: P2-10 記事/ガイド機能(SEO集客)。`/articles`一覧+`/articles/[slug]`(SEO/OGP・ファネルCTA)、`/admin`の「Guides」でMarkdown執筆・下書き/公開トグル・ライブプレビュー・削除(`components/ArticlesEditor`)。migration 0020(`articles`表・公開read/admin write RLS)。`lib/blog.ts`(公開一覧/slug取得/admin CRUD、graceful degradation)。**zero-dep・XSS安全のMarkdownレンダラ**`lib/markdown.tsx`(見出し/段落/太字/斜体/コード/リンク/画像/リスト/引用/コードブロック/hrをReact要素へ、dangerouslySetInnerHTML不使用、URLサニタイズ)。ナビ導線(LP nav/footer・Explore footer)。同梱Chromiumで全MD要素の描画・エディタUIを実挙動検証(h3/h4・bold/em・code・2リンク・ul/ol計6li・blockquote・hr・figure、内部リンクは同タブ)、エラー0。tsc・build クリーン。「Ktlyst」は特定できずHAKONIWA自身のデザインで実装
 - 2026-07-14: P2-9 Explore特集(spotlight)メカニズム。`/explore`上部に手動キュレーションの特集枠、`/admin`の「Explore spotlight」で@username/slug・見出し・順序を編集(`site_config`のexplore_spotlightキー・migration不要)。`lib/publish`の`fetchPublicFeed`から`buildFeedItems`を抽出して`fetchSpotlightGalleries`と共有、FeedカードをFeedCardに抽出。`siteConfig`をhookフリー化(server import可に。`useLpHero`は唯一の利用者HeroSceneへ移設)。未公開refは自動脱落・graceful degradation。同梱Chromiumで特集表示(3カード)・adminエディタ(行追加/編集)を実描画検証、エラー0。tsc・build クリーン
 - 2026-07-14: P2-8 ウォークスルー動画書き出し。順路ツアーを走らせつつ`MediaRecorder`+`canvas.captureStream`でWebM録画→DL(`lib/recorder.ts`/`components/gallery/RecordButton.tsx`/canvasを`controller.canvasRef`で露出)。非対応ブラウザはボタン非表示(mimeで判定)。バグ回避: 支持判定は`canvasRef`(mount時null)でなくmime能力で行い、canvasは click時に再確認。録画ボタンはminimapと衝突しない位置に配置。同梱Chromium(swiftshader)で実挙動検証: 有効なWebM(vp9・EBMLマジック1a45dfa3・32KB・正しいファイル名)を生成、idle/recording状態遷移、エラー0。tsc・build クリーン。既知の限界: WebMのみ(X/IGはMP4要変換)・無音

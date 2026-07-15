@@ -47,6 +47,7 @@ import {
   uploadArtwork,
   uploadAvatar,
   uploadLogo,
+  uploadArtworkAudio,
   deleteArtwork,
   updateArtworkDetails,
   artworkPlacementCount,
@@ -565,6 +566,27 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
+  // Audio guide is a file, so it uploads immediately (separate from the text "Save plate").
+  // We re-affirm the saved title/caption/purchase so this write only changes audio_url.
+  async function setWorkAudio(file: File | null) {
+    if (!selected) return
+    setBusy(true)
+    try {
+      const audioUrl = file ? await uploadArtworkAudio(user.id, selected.id, file) : null
+      await updateArtworkDetails(selected.id, {
+        title: selected.title,
+        description: selected.desc ?? '',
+        purchaseUrl: selected.purchaseUrl,
+        audioUrl,
+      })
+      await refreshCloud()
+    } catch (e) {
+      alert(`Could not update the audio guide: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const themeDef = THEMES[row.theme] ?? THEMES.chic
 
   return (
@@ -1053,6 +1075,32 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 >
                   {workSaved ? 'Saved' : 'Save plate'}
                 </button>
+
+                {/* Audio guide: a short narration that auto-plays on the guided tour */}
+                <div className="wd-audio">
+                  <span className="wd-audio-label">Audio guide {selected.audioUrl ? '· on' : '· none'}</span>
+                  <div className="wd-audio-actions">
+                    <label className="btn-line wd-audio-upload" aria-disabled={busy}>
+                      {selected.audioUrl ? 'Replace' : 'Add audio'}
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        hidden
+                        disabled={busy}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          e.target.value = '' // allow re-selecting the same file
+                          if (f) void setWorkAudio(f)
+                        }}
+                      />
+                    </label>
+                    {selected.audioUrl && (
+                      <button className="btn-line danger" disabled={busy} onClick={() => void setWorkAudio(null)}>
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <WorkDesign

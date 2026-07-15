@@ -9,6 +9,7 @@ import { useGallery } from '@/lib/store'
 import { useToast } from '@/lib/toast'
 import { walkRef, canvasRef, LOW_POWER } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
+import { audioGuide } from '@/lib/guide'
 import { unlockVideoAudio, suspendVideoAudio } from '@/lib/videohub'
 import GalleryScene from './GalleryScene'
 import FlatGallery from './FlatGallery'
@@ -101,6 +102,7 @@ export default function GalleryApp({ onShellReady }: { onShellReady?: () => void
       // keep playing on the landing page / dashboard after navigating away.
       galleryAudio.suspend()
       suspendVideoAudio()
+      audioGuide.suspend() // stop any narration when leaving the gallery
       canvasRef.current = null // the canvas is gone once we unmount
     }
   }, [])

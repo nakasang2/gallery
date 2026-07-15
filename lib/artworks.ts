@@ -22,6 +22,9 @@ export interface ArtworkData {
   /** Where to buy this specific work (the artist's shop, Etsy, a DM link…). Shown
    *  to visitors on the artwork panel; unset means "not for sale here". */
   purchaseUrl?: string
+  /** Audio-guide narration URL for this work; played on the artwork panel and,
+   *  during the guided tour, automatically as each work comes into focus. */
+  audioUrl?: string
   /** The following are for demo generative art. */
   style?: string
   palette?: keyof typeof PALETTES

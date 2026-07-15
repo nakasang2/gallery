@@ -371,6 +371,27 @@ body.gallery-mode {
   transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 .panel-buy:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(212, 162, 78, 0.34); }
+
+/* Audio-guide play/pause on the artwork panel */
+.panel-guide {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: 1.2rem;
+  font-family: var(--sans);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background: rgba(11, 10, 9, 0.5);
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  padding: 0.55em 1.2em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.panel-guide:hover { border-color: var(--gold); color: var(--gold); }
+.panel-guide.playing { border-color: var(--gold); color: var(--gold); }
+.panel-guide + .panel-buy { margin-left: 0.6rem; }
 .panel-buy:active { transform: translateY(0) scale(0.98); }
 
 @media (max-width: 480px) {
@@ -1023,6 +1044,21 @@ body.gallery-mode {
 /* ---- 作品デザインパネル(構造化): グループ > 行(ラベル+適材コントロール) ---- */
 .wd-group { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--hairline); }
 .work-design .wd-group:first-child { margin-top: 0.6rem; padding-top: 0; border-top: none; }
+
+/* Dashboard: per-work audio-guide upload row (inside the Title & caption group) */
+.wd-audio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px dashed var(--hairline);
+}
+.wd-audio-label { font-size: 0.72rem; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+.wd-audio-actions { display: flex; gap: 0.4rem; }
+.wd-audio-upload { cursor: pointer; }
+.wd-audio-upload[aria-disabled='true'] { opacity: 0.5; pointer-events: none; }
 .wd-title {
   display: flex;
   align-items: center;
