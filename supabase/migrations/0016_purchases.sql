@@ -15,5 +15,6 @@ create table if not exists purchases (
 
 alter table purchases enable row level security;
 
+drop policy if exists "read own purchases" on purchases;
 create policy "read own purchases" on purchases
   for select using (auth.uid() = user_id);

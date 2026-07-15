@@ -4,6 +4,14 @@
 
 ## 1. スキーマの適用(必須・1回だけ)
 
+### かんたん(推奨): 一発適用
+
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0021 が
+一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
+Postgres 16 で全文実行 + 二重実行してエラーゼロを確認済み。
+
+### 個別(履歴・差分を追いたい場合)
+
 1. [SQL Editor](https://supabase.com/dashboard/project/ncffdcvsksiutsjerpeb/sql/new) を開く
 2. `supabase/migrations/` のSQLを**番号順に**全文貼り付けて **Run**
    - `0001_init.sql` — テーブル・RLS・ストレージ(適用済み)
