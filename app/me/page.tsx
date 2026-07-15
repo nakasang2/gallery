@@ -7,11 +7,12 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, type DesignOverrides } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, normalizeLayoutParams, normalizeArrangement, type DesignOverrides } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
 import PurchaseModal from '@/components/PurchaseModal'
+import PlacementEditor from '@/components/PlacementEditor'
 import {
   purchaseOptionsFor,
   capacityPurchaseOptions,
@@ -21,7 +22,7 @@ import {
   PRICE_SINGLE_ITEM,
   PRICE_DESIGN_TOOLS,
 } from '@/lib/pricing'
-import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
+import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
 import { PLAN } from '@/lib/limits'
@@ -205,20 +206,32 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const updateSettings = useGallery((s) => s.updateSettings)
   const router = useRouter()
+  const owned = usePurchasedIds(user.id)
+  const entitlements = getEntitlements(user.id, owned)
   const [step, setStep] = useState<1 | 2>(1)
   const [title, setTitle] = useState('')
   const [statement, setStatement] = useState('')
-  const [templateId, setTemplateId] = useState('salon')
+  // Start on the free template so a free user's default choice never uses paid content
+  const [templateId, setTemplateId] = useState('studio')
   const [busy, setBusy] = useState(false)
 
+  const selectedLocked = (() => {
+    const t = TEMPLATES[templateId]
+    return t ? !isTemplateUnlocked(t, entitlements) : false
+  })()
+
   async function create() {
+    // Defense in depth — the Continue button is already disabled for premium
+    // templates, but never create a free gallery from paid content.
+    const chosen = TEMPLATES[templateId]
+    const safeTemplate = chosen && isTemplateUnlocked(chosen, entitlements) ? templateId : 'studio'
     setBusy(true)
     try {
-      await createGallery(user.id, { title, templateId, statement })
+      await createGallery(user.id, { title, templateId: safeTemplate, statement })
       await refreshMyGallery()
       // Persist the template locally too, so the editor's hydrate() can't fall back
       // to stale localStorage defaults after the client-side navigation
-      const t = TEMPLATES[templateId]
+      const t = TEMPLATES[safeTemplate]
       if (t) {
         updateSettings({
           theme: t.theme,
@@ -250,13 +263,33 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
         </p>
         {/* One preview per card (the card top IS the wall preview) — no duplicate block */}
         <div className="tpl-grid">
-          {Object.keys(TEMPLATES).map((key) => (
-            <TemplateCard key={key} templateId={key} active={key === templateId} onClick={() => setTemplateId(key)} />
-          ))}
+          {Object.keys(TEMPLATES).map((key) => {
+            const t = TEMPLATES[key]
+            return (
+              <TemplateCard
+                key={key}
+                templateId={key}
+                active={key === templateId}
+                locked={!!t && !isTemplateUnlocked(t, entitlements)}
+                onClick={() => setTemplateId(key)}
+              />
+            )
+          })}
         </div>
-        <button className="btn-line" onClick={() => setStep(2)}>
-          Continue with {TEMPLATES[templateId]?.label} →
-        </button>
+        {selectedLocked ? (
+          <>
+            <button className="btn-line" disabled aria-disabled="true">
+              {TEMPLATES[templateId]?.label} is premium 🔒
+            </button>
+            <p className="me-note" style={{ marginTop: '0.5rem' }}>
+              This template uses a paid theme or layout. Start from a free template now — you can buy and switch to it anytime after.
+            </p>
+          </>
+        ) : (
+          <button className="btn-line" onClick={() => setStep(2)}>
+            Continue with {TEMPLATES[templateId]?.label} →
+          </button>
+        )}
       </div>
     )
   }
@@ -336,6 +369,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [design, setDesign] = useState<DesignOverrides>(() => normalizeDesignOverrides(row.design_overrides))
   const [logoUploading, setLogoUploading] = useState(false)
   const designTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Manual slot placement (§11.13): local state seeded from the row (the source of
+  // truth the dashboard reads), debounce-saved through the same path as theme/layout
+  // so a placement edit and a layout change never race over one gallery row.
+  const [placement, setPlacement] = useState<(string | null)[]>(() => normalizeArrangement(row.arrangement))
+  const placeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
@@ -468,6 +506,36 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   }
   useEffect(() => () => {
     if (designTimer.current) clearTimeout(designTimer.current)
+  }, [])
+
+  // Re-seed placement when the row's saved arrangement changes (e.g. after a save
+  // round-trips, or another device edits it), but never mid-debounce clobber the map.
+  useEffect(() => {
+    setPlacement(normalizeArrangement(row.arrangement))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(row.arrangement)])
+
+  // Manual placement autosave (§11.13): optimistic local update, then persist through
+  // the same rowToSettings → saveGallerySpace(+rebuildPlacements) path as theme/layout.
+  function editPlacement(next: (string | null)[]) {
+    setPlacement(next)
+    if (placeTimer.current) clearTimeout(placeTimer.current)
+    placeTimer.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const s = { ...rowToSettings(row, await mergedOverrides()), arrangement: next }
+          await saveGallerySpace(row.id, s)
+          if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+          await refreshMyGallery()
+          onChanged()
+        } catch (e) {
+          alert(`Could not save placement: ${e instanceof Error ? e.message : e}`)
+        }
+      })()
+    }, 700)
+  }
+  useEffect(() => () => {
+    if (placeTimer.current) clearTimeout(placeTimer.current)
   }, [])
 
   async function onLogoFile(file: File | undefined) {
@@ -768,7 +836,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               <span className="works-legend">Select a work · ★ cover · × remove</span>
             )}
           </div>
-          {/* Filmstrip: the 10 slots as a horizontal, scrollable rail */}
+          {/* Filmstrip: the room's slots as a horizontal, scrollable rail — filled
+              works, then the upload tile, then empty slots up to the cap so the whole
+              room's capacity is visible (§11.13) rather than looking like it ends early. */}
           <div className="works-strip">
             {cloudArtworks.map((art) => (
               <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
@@ -808,6 +878,13 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 />
               </label>
             )}
+            {/* Remaining capacity as empty slots, so "2 / 5" actually shows five cells.
+                One upload tile above already covers the first open slot; these are the rest. */}
+            {Array.from({ length: Math.max(0, row.work_cap - cloudArtworks.length - 1) }).map((_, i) => (
+              <div className="works-cell works-cell--empty" key={`empty-${i}`} aria-hidden="true">
+                <span className="works-empty-mark">◇</span>
+              </div>
+            ))}
           </div>
         </>
       )}
@@ -827,6 +904,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 matKey={mat}
                 hangingKey={hanging}
                 captionKey={captionKey}
+                designOverrides={design}
               />
             </div>
           ) : (
@@ -838,6 +916,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               captionKey={captionKey}
               artSrc={previewSrc}
               artRatio={selected?.ratio}
+              designOverrides={design}
               className="wall-preview--lg"
             />
           )}
@@ -909,6 +988,23 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 </button>
               </div>
             </div>
+            {cloudArtworks.length > 0 && (
+              <div className="wd-row wd-row-block">
+                <span className="wd-label">Placement</span>
+                <div className="wd-block-body">
+                  <p className="wd-sub">Choose which work hangs on each spot — leave gaps to space a small show out.</p>
+                  <PlacementEditor
+                    layoutKey={row.layout}
+                    layoutParams={normalizeLayoutParams(row.layout_params)}
+                    workCap={row.work_cap}
+                    works={cloudArtworks}
+                    arrangement={placement}
+                    onChange={editPlacement}
+                    disabled={busy}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Design Tools (§11.5/§11.8) — a buy-once capability layered on top of the

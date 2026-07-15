@@ -3,13 +3,13 @@
 // Geometry comes from the live layout; the camera marker updates via rAF (no re-renders).
 import { useEffect, useMemo, useRef } from 'react'
 import { useGallery, useSettings } from '@/lib/store'
-import { useExhibitionList } from '@/lib/exhibition'
+import { usePlacement } from '@/lib/exhibition'
 import { resolveLayout } from '@/lib/presets'
 import { camPose } from '@/lib/controller'
 
 export default function MiniMap() {
   const settings = useSettings()
-  const list = useExhibitionList()
+  const { slots } = usePlacement()
   const focusedIndex = useGallery((s) => s.focusedIndex)
   const markerRef = useRef<SVGGElement>(null)
 
@@ -17,6 +17,11 @@ export default function MiniMap() {
     () => resolveLayout(settings.layout, settings.layoutParams),
     [settings.layout, settings.layoutParams]
   )
+
+  // Which physical slots hold a work, and which one is focused. `focusedIndex` is a
+  // position in the work list, so map it through `slots` to the physical slot (§11.13).
+  const filled = useMemo(() => new Set(slots), [slots])
+  const focusSlot = focusedIndex >= 0 ? slots[focusedIndex] ?? -1 : -1
 
   useEffect(() => {
     let raf = 0
@@ -37,7 +42,7 @@ export default function MiniMap() {
 
   return (
     <div
-      className={`minimap${focusedIndex >= 0 ? ' lifted' : ''}`}
+      className={`minimap${focusSlot >= 0 ? ' lifted' : ''}`}
       style={{ aspectRatio: `${w} / ${h}` }}
       aria-hidden="true"
     >
@@ -59,10 +64,10 @@ export default function MiniMap() {
         {def.slots.map((s, i) => (
           <circle
             key={`s${i}`}
-            className={i < list.length ? (i === focusedIndex ? 'mm-slot focus' : 'lp-slot') : 'mm-slot empty'}
+            className={filled.has(i) ? (i === focusSlot ? 'mm-slot focus' : 'lp-slot') : 'mm-slot empty'}
             cx={s.x}
             cy={s.z}
-            r={i === focusedIndex ? 0.75 : 0.55}
+            r={i === focusSlot ? 0.75 : 0.55}
           />
         ))}
         {/* You: a small heading wedge */}

@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { ARTWORKS, type ArtworkData } from './artworks'
 import { isFrameKey, MATS, HANGINGS, CAPTIONS, resolveLayout, type LayoutDef } from './presets'
 import { effectiveSlotCount } from './limits'
+import { placeWorks, toPlacement, type Placement } from './arrangement'
 import { useGallery, useSettings, type Settings } from './store'
 
 /** Usable slots for the current layout (layout slots capped by the plan's works-per-gallery) */
@@ -10,13 +11,21 @@ export function slotCount(s: Settings): number {
   return effectiveSlotCount(resolveLayout(s.layout, s.layoutParams).slots.length, s.workCap)
 }
 
+/** The full placement: which work hangs on which physical slot (honouring the room's
+ *  manual arrangement §11.13), plus the parallel list/slots arrays consumers read. */
+export function buildPlacement(s: Settings, own: ArtworkData[]): Placement {
+  const demo = s.showDemo ? ARTWORKS : []
+  const perSlot = placeWorks(slotCount(s), s.arrangement, own, demo)
+  return toPlacement(perSlot, own.length + demo.length)
+}
+
 export function buildExhibitionList(s: Settings, own: ArtworkData[]): ArtworkData[] {
-  const list = [...own, ...(s.showDemo ? ARTWORKS : [])]
-  return list.slice(0, slotCount(s))
+  return buildPlacement(s, own).list
 }
 
 export function overflowCount(s: Settings, ownCount: number): number {
   const total = ownCount + (s.showDemo ? ARTWORKS.length : 0)
+  // Surplus works auto-fill every slot, so anything past the slot count is hidden.
   return Math.max(0, total - slotCount(s))
 }
 
@@ -50,15 +59,22 @@ function effectiveForOwner(s: Settings, ownerEditing: boolean): Settings {
   return ownerEditing && s.showDemo ? { ...s, showDemo: false } : s
 }
 
-/** The list of currently exhibited works (capped at the number of slots) */
-export function useExhibitionList(): ArtworkData[] {
+/** Full placement: works in slot order + the physical slot each one hangs on (§11.13).
+ *  The scene, minimap and walk controls read `slots` so a work lands on its chosen
+ *  wall (and empty slots stay empty); everything else just needs `list`. */
+export function usePlacement(): Placement {
   const settings = useSettings()
   const own = useOwnArtworks()
   const ownerEditing = useIsOwnerEditing()
   return useMemo(
-    () => buildExhibitionList(effectiveForOwner(settings, ownerEditing), own),
+    () => buildPlacement(effectiveForOwner(settings, ownerEditing), own),
     [settings, own, ownerEditing]
   )
+}
+
+/** The list of currently exhibited works, in slot order (capped at the number of slots) */
+export function useExhibitionList(): ArtworkData[] {
+  return usePlacement().list
 }
 
 // Effective design per work: the override when set (and valid), else the gallery default

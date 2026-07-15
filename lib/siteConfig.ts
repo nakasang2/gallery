@@ -118,3 +118,34 @@ export async function saveSpotlight(cfg: SpotlightConfig): Promise<void> {
     .upsert({ key: 'explore_spotlight', value: clean, updated_at: new Date().toISOString() })
   if (error) throw error
 }
+
+// ---- Demo appearance (/demo showcase) — which theme the guest demo opens with ----
+
+export interface DemoLook {
+  /** Theme key the /demo showcase renders in (falls back to the built-in default) */
+  theme: string
+}
+
+/** The admin-set demo theme, or null when unset (use the built-in default). */
+export async function fetchDemoLook(): Promise<DemoLook | null> {
+  if (!supabase) return null
+  try {
+    const { data, error } = await supabase
+      .from('site_config')
+      .select('value')
+      .eq('key', 'demo_look')
+      .maybeSingle()
+    if (error || !data) return null
+    const v = data.value as Partial<DemoLook> | null
+    return v && typeof v.theme === 'string' && v.theme ? { theme: v.theme } : null
+  } catch {
+    return null
+  }
+}
+
+export async function saveDemoLook(look: DemoLook): Promise<void> {
+  const { error } = await supabase!
+    .from('site_config')
+    .upsert({ key: 'demo_look', value: { theme: look.theme }, updated_at: new Date().toISOString() })
+  if (error) throw error
+}

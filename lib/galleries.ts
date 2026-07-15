@@ -8,9 +8,11 @@ import {
   resolveLayout,
   normalizeLayoutParams,
   normalizeDesignOverrides,
+  normalizeArrangement,
   type CustomLayoutParams,
   type DesignOverrides,
 } from './presets'
+import { placeWorks } from './arrangement'
 import type { Settings } from './store'
 import type { ArtworkData } from './artworks'
 
@@ -33,12 +35,16 @@ export interface GalleryRow {
   work_cap: number
   /** Design Tools overrides (§11.5/§11.8), jsonb — null on pre-0014 rows */
   design_overrides: unknown
+  /** Manual slot placement (§11.13), jsonb array — null on pre-0023 rows */
+  arrangement: unknown
 }
 
 const COLS =
-  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides'
+  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement'
+// Post-0014/pre-0023 shape (no arrangement column yet)
+const COLS_NO_ARR = COLS.replace(', arrangement', '')
 // Post-0013/pre-0014 shape (no design_overrides column yet)
-const COLS_NO_DESIGN = COLS.replace(', design_overrides', '')
+const COLS_NO_DESIGN = COLS_NO_ARR.replace(', design_overrides', '')
 // Post-0012/pre-0013 shape (no work_cap column yet)
 const COLS_NO_CAP = COLS_NO_DESIGN.replace(', work_cap', '')
 // Pre-0012 shape (no mat, no work_cap, no design_overrides) — reads fall back to this so an
@@ -51,6 +57,14 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
     .select(COLS)
     .eq('owner_id', userId)
     .order('created_at', { ascending: true })
+  if (res.error && missingOverrideColumns(res.error)) {
+    // 0023 (arrangement) not applied
+    res = (await supabase!
+      .from('galleries')
+      .select(COLS_NO_ARR)
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: true })) as unknown as typeof res
+  }
   if (res.error && missingOverrideColumns(res.error)) {
     res = (await supabase!
       .from('galleries')
@@ -78,6 +92,7 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
     mat_default: (r as { mat_default?: string }).mat_default ?? 'auto',
     work_cap: (r as { work_cap?: number }).work_cap ?? PLAN.worksPerGallery,
     design_overrides: (r as { design_overrides?: unknown }).design_overrides ?? null,
+    arrangement: (r as { arrangement?: unknown }).arrangement ?? null,
   })) as GalleryRow[]
 }
 
@@ -95,7 +110,10 @@ export async function createGallery(
   if (existing.length >= PLAN.galleries) {
     throw new Error(`Your plan allows ${PLAN.galleries} hakoniwa.`)
   }
-  const t = opts.templateId ? TEMPLATES[opts.templateId] : undefined
+  // Default new rooms to the "studio" template (whitecube / corridor) — the free
+  // tier's theme + layout — so a free gallery never starts on paid content (the
+  // DB column default is the older chic/hall, which only paying users can keep).
+  const t = TEMPLATES[opts.templateId ?? 'studio'] ?? TEMPLATES.studio
   const row = {
     owner_id: userId,
     slug: 'main', // slug editing arrives with multi-gallery plans
@@ -106,17 +124,17 @@ export async function createGallery(
     // (§11.7 — "the room inherits the plan's cap at purchase time"), not the
     // column's own default (which only exists to grandfather pre-0013 rooms)
     work_cap: PLAN.worksPerGallery,
-    ...(t
-      ? {
-          theme: t.theme,
-          layout: t.layout,
-          frame_default: t.frame,
-          hanging_default: t.hanging,
-          caption_default: t.caption,
-        }
-      : {}),
+    theme: t.theme,
+    layout: t.layout,
+    frame_default: t.frame,
+    hanging_default: t.hanging,
+    caption_default: t.caption,
   }
   let res = await supabase!.from('galleries').insert(row).select(COLS).single()
+  if (res.error && missingOverrideColumns(res.error)) {
+    // 0023 not applied — arrangement isn't in the insert payload, only the ?select= shape shrinks
+    res = (await supabase!.from('galleries').insert(row).select(COLS_NO_ARR).single()) as unknown as typeof res
+  }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0014 not applied — design_overrides was never in the insert payload,
     // only the ?select= shape needs to shrink
@@ -138,6 +156,7 @@ export async function createGallery(
     mat_default: 'auto',
     work_cap: PLAN.worksPerGallery,
     design_overrides: null,
+    arrangement: null,
     ...(res.data as object),
   } as GalleryRow
 }
@@ -188,11 +207,17 @@ export async function saveGallerySpace(id: string, s: Settings): Promise<void> {
     hanging_default: s.hanging,
     caption_default: s.caption,
     design_overrides: s.designOverrides,
+    arrangement: s.arrangement,
   }
   // Only overwrite layout_params while ON the custom layout — switching to a preset
   // must not destroy a saved custom room (switching back recovers it)
   if (s.layout === 'custom') fields.layout_params = s.layoutParams
   let { error } = await supabase!.from('galleries').update(fields).eq('id', id)
+  if (error && missingOverrideColumns(error)) {
+    // 0023 not applied — manual placement stays local until then
+    delete fields.arrangement
+    ;({ error } = await supabase!.from('galleries').update(fields).eq('id', id))
+  }
   if (error && missingOverrideColumns(error)) {
     // 0014 not applied — design tools stay local until then
     delete fields.design_overrides
@@ -225,7 +250,7 @@ function missingOverrideColumns(error: { code?: string; message?: string }): boo
   return (
     error.code === 'PGRST204' ||
     error.code === '42703' ||
-    /hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides/.test(error.message ?? '')
+    /hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides|arrangement/.test(error.message ?? '')
   )
 }
 
@@ -239,17 +264,26 @@ export async function rebuildPlacements(
 ): Promise<void> {
   const sb = supabase!
   const slots = effectiveSlotCount(resolveLayout(settings.layout, settings.layoutParams).slots.length, settings.workCap)
-  const shown = ownArtworks.slice(0, slots)
-  if (shown.length) {
-    const rows = shown.map((art, i) => ({
-      gallery_id: galleryId,
-      artwork_id: art.id,
-      slot_index: i,
-      frame_override: settings.frameOverrides[art.id] ?? null,
-      mat_override: settings.matOverrides[art.id] ?? null,
-      hanging_override: settings.hangingOverrides[art.id] ?? null,
-      caption_override: settings.captionOverrides[art.id] ?? null,
-    }))
+  // Honour the room's manual arrangement (§11.13): a work hangs on its chosen slot,
+  // and an intentionally-empty slot is simply skipped. No demo collection on a real
+  // published gallery, so `extra` is empty and this reduces to the owner's own works.
+  const perSlot = placeWorks(slots, settings.arrangement, ownArtworks)
+  const rows = perSlot
+    .map((art, i) =>
+      art
+        ? {
+            gallery_id: galleryId,
+            artwork_id: art.id,
+            slot_index: i,
+            frame_override: settings.frameOverrides[art.id] ?? null,
+            mat_override: settings.matOverrides[art.id] ?? null,
+            hanging_override: settings.hangingOverrides[art.id] ?? null,
+            caption_override: settings.captionOverrides[art.id] ?? null,
+          }
+        : null
+    )
+    .filter((r): r is NonNullable<typeof r> => r !== null)
+  if (rows.length) {
     let { error } = await sb.from('placements').upsert(rows, { onConflict: 'gallery_id,slot_index' })
     if (error && missingOverrideColumns(error)) {
       // Migration 0011/0012 not applied yet — keep publishing working, frame-only
@@ -263,11 +297,12 @@ export async function rebuildPlacements(
     }
     if (error) throw error
   }
-  const { error: dErr } = await sb
-    .from('placements')
-    .delete()
-    .eq('gallery_id', galleryId)
-    .gte('slot_index', shown.length)
+  // Trim any placement whose slot is no longer used (slots the arrangement freed, or
+  // rows past a shrunk cap). Sparse indices mean we can't just delete "slot >= count".
+  const usedList = `(${rows.map((r) => r.slot_index).join(',')})`
+  let delQ = sb.from('placements').delete().eq('gallery_id', galleryId)
+  delQ = rows.length ? delQ.not('slot_index', 'in', usedList) : delQ
+  const { error: dErr } = await delQ
   if (dErr) throw dErr
 }
 
@@ -341,5 +376,6 @@ export function rowToSettings(row: GalleryRow, overrides: PlacementOverrides = E
     captionOverrides: overrides.captions,
     workCap: row.work_cap ?? PLAN.worksPerGallery,
     designOverrides: normalizeDesignOverrides(row.design_overrides),
+    arrangement: normalizeArrangement(row.arrangement),
   }
 }

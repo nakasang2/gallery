@@ -55,6 +55,20 @@ export interface AdminOverview {
   revenueByKind: { key: string; count: number; sumJpy: number }[]
 }
 
+/** Admin: manually unlock a paid item for a user (writes the purchases ledger via
+ *  the admin-gated RPC in 0022). kind is 'design_tools' | 'video_pass' | 'theme' |
+ *  'layout' | …; itemKey is the theme/layout id (empty for design_tools/video_pass). */
+export async function grantEntitlement(userId: string, kind: string, itemKey = ''): Promise<void> {
+  const { error } = await supabase!.rpc('grant_entitlement', { p_user: userId, p_kind: kind, p_item_key: itemKey })
+  if (error) throw error
+}
+
+/** Admin: remove a previously-granted (or purchased) entitlement from a user. */
+export async function revokeEntitlement(userId: string, kind: string, itemKey = ''): Promise<void> {
+  const { error } = await supabase!.rpc('revoke_entitlement', { p_user: userId, p_kind: kind, p_item_key: itemKey })
+  if (error) throw error
+}
+
 /** Whether the signed-in user is an admin (rpc is_admin, added in 0017).
  *  Any failure — migration not applied, offline, signed out — resolves false. */
 export function useIsAdmin(userId: string | null): boolean {

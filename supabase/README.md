@@ -4,6 +4,14 @@
 
 ## 1. スキーマの適用(必須・1回だけ)
 
+### かんたん(推奨): 一発適用
+
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0021 が
+一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
+Postgres 16 で全文実行 + 二重実行してエラーゼロを確認済み。
+
+### 個別(履歴・差分を追いたい場合)
+
 1. [SQL Editor](https://supabase.com/dashboard/project/ncffdcvsksiutsjerpeb/sql/new) を開く
 2. `supabase/migrations/` のSQLを**番号順に**全文貼り付けて **Run**
    - `0001_init.sql` — テーブル・RLS・ストレージ(適用済み)
@@ -23,6 +31,8 @@
    - `0019_checkout.sql` — Stripe決済対応(purchases.kind拡張 + キャパ加算RPC。RPCはservice roleのみ実行可)
    - `0020_articles.sql` — 記事/ガイド(公開read/admin write RLS)。`/articles`と`/admin`の記事エディタが使用
    - `0021_artwork_audio.sql` — 作品ごと音声ガイド(`artworks.audio_url`。鑑賞パネルの再生ボタン・ツアー自動再生)
+   - `0022_admin_grant.sql` — admin手動アンロック(`grant_entitlement`/`revoke_entitlement` RPC。admin限定・`/admin`のUsersから付与/剥奪)
+   - `0023_arrangement.sql` — 手動スロット配置(`galleries.arrangement` jsonb。作品をどの壁枠に飾るか・空き枠を残すか。未設定は0番から詰める従来動作)
 3. 「Success. No rows returned」が出れば完了
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、

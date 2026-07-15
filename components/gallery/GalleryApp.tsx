@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
-import { resolveLayout } from '@/lib/presets'
+import { resolveLayout, THEMES } from '@/lib/presets'
 import { useExhibitionList } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
 import { useToast } from '@/lib/toast'
@@ -57,9 +57,10 @@ function useTour() {
   }, [tourActive, count])
 }
 
-export default function GalleryApp({ onShellReady }: { onShellReady?: () => void }) {
+export default function GalleryApp({ onShellReady, demoTheme }: { onShellReady?: () => void; demoTheme?: string | null }) {
   const ready = useGallery((s) => s.ready)
   const visitor = useGallery((s) => s.visitor)
+  const user = useGallery((s) => s.user)
   const [loadingDone, setLoadingDone] = useState(false)
   // null = still detecting; false = no WebGL → 2D list fallback
   const [webgl, setWebgl] = useState<boolean | null>(null)
@@ -120,6 +121,15 @@ export default function GalleryApp({ onShellReady }: { onShellReady?: () => void
       alive = false
     }
   }, [])
+
+  // Admin-set demo theme (/admin → Demo look): apply AFTER hydration settles
+  // (loadingDone is set past both hydrate passes) so loadSettings can't clobber it.
+  // Guest showcase only — never a signed-in owner's room or a real visitor page.
+  useEffect(() => {
+    if (loadingDone && demoTheme && !user && !visitor && THEMES[demoTheme]) {
+      useGallery.getState().updateSettings({ theme: demoTheme })
+    }
+  }, [loadingDone, demoTheme, user, visitor])
 
   return (
     <>

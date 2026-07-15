@@ -74,6 +74,15 @@ export function normalizeDesignOverrides(raw: unknown): DesignOverrides {
   }
 }
 
+/** Manual slot placement (§11.13): arrangement[slotIndex] = artworkId | null.
+ *  A null (or a gap past the array's end) is an intentionally-empty slot. Anything
+ *  that isn't a non-empty string collapses to null, so a malformed blob degrades to
+ *  "no manual arrangement" (auto-fill) rather than throwing. */
+export function normalizeArrangement(raw: unknown): (string | null)[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((x) => (typeof x === 'string' && x ? x : null))
+}
+
 function hexToNum(hex: string): number {
   return parseInt(hex.replace('#', ''), 16)
 }

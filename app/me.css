@@ -104,6 +104,48 @@
   padding: 1.5rem 1.6rem;
 }
 
+/* Admin: entitlement chips (owned packages) + grant control */
+.ent-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: 0.72rem;
+  padding: 0.15em 0.2em 0.15em 0.6em;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  white-space: nowrap;
+}
+.ent-chip-x {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0 0.3em;
+  border-radius: 100px;
+}
+.ent-chip-x:hover:not(:disabled) { color: #f0847c; }
+.ent-chip-x:disabled { opacity: 0.4; cursor: default; }
+.ent-grant {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0 0.4rem;
+}
+.ent-grant-label { font-size: 0.78rem; color: var(--muted); }
+.ent-select {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.05);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.45em 0.7em;
+}
+
 /* Embed code panel (dashboard → public gallery → Embed) */
 .embed-panel {
   margin-top: 0.9rem;
@@ -444,6 +486,21 @@
 }
 .works-add:hover { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.05); }
 
+/* Empty capacity slots — passive placeholders so the full room (e.g. 2 / 5) is visible */
+.works-cell--empty {
+  flex: 0 0 130px;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--hairline);
+  border-radius: 8px;
+  color: var(--muted);
+  opacity: 0.5;
+}
+.works-empty-mark { font-size: 1.2rem; }
+@media (max-width: 640px) { .works-cell--empty { flex-basis: 108px; } }
+
 /* 詳細: プレビュー左 / 設定右。全幅なので余裕を持って2カラム */
 .works-detail {
   display: grid;
@@ -681,4 +738,60 @@
   font-weight: 500;
   color: var(--ink);
   margin: 1.8rem 0 0.7rem;
+}
+
+/* ---- Manual slot placement (§11.13): top-down room map + work picker ---- */
+.wd-row-block { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+.wd-block-body { display: flex; flex-direction: column; gap: 0.7rem; }
+.wd-sub { font-size: 0.74rem; color: var(--muted); line-height: 1.5; }
+
+.place-editor { display: flex; flex-direction: column; gap: 0.8rem; }
+.place-map {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.04);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 0.4rem;
+}
+.place-map .lp-room { fill: none; stroke: currentColor; stroke-width: 0.34; opacity: 0.7; }
+.place-map .lp-part { fill: currentColor; opacity: 0.5; }
+.place-map .lp-bench { fill: currentColor; opacity: 0.22; }
+
+.pe-slot-bg { fill: rgba(236, 231, 222, 0.06); }
+.pe-slot.filled .pe-slot-bg { fill: rgba(236, 231, 222, 0.03); }
+.pe-slot-ring { fill: none; stroke: currentColor; stroke-width: 0.08; opacity: 0.4; }
+.pe-slot.empty .pe-slot-ring { stroke-dasharray: 0.28 0.22; opacity: 0.55; }
+.pe-slot.filled .pe-slot-ring { stroke: var(--gold); opacity: 0.75; }
+.pe-slot.sel .pe-slot-ring { stroke: var(--gold); stroke-width: 0.16; opacity: 1; }
+.pe-slot-num { fill: currentColor; opacity: 0.55; font-size: 0.62px; text-anchor: middle; font-family: var(--sans, sans-serif); }
+.pe-slot:hover .pe-slot-ring { opacity: 0.9; }
+
+.place-hint { font-size: 0.74rem; color: var(--muted); text-align: center; }
+
+.place-picker { display: flex; flex-direction: column; gap: 0.5rem; }
+.place-picker-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.78rem; color: var(--ink);
+}
+.place-picker-strip {
+  display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.3rem;
+}
+.place-pick {
+  position: relative; flex: 0 0 auto; width: 56px; height: 56px;
+  border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden;
+  background: rgba(236, 231, 222, 0.05); cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.place-pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.place-pick.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.place-pick:disabled { opacity: 0.5; cursor: default; }
+.place-pick.empty { flex-direction: column; gap: 0.1rem; color: var(--muted); font-size: 1.1rem; }
+.place-pick.empty small { font-size: 0.56rem; letter-spacing: 0.06em; }
+.place-pick-badge {
+  position: absolute; top: 2px; right: 2px; font-size: 0.6rem;
+  background: var(--ink); color: #14110c; border-radius: 4px; padding: 0 2px; line-height: 1.3;
 }
