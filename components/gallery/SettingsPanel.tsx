@@ -287,6 +287,11 @@ export default function SettingsPanel() {
       showToast('Exhibiting video works requires an account — see the Account section.')
       return
     }
+    // ① Video Pass gate (REQUIREMENTS §11.5) — video exhibits are a paid axis
+    if (!entitlements.videoEnabled) {
+      showToast('Video exhibits need Video Pass. Images are always free — Video Pass unlocks moving works.')
+      return
+    }
     if (file.size > VIDEO_MAX_BYTES) {
       showToast(`Videos are limited to ${Math.floor(VIDEO_MAX_BYTES / 1024 / 1024)}MB (“${file.name}” is ${Math.ceil(file.size / 1024 / 1024)}MB).`)
       return
@@ -472,7 +477,8 @@ export default function SettingsPanel() {
           />
         </label>
         <p className="settings-note">
-          Videos (reels etc.) up to 40MB, account required. They loop in the room and become audible as you approach.
+          Images are always free. Videos (reels etc.) up to 40MB need Video Pass{entitlements.videoEnabled ? ' — active on your account' : ''};
+          they loop in the room and become audible as you approach.
         </p>
         <div className="field-row">
           <input ref={urlRef} type="url" placeholder="Paste an image URL" />

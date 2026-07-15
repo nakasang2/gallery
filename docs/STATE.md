@@ -2,7 +2,7 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-14（P3-12 作品ごと音声ガイドを実装。P0〜P2-10も同日実装済み）
+- **最終更新**: 2026-07-15（無課金ベースを有効化=有料軸 Video Pass / Design Tools をロック。全SQL統合 schema.sql 追加）
 
 ## 進行中
 - なし
@@ -27,6 +27,8 @@
 - なし
 
 ## 完了ログ（直近5件）
+- 2026-07-15: **無課金ベースを有効化**（有料軸をロック）。今まで`getEntitlements`が`videoEnabled`/`designToolsEnabled`を常に`true`で返し全機能が無料開放だった（意図的な事業判断保留）。本番公開前・実ユーザー無しをユーザーが確認したうえで、§11.5のフリー枠に合わせて有料2軸をロック: `lib/purchases.ts`が台帳から`design_tools`/`video_pass`所有を読み(未所有=フリー枠にfail-closed)、`lib/entitlements.ts`の`getEntitlements`が`videoEnabled=owned.videoPass`/`designToolsEnabled=owned.designTools`を返す（`FULL_ACCESS_ENTITLEMENTS`→`FREE_TIER_ENTITLEMENTS`にリネーム）。動画アップロードを`SettingsPanel.onVideoFile`でVideo Passゲート、UI文言更新。Design Toolsはダッシュボードで既にロック分岐あり→自動でロックカード表示。**テーマ3種/レイアウト5種は forever-free のまま全員無料**（既存無料機能の剥奪なし）。同梱Chromiumで検証: フリー=video/designTools偽・chic/hall解放・仮想有料テーマ施錠、所有時=全解放。tsc・build クリーン
+- 2026-07-15: 全マイグレーション0001〜0021を統合した`supabase/schema.sql`を追加（一発適用・冪等）。Postgres 16で全文実行+二重実行しエラーゼロ・12テーブル/35ポリシー生成を確認。0016の"read own purchases"ポリシーに`drop if exists`を補って冪等性の穴を修正
 - 2026-07-14: P3-12+ キャプション自動読み上げ(無料TTS)。ユーザーの「音声は自作しないといけないのか／こちらで用意できないか」に対し①無料案を採用。アップロード音声が無い作品は、来場者ブラウザのWeb Speech API(`SpeechSynthesisUtterance`)でキャプションを読み上げる(録音不要)。**既存の再生ボタンがそのまま読み上げに使える**(`guideSourceFor`が upload優先→無ければcaption→TTS を返し、`audioGuide`がurl(HTMLAudio)/tts(speechSynthesis)両対応)。mute連動・退出停止・ツアー自動再生は共通。ダッシュボード文言を更新(「reads the caption / your recording / add a caption to enable」)。`ArtworkPanel`はdynamic ssr:falseで常にクライアント描画のためSSR差分なし。同梱Chromiumで検証: caption→speak(本文一致)・upload優先・空caption非表示・**mute時は読み上げない**。tsc・build クリーン
 - 2026-07-14: P3-12 作品ごと音声ガイド。鑑賞パネルに再生/一時停止ボタン、ガイドツアー中は各作品にフォーカスした瞬間に自動再生(タップ起点なのでautoplay可)。migration 0021(`artworks.audio_url`)。`lib/guide.ts`=HTMLAudioElement singleton(WebAudioグラフ非経由でCORS/アップロード両対応、`useGuidePlaying`フック、mute連動=`galleryAudio.enabled`、退出・unmountで`suspend()`)。`lib/cloud.ts`に`uploadArtworkAudio`(15MB上限+quota)、`updateArtworkDetails`をaudio_url対応(purchase_urlと同じgraceful degradation)。ダッシュボードの「Title & caption」にアップロード/差替/削除UI。同梱Chromiumで実HTMLAudio再生を検証(play→playイベントで再生確認・toggle停止・**mute時は再生されない**・エラー0)。バグ修正: ツアー中にガイド無し作品へ移ると前作品のガイドが鳴り続ける件を、フォーカス/ツアー変化時に必ずstopするよう修正。tsc・build クリーン。残:空間BGM
 - 2026-07-14: P2-10 記事/ガイド機能(SEO集客)。`/articles`一覧+`/articles/[slug]`(SEO/OGP・ファネルCTA)、`/admin`の「Guides」でMarkdown執筆・下書き/公開トグル・ライブプレビュー・削除(`components/ArticlesEditor`)。migration 0020(`articles`表・公開read/admin write RLS)。`lib/blog.ts`(公開一覧/slug取得/admin CRUD、graceful degradation)。**zero-dep・XSS安全のMarkdownレンダラ**`lib/markdown.tsx`(見出し/段落/太字/斜体/コード/リンク/画像/リスト/引用/コードブロック/hrをReact要素へ、dangerouslySetInnerHTML不使用、URLサニタイズ)。ナビ導線(LP nav/footer・Explore footer)。同梱Chromiumで全MD要素の描画・エディタUIを実挙動検証(h3/h4・bold/em・code・2リンク・ul/ol計6li・blockquote・hr・figure、内部リンクは同タブ)、エラー0。tsc・build クリーン。「Ktlyst」は特定できずHAKONIWA自身のデザインで実装
