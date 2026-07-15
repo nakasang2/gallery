@@ -31,7 +31,16 @@ function shortestAngle(a: number) {
   return Math.atan2(Math.sin(a), Math.cos(a))
 }
 
-export default function WalkControls({ layout, list }: { layout: LayoutDef; list: ArtworkData[] }) {
+export default function WalkControls({
+  layout,
+  list,
+  slots,
+}: {
+  layout: LayoutDef
+  list: ArtworkData[]
+  /** Physical slot index for each work in `list` (§11.13 manual placement) */
+  slots: number[]
+}) {
   const camera = useThree((s) => s.camera)
   const gl = useThree((s) => s.gl)
 
@@ -70,12 +79,12 @@ export default function WalkControls({ layout, list }: { layout: LayoutDef; list
   const exhibitsMeta = useMemo(
     () =>
       list.map((art, i) => {
-        const slot = layout.slots[i]
+        const slot = layout.slots[slots[i]]
         const { width, height } = artSize(art.ratio)
         const normal = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), slot.rotY)
         return { center: new THREE.Vector3(slot.x, 1.62, slot.z), normal, width, height }
       }),
-    [list, layout]
+    [list, slots, layout]
   )
   const metaRef = useRef(exhibitsMeta)
   metaRef.current = exhibitsMeta

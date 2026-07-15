@@ -13,6 +13,7 @@ import {
   CUSTOM_LAYOUT_DEFAULTS,
   normalizeLayoutParams,
   normalizeDesignOverrides,
+  normalizeArrangement,
   EMPTY_DESIGN_OVERRIDES,
   type CustomLayoutParams,
   type DesignOverrides,
@@ -42,6 +43,7 @@ function rowSpace(row: GalleryRow): Partial<Settings> {
     ...(CAPTIONS[row.caption_default] ? { caption: row.caption_default } : {}),
     workCap: row.work_cap ?? PLAN.worksPerGallery,
     designOverrides: normalizeDesignOverrides(row.design_overrides),
+    arrangement: normalizeArrangement(row.arrangement),
   }
 }
 
@@ -75,6 +77,9 @@ export interface Settings {
   workCap: number
   /** Design Tools overrides (§11.5/§11.8) layered on top of the theme */
   designOverrides: DesignOverrides
+  /** Manual slot placement (§11.13): arrangement[slotIndex] = artworkId | null.
+   *  Empty array = no manual arrangement (works auto-fill slots from 0). */
+  arrangement: (string | null)[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -93,6 +98,7 @@ export const DEFAULT_SETTINGS: Settings = {
   captionOverrides: {},
   workCap: PLAN.worksPerGallery,
   designOverrides: EMPTY_DESIGN_OVERRIDES,
+  arrangement: [],
 }
 
 const STORAGE_KEY = 'hakoniwa.settings.v1'
@@ -141,6 +147,7 @@ export function loadSettings(): Settings {
     if (!CAPTIONS[s.caption]) s.caption = DEFAULT_SETTINGS.caption
     if (!Number.isFinite(s.workCap) || s.workCap < 1) s.workCap = DEFAULT_SETTINGS.workCap
     s.designOverrides = normalizeDesignOverrides(s.designOverrides)
+    s.arrangement = normalizeArrangement(s.arrangement)
     return s
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -152,14 +159,14 @@ function saveSettings(s: Settings): boolean {
     const {
       theme, layout, layoutParams, frame, mat, hanging, caption,
       showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides, workCap,
-      designOverrides,
+      designOverrides, arrangement,
     } = s
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         theme, layout, layoutParams, frame, mat, hanging, caption,
         showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides, workCap,
-        designOverrides,
+        designOverrides, arrangement,
       })
     )
     return true
@@ -415,6 +422,7 @@ export function useSettings(): Settings {
             captionOverrides: s.visitor.captionOverrides,
             workCap: s.visitor.workCap,
             designOverrides: s.visitor.designOverrides,
+            arrangement: s.visitor.arrangement,
           }
         : {
             theme: s.theme,
@@ -432,6 +440,7 @@ export function useSettings(): Settings {
             captionOverrides: s.captionOverrides,
             workCap: s.workCap,
             designOverrides: s.designOverrides,
+            arrangement: s.arrangement,
           }
     )
   )

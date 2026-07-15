@@ -60,6 +60,9 @@ export interface PublicExhibition {
   workCap: number
   /** Design Tools overrides (§11.5/§11.8) — rendered for every visitor, not just the owner */
   designOverrides: DesignOverrides
+  /** Manual slot placement (§11.13): arrangement[slotIndex] = artworkId | null,
+   *  rebuilt from the placements' slot_index so visitors see the owner's layout */
+  arrangement: (string | null)[]
   artworks: ArtworkData[]
 }
 
@@ -297,7 +300,12 @@ async function fetchPublicExhibitionInner(
   const hangingOverrides: Record<string, string> = {}
   const captionOverrides: Record<string, string> = {}
   const artworks: ArtworkData[] = []
+  // Rebuild the manual arrangement (§11.13) from each placement's slot_index, so a
+  // published room hangs works on the same walls (and keeps the same empty slots) the
+  // owner arranged — not just packed from slot 0.
+  const arrangement: (string | null)[] = []
   for (const p of (pRes.data ?? []) as Array<{
+    slot_index?: number | null
     frame_override?: string | null
     mat_override?: string | null
     hanging_override?: string | null
@@ -307,11 +315,14 @@ async function fetchPublicExhibitionInner(
     const row = p.artworks as Parameters<typeof rowToArtwork>[0] | null
     if (!row) continue
     artworks.push(rowToArtwork(row, ownerName))
+    if (typeof p.slot_index === 'number' && p.slot_index >= 0) arrangement[p.slot_index] = row.id
     if (p.frame_override) frameOverrides[row.id] = p.frame_override
     if (p.mat_override) matOverrides[row.id] = p.mat_override
     if (p.hanging_override) hangingOverrides[row.id] = p.hanging_override
     if (p.caption_override) captionOverrides[row.id] = p.caption_override
   }
+  // Array holes (JS leaves them `undefined`) normalise to intentionally-empty slots.
+  for (let i = 0; i < arrangement.length; i++) if (arrangement[i] == null) arrangement[i] = null
 
   return {
     galleryId: gallery.id,
@@ -334,6 +345,7 @@ async function fetchPublicExhibitionInner(
     coverArtworkId: gallery.cover_artwork_id ?? null,
     workCap: gallery.work_cap ?? PLAN.worksPerGallery,
     designOverrides: normalizeDesignOverrides(gallery.design_overrides),
+    arrangement,
     frameOverrides,
     matOverrides,
     hangingOverrides,

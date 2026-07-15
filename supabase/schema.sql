@@ -809,3 +809,12 @@ revoke all on function public.revoke_entitlement(uuid, text, text) from public;
 grant execute on function public.grant_entitlement(uuid, text, text) to authenticated;
 grant execute on function public.revoke_entitlement(uuid, text, text) to authenticated;
 
+
+-- ============================================================================
+-- # 0023_arrangement.sql — manual slot placement (§11.13)
+-- ============================================================================
+-- arrangement[slotIndex] = artworkId | null (gap = intentionally-empty slot).
+-- Absent/empty = auto-fill from slot 0 (pre-0023 behaviour), so existing rooms
+-- are unchanged. Mirrored into placements.slot_index on publish.
+alter table public.galleries
+  add column if not exists arrangement jsonb;

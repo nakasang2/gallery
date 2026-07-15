@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat } from '@/lib/presets'
-import { useExhibitionList, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor } from '@/lib/exhibition'
+import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
 import { LOW_POWER } from '@/lib/controller'
 import Room from './Room'
@@ -40,7 +40,7 @@ export default function GalleryScene() {
   // room's Design Tools overrides (wall/floor/light colour) on top (§11.5/§11.8)
   const theme = resolveTheme(settings.theme, settings.designOverrides)
   const layout = resolveLayout(settings.layout, settings.layoutParams)
-  const list = useExhibitionList()
+  const { list, slots } = usePlacement()
 
   // Environment map: faint room light reflects in the floor sheen and metal frame parts
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function GalleryScene() {
           key={art.id}
           art={art}
           index={i}
-          slot={layout.slots[i]}
+          slot={layout.slots[slots[i]]}
           theme={theme}
           frameDef={applyMat(frameDefFor(frameKeyFor(settings, art)), matKeyFor(settings, art))}
           hangingDef={HANGINGS[hangingKeyFor(settings, art)] ?? HANGINGS.wire}
@@ -96,7 +96,7 @@ export default function GalleryScene() {
       ))}
       <TitleWall theme={theme} layout={layout} />
       <Dust layout={layout} />
-      <WalkControls layout={layout} list={list} />
+      <WalkControls layout={layout} list={list} slots={slots} />
       <VideoPlaybackManager />
       {!LOW_POWER && <Effects theme={theme} />}
     </>

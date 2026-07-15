@@ -7,11 +7,12 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, type DesignOverrides } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, normalizeLayoutParams, normalizeArrangement, type DesignOverrides } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
 import PurchaseModal from '@/components/PurchaseModal'
+import PlacementEditor from '@/components/PlacementEditor'
 import {
   purchaseOptionsFor,
   capacityPurchaseOptions,
@@ -368,6 +369,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [design, setDesign] = useState<DesignOverrides>(() => normalizeDesignOverrides(row.design_overrides))
   const [logoUploading, setLogoUploading] = useState(false)
   const designTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Manual slot placement (§11.13): local state seeded from the row (the source of
+  // truth the dashboard reads), debounce-saved through the same path as theme/layout
+  // so a placement edit and a layout change never race over one gallery row.
+  const [placement, setPlacement] = useState<(string | null)[]>(() => normalizeArrangement(row.arrangement))
+  const placeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
@@ -500,6 +506,36 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   }
   useEffect(() => () => {
     if (designTimer.current) clearTimeout(designTimer.current)
+  }, [])
+
+  // Re-seed placement when the row's saved arrangement changes (e.g. after a save
+  // round-trips, or another device edits it), but never mid-debounce clobber the map.
+  useEffect(() => {
+    setPlacement(normalizeArrangement(row.arrangement))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(row.arrangement)])
+
+  // Manual placement autosave (§11.13): optimistic local update, then persist through
+  // the same rowToSettings → saveGallerySpace(+rebuildPlacements) path as theme/layout.
+  function editPlacement(next: (string | null)[]) {
+    setPlacement(next)
+    if (placeTimer.current) clearTimeout(placeTimer.current)
+    placeTimer.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const s = { ...rowToSettings(row, await mergedOverrides()), arrangement: next }
+          await saveGallerySpace(row.id, s)
+          if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+          await refreshMyGallery()
+          onChanged()
+        } catch (e) {
+          alert(`Could not save placement: ${e instanceof Error ? e.message : e}`)
+        }
+      })()
+    }, 700)
+  }
+  useEffect(() => () => {
+    if (placeTimer.current) clearTimeout(placeTimer.current)
   }, [])
 
   async function onLogoFile(file: File | undefined) {
@@ -943,6 +979,23 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 </button>
               </div>
             </div>
+            {cloudArtworks.length > 0 && (
+              <div className="wd-row wd-row-block">
+                <span className="wd-label">Placement</span>
+                <div className="wd-block-body">
+                  <p className="wd-sub">Choose which work hangs on each spot — leave gaps to space a small show out.</p>
+                  <PlacementEditor
+                    layoutKey={row.layout}
+                    layoutParams={normalizeLayoutParams(row.layout_params)}
+                    workCap={row.work_cap}
+                    works={cloudArtworks}
+                    arrangement={placement}
+                    onChange={editPlacement}
+                    disabled={busy}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Design Tools (§11.5/§11.8) — a buy-once capability layered on top of the
