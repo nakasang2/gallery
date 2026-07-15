@@ -859,6 +859,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 matKey={mat}
                 hangingKey={hanging}
                 captionKey={captionKey}
+                designOverrides={design}
               />
             </div>
           ) : (
@@ -870,6 +871,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               captionKey={captionKey}
               artSrc={previewSrc}
               artRatio={selected?.ratio}
+              designOverrides={design}
               className="wall-preview--lg"
             />
           )}

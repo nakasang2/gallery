@@ -7,7 +7,7 @@ import { useEffect } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { THEMES, frameDefFor, HANGINGS, CAPTIONS, CEIL_H, applyMat, type SlotDef } from '@/lib/presets'
+import { resolveTheme, frameDefFor, HANGINGS, CAPTIONS, CEIL_H, applyMat, type SlotDef, type DesignOverrides } from '@/lib/presets'
 import { artSize } from '@/lib/exhibition'
 import Exhibit from '@/components/gallery/Exhibit'
 import type { ArtworkData } from '@/lib/artworks'
@@ -76,6 +76,7 @@ export default function Preview3D({
   matKey,
   hangingKey,
   captionKey,
+  designOverrides,
 }: {
   art: ArtworkData
   /** Slot number shown on the name plate (NO. xx) */
@@ -85,8 +86,11 @@ export default function Preview3D({
   matKey?: string
   hangingKey: string
   captionKey: string
+  /** Design Tools overrides (wall/floor/light colour) — same resolveTheme path
+   *  the real room uses, so the preview reflects the edits live */
+  designOverrides?: DesignOverrides | null
 }) {
-  const theme = THEMES[themeKey] ?? THEMES.chic
+  const theme = resolveTheme(themeKey, designOverrides)
   const floor = new THREE.Color(theme.floorTint).multiply(new THREE.Color(0x9a7a55))
   return (
     <Canvas

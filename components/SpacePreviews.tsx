@@ -12,7 +12,9 @@ import {
   CAPTIONS,
   applyMat,
   resolveLayout,
+  resolveTheme,
   type CustomLayoutParams,
+  type DesignOverrides,
 } from '@/lib/presets'
 import { effectiveSlotCount } from '@/lib/limits'
 
@@ -117,6 +119,7 @@ export function WallPreview({
   captionKey,
   artSrc,
   artRatio,
+  designOverrides,
   className = '',
 }: {
   themeKey: string
@@ -127,9 +130,12 @@ export function WallPreview({
   /** A real uploaded work to hang instead of the placeholder gradient */
   artSrc?: string
   artRatio?: [number, number]
+  /** Design Tools overrides (wall/floor/light colour) — pass to reflect the
+   *  owner's edits; omit (theme-buy previews) to show the theme as-is */
+  designOverrides?: DesignOverrides | null
   className?: string
 }) {
-  const t = THEMES[themeKey] ?? THEMES.chic
+  const t = resolveTheme(themeKey, designOverrides)
   const floor = mul(t.floorTint, 0x9a7a55)
   const hanging = HANGINGS[hangingKey]?.kind ?? 'wire'
   const caption = CAPTIONS[captionKey]?.place ?? 'side'
