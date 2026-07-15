@@ -1,55 +1,22 @@
 'use client'
-// Ambient past-visitor presence (§11.19): translucent silhouettes that wander the room,
-// their number scaled by the gallery's cumulative visit count (social proof you can feel).
-// Async, not realtime — no other-user data, just an aggregate count. Shown only to visitors
-// on a public page, never to the owner-editor, and hidden while a work is focused.
+// Ambient past-visitor presence (§11.19). Low-poly articulated figures (built from
+// primitives — zero asset deps) that walk the room with a procedural gait and pause to
+// face the art, their number scaled by the gallery's cumulative visit count. Async, not
+// realtime — only an aggregate count, no other-user data. Visitor pages only; never the
+// owner-editor, hidden while a work is focused, and off on low-power devices.
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useGallery, useSettings } from '@/lib/store'
-import { resolveLayout, resolveTheme, EYE, type LayoutDef } from '@/lib/presets'
-import { getSolids } from '@/lib/exhibition'
+import { resolveLayout, resolveTheme, type LayoutDef } from '@/lib/presets'
+import { getSolids, type Solid } from '@/lib/exhibition'
 import { LOW_POWER } from '@/lib/controller'
 import { ghostCountForVisits, MAX_GHOSTS } from '@/lib/ghosts'
 import { galleryAudio } from '@/lib/audio'
 
-interface Ghost {
-  x: number
-  z: number
-  tx: number
-  tz: number
-  speed: number
-  pause: number
-  phase: number
-}
-
-// A soft human silhouette drawn once to a canvas → sprite alpha. Zero asset deps.
-function makeSilhouetteTexture(): THREE.Texture | null {
-  if (typeof document === 'undefined') return null
-  const w = 128
-  const h = 256
-  const cv = document.createElement('canvas')
-  cv.width = w
-  cv.height = h
-  const c = cv.getContext('2d')
-  if (!c) return null
-  c.fillStyle = '#fff'
-  // Head
-  c.beginPath()
-  c.arc(w / 2, h * 0.16, w * 0.13, 0, Math.PI * 2)
-  c.fill()
-  // Neck + torso + legs as a rounded, slightly tapered body
-  c.beginPath()
-  c.moveTo(w * 0.34, h * 0.3)
-  c.quadraticCurveTo(w * 0.28, h * 0.55, w * 0.33, h * 0.98)
-  c.lineTo(w * 0.67, h * 0.98)
-  c.quadraticCurveTo(w * 0.72, h * 0.55, w * 0.66, h * 0.3)
-  c.quadraticCurveTo(w * 0.5, h * 0.24, w * 0.34, h * 0.3)
-  c.fill()
-  const tex = new THREE.CanvasTexture(cv)
-  tex.needsUpdate = true
-  return tex
-}
+// One shared, faint contact shadow so the figures read as grounded (the room's baked
+// shadows don't cover moving objects, and per-frame shadow maps would be too costly).
+const SHADOW_MAT = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.16, depthWrite: false })
 
 function luminance(hex: number): number {
   const r = ((hex >> 16) & 255) / 255
@@ -57,36 +24,190 @@ function luminance(hex: number): number {
   const b = (hex & 255) / 255
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
+function shortAngle(a: number): number {
+  return Math.atan2(Math.sin(a), Math.cos(a))
+}
 
-function pickTarget(layout: LayoutDef, solids: ReturnType<typeof getSolids>): [number, number] {
-  // Loiter in front of a random artwork slot (pulled toward room centre), else a random
-  // floor point — reads as "someone looking at the art".
+interface Target {
+  x: number
+  z: number
+  /** Heading to adopt on arrival (facing the art), or null for a floor spot */
+  face: number | null
+}
+
+function pickTarget(layout: LayoutDef, solids: Solid[]): Target {
+  // Mostly loiter in front of a random artwork slot (pulled into the room), facing the
+  // wall — reads as "someone stopped to look" — else a random floor point to cross to.
   const slot = layout.slots[Math.floor(Math.random() * layout.slots.length)]
   let x: number
   let z: number
-  if (slot && Math.random() < 0.75) {
-    const inward = 1.4 + Math.random() * 0.8
-    const nx = Math.sin(slot.rotY)
-    const nz = Math.cos(slot.rotY)
-    x = slot.x + nx * inward
-    z = slot.z + nz * inward
+  let face: number | null = null
+  if (slot && Math.random() < 0.8) {
+    const inward = 1.5 + Math.random() * 0.7
+    x = slot.x + Math.sin(slot.rotY) * inward
+    z = slot.z + Math.cos(slot.rotY) * inward
+    face = slot.rotY + Math.PI // look back toward the wall the piece hangs on
   } else {
     x = (Math.random() * 2 - 1) * (layout.hw - 1)
     z = (Math.random() * 2 - 1) * (layout.hd - 1)
   }
   x = THREE.MathUtils.clamp(x, -layout.hw + 0.8, layout.hw - 0.8)
   z = THREE.MathUtils.clamp(z, -layout.hd + 0.8, layout.hd - 0.8)
-  // Nudge out of benches / partitions so ghosts don't stand inside furniture
   for (const s of solids) {
     if (Math.abs(x - s.x) < s.hw + 0.5 && Math.abs(z - s.z) < s.hd + 0.5) {
       z = s.z + (z >= s.z ? 1 : -1) * (s.hd + 0.7)
     }
   }
-  return [x, z]
+  return { x, z, face }
+}
+
+interface GhostState {
+  x: number
+  z: number
+  tx: number
+  tz: number
+  tface: number | null
+  face: number
+  pause: number
+  phase: number
+  speed: number
+}
+
+function Ghost({
+  layout,
+  solids,
+  baseColor,
+  active,
+}: {
+  layout: LayoutDef
+  solids: Solid[]
+  baseColor: THREE.Color
+  active: boolean
+}) {
+  const camera = useThree((s) => s.camera)
+  const root = useRef<THREE.Group>(null)
+  const legL = useRef<THREE.Group>(null)
+  const legR = useRef<THREE.Group>(null)
+  const armL = useRef<THREE.Group>(null)
+  const armR = useRef<THREE.Group>(null)
+
+  // One material per figure (slight per-ghost tint so a crowd isn't clones), shared by
+  // all its parts. Semi-solid: embodied but a touch translucent, so it fades if you walk
+  // right into one instead of looming.
+  const mat = useMemo(() => {
+    const c = baseColor.clone().multiplyScalar(0.82 + Math.random() * 0.32)
+    return new THREE.MeshStandardMaterial({
+      color: c,
+      roughness: 0.96,
+      metalness: 0,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: true,
+    })
+  }, [baseColor])
+  useEffect(() => () => mat.dispose(), [mat])
+
+  const stateRef = useRef<GhostState | null>(null)
+  if (!stateRef.current) {
+    const start = pickTarget(layout, solids)
+    const t = pickTarget(layout, solids)
+    stateRef.current = {
+      x: start.x,
+      z: start.z,
+      tx: t.x,
+      tz: t.z,
+      tface: t.face,
+      face: Math.random() * Math.PI * 2,
+      pause: Math.random() * 3,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.5 + Math.random() * 0.3,
+    }
+  }
+
+  useFrame((_, delta) => {
+    const g = root.current
+    const s = stateRef.current
+    if (!active || !g || !s) return
+    const dt = Math.min(delta, 0.05)
+    let moving = false
+    if (s.pause > 0) {
+      s.pause -= dt
+      if (s.tface != null) s.face += shortAngle(s.tface - s.face) * Math.min(1, dt * 3)
+    } else {
+      const dx = s.tx - s.x
+      const dz = s.tz - s.z
+      const dist = Math.hypot(dx, dz)
+      if (dist < 0.25) {
+        s.pause = 3 + Math.random() * 5 // dwell in front of the piece
+        const nt = pickTarget(layout, solids)
+        s.tx = nt.x
+        s.tz = nt.z
+        s.tface = nt.face
+      } else {
+        moving = true
+        const step = Math.min(dist, s.speed * dt)
+        s.x += (dx / dist) * step
+        s.z += (dz / dist) * step
+        s.face += shortAngle(Math.atan2(dx, dz) - s.face) * Math.min(1, dt * 4)
+        s.phase += dt * s.speed * 6.2
+      }
+    }
+    g.position.set(s.x, moving ? Math.abs(Math.sin(s.phase)) * 0.015 : 0, s.z)
+    g.rotation.y = s.face
+    // Gait: legs swing opposite each other, arms counter to the legs; limbs ease to rest
+    // when standing.
+    const legSwing = moving ? Math.sin(s.phase) * 0.5 : 0
+    const armSwing = moving ? Math.sin(s.phase) * 0.38 : 0
+    if (legL.current) legL.current.rotation.x = legSwing
+    if (legR.current) legR.current.rotation.x = -legSwing
+    if (armL.current) armL.current.rotation.x = -armSwing
+    if (armR.current) armR.current.rotation.x = armSwing
+    // Only fade when the camera is basically on top of one, so they stay solid otherwise
+    const d = Math.hypot(s.x - camera.position.x, s.z - camera.position.z)
+    mat.opacity = 0.85 * THREE.MathUtils.clamp((d - 0.7) / 0.8, 0, 1)
+  })
+
+  return (
+    <group ref={root}>
+      {/* contact shadow */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]} material={SHADOW_MAT}>
+        <circleGeometry args={[0.34, 16]} />
+      </mesh>
+      {/* legs (pivot at hip) */}
+      <group ref={legL} position={[-0.1, 0.8, 0]}>
+        <mesh position={[0, -0.4, 0]} material={mat}>
+          <cylinderGeometry args={[0.075, 0.06, 0.8, 6]} />
+        </mesh>
+      </group>
+      <group ref={legR} position={[0.1, 0.8, 0]}>
+        <mesh position={[0, -0.4, 0]} material={mat}>
+          <cylinderGeometry args={[0.075, 0.06, 0.8, 6]} />
+        </mesh>
+      </group>
+      {/* torso */}
+      <mesh position={[0, 1.08, 0]} material={mat}>
+        <boxGeometry args={[0.34, 0.56, 0.19]} />
+      </mesh>
+      {/* arms (pivot at shoulder) */}
+      <group ref={armL} position={[-0.21, 1.32, 0]}>
+        <mesh position={[0, -0.28, 0]} material={mat}>
+          <cylinderGeometry args={[0.05, 0.045, 0.58, 6]} />
+        </mesh>
+      </group>
+      <group ref={armR} position={[0.21, 1.32, 0]}>
+        <mesh position={[0, -0.28, 0]} material={mat}>
+          <cylinderGeometry args={[0.05, 0.045, 0.58, 6]} />
+        </mesh>
+      </group>
+      {/* head */}
+      <mesh position={[0, 1.56, 0]} material={mat}>
+        <sphereGeometry args={[0.12, 12, 10]} />
+      </mesh>
+    </group>
+  )
 }
 
 export default function GhostVisitors() {
-  const camera = useThree((s) => s.camera)
   const visitor = useGallery((s) => s.visitor)
   const focused = useGallery((s) => s.focusedIndex) >= 0
   const settings = useSettings()
@@ -99,91 +220,29 @@ export default function GhostVisitors() {
     () => resolveTheme(settings.theme, settings.designOverrides),
     [settings.theme, settings.designOverrides]
   )
-  const texture = useMemo(makeSilhouetteTexture, [])
+  const solids = useMemo(() => getSolids(layout), [layout])
 
-  // Ghosts only for visitors on a public page (never the owner-editor), capped, off on
-  // low-power devices where the extra draw calls aren't worth it.
   const count = visitor && !LOW_POWER ? ghostCountForVisits(visitor.visitCount) : 0
   const showing = count > 0 && !focused
 
-  // Dark figures on light walls, light figures on dark walls — always a legible shadow.
-  const color = useMemo(
-    () => (luminance(theme.wall) > 0.5 ? new THREE.Color(0x2a2a30) : new THREE.Color(0xcfcfd6)),
+  // Dark figures on light walls, pale on dark walls — always legible, lit by the room.
+  const baseColor = useMemo(
+    () => (luminance(theme.wall) > 0.5 ? new THREE.Color(0x3a3a44) : new THREE.Color(0xb9b9c4)),
     [theme.wall]
   )
 
-  const solids = useMemo(() => getSolids(layout), [layout])
-  const ghosts = useMemo<Ghost[]>(() => {
-    return Array.from({ length: count }, () => {
-      const [x, z] = pickTarget(layout, solids)
-      const [tx, tz] = pickTarget(layout, solids)
-      return { x, z, tx, tz, speed: 0.5 + Math.random() * 0.35, pause: 0, phase: Math.random() * Math.PI * 2 }
-    })
-  }, [count, layout, solids])
-
-  const spriteRefs = useRef<(THREE.Sprite | null)[]>([])
-
-  // Crowd murmur scales with how many ghosts are actually visible (0 when focused/none).
+  // Crowd murmur scales with how many figures are actually present (0 when focused/none).
   useEffect(() => {
     galleryAudio.setCrowdLevel(showing ? count : 0, MAX_GHOSTS)
     return () => galleryAudio.setCrowdLevel(0)
   }, [showing, count])
 
-  useFrame((_, delta) => {
-    if (!showing) return
-    const dt = Math.min(delta, 0.05)
-    for (let i = 0; i < ghosts.length; i++) {
-      const g = ghosts[i]
-      const spr = spriteRefs.current[i]
-      if (!spr) continue
-      if (g.pause > 0) {
-        g.pause -= dt
-      } else {
-        const dx = g.tx - g.x
-        const dz = g.tz - g.z
-        const dist = Math.hypot(dx, dz)
-        if (dist < 0.25) {
-          // Arrived — dwell in front of the piece, then move on
-          g.pause = 2 + Math.random() * 4
-          ;[g.tx, g.tz] = pickTarget(layout, solids)
-        } else {
-          const step = Math.min(dist, g.speed * dt)
-          g.x += (dx / dist) * step
-          g.z += (dz / dist) * step
-        }
-      }
-      g.phase += dt * 6
-      const bob = g.pause > 0 ? 0 : Math.sin(g.phase) * 0.02
-      spr.position.set(g.x, EYE - 0.72 + bob, g.z)
-      // Fade with distance so a ghost right next to the camera doesn't loom
-      const d = Math.hypot(g.x - camera.position.x, g.z - camera.position.z)
-      const mat = spr.material as THREE.SpriteMaterial
-      mat.opacity = 0.26 * THREE.MathUtils.clamp((d - 1.1) / 1.6, 0, 1)
-    }
-  })
-
-  if (!texture || count === 0) return null
+  if (count === 0) return null
 
   return (
     <group visible={showing}>
-      {ghosts.map((g, i) => (
-        <sprite
-          key={i}
-          ref={(el) => {
-            spriteRefs.current[i] = el
-          }}
-          position={[g.x, EYE - 0.72, g.z]}
-          scale={[0.78, 1.72, 1]}
-        >
-          <spriteMaterial
-            map={texture}
-            color={color}
-            transparent
-            opacity={0.24}
-            depthWrite={false}
-            fog
-          />
-        </sprite>
+      {Array.from({ length: count }).map((_, i) => (
+        <Ghost key={i} layout={layout} solids={solids} baseColor={baseColor} active={showing} />
       ))}
     </group>
   )
