@@ -11,7 +11,25 @@ import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
-import { useLpHero, type LpHeroSlot } from '@/lib/siteConfig'
+import { fetchLpHero, LP_HERO_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
+
+/** LP hook: the configured hero images (null per slot = fall back to the demo art).
+ *  Lives here (its only caller) so lib/siteConfig stays hook-free and server-importable. */
+function useLpHero(): LpHeroSlot[] {
+  // Start with all-empty slots (same shape fetchLpHero resolves to) so the first
+  // paint falls back to the demo art rather than briefly indexing undefined.
+  const [slots, setSlots] = useState<LpHeroSlot[]>(() => Array(LP_HERO_SLOTS).fill(null))
+  useEffect(() => {
+    let alive = true
+    fetchLpHero()
+      .then((s) => alive && setSlots(s))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+  return slots
+}
 
 const WALL_X = 4.7
 const ITEM_Y = 1.6

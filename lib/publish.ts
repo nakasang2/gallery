@@ -397,43 +397,99 @@ export async function fetchPublicFeed(offset = 0, limit = EXPLORE_PAGE_SIZE): Pr
       ...g,
       profiles: g.profiles as OwnerProfile | null,
     }))
-    // Skip anyone who hasn't finished picking a username yet — there's no public URL to link to
-    const rows = withOwner.filter((g) => g.profiles?.username)
-    if (!rows.length) return { items: [], hasMore }
-
-    const { data: placementRows } = await supabase
-      .from('placements')
-      .select('gallery_id, slot_index, artworks (*)')
-      .in('gallery_id', rows.map((g) => g.id))
-      .order('slot_index', { ascending: true })
-    type PlacementRow = { gallery_id: string; artworks: unknown }
-    const byGallery = new Map<string, Parameters<typeof rowToArtwork>[0][]>()
-    for (const p of (placementRows ?? []) as PlacementRow[]) {
-      const row = p.artworks as Parameters<typeof rowToArtwork>[0] | null
-      if (!row) continue
-      const list = byGallery.get(p.gallery_id) ?? []
-      list.push(row)
-      byGallery.set(p.gallery_id, list)
-    }
-
-    const items = rows.map((g): FeedItem => {
-      const ownerName = g.profiles!.display_name || g.profiles!.username || ''
-      const artworkRows = byGallery.get(g.id) ?? []
-      const coverRow = artworkRows.find((r) => r.id === g.cover_artwork_id) ?? artworkRows[0]
-      const cover = coverRow ? rowToArtwork(coverRow, ownerName) : null
-      return {
-        username: g.profiles!.username!,
-        ownerName,
-        ownerAvatar: g.profiles!.avatar_url ?? null,
-        slug: g.slug,
-        title: g.title,
-        cover: cover ? (cover.kind === 'video' ? cover.poster ?? null : cover.src ?? null) : null,
-        workCount: artworkRows.length,
-      }
-    })
+    const items = await buildFeedItems(withOwner)
     return { items, hasMore }
   } catch (e) {
     console.error('fetchPublicFeed failed:', e)
     return { items: [], hasMore: false }
+  }
+}
+
+// Shared shape for a gallery row that can become a FeedItem (fed by the public
+// feed and the curated spotlight alike).
+export type FeedGalleryRow = {
+  id: string
+  slug: string
+  title: string
+  cover_artwork_id: string | null
+  profiles: { username: string | null; display_name: string | null; avatar_url: string | null } | null
+}
+
+/** Turn gallery rows (with embedded owner profile) into FeedItems: fetch their
+ *  placements in one query, resolve each cover, drop rows with no public username.
+ *  Preserves input order, so a curated list stays in its chosen order. */
+async function buildFeedItems(rows: FeedGalleryRow[]): Promise<FeedItem[]> {
+  if (!supabase) return []
+  // Skip anyone who hasn't finished picking a username yet — there's no public URL to link to
+  const named = rows.filter((g) => g.profiles?.username)
+  if (!named.length) return []
+
+  const { data: placementRows } = await supabase
+    .from('placements')
+    .select('gallery_id, slot_index, artworks (*)')
+    .in('gallery_id', named.map((g) => g.id))
+    .order('slot_index', { ascending: true })
+  type PlacementRow = { gallery_id: string; artworks: unknown }
+  const byGallery = new Map<string, Parameters<typeof rowToArtwork>[0][]>()
+  for (const p of (placementRows ?? []) as PlacementRow[]) {
+    const row = p.artworks as Parameters<typeof rowToArtwork>[0] | null
+    if (!row) continue
+    const list = byGallery.get(p.gallery_id) ?? []
+    list.push(row)
+    byGallery.set(p.gallery_id, list)
+  }
+
+  return named.map((g): FeedItem => {
+    const ownerName = g.profiles!.display_name || g.profiles!.username || ''
+    const artworkRows = byGallery.get(g.id) ?? []
+    const coverRow = artworkRows.find((r) => r.id === g.cover_artwork_id) ?? artworkRows[0]
+    const cover = coverRow ? rowToArtwork(coverRow, ownerName) : null
+    return {
+      username: g.profiles!.username!,
+      ownerName,
+      ownerAvatar: g.profiles!.avatar_url ?? null,
+      slug: g.slug,
+      title: g.title,
+      cover: cover ? (cover.kind === 'video' ? cover.poster ?? null : cover.src ?? null) : null,
+      workCount: artworkRows.length,
+    }
+  })
+}
+
+/** Resolve a curated list of (username, slug) refs to FeedItems, in the given
+ *  order, keeping only the ones that are still public. Powers the Explore
+ *  spotlight (企画展 / 特集). Refs whose gallery is unpublished or deleted just
+ *  drop out, so a stale curation degrades gracefully rather than 404-ing. */
+export async function fetchSpotlightGalleries(refs: { username: string; slug: string }[]): Promise<FeedItem[]> {
+  if (!supabase || refs.length === 0) return []
+  try {
+    const usernames = [...new Set(refs.map((r) => r.username.toLowerCase()))]
+    // !inner so we can filter on the embedded profile's username
+    const { data, error } = await supabase
+      .from('galleries')
+      .select('id, slug, title, cover_artwork_id, profiles!inner (username, display_name, avatar_url)')
+      .eq('is_public', true)
+      .in('profiles.username', usernames)
+    if (error || !data) return []
+
+    const rows = (data as unknown as FeedGalleryRow[]).filter((g) => g.profiles?.username)
+    const items = await buildFeedItems(rows)
+    // Re-order to match the curation, matching on (username, slug)
+    const key = (u: string, s: string) => `${u.toLowerCase()}/${s}`
+    const byKey = new Map(items.map((it) => [key(it.username, it.slug), it]))
+    const seen = new Set<string>()
+    const ordered: FeedItem[] = []
+    for (const r of refs) {
+      const k = key(r.username, r.slug)
+      const hit = byKey.get(k)
+      if (hit && !seen.has(k)) {
+        ordered.push(hit)
+        seen.add(k)
+      }
+    }
+    return ordered
+  } catch (e) {
+    console.error('fetchSpotlightGalleries failed:', e)
+    return []
   }
 }

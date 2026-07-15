@@ -1,17 +1,20 @@
 'use client'
 // The tap-through from anything locked — a theme/layout chip, a full room, or
 // Design Tools (REQUIREMENTS.md §11.5/§11.8's "tapping lets you choose a
-// single purchase or the Collection"). No Stripe yet — this is an honest
-// preview of the flow: real pricing, a real choice where one exists, but the
-// final action says so plainly rather than faking a purchase.
+// single purchase or the Collection"). With an `intent`, the CTA starts a real
+// Stripe Checkout via /api/checkout; while billing isn't configured (or no
+// intent is given) it falls back to the same honest "not live yet" note as
+// before rather than faking a purchase.
 import { useEffect, useState } from 'react'
 import type { PurchaseOption } from '@/lib/pricing'
+import { startCheckout, type PurchaseIntent } from '@/lib/checkout'
 
 export default function PurchaseModal({
   itemLabel,
   eyebrow,
   preview,
   options,
+  intent,
   previewNote = 'This is a preview of how buying a theme or layout will work.',
   onClose,
 }: {
@@ -20,12 +23,16 @@ export default function PurchaseModal({
   eyebrow?: string
   preview?: React.ReactNode
   options: PurchaseOption[]
+  /** What checkout should buy — omit to keep the modal preview-only */
+  intent?: PurchaseIntent
   /** Footer copy while the CTA is untried — override for non-theme/layout purchases */
   previewNote?: string
   onClose: () => void
 }) {
   const [selected, setSelected] = useState(options[0]?.key ?? '')
   const [tried, setTried] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -34,6 +41,27 @@ export default function PurchaseModal({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  async function onCta() {
+    if (!intent) {
+      setTried(true)
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const start = await startCheckout(intent, selected)
+      if (start.kind === 'redirect') {
+        window.location.assign(start.url)
+        return // keep the button disabled while the browser navigates
+      }
+      setTried(true) // billing not configured / signed out — honest note, not a fake buy
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Checkout failed — please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="purchase-backdrop" onClick={onClose}>
@@ -74,10 +102,14 @@ export default function PurchaseModal({
           </p>
         ) : (
           <>
-            <button className="purchase-cta" onClick={() => setTried(true)}>
-              Continue to checkout
+            <button className="purchase-cta" onClick={() => void onCta()} disabled={busy}>
+              {busy ? 'Opening checkout…' : 'Continue to checkout'}
             </button>
-            <p className="purchase-note">{previewNote}</p>
+            {error ? (
+              <p className="purchase-note purchase-note-active">{error}</p>
+            ) : (
+              <p className="purchase-note">{previewNote}</p>
+            )}
           </>
         )}
       </div>

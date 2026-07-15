@@ -15,20 +15,26 @@ const GalleryApp = dynamic(() => import('@/components/gallery/GalleryApp'), {
   loading: () => null,
 })
 
-export default function VisitorGallery({ exhibition }: { exhibition: PublicExhibition }) {
+export default function VisitorGallery({
+  exhibition,
+  embed = false,
+}: {
+  exhibition: PublicExhibition
+  embed?: boolean
+}) {
   const [armed, setArmed] = useState(false)
   const [shellUp, setShellUp] = useState(false)
 
   useEffect(() => {
     document.body.classList.add('gallery-mode')
-    useGallery.setState({ visitor: exhibition })
+    useGallery.setState({ visitor: exhibition, embed })
     recordVisit(exhibition.galleryId) // analytics: one count per tab session
     setArmed(true)
     return () => {
       document.body.classList.remove('gallery-mode')
-      useGallery.setState({ visitor: null })
+      useGallery.setState({ visitor: null, embed: false })
     }
-  }, [exhibition])
+  }, [exhibition, embed])
 
   return (
     <>

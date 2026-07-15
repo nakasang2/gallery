@@ -20,6 +20,9 @@
    - `0016_purchases.sql` — 購入台帳(entitlementsの読み取り元。書き込みは将来のStripe webhookのみ)
    - `0017_admin.sql` — 管理者ロール(`admins`表・`is_admin()`)+ 管理者の横断read + 売上金額列
    - `0018_site_config.sql` — サイト設定(公開read/admin write)。LPヒーロー表示作品の管理画面設定に使用
+   - `0019_checkout.sql` — Stripe決済対応(purchases.kind拡張 + キャパ加算RPC。RPCはservice roleのみ実行可)
+   - `0020_articles.sql` — 記事/ガイド(公開read/admin write RLS)。`/articles`と`/admin`の記事エディタが使用
+   - `0021_artwork_audio.sql` — 作品ごと音声ガイド(`artworks.audio_url`。鑑賞パネルの再生ボタン・ツアー自動再生)
 3. 「Success. No rows returned」が出れば完了
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、
@@ -83,13 +86,34 @@ select id, 'founder' from auth.users where email = 'あなたのメール@exampl
 セッションは何も読めない(クライアント側の判定は表示用)。クライアントから自分を管理者に
 昇格する経路は用意していない(`admins`にinsertポリシーなし。登録はSQL Editor / service roleのみ)。
 
-- **総課金額**は決済未接続のあいだ ¥0 のまま。将来 Stripe webhook が `purchases` に
-  `sku` / `amount_jpy` を記録すれば自動で集計される(下地は 0017 で用意済み)。
+- **総課金額**は決済未接続のあいだ ¥0 のまま。Stripe webhook が `purchases` に
+  `sku` / `amount_jpy` を記録すれば自動で集計される(webhook実装済み — §5参照)。
 - ユーザーのメールアドレスは `auth.users` にあり anon キーでは読めないため、管理画面には出さない
   (必要なら Authentication ダッシュボードで確認)。
 - **LPヒーロー表示作品**: `0018` 適用後、`/admin` の「Landing page hero」から中央/左/右の3枠に
   画像をアップロードして差し替えられる(PC/モバイル共通)。未設定の枠は内蔵のデモ作品にフォールバック。
   画像は `artworks` バケットの管理者フォルダに保存され、LPは公開URLをテクスチャとして読み込む。
+
+## 5. Stripe 決済を有効化する(任意 — 未設定でもアプリは壊れない)
+
+コードは実装済み(`app/api/checkout` / `app/api/stripe/webhook`)。**環境変数を設定した時だけ有効**になり、
+未設定のあいだ購入ボタンは従来どおり「Checkout isn't live yet」の正直表示にフォールバックする。
+
+1. `0019_checkout.sql` を適用する(kind拡張 + `record_capacity_purchase` RPC)
+2. [Stripe Dashboard](https://dashboard.stripe.com/apikeys) で Secret key を取得 → サーバー環境変数
+   `STRIPE_SECRET_KEY` に設定(Vercelなら Project → Settings → Environment Variables)
+3. [Webhooks](https://dashboard.stripe.com/webhooks) で endpoint `https://本番ドメイン/api/stripe/webhook` を作成し、
+   イベント `checkout.session.completed` を購読 → Signing secret を `STRIPE_WEBHOOK_SECRET` に設定
+4. Supabase の **service_role キー**を `SUPABASE_SERVICE_ROLE_KEY` に設定(webhookが台帳へ書くため。
+   サーバー環境変数のみ・`NEXT_PUBLIC_` を付けないこと)
+5. (推奨)`NEXT_PUBLIC_SITE_URL` に本番URLを設定(決済完了後のリダイレクト先の明示)
+
+ローカル検証: `stripe listen --forward-to localhost:3000/api/stripe/webhook`(Stripe CLI)で
+テストモードのイベントを転送し、テストカード `4242 4242 4242 4242` で購入する。
+
+現在購入可能なSKU: キャパ+5(¥580)・テーマ/レイアウト単品(¥400)・Theme Collection(¥2,480)・
+Design Tools(¥1,480)。Video Pass(サブスク)と「展示室を追加」は未配線のため意図的に販売対象外
+(`app/api/checkout/route.ts` の `ONE_TIME_SKUS`)。
 
 ## 補足
 

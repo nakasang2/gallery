@@ -47,6 +47,7 @@ import {
   uploadArtwork,
   uploadAvatar,
   uploadLogo,
+  uploadArtworkAudio,
   deleteArtwork,
   updateArtworkDetails,
   artworkPlacementCount,
@@ -318,6 +319,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [detailsState, setDetailsState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const detailsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copied, setCopied] = useState(false)
+  const [embedCopied, setEmbedCopied] = useState(false)
+  const [showEmbed, setShowEmbed] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
   const [uploading, setUploading] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -398,6 +401,12 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   // The shareable URL is just /@name while the plan allows one hakoniwa
   // (the slug mechanism stays in the DB for the multi-gallery future)
   const publicUrl = typeof window !== 'undefined' && username ? `${location.origin}/@${username}` : ''
+  // Embeddable iframe: ?embed=1 trims the HUD to a back-link and opens outbound
+  // links in a new tab. 16:10 keeps the walk usable in a blog's content column.
+  const embedSrc = publicUrl ? `${publicUrl}?embed=1` : ''
+  const embedCode = embedSrc
+    ? `<iframe src="${embedSrc}" width="100%" height="600" style="border:0;border-radius:12px;aspect-ratio:16/10;max-width:100%" allowfullscreen loading="lazy" title="HAKONIWA — ${(isPlaceholderTitle(row.title) ? 'gallery' : row.title).replace(/"/g, '&quot;')}"></iframe>`
+    : ''
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(true)
@@ -557,6 +566,27 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
+  // Audio guide is a file, so it uploads immediately (separate from the text "Save plate").
+  // We re-affirm the saved title/caption/purchase so this write only changes audio_url.
+  async function setWorkAudio(file: File | null) {
+    if (!selected) return
+    setBusy(true)
+    try {
+      const audioUrl = file ? await uploadArtworkAudio(user.id, selected.id, file) : null
+      await updateArtworkDetails(selected.id, {
+        title: selected.title,
+        description: selected.desc ?? '',
+        purchaseUrl: selected.purchaseUrl,
+        audioUrl,
+      })
+      await refreshCloud()
+    } catch (e) {
+      alert(`Could not update the audio guide: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const themeDef = THEMES[row.theme] ?? THEMES.chic
 
   return (
@@ -656,7 +686,36 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             {copied ? 'Copied' : 'Copy URL'}
           </button>
         )}
+        {row.is_public && embedCode && (
+          <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
+            {showEmbed ? 'Hide embed' : 'Embed'}
+          </button>
+        )}
+        {row.is_public && username && (
+          <a className="btn-line" href={`/@${username}/${row.slug}/catalog`} target="_blank" rel="noreferrer">
+            Catalog (PDF)
+          </a>
+        )}
       </div>
+      {row.is_public && embedCode && showEmbed && (
+        <div className="embed-panel">
+          <p className="me-note" style={{ marginTop: 0 }}>
+            Paste this where you want the walkable gallery to appear — a blog post, a portfolio site, a Notion page.
+          </p>
+          <code className="embed-code">{embedCode}</code>
+          <button
+            className="btn-line btn-gold"
+            onClick={() => {
+              void navigator.clipboard.writeText(embedCode).then(() => {
+                setEmbedCopied(true)
+                setTimeout(() => setEmbedCopied(false), 1600)
+              })
+            }}
+          >
+            {embedCopied ? 'Copied' : 'Copy embed code'}
+          </button>
+        </div>
+      )}
       {/* Quiet row for rare / destructive housekeeping — not peers of the actions above */}
       <div className="hako-secondary">
         <button
@@ -1016,6 +1075,40 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 >
                   {workSaved ? 'Saved' : 'Save plate'}
                 </button>
+
+                {/* Audio guide: auto-reads the caption aloud (free, no recording); an
+                    uploaded file overrides that with your own narration. Auto-plays on the tour. */}
+                <div className="wd-audio">
+                  <span className="wd-audio-label">
+                    Audio guide{' '}
+                    {selected.audioUrl
+                      ? '· your recording'
+                      : (selected.desc ?? '').trim()
+                        ? '· reads the caption'
+                        : '· add a caption to enable'}
+                  </span>
+                  <div className="wd-audio-actions">
+                    <label className="btn-line wd-audio-upload" aria-disabled={busy}>
+                      {selected.audioUrl ? 'Replace' : 'Upload recording'}
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        hidden
+                        disabled={busy}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          e.target.value = '' // allow re-selecting the same file
+                          if (f) void setWorkAudio(f)
+                        }}
+                      />
+                    </label>
+                    {selected.audioUrl && (
+                      <button className="btn-line danger" disabled={busy} onClick={() => void setWorkAudio(null)}>
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <WorkDesign
@@ -1079,6 +1172,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 ? 'This is a preview of how unlocking Design Tools will work.'
                 : undefined
           }
+          intent={{
+            kind: purchaseItem.kind,
+            itemKey: purchaseItem.kind === 'theme' || purchaseItem.kind === 'layout' ? purchaseItem.key : '',
+            galleryId: purchaseItem.kind === 'capacity' ? row.id : undefined,
+          }}
           onClose={() => setPurchaseItem(null)}
         />
       )}
@@ -1391,11 +1489,21 @@ export default function MePage() {
   const [galleries, setGalleries] = useState<GalleryRow[] | null>(null)
   const [loadErr, setLoadErr] = useState('')
   const [usage, setUsage] = useState<number | null>(null)
+  // Set when Stripe Checkout sent the user back here (?purchase=success|cancelled)
+  const [purchaseReturn, setPurchaseReturn] = useState<'success' | 'cancelled' | null>(null)
 
   useEffect(() => {
     hydrate() // frameOverrides etc. from this browser feed placement rebuilds
     initAuth()
     supabase?.auth.getSession().then(() => setChecked(true))
+    // Checkout return: show the banner once and strip the param so a reload
+    // doesn't re-announce an old purchase
+    const params = new URLSearchParams(window.location.search)
+    const purchase = params.get('purchase')
+    if (purchase === 'success' || purchase === 'cancelled') {
+      setPurchaseReturn(purchase)
+      window.history.replaceState(null, '', '/me')
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1419,6 +1527,15 @@ export default function MePage() {
   useEffect(() => {
     void reload()
   }, [reload])
+
+  // The webhook (not the redirect) is what grants the purchase, and it can land
+  // a few seconds after the buyer returns — refetch once more shortly after so
+  // the new capacity/ownership shows up without a manual refresh
+  useEffect(() => {
+    if (purchaseReturn !== 'success') return
+    const timer = setTimeout(() => void reload(), 4000)
+    return () => clearTimeout(timer)
+  }, [purchaseReturn, reload])
 
   if (!supabase) {
     return (
@@ -1460,6 +1577,16 @@ export default function MePage() {
         {user && (
           <>
             <Hero />
+            {purchaseReturn && (
+              <div className={`me-card purchase-return${purchaseReturn === 'success' ? ' ok' : ''}`} role="status">
+                <p className="me-note" style={{ margin: 0 }}>
+                  {purchaseReturn === 'success'
+                    ? 'Payment received — your upgrade unlocks in a few seconds. If it doesn’t appear, refresh this page.'
+                    : 'Checkout cancelled — nothing was charged.'}
+                </p>
+                <button className="btn-line" onClick={() => setPurchaseReturn(null)}>Dismiss</button>
+              </div>
+            )}
             <nav className="me-tabs" aria-label="Dashboard sections">
               {ME_TABS.map(([key, label]) => (
                 <button

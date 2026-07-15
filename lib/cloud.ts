@@ -17,6 +17,7 @@ interface ArtworkRow {
   created_at: string
   kind?: 'image' | 'video'
   purchase_url?: string | null
+  audio_url?: string | null
 }
 
 function publicUrl(path: string): string {
@@ -37,6 +38,7 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
     src: publicUrl(`${row.storage_path}/${video ? 'video' : 'display.jpg'}`),
     poster: video ? publicUrl(`${row.storage_path}/thumb.jpg`) : undefined,
     purchaseUrl: row.purchase_url ?? undefined,
+    audioUrl: row.audio_url ?? undefined,
   }
 }
 
@@ -189,18 +191,27 @@ export async function uploadVideoArtwork(params: {
  *  placements join artworks live */
 export async function updateArtworkDetails(
   artworkId: string,
-  fields: { title: string; description: string; purchaseUrl?: string }
+  fields: { title: string; description: string; purchaseUrl?: string; audioUrl?: string | null }
 ): Promise<void> {
   const update: Record<string, unknown> = {
     title: fields.title.trim() || 'Untitled',
     description: fields.description.trim(),
   }
   if (fields.purchaseUrl !== undefined) update.purchase_url = fields.purchaseUrl.trim() || null
+  if (fields.audioUrl !== undefined) update.audio_url = fields.audioUrl || null
   let { error } = await supabase!.from('artworks').update(update).eq('id', artworkId)
-  if (error && (error.code === 'PGRST204' || error.code === '42703' || /purchase_url/.test(error.message ?? ''))) {
-    // 0015 not applied — title/caption must still save
-    delete update.purchase_url
+  // 0015 (purchase_url) / 0021 (audio_url) not applied — title/caption must still save.
+  // Drop whichever optional column the error names and retry until it lands.
+  while (error && (error.code === 'PGRST204' || error.code === '42703' || /purchase_url|audio_url/.test(error.message ?? ''))) {
+    if (/audio_url/.test(error.message ?? '') && 'audio_url' in update) delete update.audio_url
+    else if (/purchase_url/.test(error.message ?? '') && 'purchase_url' in update) delete update.purchase_url
+    else {
+      // Generic schema-cache miss without a column name — drop both optional cols
+      delete update.audio_url
+      delete update.purchase_url
+    }
     ;({ error } = await supabase!.from('artworks').update(update).eq('id', artworkId))
+    if (!('audio_url' in update) && !('purchase_url' in update)) break
   }
   if (error) throw error
 }
@@ -231,6 +242,27 @@ export async function uploadAvatar(ownerId: string, file: File): Promise<string>
   const { error } = await sb.from('profiles').update({ avatar_url: url }).eq('id', ownerId)
   if (error) throw error
   return url
+}
+
+/** Cap on an audio-guide file. Guides are short narration, not music. */
+export const AUDIO_GUIDE_MAX_BYTES = 15 * 1024 * 1024
+
+/** Upload a per-work audio guide ({uid}/{artworkId}/guide) and return its URL.
+ *  Like uploadLogo it only touches storage; the caller saves the URL onto the
+ *  artwork via updateArtworkDetails. The raw file is stored as-is (no re-encode). */
+export async function uploadArtworkAudio(ownerId: string, artworkId: string, file: File): Promise<string> {
+  if (file.size > AUDIO_GUIDE_MAX_BYTES) {
+    throw new Error(`Audio guides are limited to ${Math.floor(AUDIO_GUIDE_MAX_BYTES / 1024 / 1024)}MB.`)
+  }
+  await assertQuota(ownerId, file.size)
+  const sb = supabase!
+  const path = `${ownerId}/${artworkId}/guide`
+  const up = await sb.storage.from('artworks').upload(path, file, {
+    contentType: file.type || 'audio/mpeg',
+    upsert: true,
+  })
+  if (up.error) throw up.error
+  return `${publicUrl(path)}?v=${Date.now()}` // cache-bust so a replaced guide plays immediately
 }
 
 /** Upload a Design Tools logo/branding mark ({uid}/{galleryId}-logo.jpg) and

@@ -41,12 +41,15 @@ export async function generateMetadata({
 
 export default async function PublicGalleryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ handle: string; slug: string }>
+  searchParams: Promise<{ embed?: string }>
 }) {
   const p = await resolveParams(params)
   if (!p) notFound()
   const ex = await fetchPublicExhibition(p.username, p.slug)
   if (!ex) notFound()
-  return <VisitorGallery exhibition={ex} />
+  const { embed } = await searchParams
+  return <VisitorGallery exhibition={ex} embed={embed === '1'} />
 }

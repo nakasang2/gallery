@@ -7,6 +7,7 @@ import { isPlaceholderTitle } from '@/lib/publish'
 import { useExhibitionList } from '@/lib/exhibition'
 import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
+import { audioGuide } from '@/lib/guide'
 import SnsLinks from '@/components/SnsLinks'
 
 export function HudTop() {
@@ -14,6 +15,31 @@ export function HudTop() {
   const user = useGallery((s) => s.user)
   const myGallery = useGallery((s) => s.myGallery)
   const ownerName = useGallery((s) => s.profileDisplayName)
+  const embed = useGallery((s) => s.embed)
+
+  // Embedded on a third-party site: the surrounding page already gives context,
+  // so trim to the room title + one back-link to the full show (a new tab —
+  // navigating the iframe would trap the visitor). This link doubles as the
+  // growth-loop backlink every embed carries.
+  if (visitor && embed) {
+    const untitled = isPlaceholderTitle(visitor.title)
+    return (
+      <header className="hud-top">
+        <div className="hud-identity">
+          <span className="hud-identity-main">{untitled ? visitor.ownerName : visitor.title}</span>
+          <span className="hud-identity-sub">{!untitled && `${visitor.ownerName} · `}HAKONIWA</span>
+        </div>
+        <a
+          className="hud-signup-cta"
+          href={`/@${visitor.username}/${visitor.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open ↗
+        </a>
+      </header>
+    )
+  }
 
   // Visiting someone's actual gallery: lead with THEIR name/room, not the house
   // brand, and dedicate the opposite corner to a sign-up funnel — every visitor
@@ -101,7 +127,9 @@ export function HudActions() {
         title={audioOn ? 'Ambience on' : 'Ambience off'}
         onClick={() => {
           galleryAudio.unlock()
-          setAudioOn(galleryAudio.toggle())
+          const on = galleryAudio.toggle()
+          setAudioOn(on)
+          if (!on) audioGuide.stop() // one mute silences the narration too
         }}
       >
         ♪

@@ -19,6 +19,11 @@ export interface WalkAPI {
 
 export const walkRef: { current: WalkAPI | null } = { current: null }
 
+// The WebGL canvas element, published in the Canvas onCreated. Used by the
+// walkthrough recorder (lib/recorder) to captureStream() the live render.
+// A shared ref (not React state) since the recorder is imperative.
+export const canvasRef: { current: HTMLCanvasElement | null } = { current: null }
+
 // Camera pose for the minimap — written every frame by WalkControls, read via rAF
 // (a shared ref keeps this off React's re-render path)
 export const camPose = { x: 0, z: 0, yaw: 0 }

@@ -3,6 +3,8 @@ import './landing.css'
 import './gallery.css'
 import './auth.css'
 import './me.css'
+import './catalog.css'
+import './articles.css'
 
 export const metadata: Metadata = {
   title: 'HAKONIWA — Your work, given space.',

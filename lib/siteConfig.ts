@@ -1,7 +1,8 @@
 // Site-wide config (migration 0018). Currently: which images the landing-page hero
-// shows. The admin console writes it; the public LP reads it (anon key, world-readable
-// row). One setting → PC and mobile both, since both just read this.
-import { useEffect, useState } from 'react'
+// shows, and the Explore spotlight. The admin console writes it; the public pages
+// read it (anon key, world-readable row). Hook-free on purpose so server components
+// (e.g. /explore) can import the fetchers — the one hook (useLpHero) lives in its
+// only consumer, components/landing/HeroScene.
 import { supabase } from './supabase'
 
 export interface LpHeroImage {
@@ -53,17 +54,67 @@ export async function saveLpHero(slots: LpHeroSlot[]): Promise<void> {
   if (error) throw error
 }
 
-/** LP hook: the configured hero images (null per slot = fall back to the demo art). */
-export function useLpHero(): LpHeroSlot[] {
-  const [slots, setSlots] = useState<LpHeroSlot[]>(() => normalize(null))
-  useEffect(() => {
-    let alive = true
-    fetchLpHero()
-      .then((s) => alive && setSlots(s))
-      .catch(() => {})
-    return () => {
-      alive = false
-    }
-  }, [])
-  return slots
+// ---- Explore spotlight (企画展 / 特集) — a curated row on /explore, admin-managed ----
+
+// NOTE: the LP hero hook `useLpHero` intentionally lives in HeroScene.tsx (its
+// only caller) so this module stays hook-free and server-importable.
+
+export interface SpotlightRef {
+  username: string
+  slug: string
+}
+export interface SpotlightConfig {
+  /** Section heading, e.g. "Summer Show" / "#夏の箱庭展" — empty hides the whole section */
+  title: string
+  /** One line under the heading */
+  subtitle: string
+  /** Curated galleries, in display order */
+  items: SpotlightRef[]
+}
+
+export const EMPTY_SPOTLIGHT: SpotlightConfig = { title: '', subtitle: '', items: [] }
+/** Keep the curation small and skimmable */
+export const SPOTLIGHT_MAX = 6
+
+function normalizeSpotlight(value: unknown): SpotlightConfig {
+  const v = value as Partial<SpotlightConfig> | null
+  const items: SpotlightRef[] = Array.isArray(v?.items)
+    ? (v!.items as unknown[])
+        .map((r) => {
+          const o = r as Partial<SpotlightRef>
+          return typeof o?.username === 'string' && typeof o?.slug === 'string'
+            ? { username: o.username, slug: o.slug }
+            : null
+        })
+        .filter((r): r is SpotlightRef => r !== null)
+        .slice(0, SPOTLIGHT_MAX)
+    : []
+  return {
+    title: typeof v?.title === 'string' ? v.title : '',
+    subtitle: typeof v?.subtitle === 'string' ? v.subtitle : '',
+    items,
+  }
+}
+
+export async function fetchSpotlight(): Promise<SpotlightConfig> {
+  if (!supabase) return EMPTY_SPOTLIGHT
+  try {
+    const { data, error } = await supabase
+      .from('site_config')
+      .select('value')
+      .eq('key', 'explore_spotlight')
+      .maybeSingle()
+    if (error || !data) return EMPTY_SPOTLIGHT // 0018 not applied / unset
+    return normalizeSpotlight(data.value)
+  } catch {
+    return EMPTY_SPOTLIGHT
+  }
+}
+
+export async function saveSpotlight(cfg: SpotlightConfig): Promise<void> {
+  const clean = normalizeSpotlight(cfg)
+  const { error } = await supabase!
+    .from('site_config')
+    .upsert({ key: 'explore_spotlight', value: clean, updated_at: new Date().toISOString() })
+  if (error) throw error
 }
