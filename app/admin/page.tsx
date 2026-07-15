@@ -97,7 +97,7 @@ export default function AdminPage() {
         {err && <p className="me-error">{err}</p>}
         {!data && !err && <p className="me-note">Loading…</p>}
 
-        {data && <AdminDashboard data={data} />}
+        {data && <AdminDashboard data={data} onReload={load} />}
 
         {isAdmin && <ArticlesEditor />}
         {isAdmin && <SpotlightEditor />}

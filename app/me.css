@@ -104,6 +104,48 @@
   padding: 1.5rem 1.6rem;
 }
 
+/* Admin: entitlement chips (owned packages) + grant control */
+.ent-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: 0.72rem;
+  padding: 0.15em 0.2em 0.15em 0.6em;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  white-space: nowrap;
+}
+.ent-chip-x {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0 0.3em;
+  border-radius: 100px;
+}
+.ent-chip-x:hover:not(:disabled) { color: #f0847c; }
+.ent-chip-x:disabled { opacity: 0.4; cursor: default; }
+.ent-grant {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0 0.4rem;
+}
+.ent-grant-label { font-size: 0.78rem; color: var(--muted); }
+.ent-select {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.05);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.45em 0.7em;
+}
+
 /* Embed code panel (dashboard → public gallery → Embed) */
 .embed-panel {
   margin-top: 0.9rem;
