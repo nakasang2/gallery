@@ -486,6 +486,21 @@
 }
 .works-add:hover { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.05); }
 
+/* Empty capacity slots — passive placeholders so the full room (e.g. 2 / 5) is visible */
+.works-cell--empty {
+  flex: 0 0 130px;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--hairline);
+  border-radius: 8px;
+  color: var(--muted);
+  opacity: 0.5;
+}
+.works-empty-mark { font-size: 1.2rem; }
+@media (max-width: 640px) { .works-cell--empty { flex-basis: 108px; } }
+
 /* 詳細: プレビュー左 / 設定右。全幅なので余裕を持って2カラム */
 .works-detail {
   display: grid;

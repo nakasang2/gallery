@@ -836,7 +836,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               <span className="works-legend">Select a work · ★ cover · × remove</span>
             )}
           </div>
-          {/* Filmstrip: the 10 slots as a horizontal, scrollable rail */}
+          {/* Filmstrip: the room's slots as a horizontal, scrollable rail — filled
+              works, then the upload tile, then empty slots up to the cap so the whole
+              room's capacity is visible (§11.13) rather than looking like it ends early. */}
           <div className="works-strip">
             {cloudArtworks.map((art) => (
               <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
@@ -876,6 +878,13 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 />
               </label>
             )}
+            {/* Remaining capacity as empty slots, so "2 / 5" actually shows five cells.
+                One upload tile above already covers the first open slot; these are the rest. */}
+            {Array.from({ length: Math.max(0, row.work_cap - cloudArtworks.length - 1) }).map((_, i) => (
+              <div className="works-cell works-cell--empty" key={`empty-${i}`} aria-hidden="true">
+                <span className="works-empty-mark">◇</span>
+              </div>
+            ))}
           </div>
         </>
       )}
