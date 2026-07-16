@@ -63,6 +63,8 @@ export interface PublicExhibition {
   /** Manual slot placement (§11.13): arrangement[slotIndex] = artworkId | null,
    *  rebuilt from the placements' slot_index so visitors see the owner's layout */
   arrangement: (string | null)[]
+  /** Cumulative visit count (§11.19) — drives the ambient past-visitor silhouettes */
+  visitCount: number
   artworks: ArtworkData[]
 }
 
@@ -324,6 +326,16 @@ async function fetchPublicExhibitionInner(
   // Array holes (JS leaves them `undefined`) normalise to intentionally-empty slots.
   for (let i = 0; i < arrangement.length; i++) if (arrangement[i] == null) arrangement[i] = null
 
+  // Cumulative visits for the ambient presence (§11.19). Aggregate-only RPC; fail soft
+  // to 0 (older DBs without 0024 just show an empty room, which is fine).
+  let visitCount = 0
+  try {
+    const { data: vc } = await supabase!.rpc('public_visit_count', { p_gallery: gallery.id })
+    if (typeof vc === 'number' && Number.isFinite(vc)) visitCount = vc
+  } catch {
+    /* non-fatal */
+  }
+
   return {
     galleryId: gallery.id,
     title: gallery.title,
@@ -346,6 +358,7 @@ async function fetchPublicExhibitionInner(
     workCap: gallery.work_cap ?? PLAN.worksPerGallery,
     designOverrides: normalizeDesignOverrides(gallery.design_overrides),
     arrangement,
+    visitCount,
     frameOverrides,
     matOverrides,
     hangingOverrides,
