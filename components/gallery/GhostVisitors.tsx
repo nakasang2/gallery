@@ -86,6 +86,7 @@ function Ghost({
 }) {
   const camera = useThree((s) => s.camera)
   const root = useRef<THREE.Group>(null)
+  const upper = useRef<THREE.Group>(null)
   const legL = useRef<THREE.Group>(null)
   const legR = useRef<THREE.Group>(null)
   const armL = useRef<THREE.Group>(null)
@@ -118,7 +119,9 @@ function Ghost({
       tz: t.z,
       tface: t.face,
       face: Math.random() * Math.PI * 2,
-      pause: Math.random() * 3,
+      // Start walking (not dwelling), so the first thing they do is head to a piece —
+      // avoids a spawn frame where they'd face a target they aren't standing at yet.
+      pause: 0,
       phase: Math.random() * Math.PI * 2,
       speed: 0.5 + Math.random() * 0.3,
     }
@@ -131,18 +134,22 @@ function Ghost({
     const dt = Math.min(delta, 0.05)
     let moving = false
     if (s.pause > 0) {
+      // Dwelling in front of the piece it just reached — turn to face THAT art (tface is
+      // still the arrived target's heading) and hold, then pick the next spot when done.
       s.pause -= dt
       if (s.tface != null) s.face += shortAngle(s.tface - s.face) * Math.min(1, dt * 3)
+      if (s.pause <= 0) {
+        const nt = pickTarget(layout, solids)
+        s.tx = nt.x
+        s.tz = nt.z
+        s.tface = nt.face
+      }
     } else {
       const dx = s.tx - s.x
       const dz = s.tz - s.z
       const dist = Math.hypot(dx, dz)
       if (dist < 0.25) {
-        s.pause = 3 + Math.random() * 5 // dwell in front of the piece
-        const nt = pickTarget(layout, solids)
-        s.tx = nt.x
-        s.tz = nt.z
-        s.tface = nt.face
+        s.pause = 3 + Math.random() * 5 // arrived — stop and look at this piece
       } else {
         moving = true
         const step = Math.min(dist, s.speed * dt)
@@ -156,6 +163,12 @@ function Ghost({
     g.rotation.y = s.face
     // Gait: legs swing opposite each other, arms counter to the legs; limbs ease to rest
     // when standing.
+    // Lean the upper body toward the piece while dwelling in front of it — the readable
+    // "stopped to look at the art" cue (the figure is otherwise near front/back symmetric).
+    if (upper.current) {
+      const lean = s.pause > 0 && s.tface != null ? 0.16 : 0
+      upper.current.rotation.x += (lean - upper.current.rotation.x) * Math.min(1, dt * 3)
+    }
     const legSwing = moving ? Math.sin(s.phase) * 0.5 : 0
     const armSwing = moving ? Math.sin(s.phase) * 0.38 : 0
     if (legL.current) legL.current.rotation.x = legSwing
@@ -184,25 +197,29 @@ function Ghost({
           <cylinderGeometry args={[0.075, 0.06, 0.8, 6]} />
         </mesh>
       </group>
-      {/* torso */}
-      <mesh position={[0, 1.08, 0]} material={mat}>
-        <boxGeometry args={[0.34, 0.56, 0.19]} />
-      </mesh>
-      {/* arms (pivot at shoulder) */}
-      <group ref={armL} position={[-0.21, 1.32, 0]}>
-        <mesh position={[0, -0.28, 0]} material={mat}>
-          <cylinderGeometry args={[0.05, 0.045, 0.58, 6]} />
+      {/* upper body — pivots at the hips so it can lean toward the art. Children are
+          rebased by -0.85 in y so their world heights are unchanged. */}
+      <group ref={upper} position={[0, 0.85, 0]}>
+        {/* torso */}
+        <mesh position={[0, 0.23, 0]} material={mat}>
+          <boxGeometry args={[0.34, 0.56, 0.19]} />
+        </mesh>
+        {/* arms (pivot at shoulder) */}
+        <group ref={armL} position={[-0.21, 0.47, 0]}>
+          <mesh position={[0, -0.28, 0]} material={mat}>
+            <cylinderGeometry args={[0.05, 0.045, 0.58, 6]} />
+          </mesh>
+        </group>
+        <group ref={armR} position={[0.21, 0.47, 0]}>
+          <mesh position={[0, -0.28, 0]} material={mat}>
+            <cylinderGeometry args={[0.05, 0.045, 0.58, 6]} />
+          </mesh>
+        </group>
+        {/* head — nudged forward so the figure reads as having a front (a facing) */}
+        <mesh position={[0, 0.71, 0.04]} material={mat}>
+          <sphereGeometry args={[0.12, 12, 10]} />
         </mesh>
       </group>
-      <group ref={armR} position={[0.21, 1.32, 0]}>
-        <mesh position={[0, -0.28, 0]} material={mat}>
-          <cylinderGeometry args={[0.05, 0.045, 0.58, 6]} />
-        </mesh>
-      </group>
-      {/* head */}
-      <mesh position={[0, 1.56, 0]} material={mat}>
-        <sphereGeometry args={[0.12, 12, 10]} />
-      </mesh>
     </group>
   )
 }
