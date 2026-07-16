@@ -825,20 +825,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             <span className="works-count">
               {cloudArtworks.length} / {row.work_cap} works
             </span>
-            {cloudArtworks.length >= row.work_cap ? (
-              <button
-                className="works-upsell"
-                onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
-              >
-                🔒 Room is full — get {CAPACITY_ADDON_SIZE} more slots
-              </button>
-            ) : (
-              <span className="works-legend">Select a work · ★ cover · × remove</span>
-            )}
+            <span className="works-legend">Select a work · ★ cover · × remove</span>
           </div>
-          {/* Filmstrip: the room's slots as a horizontal, scrollable rail — filled
-              works, then the upload tile, then empty slots up to the cap so the whole
-              room's capacity is visible (§11.13) rather than looking like it ends early. */}
+          {/* Filmstrip: the room's slots as a horizontal, scrollable rail — filled works,
+              then one upload tile per remaining open slot (so all work_cap slots are
+              fillable), then a distinct paid "add slots" tile beyond the cap. */}
           <div className="works-strip">
             {cloudArtworks.map((art) => (
               <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
@@ -861,9 +852,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 </button>
               </figure>
             ))}
-            {/* The add tile lives at the end of the strip */}
-            {cloudArtworks.length < row.work_cap && (
-              <label className="works-add" aria-disabled={uploading} title="Upload images">
+            {/* One upload tile per open slot — every one of the room's slots is fillable */}
+            {Array.from({ length: Math.max(0, row.work_cap - cloudArtworks.length) }).map((_, i) => (
+              <label className="works-add" key={`add-${i}`} aria-disabled={uploading} title="Upload a work">
                 <span aria-hidden="true">{uploading ? '…' : '+'}</span>
                 <input
                   type="file"
@@ -877,14 +868,18 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   }}
                 />
               </label>
-            )}
-            {/* Remaining capacity as empty slots, so "2 / 5" actually shows five cells.
-                One upload tile above already covers the first open slot; these are the rest. */}
-            {Array.from({ length: Math.max(0, row.work_cap - cloudArtworks.length - 1) }).map((_, i) => (
-              <div className="works-cell works-cell--empty" key={`empty-${i}`} aria-hidden="true">
-                <span className="works-empty-mark">◇</span>
-              </div>
             ))}
+            {/* Distinct paid add-on: extend the room past its current cap (§11.7). Set
+                apart from the neutral upload tiles so "add a work" vs "buy more room" read
+                differently. */}
+            <button
+              className="works-capacity"
+              onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
+              title={`Add ${CAPACITY_ADDON_SIZE} more work slots`}
+            >
+              <span className="works-capacity-plus" aria-hidden="true">🔒 +{CAPACITY_ADDON_SIZE}</span>
+              <small>more slots</small>
+            </button>
           </div>
         </>
       )}
