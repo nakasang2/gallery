@@ -14,5 +14,10 @@
 - 2026-07-13 | 「サインイン中はデモ作品を混ぜない」を`rowSpace`で`showDemo:false`にしたら、その値が`localStorage`へ永続化され、サインアウト後のゲスト体験でデモが空になる副作用 → 永続設定(`Settings.showDemo`)にサインイン依存の値を書き込むと状態が漏れる → **サインイン状態に依存する表示分岐は永続設定に書かず派生状態（フック`useIsOwnerEditing`）で計算する**
 - 2026-07-13 | 対外文言（ランディング料金表）が実装・要件のピボット後もそのまま残り、¥980/月サブスク×無制限という古いモデルを提示していた → LPを実装/要件と別管理で更新し忘れ → **料金・数値の文言はプラン変数(`lib/limits.ts`)・価格定数(`lib/pricing.ts`)から参照し、直書きしない**
 
+### 3Dアセット
+- 2026-07-16 | 「使えるモデルを追加した」と渡された`walk.glb`/`idle.glb`が各約200MB(Web要件に3桁オーバー) → Blenderエクスポート時にKitBash3D「NeoCity」街並みキット(99%)が誤同梱され、実キャラは約2MBだった → **取得した3Dアセットは使う前に必ず中身を検分する(`gltf-transform inspect`/glbのJSONチャンク解析でメッシュ名・skin有無・テクスチャ解像度・シーン構成を見る)。巨大化の一次対処は「圧縮」ではなく「不要コンテンツの除去」。skin付き(=キャラ)とstatic(=環境)を分けて実サイズを測ると原因が即分かる。仕上げに `gltf-transform` で街シーン破棄→テクスチャWebP縮小→Draco圧縮で200MB→1.6MB**
+- 2026-07-16 | glTFキャラを多数インスタンス化したら全員T字ポーズで固まりアニメが効かない → skinメッシュを`scene.clone()`するとスケルトン(ボーン)参照が切れ、mixerが駆動できずバインドポーズのまま → **skinメッシュの複製は必ず`three/examples/jsm/utils/SkeletonUtils.js`の`clone()`を使う。`useGLTF`はurl単位でキャッシュされるので、共有シーンを各インスタンスで`SkeletonUtils.clone`し、`useAnimations(clips, instanceRef)`で個別mixerを張る**
+- 2026-07-16 | Draco圧縮glbを`useGLTF`で読むとデコーダをCDN(gstatic)に取りに行く → 自己完結アプリ/オフライン/CSPで壊れる恐れ → **`three/examples/jsm/libs/draco/gltf/`のデコーダを`public/draco/`へvendorし、`useGLTF.setDecoderPath('/draco/')`+`useGLTF(url,'/draco/')`でローカル解決する**
+
 ## 成功パターン（スキル化候補の芽）
 - 2026-07-13 | 3D没入を壊すネイティブ`alert()`を、疎結合の極小toast(`lib/toast.ts` = モジュールレベルのlistener集合 + `useToast`フック)へ置換。store等の非Reactコードからも`showToast()`で呼べる。破壊的`confirm()`だけは意図的にネイティブ据え置き
