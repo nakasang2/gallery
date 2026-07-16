@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, normalizeLayoutParams, normalizeArrangement, type DesignOverrides } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, normalizeLayoutParams, normalizeArrangement, type DesignOverrides, type CustomLayoutParams } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
@@ -374,6 +374,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   // so a placement edit and a layout change never race over one gallery row.
   const [placement, setPlacement] = useState<(string | null)[]>(() => normalizeArrangement(row.arrangement))
   const placeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Custom-layout knobs (width/depth/centre wall), editable right here in the dashboard.
+  const [custom, setCustom] = useState<CustomLayoutParams>(() => normalizeLayoutParams(row.layout_params))
+  const customTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
@@ -536,6 +539,36 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   }
   useEffect(() => () => {
     if (placeTimer.current) clearTimeout(placeTimer.current)
+  }, [])
+
+  // Custom layout size autosave: optimistic local update, then persist the layout_params
+  // through the same saveGallerySpace(+rebuildPlacements) path. Debounced because the
+  // sliders fire on every drag frame. Resizing changes the slot count, so public rooms
+  // rebuild their placements.
+  useEffect(() => {
+    setCustom(normalizeLayoutParams(row.layout_params))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(row.layout_params)])
+  function editCustom(partial: Partial<CustomLayoutParams>) {
+    const next = normalizeLayoutParams({ ...custom, ...partial })
+    setCustom(next)
+    if (customTimer.current) clearTimeout(customTimer.current)
+    customTimer.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const s = { ...rowToSettings(row, await mergedOverrides()), layout: 'custom', layoutParams: next }
+          await saveGallerySpace(row.id, s)
+          if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+          await refreshMyGallery()
+          onChanged()
+        } catch (e) {
+          alert(`Could not save the layout: ${e instanceof Error ? e.message : e}`)
+        }
+      })()
+    }, 500)
+  }
+  useEffect(() => () => {
+    if (customTimer.current) clearTimeout(customTimer.current)
   }, [])
 
   async function onLogoFile(file: File | undefined) {
@@ -983,6 +1016,34 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 </button>
               </div>
             </div>
+            {row.layout === 'custom' && (
+              <div className="wd-row wd-row-block">
+                <span className="wd-label">Custom size</span>
+                <div className="wd-block-body custom-size">
+                  <label className="slider-row">
+                    <span>Width {Math.round(custom.hw * 2)}m</span>
+                    <input
+                      type="range" min={8} max={18} step={0.5} value={custom.hw} disabled={busy}
+                      onChange={(e) => editCustom({ hw: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="slider-row">
+                    <span>Depth {Math.round(custom.hd * 2)}m</span>
+                    <input
+                      type="range" min={4} max={10} step={0.5} value={custom.hd} disabled={busy}
+                      onChange={(e) => editCustom({ hd: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="toggle">
+                    <input
+                      type="checkbox" checked={custom.island} disabled={busy}
+                      onChange={(e) => editCustom({ island: e.target.checked })}
+                    />
+                    Centre wall (4 extra slots)
+                  </label>
+                </div>
+              </div>
+            )}
             {cloudArtworks.length > 0 && (
               <div className="wd-row wd-row-block">
                 <span className="wd-label">Placement</span>
