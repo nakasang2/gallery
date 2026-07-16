@@ -13,3 +13,24 @@ export function ghostCountForVisits(visits: number, max = MAX_GHOSTS): number {
   if (!Number.isFinite(visits) || visits < 3) return 0
   return Math.max(0, Math.min(max, Math.floor(Math.log(visits + 1) / Math.log(4))))
 }
+
+/** A hangable slot the ambient figures can visit, weighted by its artwork's popularity
+ *  (§11.19.2 — the attention heatmap). */
+export interface SlotWeight {
+  slot: number
+  weight: number
+}
+
+/** Weighted-random pick so popular works (higher weight) draw more figures — a crowd
+ *  gathers at the most-liked pieces. Returns null when there are no slots to visit. */
+export function pickWeightedSlot(slots: SlotWeight[]): number | null {
+  if (!slots.length) return null
+  let total = 0
+  for (const s of slots) total += s.weight
+  let r = Math.random() * total
+  for (const s of slots) {
+    r -= s.weight
+    if (r <= 0) return s.slot
+  }
+  return slots[slots.length - 1].slot
+}

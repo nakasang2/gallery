@@ -2,6 +2,7 @@
 // The read path is used by both the server component (OGP generation) and the client
 import { supabase } from './supabase'
 import { rowToArtwork } from './cloud'
+import { likeCountsByArtwork } from './engagement'
 import type { ArtworkData } from './artworks'
 import {
   normalizeLayoutParams,
@@ -65,6 +66,9 @@ export interface PublicExhibition {
   arrangement: (string | null)[]
   /** Cumulative visit count (§11.19) — drives the ambient past-visitor silhouettes */
   visitCount: number
+  /** Like count per artwork id (§11.19.2) — biases the ambient figures toward popular
+   *  pieces, so a crowd gathers at the most-liked works (an attention heatmap) */
+  likeCounts: Record<string, number>
   artworks: ArtworkData[]
 }
 
@@ -335,6 +339,9 @@ async function fetchPublicExhibitionInner(
   } catch {
     /* non-fatal */
   }
+  // Like counts per work (§11.19.2) for the attention-heatmap crowd. anon can read
+  // likes of a public gallery (0008 RLS). Fail soft to an empty map.
+  const likeCounts = await likeCountsByArtwork(gallery.id).catch(() => ({}))
 
   return {
     galleryId: gallery.id,
@@ -359,6 +366,7 @@ async function fetchPublicExhibitionInner(
     designOverrides: normalizeDesignOverrides(gallery.design_overrides),
     arrangement,
     visitCount,
+    likeCounts,
     frameOverrides,
     matOverrides,
     hangingOverrides,

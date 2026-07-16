@@ -9,9 +9,9 @@ import * as THREE from 'three'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useGallery, useSettings } from '@/lib/store'
 import { resolveLayout, resolveTheme, type LayoutDef } from '@/lib/presets'
-import { getSolids, type Solid } from '@/lib/exhibition'
+import { getSolids, usePlacement, type Solid } from '@/lib/exhibition'
 import { LOW_POWER } from '@/lib/controller'
-import { ghostCountForVisits, MAX_GHOSTS } from '@/lib/ghosts'
+import { ghostCountForVisits, MAX_GHOSTS, pickWeightedSlot, type SlotWeight } from '@/lib/ghosts'
 import { galleryAudio } from '@/lib/audio'
 
 // One shared, faint contact shadow so the figures read as grounded (the room's baked
@@ -35,14 +35,15 @@ interface Target {
   face: number | null
 }
 
-function pickTarget(layout: LayoutDef, solids: Solid[]): Target {
-  // Mostly loiter in front of a random artwork slot (pulled into the room), facing the
-  // wall — reads as "someone stopped to look" — else a random floor point to cross to.
-  const slot = layout.slots[Math.floor(Math.random() * layout.slots.length)]
+function pickTarget(layout: LayoutDef, solids: Solid[], slots: SlotWeight[]): Target {
+  // Mostly loiter in front of an artwork slot (chosen ∝ popularity), facing the wall —
+  // reads as "someone stopped to look" — else a random floor point to cross to.
+  const slotIdx = Math.random() < 0.82 ? pickWeightedSlot(slots) : null
   let x: number
   let z: number
   let face: number | null = null
-  if (slot && Math.random() < 0.8) {
+  const slot = slotIdx != null ? layout.slots[slotIdx] : undefined
+  if (slot) {
     const inward = 1.5 + Math.random() * 0.7
     x = slot.x + Math.sin(slot.rotY) * inward
     z = slot.z + Math.cos(slot.rotY) * inward
@@ -76,11 +77,13 @@ interface GhostState {
 function Ghost({
   layout,
   solids,
+  slots,
   baseColor,
   active,
 }: {
   layout: LayoutDef
   solids: Solid[]
+  slots: SlotWeight[]
   baseColor: THREE.Color
   active: boolean
 }) {
@@ -108,10 +111,15 @@ function Ghost({
   }, [baseColor])
   useEffect(() => () => mat.dispose(), [mat])
 
+  // Keep the latest weighted slots in a ref so useFrame always picks against current
+  // popularity without re-subscribing the frame loop.
+  const slotsRef = useRef(slots)
+  slotsRef.current = slots
+
   const stateRef = useRef<GhostState | null>(null)
   if (!stateRef.current) {
-    const start = pickTarget(layout, solids)
-    const t = pickTarget(layout, solids)
+    const start = pickTarget(layout, solids, slots)
+    const t = pickTarget(layout, solids, slots)
     stateRef.current = {
       x: start.x,
       z: start.z,
@@ -139,7 +147,7 @@ function Ghost({
       s.pause -= dt
       if (s.tface != null) s.face += shortAngle(s.tface - s.face) * Math.min(1, dt * 3)
       if (s.pause <= 0) {
-        const nt = pickTarget(layout, solids)
+        const nt = pickTarget(layout, solids, slotsRef.current)
         s.tx = nt.x
         s.tz = nt.z
         s.tface = nt.face
@@ -239,6 +247,19 @@ export default function GhostVisitors() {
   )
   const solids = useMemo(() => getSolids(layout), [layout])
 
+  // Attention heatmap (§11.19.2): the figures visit hung works weighted by likes, so a
+  // crowd gathers at the most-liked pieces. Empty slots aren't targets. sqrt keeps a very
+  // popular work attractive without monopolising the whole (small) crowd; no likes → all
+  // weights 1 → uniform, i.e. the plain wander.
+  const placement = usePlacement()
+  const slots = useMemo<SlotWeight[]>(() => {
+    const likes = visitor?.likeCounts ?? {}
+    return placement.list.map((art, i) => ({
+      slot: placement.slots[i],
+      weight: 1 + Math.sqrt(likes[art.id] ?? 0) * 1.6,
+    }))
+  }, [placement, visitor?.likeCounts])
+
   const count = visitor && !LOW_POWER ? ghostCountForVisits(visitor.visitCount) : 0
   const showing = count > 0 && !focused
 
@@ -259,7 +280,7 @@ export default function GhostVisitors() {
   return (
     <group visible={showing}>
       {Array.from({ length: count }).map((_, i) => (
-        <Ghost key={i} layout={layout} solids={solids} baseColor={baseColor} active={showing} />
+        <Ghost key={i} layout={layout} solids={solids} slots={slots} baseColor={baseColor} active={showing} />
       ))}
     </group>
   )
