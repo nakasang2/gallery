@@ -510,6 +510,7 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - 追補2: ユーザー指摘の2点をさらに修正:
   - **モーションと移動速度の不一致(足の空回り)**: 前回`timeScale`を1.35に上げたが移動速度(0.9〜1.4)がそれに追いつかず、足が接地せず滑っていた。歩行クリップの自然な地上速度を`walk.glb`の足ボーンから実測(接地足が後退する速度 ≒ **V0=1.44 m/s**@timeScale1)し、**移動速度をアニメから導出**(`speed = V0 × timeScale`)。これで**足が常に接地に一致**(=ムーンウォーク解消)。ユーザー了承どおり再生速度(≈1.35)は据え置き、ゴーストごとに`pace`(0.92〜1.08)で微差をつけつつ`speed`と`timeScale`を連動させ、どの個体も足がロックされたまま自然なばらつきを出す
   - **作品の無い壁の前で止まって眺めてしまう**: `pickTarget`が全レイアウトスロットから滞在先を選んでいたため、作品2点だけの部屋でも空きスロットや内壁面の前で立ち止まっていた。`usePlacement().slots`(=実際に作品が載っているスロット番号)から**作品のあるスロットだけ**を`artSlots`として渡し、滞在(正対して眺める)はそこに限定。作品ゼロなら滞在せず床を回遊するだけ。QAで実行時エラーなし・描画確認、`tsc`・`next build`クリーン
+- 追補3: 歩行速度をadminから調整できるダイヤルを追加。`site_config`(migration 0018・admin書込/公開読取)に`ghost.walkSpeed`(m/s)キーを追加(**migration不要**の拡張key/value)。`lib/siteConfig`に`fetchGhostConfig`/`saveGhostConfig`(0.6〜2.6にクランプ・デフォルト1.94)、admin編集UI`components/GhostSpeedEditor`(スライダー+ライブ数値/ラベル+Save/Reset、`app/admin`に配置)。`GhostVisitors`は公開ページで`fetchGhostConfig`を読み、各ゴーストの`speed`基準に使用(取得までゴースト生成を保留し、各個体が正しいペースで湧く)。**足ロック維持**: `speed = walkSpeed × pace`、`timeScale = speed / V0` なので、どの速度に変えても足は接地に一致(空回りしない)。QAでスライダー操作・ラベル・Save有効化・デフォルト表示を確認。`tsc`・`next build`クリーン
 
 ### 11.20 Customレイアウトの調整UIをダッシュボードへ(v0.56)
 

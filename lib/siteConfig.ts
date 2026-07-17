@@ -149,3 +149,48 @@ export async function saveDemoLook(look: DemoLook): Promise<void> {
     .upsert({ key: 'demo_look', value: { theme: look.theme }, updated_at: new Date().toISOString() })
   if (error) throw error
 }
+
+// ---- Ghost visitors (§11.19) — admin dial for how fast the past-visitor figures walk ----
+
+export interface GhostConfig {
+  /** Travel speed in m/s. The walk animation's cadence locks to this (no foot-slide),
+   *  so it also sets how brisk the stepping looks. */
+  walkSpeed: number
+}
+
+// Default = the value the figures shipped with (measured ground speed 1.44 m/s ×
+// the 1.35 playback the walk clip was tuned to ≈ 1.94 m/s).
+export const GHOST_WALK_DEFAULT = 1.94
+export const GHOST_WALK_MIN = 0.6
+export const GHOST_WALK_MAX = 2.6
+
+function clampWalk(n: unknown): number {
+  return typeof n === 'number' && Number.isFinite(n)
+    ? Math.min(GHOST_WALK_MAX, Math.max(GHOST_WALK_MIN, n))
+    : GHOST_WALK_DEFAULT
+}
+
+export const DEFAULT_GHOST: GhostConfig = { walkSpeed: GHOST_WALK_DEFAULT }
+
+export async function fetchGhostConfig(): Promise<GhostConfig> {
+  if (!supabase) return DEFAULT_GHOST
+  try {
+    const { data, error } = await supabase
+      .from('site_config')
+      .select('value')
+      .eq('key', 'ghost')
+      .maybeSingle()
+    if (error || !data) return DEFAULT_GHOST // 0018 not applied / unset — shipped default
+    const v = data.value as Partial<GhostConfig> | null
+    return { walkSpeed: clampWalk(v?.walkSpeed) }
+  } catch {
+    return DEFAULT_GHOST
+  }
+}
+
+export async function saveGhostConfig(cfg: GhostConfig): Promise<void> {
+  const { error } = await supabase!
+    .from('site_config')
+    .upsert({ key: 'ghost', value: { walkSpeed: clampWalk(cfg.walkSpeed) }, updated_at: new Date().toISOString() })
+  if (error) throw error
+}

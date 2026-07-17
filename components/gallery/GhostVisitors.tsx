@@ -7,7 +7,7 @@
 // read as a "presence", not a specific person, and identical instances don't look like
 // clones. Visitor pages only; never the owner-editor, hidden while a work is focused,
 // and off on low-power devices.
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useGLTF, useAnimations } from '@react-three/drei'
@@ -18,6 +18,7 @@ import { getSolids, usePlacement, type Solid } from '@/lib/exhibition'
 import { LOW_POWER } from '@/lib/controller'
 import { ghostCountForVisits, MAX_GHOSTS } from '@/lib/ghosts'
 import { galleryAudio } from '@/lib/audio'
+import { fetchGhostConfig, GHOST_WALK_DEFAULT } from '@/lib/siteConfig'
 
 // The character is Draco-compressed; decode with the vendored local decoder (no CDN).
 const MODEL_URL = '/models/visitor.glb'
@@ -96,12 +97,15 @@ function Ghost({
   baseColor,
   active,
   artSlots,
+  walkSpeed,
 }: {
   layout: LayoutDef
   solids: Solid[]
   baseColor: THREE.Color
   active: boolean
   artSlots: ArtSlot[]
+  /** Admin-tunable travel speed (m/s); cadence locks to it */
+  walkSpeed: number
 }) {
   const camera = useThree((s) => s.camera)
   const root = useRef<THREE.Group>(null)
@@ -189,9 +193,9 @@ function Ghost({
   if (!stateRef.current) {
     const start = pickTarget(layout, solids, artSlots)
     const t = pickTarget(layout, solids, artSlots)
-    // Keep the brisk playback (~1.35) with a little per-ghost variety, and derive travel
-    // speed from it so the feet stay planted at any pace.
-    const timeScale = 1.35 * (0.92 + Math.random() * 0.16)
+    // Travel at the admin-set speed (± a little per-ghost variety), and set the clip's
+    // timeScale so the stride matches the ground — feet stay planted at any speed.
+    const pace = walkSpeed * (0.92 + Math.random() * 0.16)
     stateRef.current = {
       x: start.x,
       z: start.z,
@@ -200,8 +204,8 @@ function Ghost({
       tface: t.face,
       face: Math.random() * Math.PI * 2,
       pause: 0,
-      timeScale,
-      speed: WALK_GROUND_SPEED * timeScale,
+      speed: pace,
+      timeScale: pace / WALK_GROUND_SPEED,
     }
   }
 
@@ -286,7 +290,21 @@ export default function GhostVisitors() {
     [slots, layout]
   )
 
-  const count = visitor && !LOW_POWER ? ghostCountForVisits(visitor.visitCount) : 0
+  // Admin-tunable walk speed (site_config). Null until fetched — hold the figures until
+  // it resolves so each spawns at the right pace (its per-ghost speed is set once, at
+  // mount). The fetch is a single tiny row and resolves well before the glTF chunk.
+  const [walkSpeed, setWalkSpeed] = useState<number | null>(null)
+  useEffect(() => {
+    let alive = true
+    fetchGhostConfig()
+      .then((c) => alive && setWalkSpeed(c.walkSpeed))
+      .catch(() => alive && setWalkSpeed(GHOST_WALK_DEFAULT))
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const count = visitor && !LOW_POWER && walkSpeed != null ? ghostCountForVisits(visitor.visitCount) : 0
   const showing = count > 0 && !focused
 
   // Dark figures on light walls, pale on dark walls — always legible, lit by the room.
@@ -307,7 +325,15 @@ export default function GhostVisitors() {
     <Suspense fallback={null}>
       <group visible={showing}>
         {Array.from({ length: count }).map((_, i) => (
-          <Ghost key={i} layout={layout} solids={solids} baseColor={baseColor} active={showing} artSlots={artSlots} />
+          <Ghost
+            key={i}
+            layout={layout}
+            solids={solids}
+            baseColor={baseColor}
+            active={showing}
+            artSlots={artSlots}
+            walkSpeed={walkSpeed ?? GHOST_WALK_DEFAULT}
+          />
         ))}
       </group>
     </Suspense>
