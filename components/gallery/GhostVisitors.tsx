@@ -16,8 +16,7 @@ import { useGallery, useSettings } from '@/lib/store'
 import { resolveLayout, resolveTheme, type LayoutDef } from '@/lib/presets'
 import { getSolids, usePlacement, type Solid } from '@/lib/exhibition'
 import { LOW_POWER } from '@/lib/controller'
-import { ghostCountForVisits, MAX_GHOSTS } from '@/lib/ghosts'
-import { galleryAudio } from '@/lib/audio'
+import { ghostCountForVisits } from '@/lib/ghosts'
 import { fetchGhostConfig, GHOST_WALK_DEFAULT } from '@/lib/siteConfig'
 
 // The character is Draco-compressed; decode with the vendored local decoder (no CDN).
@@ -404,12 +403,6 @@ export default function GhostVisitors() {
     () => (luminance(theme.wall) > 0.5 ? new THREE.Color(0x3a3a44) : new THREE.Color(0xb9b9c4)),
     [theme.wall]
   )
-
-  // Crowd murmur scales with how many figures are actually present (0 when focused/none).
-  useEffect(() => {
-    galleryAudio.setCrowdLevel(showing ? count : 0, MAX_GHOSTS)
-    return () => galleryAudio.setCrowdLevel(0)
-  }, [showing, count])
 
   if (count === 0) return null
 
