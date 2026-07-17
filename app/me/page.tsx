@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
 import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, normalizeLayoutParams, normalizeArrangement, type DesignOverrides, type CustomLayoutParams } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
+import { SIZE_GROUPS, matchPreset, presetByLabel } from '@/lib/artSizes'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
 import PurchaseModal from '@/components/PurchaseModal'
@@ -1227,14 +1228,37 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   />
                 </label>
                 <div className="wd-row" style={{ margin: '0.45rem 0' }}>
-                  <span className="wd-label">Size (cm)</span>
-                  <div className="design-controls" style={{ gap: '0.5rem' }}>
+                  <span className="wd-label">Size</span>
+                  <div className="design-controls" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {/* Pick a standard size (号 / A / B); it fills the cm fields, still editable */}
+                    <select
+                      className="ent-select"
+                      value={matchPreset(parseFloat(widthInput), parseFloat(heightInput)) ?? 'custom'}
+                      onChange={(e) => {
+                        const p = presetByLabel(e.target.value)
+                        if (p) {
+                          setWidthInput(String(p.w))
+                          setHeightInput(String(p.h))
+                        }
+                      }}
+                    >
+                      <option value="custom">Custom / other…</option>
+                      {SIZE_GROUPS.map((g) => (
+                        <optgroup key={g.label} label={g.label}>
+                          {g.options.map((o) => (
+                            <option key={o.label} value={o.label}>
+                              {o.label} — {o.w} × {o.h} cm
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
                     <input
                       type="number"
                       min={1}
                       inputMode="decimal"
                       placeholder="W"
-                      style={{ width: '5.5em' }}
+                      style={{ width: '4.5em' }}
                       value={widthInput}
                       onChange={(e) => setWidthInput(e.target.value)}
                     />
@@ -1244,13 +1268,23 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                       min={1}
                       inputMode="decimal"
                       placeholder="H"
-                      style={{ width: '5.5em' }}
+                      style={{ width: '4.5em' }}
                       value={heightInput}
                       onChange={(e) => setHeightInput(e.target.value)}
                     />
-                    <span className="settings-note" style={{ margin: 0 }}>
-                      sets the real proportions on the wall
-                    </span>
+                    <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
+                    <button
+                      type="button"
+                      className="btn-line"
+                      title="Swap width and height (portrait ⇄ landscape)"
+                      style={{ padding: '0.35em 0.6em' }}
+                      onClick={() => {
+                        setWidthInput(heightInput)
+                        setHeightInput(widthInput)
+                      }}
+                    >
+                      ⇄
+                    </button>
                   </div>
                 </div>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
