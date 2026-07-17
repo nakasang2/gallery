@@ -17,7 +17,7 @@ import { resolveLayout, resolveTheme, type LayoutDef } from '@/lib/presets'
 import { getSolids, usePlacement, type Solid } from '@/lib/exhibition'
 import { LOW_POWER } from '@/lib/controller'
 import { ghostCountForVisits } from '@/lib/ghosts'
-import { fetchGhostConfig, GHOST_WALK_DEFAULT } from '@/lib/siteConfig'
+import { fetchGhostConfig, DEFAULT_GHOST, type GhostConfig } from '@/lib/siteConfig'
 
 // Character models (Draco-compressed; decoded with the vendored local decoder, no CDN).
 // Each figure picks one at random for variety; both carry exactly a walk + an idle clip,
@@ -53,14 +53,17 @@ function pickTarget(layout: LayoutDef, solids: Solid[], artSlots: ArtSlot[]): Ta
   // reads as "someone stopped to look" — else a random floor point to cross to. Only
   // occupied slots count, so nobody stops to stare at a blank wall or an empty inner face.
   const slot = artSlots.length ? artSlots[Math.floor(Math.random() * artSlots.length)] : null
+  const dwell = !!slot && Math.random() < 0.8
   let x: number
   let z: number
-  let face: number | null = null
-  if (slot && Math.random() < 0.8) {
-    const inward = 1.5 + Math.random() * 0.7
-    x = slot.x + Math.sin(slot.rotY) * inward
-    z = slot.z + Math.cos(slot.rotY) * inward
-    face = slot.rotY + Math.PI // look back toward the wall the piece hangs on
+  if (dwell) {
+    // A viewing spot in front of the piece — spread over a range so several figures can
+    // take in the SAME work at once: near–far (1.6–3.6 m out) and offset left/right along
+    // the wall (±1.3 m). normal into room = (sin rotY, cos rotY); wall tangent = (cos, -sin).
+    const inward = 1.6 + Math.random() * 2.0
+    const lateral = (Math.random() * 2 - 1) * 1.3
+    x = slot!.x + Math.sin(slot!.rotY) * inward + Math.cos(slot!.rotY) * lateral
+    z = slot!.z + Math.cos(slot!.rotY) * inward - Math.sin(slot!.rotY) * lateral
   } else {
     x = (Math.random() * 2 - 1) * (layout.hw - 1)
     z = (Math.random() * 2 - 1) * (layout.hd - 1)
@@ -72,6 +75,8 @@ function pickTarget(layout: LayoutDef, solids: Solid[], artSlots: ArtSlot[]): Ta
       z = s.z + (z >= s.z ? 1 : -1) * (s.hd + 0.7)
     }
   }
+  // Face the piece itself from the final spot, so angled/far viewers still look AT it
+  const face = dwell ? Math.atan2(slot!.x - x, slot!.z - z) : null
   return { x, z, face }
 }
 
@@ -81,8 +86,8 @@ function pickTarget(layout: LayoutDef, solids: Solid[], artSlots: ArtSlot[]): Ta
 // close in, and only a little seek — so figures skirt partitions instead of clipping through
 // them. Tuned + simulated so it never penetrates even at the top admin speed; the caller's
 // stuck-watchdog handles the rare spot the figure can't reach (behind a wall's centre).
-const GHOST_BODY = 0.4 // clearance half-width
-const AVOID_LOOK = 1.2 // start steering this far from a box (≈1 m berth from the face)
+const GHOST_BODY = 0.25 // clearance half-width
+const AVOID_LOOK = 0.4 // start steering this close to a box (≈0.5 m berth from the face)
 function steerDir(px: number, pz: number, tx: number, tz: number, solids: Solid[]): { dx: number; dz: number } {
   let sdx = tx - px
   let sdz = tz - pz
@@ -391,21 +396,20 @@ export default function GhostVisitors() {
     [slots, layout]
   )
 
-  // Admin-tunable walk speed (site_config). Null until fetched — hold the figures until
-  // it resolves so each spawns at the right pace (its per-ghost speed is set once, at
-  // mount). The fetch is a single tiny row and resolves well before the glTF chunk.
-  const [walkSpeed, setWalkSpeed] = useState<number | null>(null)
+  // Admin-tunable walk speeds per model (site_config). Null until fetched — hold the
+  // figures until it resolves so each spawns at the right pace (set once, at mount).
+  const [cfg, setCfg] = useState<GhostConfig | null>(null)
   useEffect(() => {
     let alive = true
     fetchGhostConfig()
-      .then((c) => alive && setWalkSpeed(c.walkSpeed))
-      .catch(() => alive && setWalkSpeed(GHOST_WALK_DEFAULT))
+      .then((c) => alive && setCfg(c))
+      .catch(() => alive && setCfg(DEFAULT_GHOST))
     return () => {
       alive = false
     }
   }, [])
 
-  const count = visitor && !LOW_POWER && walkSpeed != null ? ghostCountForVisits(visitor.visitCount) : 0
+  const count = visitor && !LOW_POWER && cfg ? ghostCountForVisits(visitor.visitCount) : 0
   const showing = count > 0 && !focused
 
   // Dark figures on light walls, pale on dark walls — always legible, lit by the room.
@@ -414,14 +418,19 @@ export default function GhostVisitors() {
     [theme.wall]
   )
 
-  // A stable per-figure model pick, so the crowd is a mix of the two characters and each
-  // one keeps its model across re-renders (re-rolled only when the headcount changes).
-  const modelUrls = useMemo(
-    () => Array.from({ length: count }, () => MODELS[Math.floor(Math.random() * MODELS.length)]),
-    [count]
-  )
+  // Model per figure (0 = male, 1 = female), balanced ~50:50 and guaranteed to include BOTH
+  // once there are two or more. Stable across re-renders (re-rolled only on headcount change).
+  const modelIdx = useMemo(() => {
+    const start = Math.round(Math.random()) // vary a lone figure's gender
+    const idx = Array.from({ length: count }, (_, i) => (i + start) % 2)
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[idx[i], idx[j]] = [idx[j], idx[i]]
+    }
+    return idx
+  }, [count])
 
-  if (count === 0) return null
+  if (count === 0 || !cfg) return null
 
   return (
     <Suspense fallback={null}>
@@ -434,8 +443,8 @@ export default function GhostVisitors() {
             baseColor={baseColor}
             active={showing}
             artSlots={artSlots}
-            walkSpeed={walkSpeed ?? GHOST_WALK_DEFAULT}
-            modelUrl={modelUrls[i]}
+            walkSpeed={modelIdx[i] === 0 ? cfg.walkSpeedMale : cfg.walkSpeedFemale}
+            modelUrl={MODELS[modelIdx[i]]}
           />
         ))}
       </group>
