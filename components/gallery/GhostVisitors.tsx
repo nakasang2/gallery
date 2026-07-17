@@ -19,8 +19,10 @@ import { LOW_POWER } from '@/lib/controller'
 import { ghostCountForVisits } from '@/lib/ghosts'
 import { fetchGhostConfig, GHOST_WALK_DEFAULT } from '@/lib/siteConfig'
 
-// The character is Draco-compressed; decode with the vendored local decoder (no CDN).
-const MODEL_URL = '/models/visitor.glb'
+// Character models (Draco-compressed; decoded with the vendored local decoder, no CDN).
+// Each figure picks one at random for variety; both carry exactly a walk + an idle clip,
+// selected by duration below so the differing clip order between models doesn't matter.
+const MODELS = ['/models/visitor.glb', '/models/visitor2.glb']
 useGLTF.setDecoderPath('/draco/')
 
 // One shared, faint contact shadow so the figures read as grounded (the room's baked
@@ -154,6 +156,8 @@ interface GhostState {
 // The walk clip's own ground speed at timeScale 1 (measured from the foot bones:
 // a planted foot travels back at ~1.44 m/s). Travel speed is derived from this so the
 // feet stay locked to the floor — no moonwalking — whatever pace we pick.
+// Both models' walk clips were measured from the foot bones at ~1.43 m/s ground speed;
+// travel is derived from this so the feet stay locked to the floor at any pace.
 const WALK_GROUND_SPEED = 1.44
 
 function Ghost({
@@ -163,6 +167,7 @@ function Ghost({
   active,
   artSlots,
   walkSpeed,
+  modelUrl,
 }: {
   layout: LayoutDef
   solids: Solid[]
@@ -171,10 +176,12 @@ function Ghost({
   artSlots: ArtSlot[]
   /** Admin-tunable travel speed (m/s); cadence locks to it */
   walkSpeed: number
+  /** Which character model this figure wears */
+  modelUrl: string
 }) {
   const camera = useThree((s) => s.camera)
   const root = useRef<THREE.Group>(null)
-  const { scene, animations } = useGLTF(MODEL_URL, '/draco/')
+  const { scene, animations } = useGLTF(modelUrl, '/draco/')
 
   // Per-instance clone (scene.clone() breaks skinned-mesh skeletons — must use
   // SkeletonUtils) rendered as a flat, uniform translucent silhouette tinted toward the
@@ -228,15 +235,18 @@ function Ghost({
   const mat = mats[0]
   useEffect(() => () => mats.forEach((m) => m.dispose()), [mats])
 
-  // Two clips ship in the model: index 0 = walk (1.07s), 1 = idle (14.37s). Both play
-  // always; a smoothed weight crossfades between them so starts/stops don't pop. Desync
-  // the start times so a crowd isn't in lockstep.
-  const { actions, names } = useAnimations(animations, root)
+  // Each model ships exactly two clips — a short walk cycle (~1s) and a long idle (~14s).
+  // Pick them by DURATION, not array order: the two models name/order their clips
+  // differently, so shortest = walk, longest = idle is the reliable mapping. Both play
+  // always; a smoothed weight crossfades between them so starts/stops don't pop. Desync the
+  // start times so a crowd isn't in lockstep.
+  const { actions } = useAnimations(animations, root)
   const walkAction = useRef<THREE.AnimationAction | null>(null)
   const idleAction = useRef<THREE.AnimationAction | null>(null)
   useEffect(() => {
-    const walk = actions[names[0]] ?? null
-    const idle = actions[names[1]] ?? null
+    const byDur = [...animations].sort((a, b) => a.duration - b.duration)
+    const walk = (byDur[0] && actions[byDur[0].name]) ?? null
+    const idle = (byDur[byDur.length - 1] && actions[byDur[byDur.length - 1].name]) ?? null
     walkAction.current = walk
     idleAction.current = idle
     if (idle) {
@@ -252,7 +262,7 @@ function Ghost({
       walk.timeScale = stateRef.current?.timeScale ?? 1.35
       walk.time = Math.random() * walk.getClip().duration
     }
-  }, [actions, names])
+  }, [actions, animations])
 
   const stateRef = useRef<GhostState | null>(null)
   if (!stateRef.current) {
@@ -404,6 +414,13 @@ export default function GhostVisitors() {
     [theme.wall]
   )
 
+  // A stable per-figure model pick, so the crowd is a mix of the two characters and each
+  // one keeps its model across re-renders (re-rolled only when the headcount changes).
+  const modelUrls = useMemo(
+    () => Array.from({ length: count }, () => MODELS[Math.floor(Math.random() * MODELS.length)]),
+    [count]
+  )
+
   if (count === 0) return null
 
   return (
@@ -418,6 +435,7 @@ export default function GhostVisitors() {
             active={showing}
             artSlots={artSlots}
             walkSpeed={walkSpeed ?? GHOST_WALK_DEFAULT}
+            modelUrl={modelUrls[i]}
           />
         ))}
       </group>
@@ -425,4 +443,4 @@ export default function GhostVisitors() {
   )
 }
 
-useGLTF.preload(MODEL_URL, '/draco/')
+MODELS.forEach((m) => useGLTF.preload(m, '/draco/'))
