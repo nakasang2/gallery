@@ -97,32 +97,56 @@ function Ghost({
   const { scene, animations } = useGLTF(MODEL_URL, '/draco/')
 
   // Per-instance clone (scene.clone() breaks skinned-mesh skeletons — must use
-  // SkeletonUtils) plus one ghost material shared across the figure's meshes: translucent
-  // and tinted toward the wall-contrast colour, textures dropped, so the crowd reads as
-  // soft presences rather than a row of identical businessmen.
-  const { model, mat } = useMemo(() => {
+  // SkeletonUtils) rendered as a flat, uniform translucent silhouette tinted toward the
+  // wall-contrast colour (textures dropped), so the crowd reads as soft presences, not a
+  // row of identical businessmen.
+  //
+  // A naive transparent mesh double-blends everywhere the body's parts overlap along the
+  // view ray (tie over shirt over torso, front over back) — those seams read darker. Fix
+  // is a depth pre-pass: an opaque colour-masked twin of every skinned mesh writes depth
+  // first, then the visible unlit material draws only the front-most fragment per pixel
+  // (depthWrite off, so it never occludes the next figure). Result: every pixel is
+  // blended exactly once → one even opacity, a true silhouette.
+  const { model, mats } = useMemo(() => {
     const model = skeletonClone(scene)
     const c = baseColor.clone().multiplyScalar(0.82 + Math.random() * 0.32)
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshBasicMaterial({
       color: c,
-      roughness: 0.98,
-      metalness: 0,
       transparent: true,
-      opacity: 0.46,
-      depthWrite: false,
+      opacity: 0.5,
+      depthWrite: false, // don't occlude other ghosts / the room; the pre-pass handles self-occlusion
+      depthTest: true,
     })
+    const depthMat = new THREE.MeshBasicMaterial({ colorWrite: false }) // depth-only pre-pass (opaque)
+
+    const skinned: THREE.SkinnedMesh[] = []
     model.traverse((o) => {
-      const mesh = o as THREE.Mesh
-      if (mesh.isMesh) {
-        mesh.material = mat
-        mesh.castShadow = false
-        mesh.receiveShadow = false
-        mesh.frustumCulled = false // skinned bounds jump around; don't let it cull mid-stride
+      const sm = o as THREE.SkinnedMesh
+      if (sm.isMesh) {
+        sm.material = mat
+        sm.castShadow = false
+        sm.receiveShadow = false
+        sm.frustumCulled = false // skinned bounds jump around; don't let it cull mid-stride
+        sm.renderOrder = 1
+        if (sm.isSkinnedMesh) skinned.push(sm)
       }
     })
-    return { model, mat }
+    // Add the depth twins after traversal (mutating the tree mid-traverse is unsafe)
+    for (const sm of skinned) {
+      const twin = new THREE.SkinnedMesh(sm.geometry, depthMat)
+      twin.bind(sm.skeleton, sm.bindMatrix)
+      twin.bindMode = sm.bindMode
+      twin.frustumCulled = false
+      twin.renderOrder = 0 // opaque pass anyway, but keep it explicit
+      twin.position.copy(sm.position)
+      twin.quaternion.copy(sm.quaternion)
+      twin.scale.copy(sm.scale)
+      sm.parent?.add(twin)
+    }
+    return { model, mats: [mat, depthMat] }
   }, [scene, baseColor])
-  useEffect(() => () => mat.dispose(), [mat])
+  const mat = mats[0]
+  useEffect(() => () => mats.forEach((m) => m.dispose()), [mats])
 
   // Two clips ship in the model: index 0 = walk (1.07s), 1 = idle (14.37s). Both play
   // always; a smoothed weight crossfades between them so starts/stops don't pop. Desync
@@ -143,6 +167,7 @@ function Ghost({
     if (walk) {
       walk.reset().play()
       walk.setEffectiveWeight(0)
+      walk.timeScale = 1.35 // step the cycle up to match the faster travel speed (less foot-slide)
       walk.time = Math.random() * walk.getClip().duration
     }
   }, [actions, names])
@@ -159,7 +184,7 @@ function Ghost({
       tface: t.face,
       face: Math.random() * Math.PI * 2,
       pause: 0,
-      speed: 0.5 + Math.random() * 0.3,
+      speed: 0.9 + Math.random() * 0.5, // ~real strolling pace (was a slow 0.5–0.8)
     }
   }
 
@@ -206,7 +231,7 @@ function Ghost({
 
     // Only fade when the camera is basically on top of one, so they stay legible otherwise
     const d = Math.hypot(s.x - camera.position.x, s.z - camera.position.z)
-    mat.opacity = 0.46 * THREE.MathUtils.clamp((d - 0.7) / 0.8, 0, 1)
+    mat.opacity = 0.5 * THREE.MathUtils.clamp((d - 0.7) / 0.8, 0, 1)
   })
 
   return (
