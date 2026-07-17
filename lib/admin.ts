@@ -107,14 +107,33 @@ type GalleryRow = {
   owner_id: string
 }
 
+/** Read every row of a table, paging past PostgREST's 1000-row response cap so the
+ *  admin totals stay accurate as the platform grows. Returns whatever it got on error
+ *  (missing migration / RLS deny → empty), matching the console's graceful degradation. */
+async function fetchAll<T>(table: string, columns: string): Promise<T[]> {
+  const PAGE = 1000
+  const out: T[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase!.from(table).select(columns).range(from, from + PAGE - 1)
+    if (error || !data) break
+    out.push(...(data as unknown as T[]))
+    if (data.length < PAGE) break // last page
+  }
+  return out
+}
+
+type PurchaseRaw = {
+  user_id: string
+  kind: string
+  item_key: string
+  sku: string | null
+  amount_jpy: number | null
+  created_at: string
+}
+
 /** Pull the whole platform picture for the admin console. Admin RLS (0017) is what
  *  lets these anon-key reads return every user's rows; a non-admin gets empty sets.
- *
- *  KNOWN LIMIT: these are unpaginated selects, so PostgREST's default 1000-row cap
- *  silently truncates each table. Fine while the platform is small; once any table
- *  (visits are the first to grow) passes 1000, totals/tallies undercount. The fix
- *  when it matters is count:'exact' head queries for the totals + a SQL aggregate
- *  for revenue — deferred until there's data to need it. */
+ *  Each table is fully paged (fetchAll), so totals/tallies don't silently cap at 1000. */
 export async function fetchAdminOverview(): Promise<AdminOverview> {
   const empty: AdminOverview = {
     users: [],
@@ -125,30 +144,15 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
   }
   if (!supabase) return empty
 
-  const [profilesRes, galleriesRes, placementsRes, artworksRes, purchasesRes, visitsRes, reportsRes] =
-    await Promise.all([
-      supabase.from('profiles').select('id, username, display_name'),
-      supabase.from('galleries').select('id, slug, title, is_public, theme, layout, work_cap, updated_at, owner_id'),
-      supabase.from('placements').select('gallery_id'),
-      supabase.from('artworks').select('id, owner_id'),
-      supabase.from('purchases').select('user_id, kind, item_key, sku, amount_jpy, created_at'),
-      supabase.from('visits').select('gallery_id'),
-      supabase.from('reports').select('id'),
-    ])
-
-  const profiles = (profilesRes.data ?? []) as ProfileRow[]
-  const galleries = (galleriesRes.data ?? []) as GalleryRow[]
-  const placements = (placementsRes.data ?? []) as { gallery_id: string }[]
-  const artworks = (artworksRes.data ?? []) as { id: string; owner_id: string }[]
-  const purchases = (purchasesRes.data ?? []) as {
-    user_id: string
-    kind: string
-    item_key: string
-    sku: string | null
-    amount_jpy: number | null
-    created_at: string
-  }[]
-  const visits = (visitsRes.data ?? []) as { gallery_id: string }[]
+  const [profiles, galleries, placements, artworks, purchases, visits, reports] = await Promise.all([
+    fetchAll<ProfileRow>('profiles', 'id, username, display_name'),
+    fetchAll<GalleryRow>('galleries', 'id, slug, title, is_public, theme, layout, work_cap, updated_at, owner_id'),
+    fetchAll<{ gallery_id: string }>('placements', 'gallery_id'),
+    fetchAll<{ id: string; owner_id: string }>('artworks', 'id, owner_id'),
+    fetchAll<PurchaseRaw>('purchases', 'user_id, kind, item_key, sku, amount_jpy, created_at'),
+    fetchAll<{ gallery_id: string }>('visits', 'gallery_id'),
+    fetchAll<{ id: string }>('reports', 'id'),
+  ])
 
   // Tallies keyed by id
   const placementsByGallery = new Map<string, number>()
@@ -247,7 +251,7 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
       publicGalleries: galleries.filter((g) => g.is_public).length,
       works: artworks.length,
       revenueJpy,
-      reports: (reportsRes.data ?? []).length,
+      reports: reports.length,
     },
     revenueByKind,
   }

@@ -281,18 +281,21 @@ export async function uploadLogo(ownerId: string, galleryId: string, file: File)
   return `${publicUrl(path)}?v=${Date.now()}` // cache-bust so a replaced logo shows immediately
 }
 
-/** Upload a landing-page hero image ({uid}/lp/{ts}.jpg) and return its URL + resized
- *  dimensions. Like uploadLogo it only touches storage; the admin LP editor saves the
- *  URL into site_config. Only admins reach this UI, and the folder is the admin's own
- *  uid, so the existing "insert into your own folder" storage policy already allows it. */
-export async function uploadLpImage(ownerId: string, file: File): Promise<{ url: string; w: number; h: number }> {
+/** Upload a landing-page hero image and return its URL + resized dimensions. Like
+ *  uploadLogo it only touches storage; the admin LP editor saves the URL into
+ *  site_config. Only admins reach this UI, and the folder is the admin's own uid, so
+ *  the existing "insert into your own folder" storage policy already allows it.
+ *  The path is FIXED per slot ({uid}/lp/{slot}.jpg, upsert) so replacing a slot
+ *  overwrites the old file instead of orphaning it; the URL is cache-busted so the
+ *  new image shows immediately despite the stable path. */
+export async function uploadLpImage(ownerId: string, slot: number, file: File): Promise<{ url: string; w: number; h: number }> {
   const sb = supabase!
   const { dataUrl, w, h } = await fileToDataUrl(file, 1280)
   const blob = await dataUrlToJpegBlob(dataUrl, 1280)
-  const path = `${ownerId}/lp/${Date.now()}.jpg`
+  const path = `${ownerId}/lp/${slot}.jpg`
   const up = await sb.storage.from('artworks').upload(path, blob, { contentType: 'image/jpeg', upsert: true })
   if (up.error) throw up.error
-  return { url: publicUrl(path), w, h }
+  return { url: `${publicUrl(path)}?v=${Date.now()}`, w, h }
 }
 
 /** How many placements (public walls) an artwork hangs on — used for delete warnings */

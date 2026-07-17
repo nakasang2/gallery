@@ -37,7 +37,7 @@ export default function LpHeroEditor() {
     if (!file || !user) return
     setBusy(i)
     try {
-      const img = await uploadLpImage(user.id, file)
+      const img = await uploadLpImage(user.id, i, file)
       if (!alive.current) return
       setSlots((prev) => prev.map((s, k) => (k === i ? img : s)))
       setDirty(true)
