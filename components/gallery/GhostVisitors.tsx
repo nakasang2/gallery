@@ -14,7 +14,7 @@ import { useGLTF, useAnimations } from '@react-three/drei'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useGallery, useSettings } from '@/lib/store'
 import { resolveLayout, resolveTheme, type LayoutDef } from '@/lib/presets'
-import { getSolids, type Solid } from '@/lib/exhibition'
+import { getSolids, usePlacement, type Solid } from '@/lib/exhibition'
 import { LOW_POWER } from '@/lib/controller'
 import { ghostCountForVisits, MAX_GHOSTS } from '@/lib/ghosts'
 import { galleryAudio } from '@/lib/audio'
@@ -44,10 +44,13 @@ interface Target {
   face: number | null
 }
 
-function pickTarget(layout: LayoutDef, solids: Solid[]): Target {
-  // Mostly loiter in front of a random artwork slot (pulled into the room), facing the
-  // wall — reads as "someone stopped to look" — else a random floor point to cross to.
-  const slot = layout.slots[Math.floor(Math.random() * layout.slots.length)]
+type ArtSlot = LayoutDef['slots'][number]
+
+function pickTarget(layout: LayoutDef, solids: Solid[], artSlots: ArtSlot[]): Target {
+  // Mostly loiter in front of a random slot that ACTUALLY has a work (facing the wall) —
+  // reads as "someone stopped to look" — else a random floor point to cross to. Only
+  // occupied slots count, so nobody stops to stare at a blank wall or an empty inner face.
+  const slot = artSlots.length ? artSlots[Math.floor(Math.random() * artSlots.length)] : null
   let x: number
   let z: number
   let face: number | null = null
@@ -79,18 +82,26 @@ interface GhostState {
   face: number
   pause: number
   speed: number
+  timeScale: number
 }
+
+// The walk clip's own ground speed at timeScale 1 (measured from the foot bones:
+// a planted foot travels back at ~1.44 m/s). Travel speed is derived from this so the
+// feet stay locked to the floor — no moonwalking — whatever pace we pick.
+const WALK_GROUND_SPEED = 1.44
 
 function Ghost({
   layout,
   solids,
   baseColor,
   active,
+  artSlots,
 }: {
   layout: LayoutDef
   solids: Solid[]
   baseColor: THREE.Color
   active: boolean
+  artSlots: ArtSlot[]
 }) {
   const camera = useThree((s) => s.camera)
   const root = useRef<THREE.Group>(null)
@@ -167,15 +178,20 @@ function Ghost({
     if (walk) {
       walk.reset().play()
       walk.setEffectiveWeight(0)
-      walk.timeScale = 1.35 // step the cycle up to match the faster travel speed (less foot-slide)
+      // Cadence is locked to this ghost's travel speed (speed = WALK_GROUND_SPEED * timeScale),
+      // so the stride always matches the ground — brisk playback, but no foot-slide.
+      walk.timeScale = stateRef.current?.timeScale ?? 1.35
       walk.time = Math.random() * walk.getClip().duration
     }
   }, [actions, names])
 
   const stateRef = useRef<GhostState | null>(null)
   if (!stateRef.current) {
-    const start = pickTarget(layout, solids)
-    const t = pickTarget(layout, solids)
+    const start = pickTarget(layout, solids, artSlots)
+    const t = pickTarget(layout, solids, artSlots)
+    // Keep the brisk playback (~1.35) with a little per-ghost variety, and derive travel
+    // speed from it so the feet stay planted at any pace.
+    const timeScale = 1.35 * (0.92 + Math.random() * 0.16)
     stateRef.current = {
       x: start.x,
       z: start.z,
@@ -184,7 +200,8 @@ function Ghost({
       tface: t.face,
       face: Math.random() * Math.PI * 2,
       pause: 0,
-      speed: 0.9 + Math.random() * 0.5, // ~real strolling pace (was a slow 0.5–0.8)
+      timeScale,
+      speed: WALK_GROUND_SPEED * timeScale,
     }
   }
 
@@ -201,7 +218,7 @@ function Ghost({
       s.pause -= dt
       if (s.tface != null) s.face += shortAngle(s.tface - s.face) * Math.min(1, dt * 3)
       if (s.pause <= 0) {
-        const nt = pickTarget(layout, solids)
+        const nt = pickTarget(layout, solids, artSlots)
         s.tx = nt.x
         s.tz = nt.z
         s.tface = nt.face
@@ -260,6 +277,15 @@ export default function GhostVisitors() {
   )
   const solids = useMemo(() => getSolids(layout), [layout])
 
+  // The layout slots that actually hold a work — `slots[i]` is the slot index the i-th
+  // exhibited piece hangs on. Ghosts only pause in front of these, so with just 2 works up
+  // they never stop to stare at the empty walls (or an empty inner face).
+  const { slots } = usePlacement()
+  const artSlots = useMemo(
+    () => slots.map((i) => layout.slots[i]).filter(Boolean),
+    [slots, layout]
+  )
+
   const count = visitor && !LOW_POWER ? ghostCountForVisits(visitor.visitCount) : 0
   const showing = count > 0 && !focused
 
@@ -281,7 +307,7 @@ export default function GhostVisitors() {
     <Suspense fallback={null}>
       <group visible={showing}>
         {Array.from({ length: count }).map((_, i) => (
-          <Ghost key={i} layout={layout} solids={solids} baseColor={baseColor} active={showing} />
+          <Ghost key={i} layout={layout} solids={solids} baseColor={baseColor} active={showing} artSlots={artSlots} />
         ))}
       </group>
     </Suspense>
