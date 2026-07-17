@@ -74,6 +74,67 @@ function pickTarget(layout: LayoutDef, solids: Solid[], artSlots: ArtSlot[]): Ta
   return { x, z, face }
 }
 
+// Steer toward the target while curving AROUND solid obstacles (benches, centre walls).
+// Wall-follow steering: near the closest solid within a look-ahead, head mostly TANGENTIALLY
+// (round the box on whichever side faces the target) with an outward push that grows as we
+// close in, and only a little seek — so figures skirt partitions instead of clipping through
+// them. Tuned + simulated so it never penetrates even at the top admin speed; the caller's
+// stuck-watchdog handles the rare spot the figure can't reach (behind a wall's centre).
+const GHOST_BODY = 0.4 // clearance half-width
+const AVOID_LOOK = 1.2 // start steering this far from a box (≈1 m berth from the face)
+function steerDir(px: number, pz: number, tx: number, tz: number, solids: Solid[]): { dx: number; dz: number } {
+  let sdx = tx - px
+  let sdz = tz - pz
+  const dl = Math.hypot(sdx, sdz) || 1
+  sdx /= dl
+  sdz /= dl
+  // the single closest threatening solid
+  let bestOd = AVOID_LOOK
+  let bnx = 0
+  let bnz = 0
+  let found = false
+  for (const s of solids) {
+    const mx = s.hw + GHOST_BODY
+    const mz = s.hd + GHOST_BODY
+    const cx = THREE.MathUtils.clamp(px, s.x - mx, s.x + mx)
+    const cz = THREE.MathUtils.clamp(pz, s.z - mz, s.z + mz)
+    const ox = px - cx
+    const oz = pz - cz
+    const od = Math.hypot(ox, oz)
+    if (od >= bestOd) continue
+    if (od > 1e-4) {
+      bnx = ox / od
+      bnz = oz / od
+    } else {
+      // inside the box — push out along the shallower penetration axis
+      const penX = mx - Math.abs(px - s.x)
+      const penZ = mz - Math.abs(pz - s.z)
+      if (penX < penZ) {
+        bnx = Math.sign(px - s.x) || 1
+        bnz = 0
+      } else {
+        bnx = 0
+        bnz = Math.sign(pz - s.z) || 1
+      }
+    }
+    bestOd = od
+    found = true
+  }
+  if (!found) return { dx: sdx, dz: sdz }
+  // tangent along the box wall, on the side that still points toward the target
+  let tanx = -bnz
+  let tanz = bnx
+  if (tanx * sdx + tanz * sdz < 0) {
+    tanx = -tanx
+    tanz = -tanz
+  }
+  const close = 1 - bestOd / AVOID_LOOK // 0 far … 1 touching
+  let dx = tanx * 1.2 + bnx * (0.3 + 0.7 * close) + sdx * 0.4 * (1 - close)
+  let dz = tanz * 1.2 + bnz * (0.3 + 0.7 * close) + sdz * 0.4 * (1 - close)
+  const L = Math.hypot(dx, dz) || 1
+  return { dx: dx / L, dz: dz / L }
+}
+
 interface GhostState {
   x: number
   z: number
@@ -84,6 +145,11 @@ interface GhostState {
   pause: number
   speed: number
   timeScale: number
+  /** Closest we've come to the current target, and how long since it last improved —
+   *  a watchdog so a figure that can't route to a spot (behind a wall's centre) gives up
+   *  and picks a new one instead of circling forever. */
+  bestDist: number
+  stuckT: number
 }
 
 // The walk clip's own ground speed at timeScale 1 (measured from the foot bones:
@@ -206,6 +272,8 @@ function Ghost({
       pause: 0,
       speed: pace,
       timeScale: pace / WALK_GROUND_SPEED,
+      bestDist: Infinity,
+      stuckT: 0,
     }
   }
 
@@ -226,6 +294,8 @@ function Ghost({
         s.tx = nt.x
         s.tz = nt.z
         s.tface = nt.face
+        s.bestDist = Infinity
+        s.stuckT = 0
       }
     } else {
       const dx = s.tx - s.x
@@ -233,14 +303,36 @@ function Ghost({
       const dist = Math.hypot(dx, dz)
       if (dist < 0.25) {
         s.pause = 3 + Math.random() * 5 // arrived — stop and look at this piece
+        s.bestDist = Infinity
       } else {
         moving = true
+        // Curve around partitions/benches rather than walking straight through them
+        const dir = steerDir(s.x, s.z, s.tx, s.tz, solids)
         const step = Math.min(dist, s.speed * dt)
-        s.x += (dx / dist) * step
-        s.z += (dz / dist) * step
-        s.face += shortAngle(Math.atan2(dx, dz) - s.face) * Math.min(1, dt * 4)
+        s.x += dir.dx * step
+        s.z += dir.dz * step
+        s.face += shortAngle(Math.atan2(dir.dx, dir.dz) - s.face) * Math.min(1, dt * 4)
+        // Watchdog: if we're not getting any closer (circling a wall we can't round),
+        // give up after a few seconds and pick a fresh target rather than orbit forever.
+        if (dist < s.bestDist - 0.1) {
+          s.bestDist = dist
+          s.stuckT = 0
+        } else {
+          s.stuckT += dt
+          if (s.stuckT > 5) {
+            const nt = pickTarget(layout, solids, artSlots)
+            s.tx = nt.x
+            s.tz = nt.z
+            s.tface = nt.face
+            s.bestDist = Infinity
+            s.stuckT = 0
+          }
+        }
       }
     }
+    // Never let steering nudge a figure through the outer walls
+    s.x = THREE.MathUtils.clamp(s.x, -layout.hw + 0.5, layout.hw - 0.5)
+    s.z = THREE.MathUtils.clamp(s.z, -layout.hd + 0.5, layout.hd - 0.5)
     g.position.set(s.x, 0, s.z) // feet-origin model sits on the floor; the clip does the bob
     g.rotation.y = s.face
 
