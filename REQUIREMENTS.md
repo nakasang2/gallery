@@ -522,3 +522,13 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - `app/me/page.tsx`: `row.layout === 'custom'` のとき「Custom size」ブロック(Width 16–36m / Depth 8–20m スライダー + 「Centre wall」チェック)を表示。既存グローバルCSS(`.slider-row`/`.toggle`)を流用しCSS追加なし
 - 保存はローカルstate + デバウンス(500ms)で`saveGallerySpace`(+公開時`rebuildPlacements`。サイズ変更=スロット数変化のため)。テーマ/レイアウト・配置編集と同じrow基準の書き戻し
 - **課金扱いはユーザー判断で「無料のまま」**。ただし別途確認した**Customチップにロック判定が無い件(無料枠は`corridor`のみ、custom未ゲート)は既知**として保留(今回は無料方針なので実害なし)
+
+### 11.21 作品の実寸・画材(v0.57 — 入力寸法を3Dの比率/スケールに反映)
+
+ユーザー要望「各絵に詳細(縦横・medium)を入れたい。入力した縦横と実際の空間上での比率を合わせたい」。作品ごとに**実寸(cm)と画材(medium)**を持たせ、実寸を3D表示の比率・スケールに反映:
+- migration `0025_artwork_dimensions.sql`: `artworks`に`width_cm real` / `height_cm real` / `medium text`を追加(既存の`width`/`height`=画像ピクセル寸法とは別物。ピクセル寸法は従来どおり画像比の算出に使用)
+- `ArtworkData`に`widthCm?`/`heightCm?`/`medium?`、`lib/cloud`の`ArtworkRow`/`rowToArtwork`/`updateArtworkDetails`を対応拡張(0025未適用環境でもtitle/caption等が保存できるよう、列名指定エラーで該当列を落として再試行する既存のグレースフルデグレードを一般化し、5つの任意列すべてを対象に)
+- **3Dサイズ算出`artSize(ratio, dims?)`**: 実寸(w,h cm)が両方あれば**アスペクト比=w:h**、**高さ=h/100 m**(実スケール)を採用。ただしレイアウトが崩れないよう**高さを[0.4, 2.4]m・幅を≤2.6mにクランプ**。未入力時は従来のピクセル比・正規化高さ。呼び出し3箇所(`Exhibit`/`WalkControls`/`Preview3D`)を`artSize(art.ratio, art)`に更新。ビジター側は`placements`の`artworks (*)`経由で自動的に新列が流れる
+- ダッシュボード(`app/me/page.tsx`)の作品編集に「Size (cm)」(W×H数値)と「Medium」入力を追加(既存のautosaveに相乗り)。鑑賞パネル(`ArtworkPanel`)に「60 × 90 cm · Oil on canvas」形式のラベル行(`.panel-medium`)を追加
+- 検証: 一時QAルートで同じ正方形画像を「寸法なし=正方形」「60×90=縦長」「120×40=横長」で`Preview3D`描画し、入力寸法が画像ピクセル比を上書きして**比率・実スケール両方**に反映されることをスクショ確認(削除済み)。`tsc`・`next build`クリーン
+- 設計判断: 「実際の空間上での比率」を、比率だけでなく**実スケールも反映**(大きい絵は大きく)と解釈。ただし壁グリッドと衝突しないようクランプ。クランプ域は必要なら調整可

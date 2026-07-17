@@ -21,7 +21,7 @@ function Rig({ art, captionKey }: { art: ArtworkData; captionKey: string }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const invalidate = useThree((s) => s.invalidate)
   useEffect(() => {
-    const { width, height } = artSize(art.ratio)
+    const { width, height } = artSize(art.ratio, art)
     const side = (CAPTIONS[captionKey]?.place ?? 'side') === 'side'
     const halfW = width / 2 + 0.25 + (side ? 0.8 : 0)
     const halfH = height / 2 + 0.6 // frame bar + wire/ledge headroom

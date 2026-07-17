@@ -25,6 +25,12 @@ export interface ArtworkData {
   /** Audio-guide narration URL for this work; played on the artwork panel and,
    *  during the guided tour, automatically as each work comes into focus. */
   audioUrl?: string
+  /** Artist-declared physical size in cm. When both are set they drive the piece's
+   *  real proportions AND relative scale in 3D (clamped); shown on the label too. */
+  widthCm?: number
+  heightCm?: number
+  /** Medium, e.g. "Oil on canvas" — shown on the label. */
+  medium?: string
   /** The following are for demo generative art. */
   style?: string
   palette?: keyof typeof PALETTES

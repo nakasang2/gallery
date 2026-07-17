@@ -360,6 +360,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
+  const [widthInput, setWidthInput] = useState('')
+  const [heightInput, setHeightInput] = useState('')
+  const [mediumInput, setMediumInput] = useState('')
   const [workSaved, setWorkSaved] = useState(false)
   const [purchaseItem, setPurchaseItem] = useState<
     { kind: 'theme' | 'layout' | 'capacity' | 'design-tools'; key: string; label: string } | null
@@ -397,6 +400,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     setTitleInput(selected?.title ?? '')
     setCaptionInput(selected?.desc ?? '')
     setPurchaseUrlInput(selected?.purchaseUrl ?? '')
+    setWidthInput(selected?.widthCm ? String(selected.widthCm) : '')
+    setHeightInput(selected?.heightCm ? String(selected.heightCm) : '')
+    setMediumInput(selected?.medium ?? '')
     setWorkSaved(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
@@ -652,10 +658,15 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     if (!selected) return
     setBusy(true)
     try {
+      const w = parseFloat(widthInput)
+      const h = parseFloat(heightInput)
       await updateArtworkDetails(selected.id, {
         title: titleInput,
         description: captionInput,
         purchaseUrl: purchaseUrlInput,
+        widthCm: Number.isFinite(w) && w > 0 ? w : null,
+        heightCm: Number.isFinite(h) && h > 0 ? h : null,
+        medium: mediumInput,
       })
       await refreshCloud()
       setWorkSaved(true)
@@ -1215,13 +1226,52 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     onChange={(e) => setPurchaseUrlInput(e.target.value)}
                   />
                 </label>
+                <div className="wd-row" style={{ margin: '0.45rem 0' }}>
+                  <span className="wd-label">Size (cm)</span>
+                  <div className="design-controls" style={{ gap: '0.5rem' }}>
+                    <input
+                      type="number"
+                      min={1}
+                      inputMode="decimal"
+                      placeholder="W"
+                      style={{ width: '5.5em' }}
+                      value={widthInput}
+                      onChange={(e) => setWidthInput(e.target.value)}
+                    />
+                    <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
+                    <input
+                      type="number"
+                      min={1}
+                      inputMode="decimal"
+                      placeholder="H"
+                      style={{ width: '5.5em' }}
+                      value={heightInput}
+                      onChange={(e) => setHeightInput(e.target.value)}
+                    />
+                    <span className="settings-note" style={{ margin: 0 }}>
+                      sets the real proportions on the wall
+                    </span>
+                  </div>
+                </div>
+                <label className="me-field" style={{ margin: '0.45rem 0' }}>
+                  <span>Medium — e.g. “Oil on canvas”, “Giclée print”</span>
+                  <input
+                    type="text"
+                    placeholder="Medium (optional)"
+                    value={mediumInput}
+                    onChange={(e) => setMediumInput(e.target.value)}
+                  />
+                </label>
                 <button
                   className="btn-line"
                   disabled={
                     busy ||
                     (titleInput === selected.title &&
                       captionInput === (selected.desc ?? '') &&
-                      purchaseUrlInput === (selected.purchaseUrl ?? ''))
+                      purchaseUrlInput === (selected.purchaseUrl ?? '') &&
+                      widthInput === (selected.widthCm ? String(selected.widthCm) : '') &&
+                      heightInput === (selected.heightCm ? String(selected.heightCm) : '') &&
+                      mediumInput === (selected.medium ?? ''))
                   }
                   onClick={() => void saveWorkDetails()}
                 >

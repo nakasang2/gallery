@@ -80,7 +80,7 @@ export default function WalkControls({
     () =>
       list.map((art, i) => {
         const slot = layout.slots[slots[i]]
-        const { width, height } = artSize(art.ratio)
+        const { width, height } = artSize(art.ratio, art)
         const normal = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), slot.rotY)
         return { center: new THREE.Vector3(slot.x, 1.62, slot.z), normal, width, height }
       }),
