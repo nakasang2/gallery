@@ -2,12 +2,7 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-16（“気配”ゴーストをリグ付きglTFキャラ化。§11.19.2 v0.57）
-
-## 進行中
-- なし
-
-## 次にやること（再開ポイント）
+- **最終更新**: 2026-07-16（並行セッションの成果をrebaseで合流。“気配”ゴーストをリグ付きglTFキャラ化 §11.19.2 v0.57 ＋ レビュー指摘の技術的負債 B6/B7 を解消）
 
 ## 進行中
 - なし
@@ -36,4 +31,5 @@
 - 2026-07-15: **Customレイアウトの調整UIをダッシュボードへ（§11.20）**＋作品ストリップの整理。ユーザー指摘「Customを選んでも編集できない」→ 幅/奥行き/中央壁のつまみが3D`SettingsPanel`にしか無かったのを、`app/me/page.tsx`のRoom行に「Custom size」ブロック（Width 16–36m/Depth 8–20mスライダー+Centre wallチェック）として追加。ローカルstate+デバウンス(500ms)で`saveGallerySpace`(+公開時`rebuildPlacements`)。既存グローバルCSS流用でCSS追加なし。**課金はユーザー判断で無料のまま**（Customチップの未ゲートは既知として保留）。あわせて作品ストリップを「空き枠は全部＋（アップロード可）＋末尾に別枠の課金タイル🔒+5」に整理し、意味不明だった◇を廃止。headless/SSRで描画確認。tsc・build クリーン
 - 2026-07-15: **過去来場者の“気配”シルエット（§11.19・migration 0024）**。ユーザー提案「3Dなので他の人の気配を作りたい／過去の訪問数に応じて非同期で」。リアルタイム同時接続(=後回しのマルチプレイ)ではなく、**累計訪問数に比例した半透明シルエットが会場を徘徊**する非同期プレゼンス。人数は `lib/ghosts.ghostCountForVisits`(対数写像・`MAX_GHOSTS=4`でキャップ・<3訪問は0)。訪問数は `visits` がオーナー限定SELECTなので**集計だけ返すSECURITY DEFINER RPC `public_visit_count`**(migration 0024・公開箱庭のみ・個票なし)を追加し `PublicExhibition.visitCount` へ。描画は `components/gallery/GhostVisitors`(canvas生成のビルボード人型スプライト・壁明度で色反転・距離フェード・作品前で滞在)。**公開ページ専用**でオーナー/`/demo`には出さない・**フォーカス中は非表示**・`LOW_POWER`オフ。環境ざわめきを `lib/audio.setCrowdLevel`(声域ノイズ・ゴースト数比例・無人=無音・mute/離脱ゲート踏襲)。検証: 数写像をNode12ケース単体、headless(swiftshader)で会場に人影が並ぶのを確認。tsc・build クリーン。**追補(v0.55)**: ユーザー要望「もう少しリアルに・歩いたりポーズしたり」で初版のビルボード平面を廃止し、**プリミティブのローポリ人体＋手続き歩行(脚を互い違いにsinで振る・進行方向/作品を向く)**に差し替え、実体化(opacity≈0.85＋足元接地シャドウ)。アセット追加なし。QA至近撮影で頭/胴/腕/脚・歩行・移動を確認。将来はリグ付きglTFに差し替え可能な構造。未着手: 人気作(いいね)にゴーストが集まる演出、B案リアルタイム
 - 2026-07-15: **手動スロット配置（§11.18・migration 0023）**。ユーザー相談「3点しか無いとき端から詰めず間隔を空けたい／狙った壁に作品を置けるか」に対し②手動配置を実装。`galleries.arrangement`(jsonb配列 `arrangement[slotIndex]=artworkId|null`)を追加、**未設定=従来通り0番から詰める**ので既存の部屋は無影響。純粋関数`lib/arrangement.placeWorks`(明示配置を尊重＋未割当の新作だけ空き枠へ前詰め)を`lib/exhibition.usePlacement`(=`{list,slots}`)経由で描画/ナビ層へ。`GalleryScene`/`WalkControls`/`MiniMap`を`layout.slots[i]`→`layout.slots[slots[i]]`に。公開は`rebuildPlacements`が`arrangement`に沿って`placements.slot_index`へ疎に書き(空き枠は行なし・不要枠トリム)、公開読込で`slot_index`から復元し来場者も同じ壁/空き枠を見る。編集UI`components/PlacementEditor`(ダッシュボードの俯瞰ルームマップ：枠タップ→作品割当/空に。1作品1枠)、テーマ/レイアウトと同じrow基準デバウンス保存でレース回避。検証: placeWorks/toPlacementをNodeで9ケース単体(空→従来動作・意図的空き維持・新作補充・重複/ghost無視・超過非表示/overflow・疎slot)、/demoをheadlessで従来動作無傷、PlacementEditorのSSRで5枠中3作品2空き＋初期ヒント確認。tsc・build クリーン。**未着手**: 3D空きゴースト非表示(ユーザー指定)・/demo内ドラッグ配置は将来
-- 2026-07-15: **既存ユーザーの work_cap を無料枠(5)へ戻す方法を案内**（0013で既定10に据え置かれた既存部屋が原因）。作品を締め出さない安全版SQL `update public.galleries g set work_cap = greatest(5,(select count(*) from public.placements p where p.gallery_id=g.id)) where work_cap>5;`（全体/特定ユーザー版）。**これは1回限りのデータ補正でschema.sqlには入れない**（毎回流すと将来のキャパ購入を巻き戻すため）。新規は`createGallery`が5を明示書込で対処不要
+- 2026-07-14〜15: **並行セッションでの合流分**（本セッション側）: 管理画面`/admin`追加（migration 0017: `admins`表・`is_admin()`・管理者横断read・売上金額列）／LPヒーロー3枠を`/admin`から設定可能に（migration 0018 `site_config`）／デモ→戻ると環境音が鳴り止まないバグを修正／ランディング料金表を実モデルへ是正／3D没入中のalert()を非ブロッキングtoastへ／レビュー指摘のB6(LP画像の孤児ファイル)・B7(admin集計の1000行上限)を解消(`fetchAll`によるページング化・スロット固定パスのupsert化)。origin/mainへrebaseして合流（コンフリクトはSTATE.mdのみ、コード側は無衝突）。tsc・build クリーン
+
