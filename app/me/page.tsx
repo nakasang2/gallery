@@ -396,6 +396,21 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
       : selected.poster ?? selected.src
     : undefined
 
+  // Live preview of the size being edited: override the selected work's dimensions with the
+  // current input values so the 3D preview follows the picker/typing immediately — before
+  // Save, and independent of whether the DB has the 0025 columns yet.
+  const previewArt = selected
+    ? (() => {
+        const w = parseFloat(widthInput)
+        const h = parseFloat(heightInput)
+        return {
+          ...selected,
+          widthCm: Number.isFinite(w) && w > 0 ? w : undefined,
+          heightCm: Number.isFinite(h) && h > 0 ? h : undefined,
+        }
+      })()
+    : undefined
+
   // The plate fields follow whichever work is selected
   useEffect(() => {
     setTitleInput(selected?.title ?? '')
@@ -934,10 +949,10 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           design, and the room itself. Poster-less videos / empty state fall to CSS. */}
       <div className="works-detail">
         <div className="we-left">
-          {selected && previewSrc ? (
+          {selected && previewArt && previewSrc ? (
             <div className="wall-preview3d">
               <Preview3D
-                art={selected.kind === 'video' ? { ...selected, kind: 'image', src: previewSrc } : selected}
+                art={previewArt.kind === 'video' ? { ...previewArt, kind: 'image', src: previewSrc } : previewArt}
                 index={selectedIndex}
                 themeKey={row.theme}
                 frameKey={frame}
