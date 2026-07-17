@@ -3,7 +3,7 @@
 // hung on a themed wall inside a small on-demand canvas — frame bevel, spotlight,
 // hanging hardware and name plaque are the actual renderer's output, not a mock.
 // Loaded lazily (next/dynamic) so three.js never weighs down the dashboard itself.
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
@@ -14,24 +14,91 @@ import type { ArtworkData } from '@/lib/artworks'
 
 const SLOT: SlotDef = { x: 0, z: 0, rotY: 0 }
 
-// Frame the camera to the work: wide panoramas step back, portraits step in,
-// side captions get breathing room on the right. The camera is fully owned
-// here (no Canvas camera prop) — a straight-on, level view like a visitor's
-function Rig({ art, captionKey }: { art: ArtworkData; captionKey: string }) {
+// A 1.7 m human reference stands beside the art so its real size reads at a glance —
+// a 30 cm sketch looks tiny next to it, a 1.6 m canvas nearly its height. The art centres
+// at 1.62 m (eye level) whatever its size, so relative scale shows honestly.
+const ART_CY = 1.62
+const PERSON_TOP = 1.72
+const PERSON_HALF_W = 0.28
+
+function personX(art: ArtworkData): number {
+  const { width } = artSize(art.ratio, art)
+  return -(width / 2 + 0.5 + PERSON_HALF_W) // ~0.5 m clearance left of the art's edge
+}
+
+function luminance(hex: number): number {
+  const r = ((hex >> 16) & 255) / 255
+  const g = ((hex >> 8) & 255) / 255
+  const b = (hex & 255) / 255
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+function makePersonTexture(color: string): THREE.CanvasTexture {
+  const c = document.createElement('canvas')
+  c.width = 140
+  c.height = 440
+  const g = c.getContext('2d')!
+  g.fillStyle = color
+  g.beginPath() // head
+  g.arc(70, 52, 30, 0, Math.PI * 2)
+  g.fill()
+  g.beginPath() // torso (shoulders → hips)
+  g.moveTo(38, 96)
+  g.quadraticCurveTo(70, 78, 102, 96)
+  g.lineTo(96, 248)
+  g.quadraticCurveTo(70, 262, 44, 248)
+  g.closePath()
+  g.fill()
+  g.fillRect(30, 100, 12, 150) // arms
+  g.fillRect(98, 100, 12, 150)
+  g.fillRect(50, 244, 18, 188) // legs
+  g.fillRect(72, 244, 18, 188)
+  const t = new THREE.CanvasTexture(c)
+  t.needsUpdate = true
+  return t
+}
+
+function ScaleFigure({ art, wall }: { art: ArtworkData; wall: number }) {
+  const color = luminance(wall) > 0.5 ? '#3b3b45' : '#c7c7d0'
+  const tex = useMemo(() => makePersonTexture(color), [color])
+  useEffect(() => () => tex.dispose(), [tex])
+  return (
+    <mesh position={[personX(art), PERSON_TOP / 2, 0.12]}>
+      <planeGeometry args={[PERSON_HALF_W * 2, PERSON_TOP]} />
+      <meshBasicMaterial map={tex} transparent opacity={0.6} depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
+  )
+}
+
+// Fit BOTH the art and the human reference into view (no longer fit-to-art, which hid
+// scale — a 60 cm and a 120 cm piece of the same ratio looked identical). Straight-on,
+// level, camera fully owned here.
+function Rig({ art }: { art: ArtworkData }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const invalidate = useThree((s) => s.invalidate)
+  const size = useThree((s) => s.size)
   useEffect(() => {
     const { width, height } = artSize(art.ratio, art)
-    const side = (CAPTIONS[captionKey]?.place ?? 'side') === 'side'
-    const halfW = width / 2 + 0.25 + (side ? 0.8 : 0)
-    const halfH = height / 2 + 0.6 // frame bar + wire/ledge headroom
-    const z = Math.min(4.8, Math.max(halfW * 1.9, halfH * 2.9, 2.7))
-    camera.fov = 38
-    camera.position.set(side ? 0.3 : 0, 1.58, z) // level with the art — no tilt
+    const px = personX(art)
+    const artHalfW = width / 2
+    const minX = Math.min(-artHalfW, px - PERSON_HALF_W)
+    const maxX = Math.max(artHalfW, px + PERSON_HALF_W)
+    const minY = 0
+    const maxY = Math.max(PERSON_TOP, ART_CY + height / 2) + 0.12
+    const cx = (minX + maxX) / 2
+    const cy = (minY + maxY) / 2
+    const spanX = maxX - minX + 0.5
+    const spanY = maxY - minY + 0.3
+    const fov = 40
+    const t = Math.tan((fov * Math.PI) / 360)
+    const aspect = size.width / Math.max(1, size.height)
+    const dist = Math.max(spanY / 2 / t, spanX / 2 / (t * aspect), 2.4)
+    camera.fov = fov
+    camera.position.set(cx, cy, dist)
     camera.rotation.set(0, 0, 0)
     camera.updateProjectionMatrix()
     invalidate()
-  }, [art, captionKey, camera, invalidate])
+  }, [art, camera, invalidate, size])
   return null
 }
 
@@ -100,7 +167,8 @@ export default function Preview3D({
     >
       <color attach="background" args={[theme.fog]} />
       <Env />
-      <Rig art={art} captionKey={captionKey} />
+      <Rig art={art} />
+      <ScaleFigure art={art} wall={theme.wall} />
       <SettleFrames artId={art.id} />
       <ambientLight intensity={0.45} />
       <mesh position={[0, CEIL_H / 2, 0]} receiveShadow>
