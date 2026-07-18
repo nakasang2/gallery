@@ -1101,6 +1101,16 @@ body.gallery-mode {
 .wd-save-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(212, 162, 78, 0.38); }
 .wd-save-cta:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: 0 4px 14px rgba(212, 162, 78, 0.28); }
 .wd-save-cta:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+/* Global save: docks to the bottom of the viewport while the panel scrolls, then releases
+   into normal flow at the very end of the card — a classic sticky action bar. The lifted
+   shadow makes it read as floating above the content it overlaps. */
+.wd-save-sticky {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 5;
+  margin-top: 1.6rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(212, 162, 78, 0.28);
+}
 
 .wd-title {
   display: flex;

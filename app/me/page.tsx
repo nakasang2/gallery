@@ -412,7 +412,6 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const hangingOverrides = useGallery((s) => s.hangingOverrides)
   const captionOverrides = useGallery((s) => s.captionOverrides)
   const updateSettings = useGallery((s) => s.updateSettings)
-  const syncState = useGallery((s) => s.syncState)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [usernameInput, setUsernameInput] = useState('')
@@ -1271,13 +1270,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               emptyNote="Pick a work above to preview it framed on your wall."
             />
             <div className="we-right">
-              <p className="me-note" style={{ marginTop: 0, marginBottom: 0 }}>
-                Editing <b style={{ color: 'var(--ink)' }}>“{selected.title}”</b> — the plate, size, and framing for this piece.
-                {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
-              </p>
-
               {/* The name plate's text: title + caption, straight onto the plate above */}
-              <div className="wd-group" style={{ marginTop: '0.6rem' }}>
+              <div className="wd-group" style={{ marginTop: 0 }}>
                 <div className="wd-title"><span>Title &amp; caption</span></div>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
                   <span>Title</span>
@@ -1404,30 +1398,32 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, row.caption_default) })
                 }
               />
-
-              {/* Closing CTA for the whole per-work panel — frame/mat/hanging above save the
-                  instant you pick them, but title/caption/link/size/medium don't, so this is
-                  the one click that's easy to miss if it's buried mid-form instead of at the
-                  bottom where you finish reading. */}
-              <button
-                className="wd-save-cta"
-                disabled={
-                  busy ||
-                  (titleInput === selected.title &&
-                    captionInput === (selected.desc ?? '') &&
-                    purchaseUrlInput === (selected.purchaseUrl ?? '') &&
-                    widthInput === (selected.widthCm ? String(selected.widthCm) : '') &&
-                    heightInput === (selected.heightCm ? String(selected.heightCm) : '') &&
-                    mediumInput === (selected.medium ?? ''))
-                }
-                onClick={() => void saveWorkDetails()}
-              >
-                {workSaved ? 'Saved ✓' : 'Save settings'}
-              </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* Save the selected work's plate/size/framing. Frame/mat/hanging autosave on pick,
+          but the text fields don't — so this stays docked to the bottom of the viewport
+          (position: sticky) and only releases into normal flow at the end of the page, so
+          it's reachable without scrolling the whole panel. */}
+      {selected && (
+        <button
+          className="wd-save-cta wd-save-sticky"
+          disabled={
+            busy ||
+            (titleInput === selected.title &&
+              captionInput === (selected.desc ?? '') &&
+              purchaseUrlInput === (selected.purchaseUrl ?? '') &&
+              widthInput === (selected.widthCm ? String(selected.widthCm) : '') &&
+              heightInput === (selected.heightCm ? String(selected.heightCm) : '') &&
+              mediumInput === (selected.medium ?? ''))
+          }
+          onClick={() => void saveWorkDetails()}
+        >
+          {workSaved ? 'Saved ✓' : 'Save settings'}
+        </button>
+      )}
       {purchaseItem && (
         <PurchaseModal
           itemLabel={purchaseItem.label}

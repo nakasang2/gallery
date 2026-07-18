@@ -641,3 +641,16 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - **プリセット/カスタムの表示切替**: 明示state `sizeCustom`を追加。プリセット選択時(号/A/B)はセレクト+**⇄のみ**表示、「Custom / other…」選択時のみW×H cm欄が出現。作品切替時は保存寸法が`matchPreset`にヒットすればプリセット表示・非ヒット(非標準or未設定)ならカスタム表示で開始。selectの`value`は`sizeCustom ? 'custom' : (matchPreset(w,h) ?? 'custom')`、onChangeでプリセット→dims設定+`sizeCustom=false`／custom→`sizeCustom=true`
 - ⇄は常時表示(プリセットでも縦横入替可、`matchPreset`は向き非依存なのでラベル保持)
 - `tsc`・`next build`クリーン
+
+### 11.27 保存ボタンをsticky footer化 / Editing文削除 / プレビューをボーダー外へ(v0.62)
+
+ユーザー3点:
+1.「保存ボタンは全体にかかるのにアート設定に付随して見える。スクロールせず見えるようbottom固定、下端まで行ったら固定解除(従来web的sticky)」
+2.「Editing "◯◯" — the plate, size... · saved のテキストは不要」
+3.「スクショ(3Dプレビュー)の領域をボーダーの外に出せるといいかも」
+
+対処:
+- **保存を`me-card`直下のsticky footerへ移設**。`we-right`末尾から出し、art-sectionの後に`{selected && <button className="wd-save-cta wd-save-sticky">}`。CSS `.wd-save-sticky { position: sticky; bottom: 1rem; z-index: 5 }` — カード最下の子なので、スクロール中はビューポート下端に固定、カード終端で通常フローに解放(Terms/Privacyフッタの手前にドック)。浮遊感を出す濃いシャドウ追加。全幅=カード幅で「全体にかかる」ことを表現。※`me-card`及び祖先に`overflow:hidden`が無いこと確認済み(stickyが効く条件)
+- **`Editing "◯◯"…`のme-note削除**。併せて唯一の参照だった`syncState`も撤去(額装等の自動保存表示は消えるが、明示保存は`Save settings`の`Saved ✓`が担う)
+- **アートプレビューをカード端までブリード**。`.art-section .works-detail`を左右`-1.6rem`(=カード左右padding)でbreakout、設定カラムは`padding-right:1.6rem`で戻す。プレビューの内側borderを除去し右上/右下のみ角丸に→ カードのpadding内に収まった「箱入り」感を解消し、プレビューが左端まで自分の面として広がる。モバイル(1カラム)はプレビュー全幅・設定は左右padding復帰
+- 検証: 軽量QAでme-card内にstats/theme/art節+sticky保存を再現、上スクロール=保存がビューポート下端に固定・下端=解放してフッタ手前にドック、Editing文なし、プレビューが左カード端までブリードすることをスクショ確認・削除済み。`tsc`・`next build`クリーン
