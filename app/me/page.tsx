@@ -50,7 +50,6 @@ import {
   uploadArtwork,
   uploadAvatar,
   uploadLogo,
-  uploadArtworkAudio,
   deleteArtwork,
   updateArtworkDetails,
   artworkPlacementCount,
@@ -85,6 +84,7 @@ function GalleryPreview({
   captionKey,
   designOverrides,
   emptyNote,
+  mode = 'work',
 }: {
   art: ArtworkData | undefined
   src: string | undefined
@@ -96,6 +96,7 @@ function GalleryPreview({
   captionKey: string
   designOverrides: DesignOverrides
   emptyNote: string
+  mode?: 'work' | 'room'
 }) {
   return (
     <div className="we-left">
@@ -110,6 +111,7 @@ function GalleryPreview({
             hangingKey={hangingKey}
             captionKey={captionKey}
             designOverrides={designOverrides}
+            mode={mode}
           />
         </div>
       ) : (
@@ -771,27 +773,6 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }
 
-  // Audio guide is a file, so it uploads immediately (separate from the text "Save plate").
-  // We re-affirm the saved title/caption/purchase so this write only changes audio_url.
-  async function setWorkAudio(file: File | null) {
-    if (!selected) return
-    setBusy(true)
-    try {
-      const audioUrl = file ? await uploadArtworkAudio(user.id, selected.id, file) : null
-      await updateArtworkDetails(selected.id, {
-        title: selected.title,
-        description: selected.desc ?? '',
-        purchaseUrl: selected.purchaseUrl,
-        audioUrl,
-      })
-      await refreshCloud()
-    } catch (e) {
-      alert(`Could not update the audio guide: ${e instanceof Error ? e.message : e}`)
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const themeDef = THEMES[row.theme] ?? THEMES.chic
 
   return (
@@ -949,7 +930,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           hangingKey={row.hanging_default}
           captionKey={row.caption_default}
           designOverrides={design}
-          emptyNote="Upload a work to see it hanging in your theme."
+          emptyNote="Upload a work to see your theme's atmosphere."
+          mode="room"
         />
 
         <div className="we-right">
@@ -1179,27 +1161,14 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
       </div>
 
       {/* ===== Section 2 — the artworks that hang in this room ===== */}
-      <div className="works-detail works-detail--art">
-        <GalleryPreview
-          art={previewArt}
-          src={previewSrc}
-          index={selectedIndex}
-          themeKey={row.theme}
-          frameKey={frame}
-          matKey={mat}
-          hangingKey={hanging}
-          captionKey={captionKey}
-          designOverrides={design}
-          emptyNote="Pick a work below to preview it framed on your wall."
-        />
-
-        <div className="we-right">
-          {/* Section 2 — pick a work (the strip), then edit its plate/size/framing below. */}
-          <div className="wd-group works-in-room wd-group--flush">
-            <div className="wd-title">
-              <span>Works in this room</span>
-              <span className="wd-title-meta">{cloudArtworks.length} / {row.work_cap}</span>
-            </div>
+      <div className="art-section">
+        {/* Full-width strip: every work in the room side by side. Pick one to edit it in
+            the two-column detail (preview + settings) below. */}
+        <div className="works-in-room">
+          <div className="wd-title">
+            <span>Works in this room</span>
+            <span className="wd-title-meta">{cloudArtworks.length} / {row.work_cap}</span>
+          </div>
             {cloudArtworks.length === 0 ? (
               <label className="upload-hero" aria-disabled={uploading}>
                 <b>{uploading ? 'Uploading…' : 'Hang your first work'}</b>
@@ -1279,11 +1248,25 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 </div>
               </>
             )}
-          </div>
+        </div>
 
-          {selected && (
-            <>
-              <p className="me-note" style={{ marginTop: '0.6rem', marginBottom: 0 }}>
+        {/* Two columns: the selected work's 3D preview (left) + its settings (right) */}
+        {selected && (
+          <div className="works-detail">
+            <GalleryPreview
+              art={previewArt}
+              src={previewSrc}
+              index={selectedIndex}
+              themeKey={row.theme}
+              frameKey={frame}
+              matKey={mat}
+              hangingKey={hanging}
+              captionKey={captionKey}
+              designOverrides={design}
+              emptyNote="Pick a work above to preview it framed on your wall."
+            />
+            <div className="we-right">
+              <p className="me-note" style={{ marginTop: 0, marginBottom: 0 }}>
                 Editing <b style={{ color: 'var(--ink)' }}>“{selected.title}”</b> — the plate, size, and framing for this piece.
                 {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
               </p>
@@ -1386,40 +1369,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     onChange={(e) => setMediumInput(e.target.value)}
                   />
                 </label>
-
-                {/* Audio guide: auto-reads the caption aloud (free, no recording); an
-                    uploaded file overrides that with your own narration. Auto-plays on the tour. */}
-                <div className="wd-audio">
-                  <span className="wd-audio-label">
-                    Audio guide{' '}
-                    {selected.audioUrl
-                      ? '· your recording'
-                      : (selected.desc ?? '').trim()
-                        ? '· reads the caption'
-                        : '· add a caption to enable'}
-                  </span>
-                  <div className="wd-audio-actions">
-                    <label className="btn-line wd-audio-upload" aria-disabled={busy}>
-                      {selected.audioUrl ? 'Replace' : 'Upload recording'}
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        hidden
-                        disabled={busy}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0]
-                          e.target.value = '' // allow re-selecting the same file
-                          if (f) void setWorkAudio(f)
-                        }}
-                      />
-                    </label>
-                    {selected.audioUrl && (
-                      <button className="btn-line danger" disabled={busy} onClick={() => void setWorkAudio(null)}>
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                </div>
+                {/* Audio guide needs no upload UI — the tour reads the caption aloud
+                    automatically (text-to-speech). */}
               </div>
 
               <WorkDesign
@@ -1460,9 +1411,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               >
                 {workSaved ? 'Saved ✓' : 'Save settings'}
               </button>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
       </div>
       {purchaseItem && (
         <PurchaseModal

@@ -1076,21 +1076,6 @@ body.gallery-mode {
 .wd-title-meta { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; color: var(--muted); }
 .works-in-room .works-strip { margin-top: 0.2rem; }
 
-/* Dashboard: per-work audio-guide upload row (inside the Title & caption group) */
-.wd-audio {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  margin-top: 0.9rem;
-  padding-top: 0.8rem;
-  border-top: 1px dashed var(--hairline);
-}
-.wd-audio-label { font-size: 0.72rem; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
-.wd-audio-actions { display: flex; gap: 0.4rem; }
-.wd-audio-upload { cursor: pointer; }
-.wd-audio-upload[aria-disabled='true'] { opacity: 0.5; pointer-events: none; }
-
 /* Closing CTA for the whole per-work panel — full-width and visually weighted so
    it reads as THE save action, not a .btn-line easy to scroll past mid-form (frame/
    mat/hanging above already auto-save; this is the one click that persists title/

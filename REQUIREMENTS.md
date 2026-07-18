@@ -619,3 +619,17 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - §1のpreview主題は**カバー作品(or先頭)+部屋のデフォルト額装**(`roomArt`/`roomSrc`)にして「部屋そのもの」を表示、§2は従来の選択作品(`previewArt`)。両者の[Preview3D or WallPreview]描画は`GalleryPreview`ヘルパへ共通化(重複でドリフトしないよう`/code-review`指摘で抽出)
 - 既知トレードオフ: ダッシュボードに3Dプレビュー(WebGL)が2枚同時に載る(いずれも`frameloop="demand"`でアイドル・glTFは`useGLTF`キャッシュ共有なので実負荷は限定的だが、低スペック端末では単一時より重い)
 - 検証: 実クラス名の軽量QAルートで2セクション(テーマ節=chip+ロックのみバッジ、アート節=カルーセル+作品設定+Save、区切り線)をスクショ確認・削除済み。`tsc`・`next build`クリーン
+
+### 11.25 テーマpreviewを空間モードに / アート節を全幅ストリップ+2カラムに / 音声UI削除(v0.60)
+
+§11.24の2セクション化を見たユーザーから3点:
+1.「テーマの3Dviewとアートの3Dviewが同じ。テーマ側は人モデル不要、テーマ=展示場の雰囲気がわかる形に」
+2.「アート設定は、アートが画面幅いっぱいに横並び(以前のような)→ その下に2カラム(左:3Dview / 右:設定)に」
+3.「オーディオガイドのアップロードUIは不要(読み上げがあるので)」
+
+対処:
+- **`Preview3D`に`mode?: 'work' | 'room'`追加**。`room`は**人型スケール figureを描画せず、カメラを引いて空間(壁・床・スポットの光溜まり)を見せる**——サイズ基準ではなくテーマの雰囲気が伝わる画。`Rig`にroom分岐(fov42・`spanY=max(3.6, ART_CY+height/2+1.3)`から距離算出・`(0,1.4,dist)`正面・figure無し)。`ScaleFigure`は`mode==='work'`時のみ描画。`GalleryPreview`ヘルパに`mode`を通し、テーマ節は`mode="room"`
+- **アート節を全幅ストリップ+2カラムに再構成**。`.art-section`(§1との区切りborder)直下に **全幅の`.works-in-room`(作品カルーセル横並び)**、その下に**`.works-detail`2カラム(左:選択作品の3Dプレビュー`mode="work"` / 右:プレート/サイズ/額装/Save)**。2カラムは`{selected && …}`ゲート(作品0なら全幅ストリップのupload-heroのみ)。§11.24でwe-right内にネストしていたカルーセルを全幅へ戻した形
+- **音声ガイドのアップロードUI(`.wd-audio`)を削除**。ツアーはキャプションをTTSで読み上げるためアップロード不要。`setWorkAudio`ハンドラ・`uploadArtworkAudio` import・`.wd-audio*` CSSも撤去。※既存の`audio_url`値は温存(`saveWorkDetails`は`audioUrl`を渡さず、`updateArtworkDetails`は`fields.audioUrl !== undefined`時のみ更新するので保存でクリアされないことを確認)
+- 既知トレードオフ: ダッシュボードに3Dプレビュー2枚(テーマroom=figure無しで軽量化・作品work)。いずれもdemand-frameloop・glTFキャッシュ共有
+- 検証: 軽量QAで room/work モード比較(roomは人無し・引き画で空間が見える)、アート節の全幅ストリップ+2カラムをスクショ確認・削除済み。`tsc`・`next build`クリーン、`/code-review`(音声UI削除がaudio_urlをクリアしないことを確認)

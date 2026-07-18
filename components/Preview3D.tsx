@@ -126,11 +126,27 @@ function ScaleFigure({ art, wall }: { art: ArtworkData; wall: number }) {
 // now stands PERSON_Z out from it (see above) — being nearer the camera it would fill
 // more of the frame than a flat same-depth fit assumes, so each is fit by projecting its
 // own extents from ITS OWN depth, and the camera backs up to the farther requirement.
-function Rig({ art }: { art: ArtworkData }) {
+function Rig({ art, mode }: { art: ArtworkData; mode: 'work' | 'room' }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const invalidate = useThree((s) => s.invalidate)
   const size = useThree((s) => s.size)
   useEffect(() => {
+    // Room mode (theme preview): no scale figure — pull back to show the SPACE (wall,
+    // floor, the spotlight pool) with the art as a smaller subject, so the theme's mood
+    // reads rather than a work's size. Straight-on, target dropped a touch to reveal floor.
+    if (mode === 'room') {
+      const { height } = artSize(art.ratio, art)
+      const fov = 42
+      const tanV = Math.tan((fov * Math.PI) / 360)
+      const spanY = Math.max(3.6, ART_CY + height / 2 + 1.3)
+      const dist = spanY / (2 * tanV)
+      camera.fov = fov
+      camera.position.set(0, 1.4, dist)
+      camera.rotation.set(0, 0, 0)
+      camera.updateProjectionMatrix()
+      invalidate()
+      return
+    }
     const { width, height } = artSize(art.ratio, art)
     const px = personX(art)
     const artHalfW = width / 2
@@ -165,7 +181,7 @@ function Rig({ art }: { art: ArtworkData }) {
     camera.rotation.set(0, 0, 0)
     camera.updateProjectionMatrix()
     invalidate()
-  }, [art, camera, invalidate, size])
+  }, [art, camera, invalidate, size, mode])
   return null
 }
 
@@ -211,6 +227,7 @@ export default function Preview3D({
   hangingKey,
   captionKey,
   designOverrides,
+  mode = 'work',
 }: {
   art: ArtworkData
   /** Slot number shown on the name plate (NO. xx) */
@@ -223,6 +240,9 @@ export default function Preview3D({
   /** Design Tools overrides (wall/floor/light colour) — same resolveTheme path
    *  the real room uses, so the preview reflects the edits live */
   designOverrides?: DesignOverrides | null
+  /** 'work' = art + human scale figure (default). 'room' = no figure, pulled back to
+   *  show the space's atmosphere — used for the theme preview. */
+  mode?: 'work' | 'room'
 }) {
   const theme = resolveTheme(themeKey, designOverrides)
   const floor = new THREE.Color(theme.floorTint).multiply(new THREE.Color(0x9a7a55))
@@ -234,10 +254,12 @@ export default function Preview3D({
     >
       <color attach="background" args={[theme.fog]} />
       <Env />
-      <Rig art={art} />
-      <Suspense fallback={null}>
-        <ScaleFigure art={art} wall={theme.wall} />
-      </Suspense>
+      <Rig art={art} mode={mode} />
+      {mode === 'work' && (
+        <Suspense fallback={null}>
+          <ScaleFigure art={art} wall={theme.wall} />
+        </Suspense>
+      )}
       <SettleFrames artId={art.id} />
       <ambientLight intensity={0.45} />
       <mesh position={[0, CEIL_H / 2, 0]} receiveShadow>
