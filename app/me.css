@@ -363,6 +363,21 @@
 }
 .me-field input:focus, .me-field textarea:focus, .spotlight-row input:focus { border-color: var(--gold); }
 
+/* Size row W×H number inputs — match the dashboard's other fields (were browser-default) */
+.size-num {
+  width: 4.5em;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.05);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.45em 0.55em;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.size-num:focus { border-color: var(--gold); }
+
 /* Admin: spotlight curation rows (@username / slug + reorder/remove) */
 .spotlight-rows { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.9rem; }
 .spotlight-row { display: flex; align-items: center; gap: 0.4rem; }

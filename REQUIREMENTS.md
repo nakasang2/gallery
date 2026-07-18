@@ -633,3 +633,11 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - **音声ガイドのアップロードUI(`.wd-audio`)を削除**。ツアーはキャプションをTTSで読み上げるためアップロード不要。`setWorkAudio`ハンドラ・`uploadArtworkAudio` import・`.wd-audio*` CSSも撤去。※既存の`audio_url`値は温存(`saveWorkDetails`は`audioUrl`を渡さず、`updateArtworkDetails`は`fields.audioUrl !== undefined`時のみ更新するので保存でクリアされないことを確認)
 - 既知トレードオフ: ダッシュボードに3Dプレビュー2枚(テーマroom=figure無しで軽量化・作品work)。いずれもdemand-frameloop・glTFキャッシュ共有
 - 検証: 軽量QAで room/work モード比較(roomは人無し・引き画で空間が見える)、アート節の全幅ストリップ+2カラムをスクショ確認・削除済み。`tsc`・`next build`クリーン、`/code-review`(音声UI削除がaudio_urlをクリアしないことを確認)
+
+### 11.26 サイズ入力: カスタム時のみW×H欄を表示 + スタイル統一(v0.61)
+
+ユーザー指摘「サイズの入力フォームだけデフォルトの見え方。カスタム設定した時だけ表示されて欲しい、それ以外は⇄だけでOK」。対処:
+- **W×Hのnumber入力にデフォルトブラウザ体裁が出ていた**(クラス無しのinline style)→ `.size-num`クラスを付与し他フォーム(`.me-field input`)と同じ体裁(背景rgba・hairline枠・角丸8px・フォーカスで金枠)に
+- **プリセット/カスタムの表示切替**: 明示state `sizeCustom`を追加。プリセット選択時(号/A/B)はセレクト+**⇄のみ**表示、「Custom / other…」選択時のみW×H cm欄が出現。作品切替時は保存寸法が`matchPreset`にヒットすればプリセット表示・非ヒット(非標準or未設定)ならカスタム表示で開始。selectの`value`は`sizeCustom ? 'custom' : (matchPreset(w,h) ?? 'custom')`、onChangeでプリセット→dims設定+`sizeCustom=false`／custom→`sizeCustom=true`
+- ⇄は常時表示(プリセットでも縦横入替可、`matchPreset`は向き非依存なのでラベル保持)
+- `tsc`・`next build`クリーン

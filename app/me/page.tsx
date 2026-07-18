@@ -432,6 +432,8 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
   const [widthInput, setWidthInput] = useState('')
   const [heightInput, setHeightInput] = useState('')
+  // The W×H cm fields only show in "custom" mode; a preset shows just the dropdown + swap.
+  const [sizeCustom, setSizeCustom] = useState(false)
   const [mediumInput, setMediumInput] = useState('')
   const [workSaved, setWorkSaved] = useState(false)
   const [purchaseItem, setPurchaseItem] = useState<
@@ -497,6 +499,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     setPurchaseUrlInput(selected?.purchaseUrl ?? '')
     setWidthInput(selected?.widthCm ? String(selected.widthCm) : '')
     setHeightInput(selected?.heightCm ? String(selected.heightCm) : '')
+    // Start in preset mode when the saved size matches a standard preset; otherwise
+    // (a non-standard size, or none yet) open the custom fields so they're ready to type.
+    setSizeCustom(matchPreset(selected?.widthCm, selected?.heightCm) === null)
     setMediumInput(selected?.medium ?? '')
     setWorkSaved(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1301,15 +1306,19 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 <div className="wd-row" style={{ margin: '0.45rem 0' }}>
                   <span className="wd-label">Size</span>
                   <div className="design-controls" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {/* Pick a standard size (号 / A / B); it fills the cm fields, still editable */}
+                    {/* Pick a standard size (号 / A / B), or "Custom" to type cm. The W×H
+                        fields only appear in custom mode; a preset shows just the ⇄ swap. */}
                     <select
                       className="ent-select"
-                      value={matchPreset(parseFloat(widthInput), parseFloat(heightInput)) ?? 'custom'}
+                      value={sizeCustom ? 'custom' : (matchPreset(parseFloat(widthInput), parseFloat(heightInput)) ?? 'custom')}
                       onChange={(e) => {
                         const p = presetByLabel(e.target.value)
                         if (p) {
                           setWidthInput(String(p.w))
                           setHeightInput(String(p.h))
+                          setSizeCustom(false)
+                        } else {
+                          setSizeCustom(true) // "Custom / other…" — reveal the cm fields
                         }
                       }}
                     >
@@ -1325,26 +1334,30 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                       ))}
                     </select>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
-                      <input
-                        type="number"
-                        min={1}
-                        inputMode="decimal"
-                        placeholder="W"
-                        style={{ width: '4.5em' }}
-                        value={widthInput}
-                        onChange={(e) => setWidthInput(e.target.value)}
-                      />
-                      <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
-                      <input
-                        type="number"
-                        min={1}
-                        inputMode="decimal"
-                        placeholder="H"
-                        style={{ width: '4.5em' }}
-                        value={heightInput}
-                        onChange={(e) => setHeightInput(e.target.value)}
-                      />
-                      <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
+                      {sizeCustom && (
+                        <>
+                          <input
+                            type="number"
+                            min={1}
+                            inputMode="decimal"
+                            placeholder="W"
+                            className="size-num"
+                            value={widthInput}
+                            onChange={(e) => setWidthInput(e.target.value)}
+                          />
+                          <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
+                          <input
+                            type="number"
+                            min={1}
+                            inputMode="decimal"
+                            placeholder="H"
+                            className="size-num"
+                            value={heightInput}
+                            onChange={(e) => setHeightInput(e.target.value)}
+                          />
+                          <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
+                        </>
+                      )}
                       <button
                         type="button"
                         className="btn-line"
