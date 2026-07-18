@@ -3,9 +3,11 @@
 // hung on a themed wall inside a small on-demand canvas — frame bevel, spotlight,
 // hanging hardware and name plaque are the actual renderer's output, not a mock.
 // Loaded lazily (next/dynamic) so three.js never weighs down the dashboard itself.
-import { useEffect, useMemo } from 'react'
+import { Suspense, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
+import { useGLTF } from '@react-three/drei'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { resolveTheme, frameDefFor, HANGINGS, CAPTIONS, CEIL_H, applyMat, type SlotDef, type DesignOverrides } from '@/lib/presets'
 import { artSize } from '@/lib/exhibition'
@@ -14,10 +16,18 @@ import type { ArtworkData } from '@/lib/artworks'
 
 const SLOT: SlotDef = { x: 0, z: 0, rotY: 0 }
 
-// A 1.7 m human reference stands beside the art so its real size reads at a glance —
-// a 30 cm sketch looks tiny next to it, a 1.6 m canvas nearly its height. The art centres
-// at 1.62 m (eye level) whatever its size, so relative scale shows honestly.
+// The scale reference is the SAME rigged glTF character the room uses for its ambient
+// visitors (public/models/visitor.glb) — a proper human silhouette, not a flat sketch —
+// so a 30 cm study reads tiny beside it and a 1.6 m canvas nearly its height. It stands
+// idle to the art's left; the art centres at 1.62 m (eye level) whatever its size, so the
+// relative scale always shows honestly.
+const PERSON_URL = '/models/visitor.glb'
+useGLTF.setDecoderPath('/draco/')
+
 const ART_CY = 1.62
+// The glTF model ships at real human scale (~1.72 m). These are its approximate extents,
+// used only to frame the camera (Rig) so both art and figure fit — the model itself is
+// rendered un-scaled, so the reference stays honest.
 const PERSON_TOP = 1.72
 const PERSON_HALF_W = 0.28
 
@@ -33,40 +43,68 @@ function luminance(hex: number): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-function makePersonTexture(color: string): THREE.CanvasTexture {
-  const c = document.createElement('canvas')
-  c.width = 140
-  c.height = 440
-  const g = c.getContext('2d')!
-  g.fillStyle = color
-  g.beginPath() // head
-  g.arc(70, 52, 30, 0, Math.PI * 2)
-  g.fill()
-  g.beginPath() // torso (shoulders → hips)
-  g.moveTo(38, 96)
-  g.quadraticCurveTo(70, 78, 102, 96)
-  g.lineTo(96, 248)
-  g.quadraticCurveTo(70, 262, 44, 248)
-  g.closePath()
-  g.fill()
-  g.fillRect(30, 100, 12, 150) // arms
-  g.fillRect(98, 100, 12, 150)
-  g.fillRect(50, 244, 18, 188) // legs
-  g.fillRect(72, 244, 18, 188)
-  const t = new THREE.CanvasTexture(c)
-  t.needsUpdate = true
-  return t
-}
-
+// The rigged character, posed once in a relaxed idle stance and rendered as a flat,
+// wall-contrast silhouette — the room's own visitor look. frameloop="demand" won't advance
+// a mixer, so we sample the idle clip a fixed way in (past the T-pose at t=0). A depth
+// pre-pass twin per skinned mesh writes depth first so the translucent body blends exactly
+// once (no darker seams where limbs overlap), giving one even opacity like the gallery.
 function ScaleFigure({ art, wall }: { art: ArtworkData; wall: number }) {
-  const color = luminance(wall) > 0.5 ? '#3b3b45' : '#c7c7d0'
-  const tex = useMemo(() => makePersonTexture(color), [color])
-  useEffect(() => () => tex.dispose(), [tex])
+  const { scene, animations } = useGLTF(PERSON_URL, '/draco/')
+  const { model, mats } = useMemo(() => {
+    const model = skeletonClone(scene)
+    const color = luminance(wall) > 0.5 ? new THREE.Color(0x3b3b45) : new THREE.Color(0xc7c7d0)
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.62,
+      depthWrite: false,
+      depthTest: true,
+    })
+    const depthMat = new THREE.MeshBasicMaterial({ colorWrite: false })
+
+    const skinned: THREE.SkinnedMesh[] = []
+    model.traverse((o) => {
+      const sm = o as THREE.SkinnedMesh
+      if (sm.isMesh) {
+        sm.material = mat
+        sm.castShadow = false
+        sm.receiveShadow = false
+        sm.frustumCulled = false
+        sm.renderOrder = 1
+        if (sm.isSkinnedMesh) skinned.push(sm)
+      }
+    })
+    for (const sm of skinned) {
+      const twin = new THREE.SkinnedMesh(sm.geometry, depthMat)
+      twin.bind(sm.skeleton, sm.bindMatrix)
+      twin.bindMode = sm.bindMode
+      twin.frustumCulled = false
+      twin.renderOrder = 0
+      twin.position.copy(sm.position)
+      twin.quaternion.copy(sm.quaternion)
+      twin.scale.copy(sm.scale)
+      sm.parent?.add(twin)
+    }
+
+    // Pose it: longest clip = idle. Sample a fixed way in so it isn't the bind-pose T.
+    if (animations.length) {
+      const idle = [...animations].sort((a, b) => b.duration - a.duration)[0]
+      const mixer = new THREE.AnimationMixer(model)
+      mixer.clipAction(idle).play()
+      mixer.setTime(idle.duration > 2 ? 1.4 : idle.duration * 0.5)
+    }
+
+    return { model, mats: [mat, depthMat] }
+  }, [scene, animations, wall])
+  useEffect(() => () => mats.forEach((m) => m.dispose()), [mats])
+
+  // The model ships at real-world human scale with its feet at the origin (the room places
+  // it the same way, un-scaled), so it stands on the floor as-is — no fitting needed. A 3/4
+  // turn gives the body volume rather than a paper cut-out.
   return (
-    <mesh position={[personX(art), PERSON_TOP / 2, 0.12]}>
-      <planeGeometry args={[PERSON_HALF_W * 2, PERSON_TOP]} />
-      <meshBasicMaterial map={tex} transparent opacity={0.6} depthWrite={false} side={THREE.DoubleSide} />
-    </mesh>
+    <group position={[personX(art), 0, 0.1]} rotation-y={0.5}>
+      <primitive object={model} />
+    </group>
   )
 }
 
@@ -168,7 +206,9 @@ export default function Preview3D({
       <color attach="background" args={[theme.fog]} />
       <Env />
       <Rig art={art} />
-      <ScaleFigure art={art} wall={theme.wall} />
+      <Suspense fallback={null}>
+        <ScaleFigure art={art} wall={theme.wall} />
+      </Suspense>
       <SettleFrames artId={art.id} />
       <ambientLight intensity={0.45} />
       <mesh position={[0, CEIL_H / 2, 0]} receiveShadow>
@@ -191,3 +231,5 @@ export default function Preview3D({
     </Canvas>
   )
 }
+
+useGLTF.preload(PERSON_URL, '/draco/')
