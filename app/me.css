@@ -523,6 +523,8 @@
   margin-top: 0.4rem;
 }
 .works-detail .we-left { position: sticky; top: 1rem; }
+/* The artworks section sits below the theme section, set apart by a divider */
+.works-detail--art { margin-top: 2.2rem; padding-top: 2rem; border-top: 1px solid var(--hairline); }
 .we-chips { margin-top: 0.45rem; gap: 0.35rem; }
 .wall-preview--lg { height: 320px; font-size: 22px; }
 /* 実3Dプレビュー(ルームと同じExhibitを小キャンバスで描画) */

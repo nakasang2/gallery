@@ -71,6 +71,65 @@ import AuthShell from '@/components/auth/AuthShell'
 // until the chunk arrives the flat CSS preview holds the same footprint
 const Preview3D = dynamic(() => import('@/components/Preview3D'), { ssr: false })
 
+// The left-hand preview used by both settings sections (the room in section 1, the
+// selected work in section 2): the real 3D render when there's a subject, else the 2D
+// placeholder, plus an optional prompt when the section is empty.
+function GalleryPreview({
+  art,
+  src,
+  index,
+  themeKey,
+  frameKey,
+  matKey,
+  hangingKey,
+  captionKey,
+  designOverrides,
+  emptyNote,
+}: {
+  art: ArtworkData | undefined
+  src: string | undefined
+  index: number
+  themeKey: string
+  frameKey: string
+  matKey: string
+  hangingKey: string
+  captionKey: string
+  designOverrides: DesignOverrides
+  emptyNote: string
+}) {
+  return (
+    <div className="we-left">
+      {art && src ? (
+        <div className="wall-preview3d">
+          <Preview3D
+            art={art.kind === 'video' ? { ...art, kind: 'image', src } : art}
+            index={index}
+            themeKey={themeKey}
+            frameKey={frameKey}
+            matKey={matKey}
+            hangingKey={hangingKey}
+            captionKey={captionKey}
+            designOverrides={designOverrides}
+          />
+        </div>
+      ) : (
+        <WallPreview
+          themeKey={themeKey}
+          frameKey={frameKey}
+          matKey={matKey}
+          hangingKey={hangingKey}
+          captionKey={captionKey}
+          artSrc={src}
+          artRatio={art?.ratio}
+          designOverrides={designOverrides}
+          className="wall-preview--lg"
+        />
+      )}
+      {!art && <p className="me-note">{emptyNote}</p>}
+    </div>
+  )
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return ''
   try {
@@ -83,6 +142,11 @@ function fmtDate(iso: string | null): string {
 const IMPORT_DISMISS_KEY = 'hakoniwa.importDismissed.v1'
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
+
+// Design Tools (paid recolour/light/logo) is hidden for now to keep the settings panel
+// simple — the code stays in place so it's a one-line flip to bring back. Typed `boolean`
+// (not a literal) so the JSX inside still counts as "used".
+const DESIGN_TOOLS_VISIBLE = false as boolean
 
 // The first thing a signed-in artist sees: their own face and name, not a form
 function Hero() {
@@ -412,6 +476,16 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           heightCm: Number.isFinite(h) && h > 0 ? h : undefined,
         }
       })()
+    : undefined
+
+  // The Theme section's preview shows the room itself, so it uses a stable subject — the
+  // cover work (or the first) — rather than whichever work you're editing in the section
+  // below, and the room's default framing rather than a per-work override.
+  const roomArt = cloudArtworks.find((a) => a.id === row.cover_artwork_id) ?? cloudArtworks[0]
+  const roomSrc = roomArt
+    ? roomArt.kind === 'video'
+      ? roomArt.poster
+      : roomArt.poster ?? roomArt.src
     : undefined
 
   // The plate fields follow whichever work is selected
@@ -865,46 +939,24 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           single top-to-bottom flow — the room itself, the works hanging in it, then the
           selected work's own settings (Room ⊃ works). */}
       <div className="works-detail">
-        <div className="we-left">
-          {selected && previewArt && previewSrc ? (
-            <div className="wall-preview3d">
-              <Preview3D
-                art={previewArt.kind === 'video' ? { ...previewArt, kind: 'image', src: previewSrc } : previewArt}
-                index={selectedIndex}
-                themeKey={row.theme}
-                frameKey={frame}
-                matKey={mat}
-                hangingKey={hanging}
-                captionKey={captionKey}
-                designOverrides={design}
-              />
-            </div>
-          ) : (
-            <WallPreview
-              themeKey={row.theme}
-              frameKey={frame}
-              matKey={mat}
-              hangingKey={hanging}
-              captionKey={captionKey}
-              artSrc={previewSrc}
-              artRatio={selected?.ratio}
-              designOverrides={design}
-              className="wall-preview--lg"
-            />
-          )}
-          {!selected && (
-            <p className="me-note">
-              Upload a work to see it hanging in your theme and frame before you publish.
-            </p>
-          )}
-        </div>
+        <GalleryPreview
+          art={roomArt}
+          src={roomSrc}
+          index={Math.max(0, cloudArtworks.indexOf(roomArt))}
+          themeKey={row.theme}
+          frameKey={row.frame_default}
+          matKey={row.mat_default}
+          hangingKey={row.hanging_default}
+          captionKey={row.caption_default}
+          designOverrides={design}
+          emptyNote="Upload a work to see it hanging in your theme."
+        />
 
         <div className="we-right">
-          {/* Reads top-to-bottom as Room ⊃ works: the room itself (theme, layout, design
-              tools), then the works hanging in it, then the one selected work's plate/size/
-              framing. The sticky preview on the left reflects every change. */}
+          {/* Section 1 — the room's look: theme + layout. The 3D preview on the left
+              recolours live as you switch theme. (Design Tools hidden for now.) */}
           <div className="wd-group wd-group--flush">
-            <div className="wd-title"><span>The room</span></div>
+            <div className="wd-title"><span>Theme &amp; layout</span></div>
             <div className="wd-row">
               <span className="wd-label">Theme</span>
               <div className="chips">
@@ -922,7 +974,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     >
                       <ThemeSwatch themeKey={key} />
                       {def.label}
-                      {!unlocked && <span className="chip-price-tag" aria-hidden="true"><LockIcon /> {PRICE_SINGLE_ITEM}</span>}
+                      {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
                     </button>
                   )
                 })}
@@ -945,7 +997,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     >
                       <LayoutPlan layoutKey={key} className="chip-plan" />
                       {def.label}
-                      {!unlocked && <span className="chip-price-tag" aria-hidden="true"><LockIcon /> {PRICE_SINGLE_ITEM}</span>}
+                      {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
                     </button>
                   )
                 })}
@@ -1007,8 +1059,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             )}
           </div>
 
+          {DESIGN_TOOLS_VISIBLE && (
+          <>
           {/* Design Tools (§11.5/§11.8) — a buy-once capability layered on top of the
-              theme: recolour walls/floor, tune the light mood, add a small logo mark */}
+              theme: recolour walls/floor, tune the light mood, add a small logo mark.
+              Hidden for now via DESIGN_TOOLS_VISIBLE. */}
           <div className="wd-group">
             <div className="wd-title"><span>Design Tools</span></div>
             {entitlements.designToolsEnabled ? (
@@ -1118,9 +1173,29 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               </div>
             )}
           </div>
+          </>
+          )}
+        </div>
+      </div>
 
-          {/* ── The works hanging in this room (nested inside it) ── */}
-          <div className="wd-group works-in-room">
+      {/* ===== Section 2 — the artworks that hang in this room ===== */}
+      <div className="works-detail works-detail--art">
+        <GalleryPreview
+          art={previewArt}
+          src={previewSrc}
+          index={selectedIndex}
+          themeKey={row.theme}
+          frameKey={frame}
+          matKey={mat}
+          hangingKey={hanging}
+          captionKey={captionKey}
+          designOverrides={design}
+          emptyNote="Pick a work below to preview it framed on your wall."
+        />
+
+        <div className="we-right">
+          {/* Section 2 — pick a work (the strip), then edit its plate/size/framing below. */}
+          <div className="wd-group works-in-room wd-group--flush">
             <div className="wd-title">
               <span>Works in this room</span>
               <span className="wd-title-meta">{cloudArtworks.length} / {row.work_cap}</span>

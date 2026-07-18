@@ -913,6 +913,8 @@ body.gallery-mode {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.32);
   pointer-events: none;
 }
+/* Lock badge with no price — a compact round gold chip showing only the padlock */
+.chip-price-tag.chip-lock-only { gap: 0; padding: 0.32em; font-size: 0.66rem; }
 
 /* ---- Purchase modal — tap-through from anything locked ---- */
 .purchase-backdrop {

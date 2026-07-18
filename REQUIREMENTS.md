@@ -604,3 +604,18 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - 従来カード上部に全幅で置いていた作品ストリップ(+works-head/legend)は廃し、上記③へ集約。カルーセルは半幅カラム内でも横スクロールで機能。空状態(作品0)は③内に`upload-hero`を出す
 - あわせて全アプリ共通`.btn-line`に**押下(`:active` translateY)・キーボードフォーカスリング(`:focus-visible`)・hover淡背景**を追加(a11y+触感)
 - 検証: 実クラス名の軽量QAルートで新フロー(The room→Design Tools→Works in this room カルーセル→Editing "◯◯"→Save)をスクショし、親⊃子の並びと固定プレビューを確認・削除済み。`tsc`・`next build`クリーン、`/code-review`(未到達な空状態noteを削除)
+
+### 11.24 設定画面をテーマ節/アート節の2セクションに分離＋簡素化(v0.59)
+
+ユーザー要望3点(§11.23の一本フローを見た上で):
+1.「価格タグは価格を見せずロックアイコンのみに」
+2.「Design Tools(カスタマイズ)はいったん非表示に(シンプルにしたい)」
+3.「テーマ選択セクションとアート設定セクションを分ける。最初にテーマ選択(左:3Dview/右:設定)、スクロールしたら下部にアート選択UI+設定UI」
+
+対処:
+- **価格タグ→ロックのみ**: `.chip-price-tag`の`{PRICE_SINGLE_ITEM}`テキストを削除し`<LockIcon />`だけに。`.chip-lock-only`修飾クラスで丸い小型ロックバッジ(gap:0・正方padding)に。`app/me/page.tsx`(テーマ/レイアウト)と`components/gallery/SettingsPanel.tsx`(3D内設定)の計4箇所。`PRICE_SINGLE_ITEM` importは未使用化するので削除
+- **Design Tools非表示**: module定数`DESIGN_TOOLS_VISIBLE = false as boolean`で`{DESIGN_TOOLS_VISIBLE && (…)}`ゲート。`false as boolean`は**リテラルでなくboolean型**にしてESLintのno-unused-vars/constant-conditionを回避しつつ中のハンドラ(editDesign/onLogoFile等)を"使用中"に保つ→ コードは残し1行で復帰可能
+- **2セクション化**: `we-right`一本を廃し、**works-detailグリッドを2つ縦に並べる**。§1「Theme & layout」=[左:3D room preview(左) / 右:テーマ+レイアウトchip]、§2「Works in this room」=[左:3D 選択作品preview / 右:カルーセル+選択作品の設定+Save]。区切りは`.works-detail--art`のtop border。各グリッドの`.we-left`は個別にsticky(§1ではテーマpreviewが、§2では作品previewが貼り付く)
+- §1のpreview主題は**カバー作品(or先頭)+部屋のデフォルト額装**(`roomArt`/`roomSrc`)にして「部屋そのもの」を表示、§2は従来の選択作品(`previewArt`)。両者の[Preview3D or WallPreview]描画は`GalleryPreview`ヘルパへ共通化(重複でドリフトしないよう`/code-review`指摘で抽出)
+- 既知トレードオフ: ダッシュボードに3Dプレビュー(WebGL)が2枚同時に載る(いずれも`frameloop="demand"`でアイドル・glTFは`useGLTF`キャッシュ共有なので実負荷は限定的だが、低スペック端末では単一時より重い)
+- 検証: 実クラス名の軽量QAルートで2セクション(テーマ節=chip+ロックのみバッジ、アート節=カルーセル+作品設定+Save、区切り線)をスクショ確認・削除済み。`tsc`・`next build`クリーン

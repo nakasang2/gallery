@@ -602,7 +602,7 @@ export default function SettingsPanel() {
               >
                 <ThemeSwatch themeKey={key} />
                 {def.label}
-                {!unlocked && <span className="chip-price-tag" aria-hidden="true"><LockIcon /> {PRICE_SINGLE_ITEM}</span>}
+                {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
               </button>
             )
           })}
@@ -627,7 +627,7 @@ export default function SettingsPanel() {
               >
                 <LayoutPlan layoutKey={key} className="chip-plan" />
                 {def.label}
-                {!unlocked && <span className="chip-price-tag" aria-hidden="true"><LockIcon /> {PRICE_SINGLE_ITEM}</span>}
+                {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
               </button>
             )
           })}
