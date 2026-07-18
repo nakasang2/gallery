@@ -1065,24 +1065,14 @@ body.gallery-mode {
   margin-bottom: 0.7rem;
 }
 
-/* ---- Settings-column scope switch (Room · This work) ---- */
-.scope-seg {
-  display: flex;
-  width: 100%;
-  margin-bottom: 0.4rem;
-}
-.scope-seg button {
-  flex: 1;
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  padding: 0.62em 0.85em;
-}
-
 /* ---- 作品デザインパネル(構造化): グループ > 行(ラベル+適材コントロール) ---- */
 .wd-group { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--hairline); }
-/* First group under the scope switch: the switch already separates it, so no top rule */
-.wd-group--flush { margin-top: 0.7rem; padding-top: 0; border-top: none; }
+/* First group in the settings column — nothing above it needs a divider rule */
+.wd-group--flush { margin-top: 0; padding-top: 0; border-top: none; }
 .work-design .wd-group:first-child { margin-top: 0.6rem; padding-top: 0; border-top: none; }
+/* "Works in this room": the child list nested under the room's own settings */
+.wd-title-meta { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; color: var(--muted); }
+.works-in-room .works-strip { margin-top: 0.2rem; }
 
 /* Dashboard: per-work audio-guide upload row (inside the Title & caption group) */
 .wd-audio {

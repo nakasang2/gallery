@@ -589,11 +589,18 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - 置換箇所(🔒 7箇所・🎬 3箇所、計10箇所): `components/gallery/SettingsPanel.tsx`(テーマ/レイアウトのchip-price-tag×2、works-titleの動画表示)・`components/SpacePreviews.tsx`(テンプレートカードのtpl-lock)・`components/PlacementEditor.tsx`(配置ピッカーの動画プレースホルダ)・`app/me/page.tsx`(テンプレ premium 表示・works-capacity-boxのロック・chip-price-tag×2・filmstripのfigcaption動画表示)。アイコン+テキストが並ぶコンテナ(`.chip-price-tag`/`.tpl-lock`/`.works-capacity-box`)には`display:inline-flex; gap`を付与し、絵文字直後の半角スペースに頼っていた見た目の間隔をCSS側で担保
 - 検証: 軽量QAルートで全アイコン(価格タグ・プレミアムバッジ・追加枠タイル・動画キャプション・disabled CTA内)をレンダリングし、サイズ/色/間隔が絵文字版と遜色ないことをスクショ確認・削除済み。`grep`で`.tsx`/`.ts`中に絵文字が残っていないことを確認(`components/icons.tsx`の説明コメント内の言及のみ)。`tsc`・`next build`クリーン
 
-### 11.23 ギャラリー設定パネルを「Room / This work」のスコープ切替に(v0.58 — ダッシュボードUX)
+### 11.23 ギャラリー設定画面を Room ⊃ 作品 の入れ子構造に再構成(v0.58 — ダッシュボードUX)
 
-ユーザー指摘「一番気になってるのはギャラリーの設定画面」。診断: `HakoniwaCard`の`works-detail`右カラム(`we-right`)は、部屋全体(テーマ/レイアウト/Design Tools)と選択中の1作品(プレート/サイズ/額装)という**到達範囲が全く異なる設定**が縦一列に積まれ、① どのコントロールがどのスコープに効くのか分かりにくい ② 作品を編集するたび部屋設定を延々スクロールする、という2点が最大の摩擦だった(前セッションで room→work の順序自体は§11.17で確定済みだが、順序では解決しきれない密度・スクロール問題)。対処:
-- **右カラム冒頭に全幅のセグメント切替`.scope-seg`(既存`.seg`コンポーネントを流用)を追加し、「Room」/「This work」の2スコープを一度に片方だけ表示**。Roomは部屋全体(Theme/Layout/Custom size/Placement + Design Tools)、This workは選択作品(Title & caption/Size/Medium/Audio + WorkDesignの額装 + Save settings)。これでスクロール量が実質半減し、各コントロールのスコープが明示される
-- **作品ストリップのサムネイルをタップすると自動で「This work」へ切替**(`setSelectedId`と同時に`setScope('work')`)。作品を選ぶ→そのまま編集、という自然な導線。Roomへは1タップで戻れる
-- スコープを説明していた長い散文の`me-note`を廃し、各スコープ内に短い誘導文を配置(Room側「一枚を編集するにはThis workへ」/ This work側は選択作品名を明示「Editing "◯◯" — applies to this work only」)。作品ゼロ時のThis workは「まず作品をアップロード」と案内(サムネが無い状態で「タップして」と言わないよう文言を出し分け)
-- あわせて全アプリ共通の`.btn-line`に**押下フィードバック(`:active` translateY)・キーボードフォーカスリング(`:focus-visible` gold outline)・hover時の淡い背景**を追加(従来はborder/colorのみで無反応・a11yのフォーカスリング欠落)。設定画面はボタンが多く恩恵大
-- 検証: 実クラス名の軽量QAルートで両スコープ(Room=テーマ/レイアウトchip+Design Toolsティーザー、This work=作品名の文脈行+Title&caption+Save CTA)をレンダリングし、全幅セグメント・flush先頭グループ・スコープ切替をスクショ確認・削除済み。`tsc`・`next build`クリーン、`/code-review`実施(作品ゼロ時の空状態文言を修正)
+ユーザー指摘「一番気になってるのはギャラリーの設定画面」。
+
+**中間案(不採用・×1)**: 設定カラム(`we-right`)冒頭に「Room / This work」の全幅セグメント切替を置き、2スコープを片方ずつ表示する案を実装 → ユーザー評価「50点・微妙」。理由は**情報設計の粒度がおかしい**こと。「Room があって、その中に作品がある」のが正しい親子関係なのに、当時のレイアウトは ① 上に作品を選ぶカルーセル ② その下に Room/This-work トグル、と**子(作品選択)が親(Room)より上に来て入れ子が破綻**していた。トグルは「スコープ切替」という別の抽象を持ち込み粒度をずらしただけだった。→ **教訓: 「見えている情報の並び順」ではなく「概念の包含関係(親⊃子)」を先に合わせる。**
+
+**採用案(Room ⊃ 作品の縦一本フロー)**: `works-detail`は従来通り2カラム(左=固定3Dプレビュー / 右=`we-right`)。`we-right`を**上から Room → 作品 → 選択作品 の一本の流れ**に再構成:
+1. **The room**(部屋そのもの): Theme / Layout / Custom size / Placement
+2. **Design Tools**(部屋のデザイン)
+3. **Works in this room**(部屋に掛かる作品 = 子): 作品カルーセルをここへ移設し、`wd-title`に「Works in this room」+ 枚数(`N / cap`)を表示。**カルーセルが Room の設定の"下(=中)"に明確にネスト**される
+4. **Editing "◯◯"**(選択した1作品): プレート/サイズ/画材/額装 + Save settings
+- 左の**固定3Dプレビューが Room 変更(テーマ/レイアウト)も作品変更(額装)も同時に反映**するので、片方ずつ隠すトグルより情報量が多く、スクロール中も常に結果が見える
+- 従来カード上部に全幅で置いていた作品ストリップ(+works-head/legend)は廃し、上記③へ集約。カルーセルは半幅カラム内でも横スクロールで機能。空状態(作品0)は③内に`upload-hero`を出す
+- あわせて全アプリ共通`.btn-line`に**押下(`:active` translateY)・キーボードフォーカスリング(`:focus-visible`)・hover淡背景**を追加(a11y+触感)
+- 検証: 実クラス名の軽量QAルートで新フロー(The room→Design Tools→Works in this room カルーセル→Editing "◯◯"→Save)をスクショし、親⊃子の並びと固定プレビューを確認・削除済み。`tsc`・`next build`クリーン、`/code-review`(未到達な空状態noteを削除)

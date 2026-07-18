@@ -361,10 +361,6 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [stats, setStats] = useState<EngagementSummary | null>(null)
   const [uploading, setUploading] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // The settings column edits two very different scopes — the whole room vs. the one
-  // selected work. A segmented switch shows one at a time (see the render) so the panel
-  // isn't a single long scroll and the scope of every control is unambiguous.
-  const [scope, setScope] = useState<'room' | 'work'>('room')
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
@@ -865,112 +861,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </button>
       </div>
 
-      {/* ---- The workbench: a filmstrip of the 10 slots on top, the selected work's
-           full-width detail (3D preview + every control) below ---- */}
-      {cloudArtworks.length === 0 ? (
-        <label className="upload-hero" aria-disabled={uploading} style={{ marginTop: '1.4rem' }}>
-          <b>{uploading ? 'Uploading…' : 'Hang your first work'}</b>
-          <span>
-            Drop in images from your camera roll or portfolio —<br />
-            the preview below shows them framed on your wall.
-          </span>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            disabled={uploading}
-            onChange={(e) => {
-              void onFiles(e.target.files)
-              e.target.value = ''
-            }}
-          />
-        </label>
-      ) : (
-        <>
-          <div className="works-head">
-            <span className="works-count">
-              {cloudArtworks.length} / {row.work_cap} works
-            </span>
-            <span className="works-legend">Select a work · ★ cover · × remove</span>
-          </div>
-          {/* Filmstrip: the room's slots as a horizontal, scrollable rail — filled works,
-              then one upload tile per remaining open slot (so all work_cap slots are
-              fillable), then a distinct paid "add slots" tile beyond the cap. */}
-          <div className="works-strip">
-            {cloudArtworks.map((art) => (
-              <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={art.poster ?? art.src}
-                  alt={art.title}
-                  loading="lazy"
-                  onClick={() => {
-                    setSelectedId(art.id)
-                    setScope('work') // picking a work jumps you straight to editing it
-                  }}
-                />
-                <figcaption>
-                  {art.kind === 'video' ? (
-                    <>
-                      <VideoIcon className="works-title-icon" /> {art.title}
-                    </>
-                  ) : (
-                    art.title
-                  )}
-                </figcaption>
-                <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
-                <button
-                  className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
-                  aria-label={`Use ${art.title} as the share cover`}
-                  title="Use as share cover (OGP)"
-                  onClick={() => void toggleCover(art)}
-                >
-                  {row.cover_artwork_id === art.id ? '★' : '☆'}
-                </button>
-              </figure>
-            ))}
-            {/* One upload tile per open slot — every one of the room's slots is fillable.
-                Same "box + caption below" shape as a filled cell (box = image height,
-                caption = title height) so the whole row lines up at a consistent height;
-                the caption reads the slot's number until a work fills it. */}
-            {Array.from({ length: Math.max(0, row.work_cap - cloudArtworks.length) }).map((_, i) => (
-              <label className="works-add" key={`add-${i}`} aria-disabled={uploading} title="Upload a work">
-                <span className="works-add-box" aria-hidden="true">{uploading ? '…' : '+'}</span>
-                <span className="works-add-label">Slot {cloudArtworks.length + i + 1}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  hidden
-                  disabled={uploading}
-                  onChange={(e) => {
-                    void onFiles(e.target.files)
-                    e.target.value = ''
-                  }}
-                />
-              </label>
-            ))}
-            {/* Distinct paid add-on: extend the room past its current cap (§11.7). Set
-                apart from the neutral upload tiles so "add a work" vs "buy more room" read
-                differently — but same box+caption shape for row-height consistency. */}
-            <button
-              className="works-capacity"
-              onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
-              title={`Add ${CAPACITY_ADDON_SIZE} more work slots`}
-            >
-              <span className="works-capacity-box" aria-hidden="true">
-                <LockIcon /> +{CAPACITY_ADDON_SIZE}
-              </span>
-              <span className="works-capacity-label">more slots</span>
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* Detail: full width below the strip — 3D preview left, every control right.
-          Everything here changes what the preview shows — plate text, per-work
-          design, and the room itself. Poster-less videos / empty state fall to CSS. */}
+      {/* The room's editing surface: sticky 3D preview on the left, and on the right a
+          single top-to-bottom flow — the room itself, the works hanging in it, then the
+          selected work's own settings (Room ⊃ works). */}
       <div className="works-detail">
         <div className="we-left">
           {selected && previewArt && previewSrc ? (
@@ -1007,34 +900,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </div>
 
         <div className="we-right">
-          {/* Scope switch: the controls below reach either the WHOLE room (theme, layout,
-              design tools) or just the ONE selected work (plate, size, framing). Showing one
-              scope at a time makes that reach unambiguous and keeps the panel from being a
-              single long scroll. */}
-          <div className="scope-seg seg" role="group" aria-label="Settings scope">
-            <button
-              aria-pressed={scope === 'room'}
-              className={scope === 'room' ? 'active' : ''}
-              onClick={() => setScope('room')}
-            >
-              Room
-            </button>
-            <button
-              aria-pressed={scope === 'work'}
-              className={scope === 'work' ? 'active' : ''}
-              onClick={() => setScope('work')}
-            >
-              This work
-            </button>
-          </div>
-
-          {scope === 'room' && (
-          <>
-          {/* Room-wide space: theme recolours the preview wall live; layout is the floor plan.
-              Room-level settings first, then Design Tools (also room-wide), then the
-              per-work controls under "This work" — highest scope to narrowest */}
+          {/* Reads top-to-bottom as Room ⊃ works: the room itself (theme, layout, design
+              tools), then the works hanging in it, then the one selected work's plate/size/
+              framing. The sticky preview on the left reflects every change. */}
           <div className="wd-group wd-group--flush">
-            <div className="wd-title"><span>Room — whole gallery</span></div>
+            <div className="wd-title"><span>The room</span></div>
             <div className="wd-row">
               <span className="wd-label">Theme</span>
               <div className="chips">
@@ -1249,24 +1119,97 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             )}
           </div>
 
-          <p className="me-note" style={{ marginTop: '0.5rem' }}>
-            These set the whole gallery. To edit one piece — its plate, size, and framing —
-            switch to <b style={{ color: 'var(--ink)' }}>This work</b> above (or tap a work in the strip).
-          </p>
-          </>
-          )}
+          {/* ── The works hanging in this room (nested inside it) ── */}
+          <div className="wd-group works-in-room">
+            <div className="wd-title">
+              <span>Works in this room</span>
+              <span className="wd-title-meta">{cloudArtworks.length} / {row.work_cap}</span>
+            </div>
+            {cloudArtworks.length === 0 ? (
+              <label className="upload-hero" aria-disabled={uploading}>
+                <b>{uploading ? 'Uploading…' : 'Hang your first work'}</b>
+                <span>Drop in images from your camera roll or portfolio — the preview shows them framed on your wall.</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  disabled={uploading}
+                  onChange={(e) => {
+                    void onFiles(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            ) : (
+              <>
+                <p className="wd-sub" style={{ marginBottom: '0.5rem' }}>Tap a work to edit it · ★ cover · × remove</p>
+                <div className="works-strip">
+                  {cloudArtworks.map((art) => (
+                    <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={art.poster ?? art.src}
+                        alt={art.title}
+                        loading="lazy"
+                        onClick={() => setSelectedId(art.id)}
+                      />
+                      <figcaption>
+                        {art.kind === 'video' ? (
+                          <>
+                            <VideoIcon className="works-title-icon" /> {art.title}
+                          </>
+                        ) : (
+                          art.title
+                        )}
+                      </figcaption>
+                      <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
+                      <button
+                        className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
+                        aria-label={`Use ${art.title} as the share cover`}
+                        title="Use as share cover (OGP)"
+                        onClick={() => void toggleCover(art)}
+                      >
+                        {row.cover_artwork_id === art.id ? '★' : '☆'}
+                      </button>
+                    </figure>
+                  ))}
+                  {Array.from({ length: Math.max(0, row.work_cap - cloudArtworks.length) }).map((_, i) => (
+                    <label className="works-add" key={`add-${i}`} aria-disabled={uploading} title="Upload a work">
+                      <span className="works-add-box" aria-hidden="true">{uploading ? '…' : '+'}</span>
+                      <span className="works-add-label">Slot {cloudArtworks.length + i + 1}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        hidden
+                        disabled={uploading}
+                        onChange={(e) => {
+                          void onFiles(e.target.files)
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                  ))}
+                  <button
+                    className="works-capacity"
+                    onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
+                    title={`Add ${CAPACITY_ADDON_SIZE} more work slots`}
+                  >
+                    <span className="works-capacity-box" aria-hidden="true">
+                      <LockIcon /> +{CAPACITY_ADDON_SIZE}
+                    </span>
+                    <span className="works-capacity-label">more slots</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
-          {scope === 'work' && !selected && (
-            <p className="me-note" style={{ marginTop: '0.25rem' }}>
-              Upload a work first — then this tab edits its plate, size, and framing.
-              Room-wide theme and layout live under the <b style={{ color: 'var(--ink)' }}>Room</b> tab.
-            </p>
-          )}
-
-          {scope === 'work' && selected && (
+          {selected && (
             <>
-              <p className="me-note" style={{ marginTop: '0.25rem', marginBottom: 0 }}>
-                Editing <b style={{ color: 'var(--ink)' }}>“{selected.title}”</b> — applies to this work only; matching the room setting clears the override.
+              <p className="me-note" style={{ marginTop: '0.6rem', marginBottom: 0 }}>
+                Editing <b style={{ color: 'var(--ink)' }}>“{selected.title}”</b> — the plate, size, and framing for this piece.
                 {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
               </p>
 

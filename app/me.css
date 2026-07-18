@@ -392,17 +392,7 @@
   .hako-actions .btn-line { flex: 1 1 44%; }
 }
 
-/* 作品ワークベンチ: 上=10枠のフィルムストリップ / 下=選択作品の詳細(全幅) */
-.works-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.8rem;
-  margin: 1.4rem 0 0.6rem;
-  flex-wrap: wrap;
-}
-.works-count { font-size: 0.72rem; letter-spacing: 0.14em; color: var(--ink); }
-.works-legend { font-size: 0.68rem; color: var(--muted); }
+/* 作品ワークベンチ: 設定カラム内に Room → 作品カルーセル → 選択作品の詳細 と縦に流れる */
 
 /* フィルムストリップ: 10枠を横一列にスクロール。スクロールバーは細く控えめに */
 .works-strip {
