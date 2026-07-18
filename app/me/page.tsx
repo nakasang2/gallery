@@ -361,6 +361,10 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [stats, setStats] = useState<EngagementSummary | null>(null)
   const [uploading, setUploading] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // The settings column edits two very different scopes — the whole room vs. the one
+  // selected work. A segmented switch shows one at a time (see the render) so the panel
+  // isn't a single long scroll and the scope of every control is unambiguous.
+  const [scope, setScope] = useState<'room' | 'work'>('room')
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
@@ -901,7 +905,10 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   src={art.poster ?? art.src}
                   alt={art.title}
                   loading="lazy"
-                  onClick={() => setSelectedId(art.id)}
+                  onClick={() => {
+                    setSelectedId(art.id)
+                    setScope('work') // picking a work jumps you straight to editing it
+                  }}
                 />
                 <figcaption>
                   {art.kind === 'video' ? (
@@ -1000,10 +1007,33 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </div>
 
         <div className="we-right">
+          {/* Scope switch: the controls below reach either the WHOLE room (theme, layout,
+              design tools) or just the ONE selected work (plate, size, framing). Showing one
+              scope at a time makes that reach unambiguous and keeps the panel from being a
+              single long scroll. */}
+          <div className="scope-seg seg" role="group" aria-label="Settings scope">
+            <button
+              aria-pressed={scope === 'room'}
+              className={scope === 'room' ? 'active' : ''}
+              onClick={() => setScope('room')}
+            >
+              Room
+            </button>
+            <button
+              aria-pressed={scope === 'work'}
+              className={scope === 'work' ? 'active' : ''}
+              onClick={() => setScope('work')}
+            >
+              This work
+            </button>
+          </div>
+
+          {scope === 'room' && (
+          <>
           {/* Room-wide space: theme recolours the preview wall live; layout is the floor plan.
               Room-level settings first, then Design Tools (also room-wide), then the
-              per-work controls further down — highest scope to narrowest */}
-          <div className="wd-group">
+              per-work controls under "This work" — highest scope to narrowest */}
+          <div className="wd-group wd-group--flush">
             <div className="wd-title"><span>Room — whole gallery</span></div>
             <div className="wd-row">
               <span className="wd-label">Theme</span>
@@ -1220,15 +1250,23 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           </div>
 
           <p className="me-note" style={{ marginTop: '0.5rem' }}>
-            The room settings above set the whole gallery; the per-work controls below apply to
-            the selected work only, and matching the room&apos;s setting clears the override.
-            Works are library assets — deleting a hakoniwa never deletes them.
+            These set the whole gallery. To edit one piece — its plate, size, and framing —
+            switch to <b style={{ color: 'var(--ink)' }}>This work</b> above (or tap a work in the strip).
           </p>
+          </>
+          )}
 
-          {selected && (
+          {scope === 'work' && !selected && (
+            <p className="me-note" style={{ marginTop: '0.25rem' }}>
+              Upload a work first — then this tab edits its plate, size, and framing.
+              Room-wide theme and layout live under the <b style={{ color: 'var(--ink)' }}>Room</b> tab.
+            </p>
+          )}
+
+          {scope === 'work' && selected && (
             <>
-              <p className="me-note" style={{ marginBottom: 0 }}>
-                “{selected.title}” — <b style={{ color: 'var(--ink)' }}>this work</b>
+              <p className="me-note" style={{ marginTop: '0.25rem', marginBottom: 0 }}>
+                Editing <b style={{ color: 'var(--ink)' }}>“{selected.title}”</b> — applies to this work only; matching the room setting clears the override.
                 {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
               </p>
 
