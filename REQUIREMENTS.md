@@ -581,3 +581,10 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - **`.works-add`(空きアップロードタイル)・`.works-capacity`(有料追加枠タイル)を「正方形の枠+外側キャプション」構成に再構築**。従来は枠(aspect-ratio 1)のみで下にテキストが無く、`.works-strip`(flexの既定`align-items: stretch`)の下で塗り済みセル(画像+figcaption)よりキャプション分だけ低い高さになっていた。`.works-add`は内側`.works-add-box`(枠)+`.works-add-label`(「Slot N」、Nはストリップ内の表示上の通し番号)に分割、`.works-capacity`も同様に`.works-capacity-box`(🔒 +5)+`.works-capacity-label`(more slots、従来ボックス内にあったテキストを枠外へ移動)に分割。これで塗り済み/空き/追加購入の3種とも「枠+テキスト」の同一シェイプになり、行全体の高さが揃う
 - **「Save plate」ボタンを個別作品パネルの最下部(`WorkDesign`の後)へ移動し、"Save settings"にリネーム、全幅の金グラデーションCTA(`.wd-save-cta`)へ格上げ**。従来はMedium欄とAudio guideの間という中途半端な位置に地味な`.btn-line`で置かれており「押し忘れそう」だった。frame/mat/hanging/caption styleは選択した瞬間に自動保存されるため保存不要だが、title/caption/購入リンク/サイズ/mediumのテキスト系は明示保存が必要 — その一点をパネル全体の締めくくりとして目立たせる。無効化条件(未変更時disabled)は従来のロジックを保持
 - 検証: 実クラス名を使った軽量QAルートでストリップ(塗り済み2枚+空き4枠+追加購入枠)を描画し、全セルが同じ高さで揃うこと、CTAが有効/無効それぞれのスタイルで正しく表示されることをスクショ確認・削除済み。`tsc`・`next build`クリーン
+
+### 11.22 絵文字アイコンをSVGアイコンに置換
+
+ユーザー指摘「絵文字アイコン使用している箇所は全て普通のsvgアイコンに変更してください」。全リポジトリの`.tsx`/`.ts`を走査し、実際にレンダリングされる真の絵文字は**🔒(ロック)と🎬(動画)の2種のみ**と特定(×/✓/⇄/★☆/♥♡/▶■/♪など他の「アイコンっぽい」文字はUnicodeの記号・ダイングバットであって絵文字ではないため対象外。既存の`components/SnsLinks.tsx`のアイコン群と同様、プラットフォーム間で見た目が変わらない/`currentColor`で色を継承できる性質を保つ)。
+- **`components/icons.tsx`(新規)**: `LockIcon`・`VideoIcon`を追加。`SnsLinks.tsx`と同じ規約(`viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"`、`stroke="currentColor"`/`fill="currentColor"`)に揃え、呼び出し側のfont-sizeで自然にスケールする
+- 置換箇所(🔒 7箇所・🎬 3箇所、計10箇所): `components/gallery/SettingsPanel.tsx`(テーマ/レイアウトのchip-price-tag×2、works-titleの動画表示)・`components/SpacePreviews.tsx`(テンプレートカードのtpl-lock)・`components/PlacementEditor.tsx`(配置ピッカーの動画プレースホルダ)・`app/me/page.tsx`(テンプレ premium 表示・works-capacity-boxのロック・chip-price-tag×2・filmstripのfigcaption動画表示)。アイコン+テキストが並ぶコンテナ(`.chip-price-tag`/`.tpl-lock`/`.works-capacity-box`)には`display:inline-flex; gap`を付与し、絵文字直後の半角スペースに頼っていた見た目の間隔をCSS側で担保
+- 検証: 軽量QAルートで全アイコン(価格タグ・プレミアムバッジ・追加枠タイル・動画キャプション・disabled CTA内)をレンダリングし、サイズ/色/間隔が絵文字版と遜色ないことをスクショ確認・削除済み。`grep`で`.tsx`/`.ts`中に絵文字が残っていないことを確認(`components/icons.tsx`の説明コメント内の言及のみ)。`tsc`・`next build`クリーン

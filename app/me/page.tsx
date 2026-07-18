@@ -14,6 +14,7 @@ import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components
 import WorkDesign from '@/components/WorkDesign'
 import PurchaseModal from '@/components/PurchaseModal'
 import PlacementEditor from '@/components/PlacementEditor'
+import { LockIcon, VideoIcon } from '@/components/icons'
 import {
   purchaseOptionsFor,
   capacityPurchaseOptions,
@@ -280,7 +281,9 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
         {selectedLocked ? (
           <>
             <button className="btn-line" disabled aria-disabled="true">
-              {TEMPLATES[templateId]?.label} is premium 🔒
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35em' }}>
+                {TEMPLATES[templateId]?.label} is premium <LockIcon />
+              </span>
             </button>
             <p className="me-note" style={{ marginTop: '0.5rem' }}>
               This template uses a paid theme or layout. Start from a free template now — you can buy and switch to it anytime after.
@@ -900,7 +903,15 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   loading="lazy"
                   onClick={() => setSelectedId(art.id)}
                 />
-                <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
+                <figcaption>
+                  {art.kind === 'video' ? (
+                    <>
+                      <VideoIcon className="works-title-icon" /> {art.title}
+                    </>
+                  ) : (
+                    art.title
+                  )}
+                </figcaption>
                 <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
                 <button
                   className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
@@ -941,7 +952,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
               title={`Add ${CAPACITY_ADDON_SIZE} more work slots`}
             >
-              <span className="works-capacity-box" aria-hidden="true">🔒 +{CAPACITY_ADDON_SIZE}</span>
+              <span className="works-capacity-box" aria-hidden="true">
+                <LockIcon /> +{CAPACITY_ADDON_SIZE}
+              </span>
               <span className="works-capacity-label">more slots</span>
             </button>
           </div>
@@ -1009,7 +1022,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     >
                       <ThemeSwatch themeKey={key} />
                       {def.label}
-                      {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
+                      {!unlocked && <span className="chip-price-tag" aria-hidden="true"><LockIcon /> {PRICE_SINGLE_ITEM}</span>}
                     </button>
                   )
                 })}
@@ -1032,7 +1045,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     >
                       <LayoutPlan layoutKey={key} className="chip-plan" />
                       {def.label}
-                      {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
+                      {!unlocked && <span className="chip-price-tag" aria-hidden="true"><LockIcon /> {PRICE_SINGLE_ITEM}</span>}
                     </button>
                   )
                 })}
