@@ -454,9 +454,16 @@
 .works-cell button { color: #c96a5a; } /* 完全削除であることが静置状態でも伝わる色 */
 .works-cell button:hover { border-color: #e08a7a; color: #e08a7a; }
 
-/* ストリップ末尾の追加タイル */
+/* ストリップ末尾の追加タイル: 塗り済みセルと同じ「正方形の枠 + 下にキャプション」構成
+   にして、行全体の高さを揃える(枠だけだとキャプション分だけ塗り済みセルより低くなる) */
 .works-add {
   flex: 0 0 130px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+.works-add-box {
+  width: 100%;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
@@ -465,30 +472,55 @@
   color: var(--muted);
   border: 1px dashed rgba(212, 162, 78, 0.45);
   border-radius: 8px;
-  cursor: pointer;
   transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
-.works-add:hover { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.05); }
+.works-add:hover .works-add-box { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.05); }
+.works-add-label {
+  font-size: 0.64rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
 
-/* Paid "add more slots" tile — distinct from the neutral upload tiles (gold, locked) */
+/* Paid "add more slots" tile — distinct from the neutral upload tiles (gold, locked),
+   same box+caption shape as everything else in the row */
 .works-capacity {
   flex: 0 0 130px;
-  aspect-ratio: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.works-capacity-box {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 0.15rem;
   border: 1px dashed rgba(212, 162, 78, 0.55);
   border-radius: 8px;
   background: rgba(212, 162, 78, 0.05);
   color: var(--gold);
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+  transition: border-color 0.2s, background 0.2s;
 }
-.works-capacity:hover { border-color: var(--gold); background: rgba(212, 162, 78, 0.1); transform: translateY(-2px); }
-.works-capacity-plus { font-size: 1.1rem; letter-spacing: 0.02em; }
-.works-capacity small { font-size: 0.6rem; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+.works-capacity:hover .works-capacity-box { border-color: var(--gold); background: rgba(212, 162, 78, 0.1); }
+.works-capacity-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-top: 0.35rem;
+}
 @media (max-width: 640px) { .works-capacity { flex-basis: 108px; } }
 
 /* 詳細: プレビュー左 / 設定右。全幅なので余裕を持って2カラム */
@@ -517,8 +549,8 @@
   .works-detail .we-left { position: static; }
   .wall-preview--lg { height: 230px; font-size: 16px; }
   .wall-preview3d { height: 230px; }
-  .works-cell, .works-add { flex-basis: 108px; }
-  .works-cell figcaption { max-width: 108px; }
+  .works-cell, .works-add, .works-capacity { flex-basis: 108px; }
+  .works-cell figcaption, .works-add-label { max-width: 108px; }
 }
 
 /* 二次操作(Rename/Delete): 主要ボタンと並列にしない静かなテキスト行 */

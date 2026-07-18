@@ -912,10 +912,14 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                 </button>
               </figure>
             ))}
-            {/* One upload tile per open slot — every one of the room's slots is fillable */}
+            {/* One upload tile per open slot — every one of the room's slots is fillable.
+                Same "box + caption below" shape as a filled cell (box = image height,
+                caption = title height) so the whole row lines up at a consistent height;
+                the caption reads the slot's number until a work fills it. */}
             {Array.from({ length: Math.max(0, row.work_cap - cloudArtworks.length) }).map((_, i) => (
               <label className="works-add" key={`add-${i}`} aria-disabled={uploading} title="Upload a work">
-                <span aria-hidden="true">{uploading ? '…' : '+'}</span>
+                <span className="works-add-box" aria-hidden="true">{uploading ? '…' : '+'}</span>
+                <span className="works-add-label">Slot {cloudArtworks.length + i + 1}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -931,14 +935,14 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             ))}
             {/* Distinct paid add-on: extend the room past its current cap (§11.7). Set
                 apart from the neutral upload tiles so "add a work" vs "buy more room" read
-                differently. */}
+                differently — but same box+caption shape for row-height consistency. */}
             <button
               className="works-capacity"
               onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
               title={`Add ${CAPACITY_ADDON_SIZE} more work slots`}
             >
-              <span className="works-capacity-plus" aria-hidden="true">🔒 +{CAPACITY_ADDON_SIZE}</span>
-              <small>more slots</small>
+              <span className="works-capacity-box" aria-hidden="true">🔒 +{CAPACITY_ADDON_SIZE}</span>
+              <span className="works-capacity-label">more slots</span>
             </button>
           </div>
         </>
@@ -1313,21 +1317,6 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     onChange={(e) => setMediumInput(e.target.value)}
                   />
                 </label>
-                <button
-                  className="btn-line"
-                  disabled={
-                    busy ||
-                    (titleInput === selected.title &&
-                      captionInput === (selected.desc ?? '') &&
-                      purchaseUrlInput === (selected.purchaseUrl ?? '') &&
-                      widthInput === (selected.widthCm ? String(selected.widthCm) : '') &&
-                      heightInput === (selected.heightCm ? String(selected.heightCm) : '') &&
-                      mediumInput === (selected.medium ?? ''))
-                  }
-                  onClick={() => void saveWorkDetails()}
-                >
-                  {workSaved ? 'Saved' : 'Save plate'}
-                </button>
 
                 {/* Audio guide: auto-reads the caption aloud (free, no recording); an
                     uploaded file overrides that with your own narration. Auto-plays on the tour. */}
@@ -1382,6 +1371,26 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, row.caption_default) })
                 }
               />
+
+              {/* Closing CTA for the whole per-work panel — frame/mat/hanging above save the
+                  instant you pick them, but title/caption/link/size/medium don't, so this is
+                  the one click that's easy to miss if it's buried mid-form instead of at the
+                  bottom where you finish reading. */}
+              <button
+                className="wd-save-cta"
+                disabled={
+                  busy ||
+                  (titleInput === selected.title &&
+                    captionInput === (selected.desc ?? '') &&
+                    purchaseUrlInput === (selected.purchaseUrl ?? '') &&
+                    widthInput === (selected.widthCm ? String(selected.widthCm) : '') &&
+                    heightInput === (selected.heightCm ? String(selected.heightCm) : '') &&
+                    mediumInput === (selected.medium ?? ''))
+                }
+                onClick={() => void saveWorkDetails()}
+              >
+                {workSaved ? 'Saved ✓' : 'Save settings'}
+              </button>
             </>
           )}
         </div>

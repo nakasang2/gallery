@@ -1080,6 +1080,33 @@ body.gallery-mode {
 .wd-audio-actions { display: flex; gap: 0.4rem; }
 .wd-audio-upload { cursor: pointer; }
 .wd-audio-upload[aria-disabled='true'] { opacity: 0.5; pointer-events: none; }
+
+/* Closing CTA for the whole per-work panel — full-width and visually weighted so
+   it reads as THE save action, not a .btn-line easy to scroll past mid-form (frame/
+   mat/hanging above already auto-save; this is the one click that persists title/
+   caption/link/size/medium) */
+.wd-save-cta {
+  display: block;
+  width: 100%;
+  margin-top: 1.1rem;
+  text-align: center;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #1a1510;
+  background: linear-gradient(135deg, #e6bb70, var(--gold));
+  border: none;
+  border-radius: 8px;
+  padding: 0.85em 1.2em;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(212, 162, 78, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+.wd-save-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(212, 162, 78, 0.38); }
+.wd-save-cta:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: 0 4px 14px rgba(212, 162, 78, 0.28); }
+.wd-save-cta:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+
 .wd-title {
   display: flex;
   align-items: center;

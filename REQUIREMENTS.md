@@ -570,3 +570,14 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 #### 11.21.6 サイズ入力行のUI改行修正
 
 ユーザー指摘「cm ⇄が改行されちゃってる」。`app/me`のSize行(プリセットselect + W × H cm ⇄)が`.design-controls`(flex-wrap:wrap)の直下に平置きされていたため、狭い幅では折り返し位置が悪く「cm」や「⇄」だけが単独で次の行に落ちていた。**W/×/H/cm/⇄をひとつの`flexWrap:'nowrap'`の内側divにまとめてグループ化**し、外側の折り返しはこのグループごと(select vs 寸法グループ)で起こるよう修正。`tsc`・`next build`クリーン
+
+#### 11.21.7 作品ストリップの空き枠を塗り済みセルと高さ揃え + 保存ボタンを全体の締めCTAへ再配置
+
+ユーザー指摘2点、スクショ付き:
+1.「アート追加UIが枠線のみで、塗り済みセル(画像+タイトル)と高さが揃わない。追加UIも枠線+テキスト(スロットNo→設定後にアート+タイトル)にしたい」
+2.「Save platesが中途半端な位置にある。全体にかかるsave settingという位置付けにして押しそびれないUIにしたい」
+
+対処:
+- **`.works-add`(空きアップロードタイル)・`.works-capacity`(有料追加枠タイル)を「正方形の枠+外側キャプション」構成に再構築**。従来は枠(aspect-ratio 1)のみで下にテキストが無く、`.works-strip`(flexの既定`align-items: stretch`)の下で塗り済みセル(画像+figcaption)よりキャプション分だけ低い高さになっていた。`.works-add`は内側`.works-add-box`(枠)+`.works-add-label`(「Slot N」、Nはストリップ内の表示上の通し番号)に分割、`.works-capacity`も同様に`.works-capacity-box`(🔒 +5)+`.works-capacity-label`(more slots、従来ボックス内にあったテキストを枠外へ移動)に分割。これで塗り済み/空き/追加購入の3種とも「枠+テキスト」の同一シェイプになり、行全体の高さが揃う
+- **「Save plate」ボタンを個別作品パネルの最下部(`WorkDesign`の後)へ移動し、"Save settings"にリネーム、全幅の金グラデーションCTA(`.wd-save-cta`)へ格上げ**。従来はMedium欄とAudio guideの間という中途半端な位置に地味な`.btn-line`で置かれており「押し忘れそう」だった。frame/mat/hanging/caption styleは選択した瞬間に自動保存されるため保存不要だが、title/caption/購入リンク/サイズ/mediumのテキスト系は明示保存が必要 — その一点をパネル全体の締めくくりとして目立たせる。無効化条件(未変更時disabled)は従来のロジックを保持
+- 検証: 実クラス名を使った軽量QAルートでストリップ(塗り済み2枚+空き4枠+追加購入枠)を描画し、全セルが同じ高さで揃うこと、CTAが有効/無効それぞれのスタイルで正しく表示されることをスクショ確認・削除済み。`tsc`・`next build`クリーン
