@@ -22,6 +22,9 @@ export interface ArtworkData {
   /** Where to buy this specific work (the artist's shop, Etsy, a DM link…). Shown
    *  to visitors on the artwork panel; unset means "not for sale here". */
   purchaseUrl?: string
+  /** Display price as the artist typed it (e.g. "¥50,000", "$500", "Ask"). Free text so
+   *  any currency/format works — HAKONIWA doesn't process the sale, it just shows it. */
+  price?: string
   /** Audio-guide narration URL for this work; played on the artwork panel and,
    *  during the guided tour, automatically as each work comes into focus. */
   audioUrl?: string

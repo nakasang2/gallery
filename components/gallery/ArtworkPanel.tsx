@@ -147,10 +147,12 @@ export default function ArtworkPanel() {
             ))}
           </div>
           {guide && <AudioGuideButton source={guide} />}
-          {art.purchaseUrl && (
+          {art.purchaseUrl ? (
             <a className="panel-buy" href={toHref(art.purchaseUrl)} target="_blank" rel="noopener noreferrer">
-              Available for purchase ↗
+              {art.price ? `${art.price} · ` : ''}Available for purchase ↗
             </a>
+          ) : (
+            art.price && <div className="panel-price">{art.price}</div>
           )}
           {/* Per-work design (frame / mat / hanging / caption) cannot be changed in visitor mode */}
           {!visitor && (

@@ -654,3 +654,19 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - **`Editing "◯◯"…`のme-note削除**。併せて唯一の参照だった`syncState`も撤去(額装等の自動保存表示は消えるが、明示保存は`Save settings`の`Saved ✓`が担う)
 - **アートプレビューをカード端までブリード**。`.art-section .works-detail`を左右`-1.6rem`(=カード左右padding)でbreakout、設定カラムは`padding-right:1.6rem`で戻す。プレビューの内側borderを除去し右上/右下のみ角丸に→ カードのpadding内に収まった「箱入り」感を解消し、プレビューが左端まで自分の面として広がる。モバイル(1カラム)はプレビュー全幅・設定は左右padding復帰
 - 検証: 軽量QAでme-card内にstats/theme/art節+sticky保存を再現、上スクロール=保存がビューポート下端に固定・下端=解放してフッタ手前にドック、Editing文なし、プレビューが左カード端までブリードすることをスクショ確認・削除済み。`tsc`・`next build`クリーン
+
+### 11.28 Title&caption上 borderの除去 / フレーム最小1cm / 作品価格の設定(v0.63)
+
+ユーザー3点:
+1.「アート設定内の title and caption の上の border も消して欲しい」
+2.「アートフレームの thickness は minimum を1cmにできますか」
+3.「価格を設定できるようにして欲しい」
+
+対処:
+- **Title&captionグループを flush 化**。設定カラム(`we-right`)先頭の`Title & caption`グループを`.wd-group`(上に`border-top`のhairline)から`.wd-group--flush`(margin/padding/border 0)へ。§11.27で保存文やプレビュー節を整理した結果、このグループが設定カラムの実質先頭になったため、頭にだけ残る区切り線が浮いて見えていた
+- **フレーム太さの下限を30mm→10mm(1cm)に**。`FRAME_BAR_MM = { min: 10, max: 150 }`。太さスライダ(WorkDesign)の`min`と`clampBarMm`が共有参照。※カスタム額装キー`c:<style>:<hex>:<mm>`のmmは正規表現`\d{2,3}`で2〜3桁固定なので、下限は1桁にならない10mm(="10")が安全な最小値(1桁だとキーがパースできず壊れる)
+- **作品ごとの表示価格(自由入力テキスト)**。HAKONIWAは決済を代行しないので、作家が入力したそのまま(`¥50,000`/`$500`/`Ask`等・通貨や書式は自由)を作品パネルに表示するだけ。
+  - `ArtworkData.price?: string`追加、`cloud.ts`は`ArtworkRow.price`・`rowToArtwork`・`updateArtworkDetails`(空trimでnull)に対応、`OPTIONAL`配列に`'price'`追加(migration未適用DBでもtitle/caption保存は死なない従来のグレースフルデグレード)。migration `0026_artwork_price.sql`(`add column if not exists price text`)
+  - ダッシュボード: `priceInput` state・作品切替時seed・保存ペイロード・dirty判定に追加。入力欄は Title&caption グループ内、Purchase link の上に配置(「Price — shown to visitors」/ placeholder「e.g. ¥50,000 (leave blank to hide)」)。Purchase linkの説明文も「where "Available for purchase" sends buyers」へ整理
+  - 作品パネル(`ArtworkPanel`): 購入リンクがあれば`{price} · Available for purchase ↗`と前置、無ければ価格のみ`.panel-price`(serif/gold)で単独表示。両方未設定なら何も出さない
+- 検証: 全変更が`tsc`・`next build`クリーン。※本番反映には migration 0026 の適用が必要(未適用でも価格以外は保存継続)

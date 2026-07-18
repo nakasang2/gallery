@@ -429,6 +429,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
+  const [priceInput, setPriceInput] = useState('')
   const [widthInput, setWidthInput] = useState('')
   const [heightInput, setHeightInput] = useState('')
   // The W×H cm fields only show in "custom" mode; a preset shows just the dropdown + swap.
@@ -496,6 +497,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     setTitleInput(selected?.title ?? '')
     setCaptionInput(selected?.desc ?? '')
     setPurchaseUrlInput(selected?.purchaseUrl ?? '')
+    setPriceInput(selected?.price ?? '')
     setWidthInput(selected?.widthCm ? String(selected.widthCm) : '')
     setHeightInput(selected?.heightCm ? String(selected.heightCm) : '')
     // Start in preset mode when the saved size matches a standard preset; otherwise
@@ -763,6 +765,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         title: titleInput,
         description: captionInput,
         purchaseUrl: purchaseUrlInput,
+        price: priceInput,
         widthCm: Number.isFinite(w) && w > 0 ? w : null,
         heightCm: Number.isFinite(h) && h > 0 ? h : null,
         medium: mediumInput,
@@ -1270,8 +1273,9 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               emptyNote="Pick a work above to preview it framed on your wall."
             />
             <div className="we-right">
-              {/* The name plate's text: title + caption, straight onto the plate above */}
-              <div className="wd-group" style={{ marginTop: 0 }}>
+              {/* The name plate's text: title + caption, straight onto the plate above.
+                  Flush (no top divider) — it's the first thing in the settings column now. */}
+              <div className="wd-group wd-group--flush">
                 <div className="wd-title"><span>Title &amp; caption</span></div>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
                   <span>Title</span>
@@ -1288,7 +1292,16 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Purchase link — shown to visitors as “Available for purchase”</span>
+                  <span>Price — shown to visitors (type it with its currency)</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. ¥50,000 (leave blank to hide)"
+                    value={priceInput}
+                    onChange={(e) => setPriceInput(e.target.value)}
+                  />
+                </label>
+                <label className="me-field" style={{ margin: '0.45rem 0' }}>
+                  <span>Purchase link — where “Available for purchase” sends buyers</span>
                   <input
                     type="text"
                     inputMode="url"
@@ -1415,6 +1428,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             (titleInput === selected.title &&
               captionInput === (selected.desc ?? '') &&
               purchaseUrlInput === (selected.purchaseUrl ?? '') &&
+              priceInput === (selected.price ?? '') &&
               widthInput === (selected.widthCm ? String(selected.widthCm) : '') &&
               heightInput === (selected.heightCm ? String(selected.heightCm) : '') &&
               mediumInput === (selected.medium ?? ''))

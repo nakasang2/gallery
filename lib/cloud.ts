@@ -17,6 +17,7 @@ interface ArtworkRow {
   created_at: string
   kind?: 'image' | 'video'
   purchase_url?: string | null
+  price?: string | null
   audio_url?: string | null
   width_cm?: number | null
   height_cm?: number | null
@@ -41,6 +42,7 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
     src: publicUrl(`${row.storage_path}/${video ? 'video' : 'display.jpg'}`),
     poster: video ? publicUrl(`${row.storage_path}/thumb.jpg`) : undefined,
     purchaseUrl: row.purchase_url ?? undefined,
+    price: row.price ?? undefined,
     audioUrl: row.audio_url ?? undefined,
     widthCm: row.width_cm ?? undefined,
     heightCm: row.height_cm ?? undefined,
@@ -201,6 +203,7 @@ export async function updateArtworkDetails(
     title: string
     description: string
     purchaseUrl?: string
+    price?: string | null
     audioUrl?: string | null
     widthCm?: number | null
     heightCm?: number | null
@@ -212,15 +215,16 @@ export async function updateArtworkDetails(
     description: fields.description.trim(),
   }
   if (fields.purchaseUrl !== undefined) update.purchase_url = fields.purchaseUrl.trim() || null
+  if (fields.price !== undefined) update.price = (fields.price ?? '').trim() || null
   if (fields.audioUrl !== undefined) update.audio_url = fields.audioUrl || null
   if (fields.widthCm !== undefined) update.width_cm = fields.widthCm ?? null
   if (fields.heightCm !== undefined) update.height_cm = fields.heightCm ?? null
   if (fields.medium !== undefined) update.medium = (fields.medium ?? '').trim() || null
 
-  // Columns from later migrations (0015/0021/0025). If a target DB is behind, the write
+  // Columns from later migrations (0015/0021/0025/0026). If a target DB is behind, the write
   // fails naming a missing column — drop whichever it names (or all optionals on a generic
   // schema-cache miss) and retry, so title/caption always save.
-  const OPTIONAL = ['purchase_url', 'audio_url', 'width_cm', 'height_cm', 'medium']
+  const OPTIONAL = ['purchase_url', 'price', 'audio_url', 'width_cm', 'height_cm', 'medium']
   let { error } = await supabase!.from('artworks').update(update).eq('id', artworkId)
   while (
     error &&

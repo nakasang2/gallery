@@ -377,6 +377,14 @@ body.gallery-mode {
   transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 .panel-buy:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(212, 162, 78, 0.34); }
+/* Price shown on its own when there's no purchase link to fold it into */
+.panel-price {
+  margin-top: 1.4rem;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
 
 /* Audio-guide play/pause on the artwork panel */
 .panel-guide {

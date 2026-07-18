@@ -343,7 +343,7 @@ export interface FrameSpec {
 }
 
 const CUSTOM_FRAME_RE = /^c:(wood|metal|paint):([0-9a-f]{6}):(\d{2,3})$/
-export const FRAME_BAR_MM = { min: 30, max: 150 }
+export const FRAME_BAR_MM = { min: 10, max: 150 } // 1cm–15cm (custom-frame key encodes mm as 2–3 digits, so ≥10)
 
 const clampBarMm = (mm: number) => Math.min(FRAME_BAR_MM.max, Math.max(FRAME_BAR_MM.min, Math.round(mm)))
 
