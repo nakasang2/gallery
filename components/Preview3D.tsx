@@ -30,6 +30,11 @@ const ART_CY = 1.62
 // rendered un-scaled, so the reference stays honest.
 const PERSON_TOP = 1.72
 const PERSON_HALF_W = 0.28
+// Clearance off the wall. The dashboard camera looks straight on (no tilt), so the ONLY
+// way a flat front view reads "standing in the room" rather than "pasted on the wall" is
+// a visible strip of floor between the wall's base line and the figure's feet — too close
+// (it used to be 0.12 m) and that gap vanishes, so the figure reads as sunk into the wall.
+const PERSON_Z = 0.55
 
 function personX(art: ArtworkData): number {
   const { width } = artSize(art.ratio, art)
@@ -100,17 +105,27 @@ function ScaleFigure({ art, wall }: { art: ArtworkData; wall: number }) {
 
   // The model ships at real-world human scale with its feet at the origin (the room places
   // it the same way, un-scaled), so it stands on the floor as-is — no fitting needed. A 3/4
-  // turn gives the body volume rather than a paper cut-out.
+  // turn gives the body volume rather than a paper cut-out. A soft contact shadow anchors
+  // the feet to the floor so the figure reads as standing IN the room, not stuck to the wall.
   return (
-    <group position={[personX(art), 0, 0.1]} rotation-y={0.5}>
-      <primitive object={model} />
+    <group position={[personX(art), 0, PERSON_Z]}>
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.005, 0]}>
+        <circleGeometry args={[0.32, 16]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.16} depthWrite={false} />
+      </mesh>
+      <group rotation-y={0.5}>
+        <primitive object={model} />
+      </group>
     </group>
   )
 }
 
 // Fit BOTH the art and the human reference into view (no longer fit-to-art, which hid
 // scale — a 60 cm and a 120 cm piece of the same ratio looked identical). Straight-on,
-// level, camera fully owned here.
+// level, camera fully owned here. The art sits flush on the wall (z=0) but the person
+// now stands PERSON_Z out from it (see above) — being nearer the camera it would fill
+// more of the frame than a flat same-depth fit assumes, so each is fit by projecting its
+// own extents from ITS OWN depth, and the camera backs up to the farther requirement.
 function Rig({ art }: { art: ArtworkData }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
   const invalidate = useThree((s) => s.invalidate)
@@ -125,12 +140,26 @@ function Rig({ art }: { art: ArtworkData }) {
     const maxY = Math.max(PERSON_TOP, ART_CY + height / 2) + 0.12
     const cx = (minX + maxX) / 2
     const cy = (minY + maxY) / 2
-    const spanX = maxX - minX + 0.5
-    const spanY = maxY - minY + 0.3
     const fov = 40
-    const t = Math.tan((fov * Math.PI) / 360)
+    const tanV = Math.tan((fov * Math.PI) / 360)
     const aspect = size.width / Math.max(1, size.height)
-    const dist = Math.max(spanY / 2 / t, spanX / 2 / (t * aspect), 2.4)
+    const tanH = tanV * aspect
+    const marginX = 0.25
+    const marginY = 0.15
+    // Required camera Z for one object: its own depth, plus however far back its
+    // farthest-from-centre edge needs to be to stay inside the FOV cone from there.
+    const requiredZ = (z: number, dxMax: number, dyMax: number) =>
+      z + Math.max((dxMax + marginX) / tanH, (dyMax + marginY) / tanV)
+    const artDx = Math.max(Math.abs(-artHalfW - cx), Math.abs(artHalfW - cx))
+    const artDyLo = Math.abs(ART_CY - height / 2 - cy)
+    const artDyHi = Math.abs(ART_CY + height / 2 - cy)
+    const personDx = Math.max(Math.abs(px - PERSON_HALF_W - cx), Math.abs(px + PERSON_HALF_W - cx))
+    const personDy = Math.max(Math.abs(0 - cy), Math.abs(PERSON_TOP - cy))
+    const dist = Math.max(
+      requiredZ(0, artDx, Math.max(artDyLo, artDyHi)),
+      requiredZ(PERSON_Z, personDx, personDy),
+      2.4
+    )
     camera.fov = fov
     camera.position.set(cx, cy, dist)
     camera.rotation.set(0, 0, 0)

@@ -1268,38 +1268,40 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                         </optgroup>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      min={1}
-                      inputMode="decimal"
-                      placeholder="W"
-                      style={{ width: '4.5em' }}
-                      value={widthInput}
-                      onChange={(e) => setWidthInput(e.target.value)}
-                    />
-                    <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
-                    <input
-                      type="number"
-                      min={1}
-                      inputMode="decimal"
-                      placeholder="H"
-                      style={{ width: '4.5em' }}
-                      value={heightInput}
-                      onChange={(e) => setHeightInput(e.target.value)}
-                    />
-                    <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
-                    <button
-                      type="button"
-                      className="btn-line"
-                      title="Swap width and height (portrait ⇄ landscape)"
-                      style={{ padding: '0.35em 0.6em' }}
-                      onClick={() => {
-                        setWidthInput(heightInput)
-                        setHeightInput(widthInput)
-                      }}
-                    >
-                      ⇄
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
+                      <input
+                        type="number"
+                        min={1}
+                        inputMode="decimal"
+                        placeholder="W"
+                        style={{ width: '4.5em' }}
+                        value={widthInput}
+                        onChange={(e) => setWidthInput(e.target.value)}
+                      />
+                      <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
+                      <input
+                        type="number"
+                        min={1}
+                        inputMode="decimal"
+                        placeholder="H"
+                        style={{ width: '4.5em' }}
+                        value={heightInput}
+                        onChange={(e) => setHeightInput(e.target.value)}
+                      />
+                      <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
+                      <button
+                        type="button"
+                        className="btn-line"
+                        title="Swap width and height (portrait ⇄ landscape)"
+                        style={{ padding: '0.35em 0.6em' }}
+                        onClick={() => {
+                          setWidthInput(heightInput)
+                          setHeightInput(widthInput)
+                        }}
+                      >
+                        ⇄
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
