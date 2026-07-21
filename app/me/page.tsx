@@ -996,22 +996,34 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       )}
 
       {row.is_public && embedCode && showEmbed && (
-        <div className="embed-panel">
-          <p className="me-note" style={{ marginTop: 0 }}>
-            Paste this where you want the walkable gallery to appear — a blog post, a portfolio site, a Notion page.
-          </p>
-          <code className="embed-code">{embedCode}</code>
-          <button
-            className="btn-line btn-gold"
-            onClick={() => {
-              void navigator.clipboard.writeText(embedCode).then(() => {
-                setEmbedCopied(true)
-                setTimeout(() => setEmbedCopied(false), 1600)
-              })
-            }}
-          >
-            {embedCopied ? 'Copied' : 'Copy embed code'}
-          </button>
+        <div
+          className="me-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Embed code"
+          onClick={() => setShowEmbed(false)}
+        >
+          <div className="me-modal embed-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="me-modal-head">
+              <h3>Embed this gallery</h3>
+              <button className="me-modal-close" aria-label="Close" onClick={() => setShowEmbed(false)}>✕</button>
+            </div>
+            <p className="me-note" style={{ marginTop: 0 }}>
+              Paste this where you want the walkable gallery to appear — a blog post, a portfolio site, a Notion page.
+            </p>
+            <code className="embed-code">{embedCode}</code>
+            <button
+              className="wd-save-cta wd-save-compact"
+              onClick={() => {
+                void navigator.clipboard.writeText(embedCode).then(() => {
+                  setEmbedCopied(true)
+                  setTimeout(() => setEmbedCopied(false), 1600)
+                })
+              }}
+            >
+              {embedCopied ? 'Copied ✓' : 'Copy embed code'}
+            </button>
+          </div>
         </div>
       )}
       {/* Quiet row for rare / destructive housekeeping — not peers of the actions above */}
@@ -1170,11 +1182,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   className="field-hint"
                   tabIndex={0}
                   role="note"
-                  aria-label="A looping background track for visitors walking your room. They can mute it with the ♪ button."
+                  aria-label="A looping background track for visitors walking your room; they can mute it with the ♪ button. MP3/M4A up to 15MB — upload only audio you have the rights to."
                 >
                   <InfoIcon />
                   <span className="field-hint-pop" role="tooltip">
-                    A looping background track for visitors walking your room. They can mute it with the ♪ button.
+                    A looping background track for visitors walking your room; they can mute it with the ♪ button. MP3/M4A up to 15MB — upload only audio you have the rights to.
                   </span>
                 </span>
               </span>
@@ -1196,11 +1208,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                     </button>
                   )}
                 </div>
-                <p className="wd-sub" style={{ marginTop: '0.5rem' }}>
-                  {bgmUrl
-                    ? 'A track is set — it loops while visitors walk the room.'
-                    : 'MP3/M4A up to 15MB. Upload only audio you have the rights to.'}
-                </p>
               </div>
             </div>
           </div>
