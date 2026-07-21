@@ -24,10 +24,9 @@ export default function LandingPage() {
           <a href="#pricing">Pricing</a>
           <Link href="/explore">Explore</Link>
           <Link href="/articles">Guides</Link>
-          <Link href="/signin">Sign in</Link>
         </div>
         <div className="nav-actions">
-          <Link className="btn btn-small nav-demo" href="/demo">Walk the demo</Link>
+          <Link className="btn btn-small" href="/signin">Sign in</Link>
           <Link className="btn btn-small btn-gold" href="/signup">Start free</Link>
         </div>
       </nav>
