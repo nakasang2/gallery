@@ -1,7 +1,7 @@
 'use client'
 // Dashboard: manage your gallery (create / rename / publish / delete), profile, and links.
 // Designed for multiple galleries; the release plan caps creation at PLAN.galleries.
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
@@ -168,6 +168,33 @@ function FieldLabel({ children, hint }: { children: string; hint: string }) {
         <span className="field-hint-pop" role="tooltip">{hint}</span>
       </span>
     </span>
+  )
+}
+
+// A section header with its primary Save action on the right, sitting OUTSIDE the card
+// outline. When the header scrolls up out of view, the same action re-docks as a floating
+// bottom bar so the Save is never out of reach — then disappears again on scroll-up.
+function SectionSaveHeader({ title, action }: { title: string; action?: ReactNode }) {
+  const headRef = useRef<HTMLDivElement>(null)
+  const [offscreen, setOffscreen] = useState(false)
+  useEffect(() => {
+    const el = headRef.current
+    if (!el || !action) return
+    const io = new IntersectionObserver(
+      ([e]) => setOffscreen(!e.isIntersecting && e.boundingClientRect.top < 0),
+      { threshold: 0 }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [action])
+  return (
+    <>
+      <div className="me-section-head" ref={headRef}>
+        <h2>{title}</h2>
+        {action && <div className="me-section-head-action">{action}</div>}
+      </div>
+      {action && offscreen && <div className="me-sticky-save">{action}</div>}
+    </>
   )
 }
 
@@ -835,6 +862,30 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const themeDef = THEMES[row.theme] ?? THEMES.chic
 
   return (
+    <>
+    <SectionSaveHeader
+      title="My gallery"
+      action={
+        selected ? (
+          <button
+            className="wd-save-cta wd-save-compact"
+            disabled={
+              busy ||
+              (titleInput === selected.title &&
+                captionInput === (selected.desc ?? '') &&
+                purchaseUrlInput === (selected.purchaseUrl ?? '') &&
+                priceInput === (selected.price ?? '') &&
+                widthInput === (selected.widthCm ? String(selected.widthCm) : '') &&
+                heightInput === (selected.heightCm ? String(selected.heightCm) : '') &&
+                mediumInput === (selected.medium ?? ''))
+            }
+            onClick={() => void saveWorkDetails()}
+          >
+            {workSaved ? 'Saved ✓' : 'Save settings'}
+          </button>
+        ) : undefined
+      }
+    />
     <div className="me-card">
       {/* The room's own colours, as a ribbon — this card IS that room */}
       <div
@@ -1522,28 +1573,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         )}
       </div>
 
-      {/* Save the selected work's plate/size/framing. Frame/mat/hanging autosave on pick,
-          but the text fields don't — so this stays docked to the bottom of the viewport
-          (position: sticky) and only releases into normal flow at the end of the page, so
-          it's reachable without scrolling the whole panel. */}
-      {selected && (
-        <button
-          className="wd-save-cta wd-save-sticky"
-          disabled={
-            busy ||
-            (titleInput === selected.title &&
-              captionInput === (selected.desc ?? '') &&
-              purchaseUrlInput === (selected.purchaseUrl ?? '') &&
-              priceInput === (selected.price ?? '') &&
-              widthInput === (selected.widthCm ? String(selected.widthCm) : '') &&
-              heightInput === (selected.heightCm ? String(selected.heightCm) : '') &&
-              mediumInput === (selected.medium ?? ''))
-          }
-          onClick={() => void saveWorkDetails()}
-        >
-          {workSaved ? 'Saved ✓' : 'Save settings'}
-        </button>
-      )}
       {purchaseItem && (
         <PurchaseModal
           itemLabel={purchaseItem.label}
@@ -1592,6 +1621,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         />
       )}
     </div>
+    </>
   )
 }
 
@@ -1791,6 +1821,15 @@ function ProfileCard() {
   }
 
   return (
+    <>
+    <SectionSaveHeader
+      title="Profile"
+      action={
+        <button className="wd-save-cta wd-save-compact" disabled={busy} onClick={() => void save()}>
+          {saved ? 'Saved ✓' : 'Save profile'}
+        </button>
+      }
+    />
     <div className="me-card">
       <div className="avatar-row">
         {avatarUrl ? (
@@ -1871,10 +1910,8 @@ function ProfileCard() {
           onChange={(e) => setSnsWebsite(e.target.value)}
         />
       </label>
-      <button className="wd-save-cta" disabled={busy} onClick={() => void save()}>
-        {saved ? 'Saved ✓' : 'Save profile'}
-      </button>
     </div>
+    </>
   )
 }
 
@@ -2015,7 +2052,9 @@ export default function MePage() {
               <>
                 <GuestImportCard />
                 <section className="me-section">
-                  <h2>My gallery</h2>
+                  {/* The GalleryCard renders its own "My gallery" header (with the Save action);
+                      only show a bare heading while there's no card yet (loading / empty). */}
+                  {(galleries === null || galleries.length === 0) && <h2>My gallery</h2>}
                   {loadErr && <p className="me-error">{loadErr}</p>}
                   {galleries === null && !loadErr && <p className="me-note">Loading your gallery…</p>}
                   {galleries !== null && !loadErr && galleries.length === 0 && (
@@ -2054,7 +2093,6 @@ export default function MePage() {
 
             {tab === 'profile' && (
               <section className="me-section">
-                <h2>Profile</h2>
                 <ProfileCard />
               </section>
             )}

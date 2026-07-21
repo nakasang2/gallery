@@ -96,6 +96,34 @@
   color: var(--muted);
   margin-bottom: 1rem;
 }
+/* Section header row: title left, primary Save action right, sitting OUTSIDE the card. */
+.me-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.me-section-head h2 { margin-bottom: 0; }
+.me-section-head-action { flex-shrink: 0; }
+/* Compact variant of the gold save CTA for the header (not full-width like in a form) */
+.wd-save-compact {
+  width: auto;
+  margin-top: 0;
+  padding: 0.5em 1.5em;
+}
+/* Floating fallback: shown only while the header Save has scrolled out of view */
+.me-sticky-save {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 1.25rem;
+  z-index: 50;
+}
+.me-sticky-save .wd-save-cta {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(212, 162, 78, 0.28);
+}
 
 .me-card {
   border: 1px solid var(--hairline);
