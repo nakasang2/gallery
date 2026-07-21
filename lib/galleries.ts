@@ -37,12 +37,17 @@ export interface GalleryRow {
   design_overrides: unknown
   /** Manual slot placement (§11.13), jsonb array — null on pre-0023 rows */
   arrangement: unknown
+  /** Looping ambient BGM track URL (§P3-12), text — null/absent on pre-0027 rows */
+  bgm_url?: string | null
 }
 
 const COLS =
-  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement'
+  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url'
+// Post-0023/pre-0027 shape (no bgm_url column yet) — bgm_url is the newest column, so it's
+// the first to drop when degrading against a DB that hasn't applied 0027.
+const COLS_NO_BGM = COLS.replace(', bgm_url', '')
 // Post-0014/pre-0023 shape (no arrangement column yet)
-const COLS_NO_ARR = COLS.replace(', arrangement', '')
+const COLS_NO_ARR = COLS_NO_BGM.replace(', arrangement', '')
 // Post-0013/pre-0014 shape (no design_overrides column yet)
 const COLS_NO_DESIGN = COLS_NO_ARR.replace(', design_overrides', '')
 // Post-0012/pre-0013 shape (no work_cap column yet)
@@ -57,6 +62,14 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
     .select(COLS)
     .eq('owner_id', userId)
     .order('created_at', { ascending: true })
+  if (res.error && missingOverrideColumns(res.error)) {
+    // 0027 (bgm_url) not applied
+    res = (await supabase!
+      .from('galleries')
+      .select(COLS_NO_BGM)
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: true })) as unknown as typeof res
+  }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0023 (arrangement) not applied
     res = (await supabase!
@@ -236,6 +249,15 @@ export async function saveGallerySpace(id: string, s: Settings): Promise<void> {
 export async function saveDesignOverrides(id: string, overrides: DesignOverrides): Promise<void> {
   const { error } = await supabase!.from('galleries').update({ design_overrides: overrides }).eq('id', id)
   if (error && missingOverrideColumns(error)) return // 0014 not applied — no column to save to yet
+  if (error) throw error
+}
+
+/** Set (or clear, with null) the gallery's looping ambient BGM track URL (§P3-12). */
+export async function saveGalleryBgm(id: string, url: string | null): Promise<void> {
+  const { error } = await supabase!.from('galleries').update({ bgm_url: url }).eq('id', id)
+  if (error && missingOverrideColumns(error)) {
+    throw new Error('BGM needs migration 0027 (galleries.bgm_url) applied first.')
+  }
   if (error) throw error
 }
 

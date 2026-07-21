@@ -18,6 +18,10 @@ const TOGGLE_FADE = 0.35
 /** Distant-crowd murmur: peak volume (at a full room) and how fast it eases in/out */
 const CROWD_LEVEL = 0.05
 const CROWD_FADE = 2.2
+/** Owner-uploaded ambient BGM (§P3-12): loop volume and fade. Higher than the generated
+ *  room tone because it's the artist's chosen music, but still ambient (never dominates). */
+const BGM_LEVEL = 0.55
+const BGM_FADE = 1.2
 
 class GalleryAudio {
   private ctx: AudioContext | null = null
@@ -27,6 +31,13 @@ class GalleryAudio {
   private crowdGain: GainNode | null = null
   /** Desired crowd murmur (0–1 of CROWD_LEVEL); remembered so it survives (re)build */
   private crowdTarget = 0
+  /** Owner-uploaded ambient BGM (§P3-12) */
+  private bgmGain: GainNode | null = null
+  private bgmSource: AudioBufferSourceNode | null = null
+  /** Desired BGM track URL; remembered so build() can start it after the autoplay unlock */
+  private bgmUrl: string | null = null
+  /** Bumped on every setBgm() so a slow decode from a stale URL can't start over a newer one */
+  private bgmToken = 0
   private unlocked = false
   enabled = true
 
@@ -160,6 +171,61 @@ class GalleryAudio {
     crowd.start()
     // Restore any level requested before the graph existed
     this.crowdGain.gain.setTargetAtTime(this.crowdTarget * CROWD_LEVEL, ctx.currentTime, CROWD_FADE)
+
+    /* ---- Ambient BGM (§P3-12): a decoded audio file looped through its own gain into
+       master (so the ♪ mute toggle and enter/leave suspend gate it like everything else).
+       Silent unless setBgm(url) has provided a track. */
+    this.bgmGain = ctx.createGain()
+    this.bgmGain.gain.value = 0
+    this.bgmGain.connect(this.master)
+    // A track requested before the graph existed (setBgm ran pre-unlock) — start it now
+    if (this.bgmUrl) void this.loadBgm(this.bgmUrl, this.bgmToken)
+  }
+
+  /** Set (or clear, with null) the looping ambient BGM. Safe to call before unlock():
+   *  the URL is remembered and build() starts it once the autoplay gesture arrives. */
+  setBgm(url: string | null) {
+    if (url === this.bgmUrl) return
+    this.bgmUrl = url
+    const token = ++this.bgmToken // any in-flight decode for the old url is now stale
+    // Stop whatever is playing and fade the layer down
+    if (this.bgmSource) {
+      try {
+        this.bgmSource.stop()
+      } catch {
+        /* already stopped */
+      }
+      this.bgmSource = null
+    }
+    if (this.ctx && this.bgmGain) {
+      this.bgmGain.gain.cancelScheduledValues(this.ctx.currentTime)
+      this.bgmGain.gain.setTargetAtTime(0, this.ctx.currentTime, BGM_FADE)
+    }
+    if (!url) return
+    // If the graph isn't built yet (pre-unlock), build() will pick up this.bgmUrl.
+    if (this.ctx && this.bgmGain) void this.loadBgm(url, token)
+  }
+
+  private async loadBgm(url: string, token: number) {
+    const ctx = this.ctx
+    if (!ctx || !this.bgmGain) return
+    try {
+      const res = await fetch(url)
+      const arr = await res.arrayBuffer()
+      const buf = await ctx.decodeAudioData(arr)
+      // Superseded by a newer setBgm() (or graph torn down) while decoding — drop it
+      if (token !== this.bgmToken || !this.ctx || !this.bgmGain) return
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      src.loop = true
+      src.connect(this.bgmGain)
+      src.start()
+      this.bgmSource = src
+      this.bgmGain.gain.cancelScheduledValues(ctx.currentTime)
+      this.bgmGain.gain.setTargetAtTime(BGM_LEVEL, ctx.currentTime, BGM_FADE)
+    } catch {
+      // Unsupported/blocked/failed fetch — stay silent (generated room tone still plays)
+    }
   }
 
   /** Set the distant-crowd murmur from the number of ambient visitors present (0 = silence).

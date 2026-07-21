@@ -91,6 +91,9 @@ export default function GalleryApp({ onShellReady, demoTheme }: { onShellReady?:
   useEffect(() => {
     const unlock = () => {
       galleryAudio.unlock()
+      // Owner-uploaded ambient BGM (§P3-12): loop the visitor gallery's track (null on
+      // /demo or a room with none). Starts here because autoplay needs a user gesture.
+      galleryAudio.setBgm(useGallery.getState().visitor?.bgmUrl ?? null)
       unlockVideoAudio()
     }
     window.addEventListener('pointerdown', unlock, { once: true })
@@ -102,6 +105,7 @@ export default function GalleryApp({ onShellReady, demoTheme }: { onShellReady?:
       // module singletons that outlive this component, so the loop would otherwise
       // keep playing on the landing page / dashboard after navigating away.
       galleryAudio.suspend()
+      galleryAudio.setBgm(null) // stop the looping BGM source when leaving the gallery
       suspendVideoAudio()
       audioGuide.suspend() // stop any narration when leaving the gallery
       canvasRef.current = null // the canvas is gone once we unmount

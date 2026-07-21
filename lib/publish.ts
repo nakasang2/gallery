@@ -51,6 +51,8 @@ export interface PublicExhibition {
   hanging: string
   caption: string
   coverArtworkId: string | null
+  /** Looping ambient BGM track URL (§P3-12) — null when the owner set none */
+  bgmUrl: string | null
   frameOverrides: Record<string, string>
   matOverrides: Record<string, string>
   hangingOverrides: Record<string, string>
@@ -230,12 +232,24 @@ async function fetchPublicExhibitionInner(
   let gRes = await supabase!
     .from('galleries')
     .select(
-      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides'
+      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides, bgm_url'
     )
     .eq('owner_id', profile.id)
     .eq('slug', slug)
     .eq('is_public', true)
     .maybeSingle()
+  if (gRes.error) {
+    // Migration 0027 (bgm_url) not applied — bgm_url is the newest column, drop it first
+    gRes = (await supabase!
+      .from('galleries')
+      .select(
+        'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides'
+      )
+      .eq('owner_id', profile.id)
+      .eq('slug', slug)
+      .eq('is_public', true)
+      .maybeSingle()) as unknown as typeof gRes
+  }
   if (gRes.error) {
     // Migration 0014 (design_overrides) not applied
     gRes = (await supabase!
@@ -277,6 +291,7 @@ async function fetchPublicExhibitionInner(
         mat_default?: string | null
         work_cap?: number | null
         design_overrides?: unknown
+        bgm_url?: string | null
       })
     | null
   if (!gallery) return null
@@ -355,6 +370,7 @@ async function fetchPublicExhibitionInner(
     hanging: gallery.hanging_default ?? 'wire',
     caption: gallery.caption_default ?? 'side',
     coverArtworkId: gallery.cover_artwork_id ?? null,
+    bgmUrl: gallery.bgm_url ?? null,
     workCap: gallery.work_cap ?? PLAN.worksPerGallery,
     designOverrides: normalizeDesignOverrides(gallery.design_overrides),
     arrangement,

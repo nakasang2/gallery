@@ -291,6 +291,27 @@ export async function uploadArtworkAudio(ownerId: string, artworkId: string, fil
   return `${publicUrl(path)}?v=${Date.now()}` // cache-bust so a replaced guide plays immediately
 }
 
+/** Cap on a gallery BGM track. A looping ambient track, so a little larger than a guide. */
+export const GALLERY_BGM_MAX_BYTES = 15 * 1024 * 1024
+
+/** Upload a gallery's looping ambient BGM ({uid}/{galleryId}/bgm) and return its URL.
+ *  Like uploadArtworkAudio it only touches storage; the caller saves the URL onto the
+ *  gallery row via saveGalleryBgm. The raw file is stored as-is (no re-encode). */
+export async function uploadGalleryBgm(ownerId: string, galleryId: string, file: File): Promise<string> {
+  if (file.size > GALLERY_BGM_MAX_BYTES) {
+    throw new Error(`BGM tracks are limited to ${Math.floor(GALLERY_BGM_MAX_BYTES / 1024 / 1024)}MB.`)
+  }
+  await assertQuota(ownerId, file.size)
+  const sb = supabase!
+  const path = `${ownerId}/${galleryId}/bgm`
+  const up = await sb.storage.from('artworks').upload(path, file, {
+    contentType: file.type || 'audio/mpeg',
+    upsert: true,
+  })
+  if (up.error) throw up.error
+  return `${publicUrl(path)}?v=${Date.now()}` // cache-bust so a replaced track plays immediately
+}
+
 /** Upload a Design Tools logo/branding mark ({uid}/{galleryId}-logo.jpg) and
  *  return its URL — the caller saves it into that gallery's design_overrides
  *  (this does not write to any table itself, unlike uploadAvatar) */

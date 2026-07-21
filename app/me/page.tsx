@@ -37,6 +37,7 @@ import {
   setGalleryCover,
   saveGallerySpace,
   saveDesignOverrides,
+  saveGalleryBgm,
   rebuildPlacements,
   fetchPlacementOverrides,
   rowToSettings,
@@ -50,6 +51,7 @@ import {
   uploadArtwork,
   uploadAvatar,
   uploadLogo,
+  uploadGalleryBgm,
   deleteArtwork,
   updateArtworkDetails,
   artworkPlacementCount,
@@ -462,6 +464,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const entitlements = getEntitlements(user.id, owned)
   const [design, setDesign] = useState<DesignOverrides>(() => normalizeDesignOverrides(row.design_overrides))
   const [logoUploading, setLogoUploading] = useState(false)
+  // Ambient BGM (§P3-12): the gallery row's bgm_url is the source of truth; mirror it locally
+  const [bgmUrl, setBgmUrl] = useState<string | null>(row.bgm_url ?? null)
+  const [bgmBusy, setBgmBusy] = useState(false)
   const designTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Manual slot placement (§11.13): local state seeded from the row (the source of
   // truth the dashboard reads), debounce-saved through the same path as theme/layout
@@ -707,6 +712,34 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       alert(`Logo upload failed: ${e instanceof Error ? e.message : e}`)
     } finally {
       setLogoUploading(false)
+    }
+  }
+
+  async function onBgmFile(file: File | undefined) {
+    if (!file) return
+    setBgmBusy(true)
+    try {
+      const url = await uploadGalleryBgm(user.id, row.id, file)
+      await saveGalleryBgm(row.id, url)
+      setBgmUrl(url)
+      onChanged()
+    } catch (e) {
+      alert(`BGM upload failed: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setBgmBusy(false)
+    }
+  }
+
+  async function removeBgm() {
+    setBgmBusy(true)
+    try {
+      await saveGalleryBgm(row.id, null)
+      setBgmUrl(null)
+      onChanged()
+    } catch (e) {
+      alert(`Could not remove BGM: ${e instanceof Error ? e.message : e}`)
+    } finally {
+      setBgmBusy(false)
     }
   }
 
@@ -1077,6 +1110,46 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 </div>
               </div>
             )}
+            <div className="wd-row wd-row-block">
+              <span className="wd-label me-field-label">
+                Ambience
+                <span
+                  className="field-hint"
+                  tabIndex={0}
+                  role="note"
+                  aria-label="A looping background track for visitors walking your room. They can mute it with the ♪ button."
+                >
+                  <InfoIcon />
+                  <span className="field-hint-pop" role="tooltip">
+                    A looping background track for visitors walking your room. They can mute it with the ♪ button.
+                  </span>
+                </span>
+              </span>
+              <div className="wd-block-body">
+                <div className="hako-actions" style={{ alignItems: 'center' }}>
+                  <label className="btn-line file-btn" aria-disabled={bgmBusy} style={{ marginTop: 0 }}>
+                    {bgmBusy ? 'Uploading…' : bgmUrl ? 'Replace track' : 'Upload track'}
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      hidden
+                      disabled={bgmBusy}
+                      onChange={(e) => void onBgmFile(e.target.files?.[0])}
+                    />
+                  </label>
+                  {bgmUrl && (
+                    <button className="btn-line" disabled={bgmBusy} onClick={() => void removeBgm()}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="wd-sub" style={{ marginTop: '0.5rem' }}>
+                  {bgmUrl
+                    ? 'A track is set — it loops while visitors walk the room.'
+                    : 'MP3/M4A up to 15MB. Upload only audio you have the rights to.'}
+                </p>
+              </div>
+            </div>
           </div>
 
           {DESIGN_TOOLS_VISIBLE && (
