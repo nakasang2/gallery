@@ -58,16 +58,26 @@ export async function generateMetadata({
   }
 }
 
-export default async function ArtistPage({ params }: { params: Promise<{ handle: string }> }) {
+export default async function ArtistPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ handle: string }>
+  searchParams: Promise<{ embed?: string }>
+}) {
   const username = await resolveUsername(params)
   if (!username) notFound()
   const p = await fetchPublicProfile(username)
   if (!p) notFound()
 
+  // /@name is the URL the dashboard's Embed button points at, so it must honor
+  // ?embed=1 the same way /@name/[slug] does — otherwise embeds render the full HUD.
+  const { embed } = await searchParams
+
   // Exactly one public hakoniwa → /@name opens the room itself
   if (p.galleries.length === 1) {
     const ex = await fetchPublicExhibition(username, p.galleries[0].slug)
-    if (ex) return <VisitorGallery exhibition={ex} />
+    if (ex) return <VisitorGallery exhibition={ex} embed={embed === '1'} />
   }
 
   return (
