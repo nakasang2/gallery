@@ -295,6 +295,8 @@
 }
 .hako-url-copy:hover,
 .hako-url-copy:focus-visible { opacity: 1; color: var(--gold); outline: none; }
+/* Embed / Catalog pushed to the right end of the URL row */
+.hako-url-actions { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .hako-url:hover { text-decoration: underline; text-underline-offset: 3px; }
 .hako-url.off { color: var(--muted); }
 .hako-state { font-size: 0.6rem; letter-spacing: 0.2em; color: var(--muted); }

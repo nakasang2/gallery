@@ -905,6 +905,20 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             <span className="knob" aria-hidden="true" />
           </label>
           <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? 'OPEN' : 'PRIVATE'}</span>
+          {row.is_public && (embedCode || username) && (
+            <div className="hako-url-actions">
+              {embedCode && (
+                <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
+                  {showEmbed ? 'Hide embed' : 'Embed'}
+                </button>
+              )}
+              {username && (
+                <a className="btn-line" href={`/@${username}/${row.slug}/catalog`} target="_blank" rel="noreferrer">
+                  Catalog (PDF)
+                </a>
+              )}
+            </div>
+          )}
         </div>
       ) : null}
       <p className="hako-meta">{row.updated_at ? `Updated ${fmtDate(row.updated_at)}` : ''}</p>
@@ -930,19 +944,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         </div>
       )}
 
-      {/* Share actions (open/close + copy live on the URL row above) */}
-      <div className="hako-actions">
-        {row.is_public && embedCode && (
-          <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
-            {showEmbed ? 'Hide embed' : 'Embed'}
-          </button>
-        )}
-        {row.is_public && username && (
-          <a className="btn-line" href={`/@${username}/${row.slug}/catalog`} target="_blank" rel="noreferrer">
-            Catalog (PDF)
-          </a>
-        )}
-      </div>
       {row.is_public && embedCode && showEmbed && (
         <div className="embed-panel">
           <p className="me-note" style={{ marginTop: 0 }}>
@@ -1090,11 +1091,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                     className="field-hint"
                     tabIndex={0}
                     role="note"
-                    aria-label="Choose which work hangs on each spot — leave gaps to space a small show out."
+                    aria-label="Choose which work hangs on each spot: tap a spot on the map to pick its work. Leave gaps to space a small show out."
                   >
                     <InfoIcon />
                     <span className="field-hint-pop" role="tooltip">
-                      Choose which work hangs on each spot — leave gaps to space a small show out.
+                      Choose which work hangs on each spot: tap a spot on the map to pick its work. Leave gaps to space a small show out.
                     </span>
                   </span>
                 </span>
@@ -2014,9 +2015,9 @@ export default function MePage() {
               <>
                 <GuestImportCard />
                 <section className="me-section">
-                  <h2>My galleries</h2>
+                  <h2>My gallery</h2>
                   {loadErr && <p className="me-error">{loadErr}</p>}
-                  {galleries === null && !loadErr && <p className="me-note">Loading your galleries…</p>}
+                  {galleries === null && !loadErr && <p className="me-note">Loading your gallery…</p>}
                   {galleries !== null && !loadErr && galleries.length === 0 && (
                     <CreateCard onCreated={() => void reload()} />
                   )}

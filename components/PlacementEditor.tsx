@@ -107,9 +107,8 @@ export default function PlacementEditor({
         })}
       </svg>
 
-      {sel == null ? (
-        <p className="place-hint">Tap a spot on the map to choose which work hangs there.</p>
-      ) : (
+      {/* Guidance lives in the Placement heading's ⓘ tooltip now — no inline hint here */}
+      {sel == null ? null : (
         <div className="place-picker">
           <div className="place-picker-head">
             <span>Spot {sel + 1}{selWork ? ` — ${selWork.title || 'Untitled'}` : ' — empty'}</span>
