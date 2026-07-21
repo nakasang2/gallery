@@ -1050,9 +1050,21 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             )}
             {cloudArtworks.length > 0 && (
               <div className="wd-row wd-row-block">
-                <span className="wd-label">Placement</span>
+                <span className="wd-label me-field-label">
+                  Placement
+                  <span
+                    className="field-hint"
+                    tabIndex={0}
+                    role="note"
+                    aria-label="Choose which work hangs on each spot — leave gaps to space a small show out."
+                  >
+                    <InfoIcon />
+                    <span className="field-hint-pop" role="tooltip">
+                      Choose which work hangs on each spot — leave gaps to space a small show out.
+                    </span>
+                  </span>
+                </span>
                 <div className="wd-block-body">
-                  <p className="wd-sub">Choose which work hangs on each spot — leave gaps to space a small show out.</p>
                   <PlacementEditor
                     layoutKey={row.layout}
                     layoutParams={normalizeLayoutParams(row.layout_params)}

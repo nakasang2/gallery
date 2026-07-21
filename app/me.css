@@ -380,7 +380,8 @@
 
 /* Field label + inline info bubble. The "why/how" that used to trail each label as a
    sentence now lives in this ⓘ beside the label — hover on desktop, tap (focus) on touch. */
-.me-field .me-field-label {
+/* Reusable outside .me-field too (e.g. a section heading + ⓘ) */
+.me-field-label {
   display: flex;
   align-items: center;
   gap: 0.4em;
@@ -403,7 +404,7 @@
 }
 .field-hint:hover,
 .field-hint:focus-visible { opacity: 1; color: var(--gold); outline: none; }
-.me-field .field-hint-pop {
+.field-hint-pop {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 0;
