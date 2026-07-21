@@ -5,7 +5,7 @@
 - **最終更新**: 2026-07-21（`/@name?embed=1` が埋め込みモードにならないバグを修正・本番反映確認）
 
 ## 進行中
-- なし
+- **本番ドメイン設定待ち（ユーザー作業）**: Vercelで独自ドメインをProductionに割り当て中。完了後の再開ポイント → ①確定した公開URLを docs/DECISIONS.md に記録（ship時の反映確認で毎回探さないため）②その新ドメインで `/@name?embed=1` を開き、Embedボタンが生成するURL（`location.origin`ベース）が新ドメインになること＋埋め込みHUD（右上「Open↗」）を実画面確認。暫定の公開ドメインは `gallery-two-xi.vercel.app`
 
 ## 次にやること（再開ポイント）
 - **Stripe本番接続の運用作業**（コードは完成・未接続）: `0019_checkout.sql`適用 → `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`SUPABASE_SERVICE_ROLE_KEY`/`NEXT_PUBLIC_SITE_URL` 設定 → Stripe CLIで実カード確認（手順は supabase/README §5）
