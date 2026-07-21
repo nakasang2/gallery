@@ -2,7 +2,7 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-21（別セッションのダッシュボードUI §11.24〜§11.29 を #6 で main へ統合＋未参照3Dモデル528MB削除＋ⓘラベル回帰修正）
+- **最終更新**: 2026-07-21（`/@name?embed=1` が埋め込みモードにならないバグを修正・本番反映確認）
 
 ## 進行中
 - なし
@@ -27,9 +27,9 @@
 - なし
 
 ## 完了ログ（直近5件）
+- 2026-07-21: **`/@name?embed=1` が埋め込みモードにならないバグを修正**。ユーザーが埋め込みコードの動作確認を依頼。プレビューで2つ判明: ①本番URLがVercel Deployment Protectionでログイン必須（ユーザーが解除済） ②`app/[handle]/page.tsx` が `searchParams` を読まず、公開ギャラリー1つの作家(=`/@name`が直接ギャラリー)で `VisitorGallery` に `embed` を渡していなかった→埋め込み時もフルHUD。ダッシュボードのEmbedボタンは `/@name?embed=1` を生成するのに受け側が未対応だった。対処: `[slug]/page.tsx` と同じく `?embed=1` をhonorし `embed={embed==='1'}` を渡す。本番 `gallery-two-xi.vercel.app` で右上が「Start free」→「Open↗」・ヘッダー省略を確認。tsc・buildクリーン。※安定した公開ドメインは `gallery-two-xi.vercel.app`（DECISIONS要検討: 本番URLの確定）
 - 2026-07-21: **別セッションのダッシュボードUIを #6 で main へ統合＋孤児3Dモデル528MB削除＋ⓘラベル回帰修正**。別デバイスで進めていたダッシュボードUI（§11.24〜§11.29）をPR #6で main へ。作業前に環境へgit-lfs未導入でpullが中途破損→`brew install git-lfs`+`git lfs install`後 `reset --hard origin/main` で復旧。マージ前レビューで §11.29 のⓘツールチップに回帰を検出（`<label>`内で入力欄より前に`<button>`を置き、labelableな最初の子=ボタンにラベル関連付けが奪われ、入力欄がアクセシブルネーム喪失＋ラベルクリックが入力欄でなくⓘにフォーカス）→トリガーを`button`→`span(role=note, tabIndex=0)`化し実DOMで `label.control=TEXTAREA` 復帰を確認。未参照の `idle/idle2/walk/walk2.glb` 計528MBを `git rm`（`visitor.glb`/`visitor2.glb` に一本化済で参照ゼロ）。`tsc`・`build`クリーン。#6はsquashマージ・ブランチ削除済。※本番反映に migration `0025`/`0026` 適用要
 - 2026-07-18: **入力欄の補足をラベル横のⓘに集約（§11.29）**。ユーザー「入力欄の補足テキストがごちゃごちゃ。補足はアイコンをラベル横に」。§11.28でPrice追加後、作品設定フォームの各ラベルが一文を抱えて縦に説明が積んでいた。対処: `FieldLabel`ヘルパ新設(ラベルは1〜2語、横の`ⓘ`=`InfoIcon`にhint格納・hover/tapで吹き出し)を Caption/Price/Purchase link/Medium に適用。CSSは`.me-field-label`をflex化・`.field-hint`(hover/focusでgold)・`.me-field .field-hint-pop`で`.me-field span`のuppercase等を打ち消した暗bg吹き出し。対象外: 動的値のEmail/Username・別カードのConcept。`/qa-hint`軽量QAで整列+hover吹き出しをスクショ確認・削除済み。`tsc`・`build`クリーン
 - 2026-07-18: **Title&caption上border除去/フレーム最小1cm/作品価格の設定（§11.28）**。ユーザー3点: ①アート設定のtitle&caption上のborderも消す ②フレームthicknessのminを1cmに ③価格を設定できるように。対処: ①設定カラム先頭の`Title & caption`を`.wd-group`→`.wd-group--flush`(border-top等0) ②`FRAME_BAR_MM.min`を30→10mm(カスタム額装キーのmmは`\d{2,3}`=2〜3桁なので10が安全な最小) ③`ArtworkData.price?:string`自由入力・`cloud.ts`(row/rowToArtwork/updateArtworkDetails・OPTIONALに'price')・migration `0026_artwork_price.sql`・ダッシュボードに`priceInput`(seed/保存/dirty、Title&caption内Purchase linkの上)・作品パネルは購入リンク有=前置/無=`.panel-price`単独。`tsc`・`build`クリーン。※本番反映にmigration 0026適用要
 - 2026-07-17: **保存ボタンsticky footer化/Editing文削除/プレビューをカード端へブリード（§11.27）**。ユーザー3点: ①保存は全体にかかるのでbottom固定・下端で解放(sticky) ②「Editing "◯◯" — …」文不要 ③3Dプレビューをボーダー外へ。対処: ①保存を`me-card`直下のsticky footer(`.wd-save-sticky` position:sticky bottom:1rem)へ移設・art-section後に配置(スクロール中は下端固定・カード終端で解放) ②該当me-note削除+唯一の参照`syncState`も撤去 ③`.art-section .works-detail`を左右-1.6remでbreakout・設定カラムはpadding戻し・プレビューborder除去で左カード端までブリード。軽量QAで上/下スクロールの固定・解放、Editing文なし、ブリードを確認・削除済み。tsc・build クリーン
-- 2026-07-17: **サイズ入力をカスタム時のみW×H表示+スタイル統一（§11.26）**。ユーザー「サイズ入力だけデフォルト体裁・カスタム時だけ表示・それ以外は⇄のみでOK」。対処: ①W×H numberに`.size-num`付与し他フォームと同体裁に ②明示state`sizeCustom`追加でプリセット選択時は⇄のみ・「Custom / other…」時のみcm欄表示(作品切替時は`matchPreset`ヒットで preset/非ヒットで custom 開始)。⇄は常時(向き非依存)。軽量QAルートで両モードをスクショ確認・削除済み。tsc・build クリーン
 
