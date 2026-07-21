@@ -81,7 +81,7 @@ export default function GalleryApp({ onShellReady, demoTheme }: { onShellReady?:
 
   // Prototype: expose internal state on the console for inspection
   useEffect(() => {
-    ;(window as unknown as Record<string, unknown>).__hakoniwa = { store: useGallery, walkRef }
+    ;(window as unknown as Record<string, unknown>).__xibit360 = { store: useGallery, walkRef }
     useGallery.getState().initAuth()
     onShellReady?.() // our own LoadingScreen has taken over from any outer fallback
     // eslint-disable-next-line react-hooks/exhaustive-deps

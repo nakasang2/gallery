@@ -67,7 +67,7 @@ export default function AdminPage() {
         )}
         <p className="auth-links">
           {!user && <Link href="/signin">Sign in</Link>}
-          <Link href="/">Back to HAKONIWA</Link>
+          <Link href="/">Back to XIBIT360</Link>
         </p>
       </AuthShell>
     )
@@ -77,7 +77,7 @@ export default function AdminPage() {
     <main className="me-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">HAKONIWA</Link>
+          <Link href="/" className="auth-logo">XIBIT360</Link>
           <div className="me-top-actions">
             <Link className="btn-line" href="/me">Dashboard</Link>
             <button className="btn-line" onClick={() => void load()} disabled={loading}>

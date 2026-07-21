@@ -2,7 +2,7 @@
 import type { Metadata } from 'next'
 import ReportForm from './ReportForm'
 
-export const metadata: Metadata = { title: 'Report a problem — HAKONIWA' }
+export const metadata: Metadata = { title: 'Report a problem — Xibit360' }
 
 export default async function ReportPage({
   searchParams,

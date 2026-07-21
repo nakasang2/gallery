@@ -147,13 +147,13 @@ function PublishSection() {
   if (!myGallery) {
     return (
       <p className="settings-note">
-        Create your hakoniwa from the <Link href="/me" style={{ color: 'var(--gold)' }}>dashboard</Link> first
+        Create your gallery from the <Link href="/me" style={{ color: 'var(--gold)' }}>dashboard</Link> first
         — then you can publish it from here.
       </p>
     )
   }
 
-  // Single-hakoniwa plan: the shareable URL is just /@name (slug stays in the DB
+  // Single-gallery plan: the shareable URL is just /@name (slug stays in the DB
   // for the multi-gallery future; /@name/[slug] keeps resolving too)
   const publicUrl =
     typeof window !== 'undefined' && username ? `${location.origin}/@${username}` : ''
@@ -438,7 +438,7 @@ export default function SettingsPanel() {
       <button className="panel-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
       <h2 className="settings-title">
         Edit space
-        {/* Cloud write-through status — edits to a public hakoniwa must never fail silently */}
+        {/* Cloud write-through status — edits to a public gallery must never fail silently */}
         {user && myGallery && syncState !== 'idle' && (
           syncState === 'error' ? (
             <button className="sync-chip error" onClick={retrySync}>Sync failed — retry</button>

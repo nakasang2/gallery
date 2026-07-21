@@ -1,14 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-export const metadata: Metadata = { title: 'Privacy Policy — HAKONIWA' }
+export const metadata: Metadata = { title: 'Privacy Policy — Xibit360' }
 
 export default function PrivacyPage() {
   return (
     <main className="legal-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">HAKONIWA</Link>
+          <Link href="/" className="auth-logo">XIBIT360</Link>
         </div>
         <h1 className="me-h1">Privacy Policy</h1>
         <div className="legal-body">

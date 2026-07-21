@@ -1,5 +1,5 @@
 'use client'
-// Dashboard: manage your hakoniwa (create / rename / publish / delete), profile, and links.
+// Dashboard: manage your gallery (create / rename / publish / delete), profile, and links.
 // Designed for multiple galleries; the release plan caps creation at PLAN.galleries.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -141,7 +141,7 @@ function fmtDate(iso: string | null): string {
   }
 }
 
-const IMPORT_DISMISS_KEY = 'hakoniwa.importDismissed.v1'
+const IMPORT_DISMISS_KEY = 'xibit360.importDismissed.v1'
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
 
@@ -286,7 +286,7 @@ function GuestImportCard() {
   )
 }
 
-// Create a hakoniwa as a two-step wizard: SEE the template first, then name it,
+// Create a gallery as a two-step wizard: SEE the template first, then name it,
 // and land straight in the editor with the themed room around you (REQUIREMENTS 10.2)
 function CreateCard({ onCreated }: { onCreated: () => void }) {
   const user = useGallery((s) => s.user)!
@@ -336,7 +336,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
       onCreated()
       router.push('/demo') // straight into the room — the result is the feedback
     } catch (e) {
-      alert(`Could not create the hakoniwa: ${e instanceof Error ? e.message : e}`)
+      alert(`Could not create the gallery: ${e instanceof Error ? e.message : e}`)
       setBusy(false)
     }
   }
@@ -386,7 +386,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   return (
     <div className="me-card">
       <p className="me-note" style={{ marginTop: 0 }}>
-        <b style={{ color: 'var(--ink)' }}>Step 2 of 2</b> — name your hakoniwa. This is the exhibition
+        <b style={{ color: 'var(--ink)' }}>Step 2 of 2</b> — name your gallery. This is the exhibition
         title visitors will see; leave it blank and your artist name leads instead.
       </p>
       <label className="me-field">
@@ -419,10 +419,10 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   )
 }
 
-// The hakoniwa card IS the gallery workbench: status + publish on top, then the
+// The gallery card IS the gallery workbench: status + publish on top, then the
 // works library on the left and the real-3D preview with every design control —
 // per-work title/caption/frame and the room-wide theme/layout — on the right.
-function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => void }) {
+function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => void }) {
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
@@ -565,14 +565,14 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     }
   }, [row.id])
 
-  // The shareable URL is just /@name while the plan allows one hakoniwa
+  // The shareable URL is just /@name while the plan allows one gallery
   // (the slug mechanism stays in the DB for the multi-gallery future)
   const publicUrl = typeof window !== 'undefined' && username ? `${location.origin}/@${username}` : ''
   // Embeddable iframe: ?embed=1 trims the HUD to a back-link and opens outbound
   // links in a new tab. 16:10 keeps the walk usable in a blog's content column.
   const embedSrc = publicUrl ? `${publicUrl}?embed=1` : ''
   const embedCode = embedSrc
-    ? `<iframe src="${embedSrc}" width="100%" height="600" style="border:0;border-radius:12px;aspect-ratio:16/10;max-width:100%" allowfullscreen loading="lazy" title="HAKONIWA — ${(isPlaceholderTitle(row.title) ? 'gallery' : row.title).replace(/"/g, '&quot;')}"></iframe>`
+    ? `<iframe src="${embedSrc}" width="100%" height="600" style="border:0;border-radius:12px;aspect-ratio:16/10;max-width:100%" allowfullscreen loading="lazy" title="Xibit360 — ${(isPlaceholderTitle(row.title) ? 'gallery' : row.title).replace(/"/g, '&quot;')}"></iframe>`
     : ''
 
   async function run(label: string, fn: () => Promise<void>) {
@@ -759,7 +759,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     let msg = `Remove “${art.title}” from your library?`
     try {
       if ((await artworkPlacementCount(art.id)) > 0) {
-        msg = `“${art.title}” is hanging in your public hakoniwa. Removing it also takes it off the wall. Continue?`
+        msg = `“${art.title}” is hanging in your public gallery. Removing it also takes it off the wall. Continue?`
       }
     } catch {
       /* placements unreadable — fall back to the generic confirm */
@@ -934,7 +934,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
           className="danger"
           disabled={busy}
           onClick={() => {
-            if (!confirm(`Delete “${isPlaceholderTitle(row.title) ? 'your hakoniwa' : row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
+            if (!confirm(`Delete “${isPlaceholderTitle(row.title) ? 'your gallery' : row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
             void run('Delete', () => deleteGallery(row.id))
           }}
         >
@@ -1576,7 +1576,7 @@ function AccountCard() {
   async function removeAccount() {
     if (
       !confirm(
-        'Delete your account? Your hakoniwa, its public page, and every uploaded work will be permanently removed.'
+        'Delete your account? Your gallery, its public page, and every uploaded work will be permanently removed.'
       )
     )
       return
@@ -1838,7 +1838,7 @@ export default function MePage() {
       setLoadErr('')
     } catch (e) {
       console.error('could not load galleries (are supabase/migrations applied?):', e)
-      setLoadErr('Could not load your hakoniwa — please retry in a moment.')
+      setLoadErr('Could not load your galleries — please retry in a moment.')
       setGalleries([])
     }
     try {
@@ -1866,7 +1866,7 @@ export default function MePage() {
       <AuthShell title="Dashboard">
         <p className="auth-note">Cloud features are not configured (Supabase keys required in .env.local).</p>
         <p className="auth-links">
-          <Link href="/">Back to HAKONIWA</Link>
+          <Link href="/">Back to XIBIT360</Link>
         </p>
       </AuthShell>
     )
@@ -1876,7 +1876,7 @@ export default function MePage() {
     <main className="me-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">HAKONIWA</Link>
+          <Link href="/" className="auth-logo">XIBIT360</Link>
           <div className="me-top-actions">
             <Link className="btn-line" href="/explore">Explore</Link>
             {isAdmin && (
@@ -1928,18 +1928,18 @@ export default function MePage() {
               <>
                 <GuestImportCard />
                 <section className="me-section">
-                  <h2>My hakoniwa</h2>
+                  <h2>My galleries</h2>
                   {loadErr && <p className="me-error">{loadErr}</p>}
-                  {galleries === null && !loadErr && <p className="me-note">Loading your hakoniwa…</p>}
+                  {galleries === null && !loadErr && <p className="me-note">Loading your galleries…</p>}
                   {galleries !== null && !loadErr && galleries.length === 0 && (
                     <CreateCard onCreated={() => void reload()} />
                   )}
                   {(galleries ?? []).map((g) => (
-                    <HakoniwaCard key={g.id} row={g} onChanged={() => void reload()} />
+                    <GalleryCard key={g.id} row={g} onChanged={() => void reload()} />
                   ))}
                   {galleries !== null && galleries.length > 0 && galleries.length < PLAN.galleries && (
                     <p className="me-note">
-                      You can create {PLAN.galleries - galleries.length} more hakoniwa on your plan.
+                      You can create {PLAN.galleries - galleries.length} more galleries on your plan.
                     </p>
                   )}
                   {usage !== null && (
@@ -1959,7 +1959,7 @@ export default function MePage() {
                   <GuestbookCard galleryId={galleries[0].id} />
                 ) : (
                   <p className="me-note">
-                    Create your hakoniwa first — the guestbook collects what visitors write in your room.
+                    Create your gallery first — the guestbook collects what visitors write in your room.
                   </p>
                 )}
               </section>

@@ -77,7 +77,7 @@ export function startRecording(
 }
 
 /** Save a recorded blob as a .webm download. */
-export function downloadClip(blob: Blob, filename = 'hakoniwa-walkthrough.webm'): void {
+export function downloadClip(blob: Blob, filename = 'xibit360-walkthrough.webm'): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

@@ -14,7 +14,7 @@ export default function CatalogDoc({ exhibition: ex }: { exhibition: PublicExhib
         <p className="catalog-artist">{ex.ownerName}</p>
         {ex.statement && <p className="catalog-statement">{ex.statement}</p>}
         <p className="catalog-meta">
-          {ex.artworks.length} {ex.artworks.length === 1 ? 'work' : 'works'} · {year} · HAKONIWA
+          {ex.artworks.length} {ex.artworks.length === 1 ? 'work' : 'works'} · {year} · XIBIT360
         </p>
       </section>
 

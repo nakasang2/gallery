@@ -1,5 +1,5 @@
-// hakoniwa.app/@username — THE public URL of an artist.
-// While the plan allows a single hakoniwa, this renders the public gallery
+// xibit360.art/@username — THE public URL of an artist.
+// While the plan allows a single gallery, this renders the public gallery
 // directly (the shared URL is just /@name); with several public galleries
 // it becomes the listing page. /@name/[slug] keeps working either way.
 import type { Metadata } from 'next'
@@ -33,8 +33,8 @@ export async function generateMetadata({
     const ex = await fetchPublicExhibition(username, p.galleries[0].slug)
     if (ex) {
       const title = isPlaceholderTitle(ex.title)
-        ? `${ex.ownerName} — HAKONIWA`
-        : `${ex.title} | ${ex.ownerName} — HAKONIWA`
+        ? `${ex.ownerName} — Xibit360`
+        : `${ex.title} | ${ex.ownerName} — Xibit360`
       const description =
         ex.statement ||
         `A 3D gallery by ${ex.ownerName}. Walk through ${ex.artworks.length} works in your browser.`
@@ -47,7 +47,7 @@ export async function generateMetadata({
     }
   }
 
-  const title = `${p.displayName} — HAKONIWA`
+  const title = `${p.displayName} — Xibit360`
   const description = p.bio || `3D galleries by ${p.displayName}.`
   const cover = p.galleries.find((g) => g.cover)?.cover
   return {
@@ -74,7 +74,7 @@ export default async function ArtistPage({
   // ?embed=1 the same way /@name/[slug] does — otherwise embeds render the full HUD.
   const { embed } = await searchParams
 
-  // Exactly one public hakoniwa → /@name opens the room itself
+  // Exactly one public gallery → /@name opens the room itself
   if (p.galleries.length === 1) {
     const ex = await fetchPublicExhibition(username, p.galleries[0].slug)
     if (ex) return <VisitorGallery exhibition={ex} embed={embed === '1'} />
@@ -84,7 +84,7 @@ export default async function ArtistPage({
     <main className="artist-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">HAKONIWA</Link>
+          <Link href="/" className="auth-logo">XIBIT360</Link>
           <Link href="/explore" className="btn-line">Explore</Link>
         </div>
 

@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 export default function AuthShell({ title, children }: { title: string; children: ReactNode }) {
   return (
     <main className="auth-page">
-      <Link href="/" className="auth-logo">HAKONIWA</Link>
+      <Link href="/" className="auth-logo">XIBIT360</Link>
       <section className="auth-card">
         <h1 className="auth-title">{title}</h1>
         {children}

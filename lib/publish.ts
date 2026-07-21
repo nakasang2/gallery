@@ -149,7 +149,7 @@ export interface PublicProfile {
   }[]
 }
 
-/** Profile + public hakoniwa list for /@username (null if the user doesn't exist or the fetch fails) */
+/** Profile + public galleries list for /@username (null if the user doesn't exist or the fetch fails) */
 export async function fetchPublicProfile(username: string): Promise<PublicProfile | null> {
   if (!supabase) return null
   try {
@@ -367,7 +367,7 @@ async function fetchPublicExhibitionInner(
   }
 }
 
-/* ---- Explore feed (/explore) — every public hakoniwa across the platform ---- */
+/* ---- Explore feed (/explore) — every public galleries across the platform ---- */
 
 export interface FeedItem {
   username: string
@@ -388,7 +388,7 @@ export interface FeedPage {
 /** Cards per /explore page load (initial SSR page and each "Load more" tap) */
 export const EXPLORE_PAGE_SIZE = 24
 
-/** A page of the public hakoniwa feed, newest-edited first. RLS already
+/** A page of the public galleries feed, newest-edited first. RLS already
  *  allows anon to read any is_public gallery / any profile (see 0001_init.sql).
  *  `supabase` runs the anon key everywhere, so this is safe to call from the
  *  browser too — that's what powers "Load more" without a separate API route. */

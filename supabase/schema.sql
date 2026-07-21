@@ -1,5 +1,5 @@
 -- ============================================================================
--- HAKONIWA — 全スキーマ統合ファイル(schema.sql)
+-- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
 -- RLS・関数・Storage が一括で作成されます(migrations 0001〜0022 を統合)。
@@ -20,7 +20,7 @@
 -- ############################################################################
 -- # 0001_init.sql
 -- ############################################################################
--- HAKONIWA 初期スキーマ(docs/ARCHITECTURE.md 3章)
+-- Xibit360 初期スキーマ(docs/ARCHITECTURE.md 3章)
 
 /* ================= 1. テーブル ================= */
 -- ポリシーが相互にテーブルを参照するため、先にテーブルを全て作る
@@ -455,7 +455,7 @@ alter table public.placements
 -- ############################################################################
 -- 0013: per-gallery work capacity (REQUIREMENTS.md §11.5/§11.7 — "room capacity" axis).
 -- Capacity now travels with the room itself instead of being one global constant:
--- each hakoniwa gets its own work_cap, fixed to the plan's value at creation time
+-- each gallery gets its own work_cap, fixed to the plan's value at creation time
 -- ("buy a room" = a fresh row with that purchase's cap already baked in).
 --
 -- Existing rows default to 10 (today's global PLAN.worksPerGallery) so no current

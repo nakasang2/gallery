@@ -1,5 +1,5 @@
 'use client'
-// The door of the gallery. /demo keeps the HAKONIWA house branding; a public
+// The door of the gallery. /demo keeps the Xibit360 house branding; a public
 // gallery greets you with THAT artist's card — avatar, exhibition title, name —
 // so the wait is part of arriving at their show, not a generic spinner.
 import { isPlaceholderTitle } from '@/lib/publish'
@@ -42,7 +42,7 @@ export default function LoadingScreen({
   return (
     <div id="loading" className={done ? 'done' : ''}>
       <div className="loading-inner">
-        <div className="loading-logo">HAKONIWA</div>
+        <div className="loading-logo">XIBIT360</div>
         <div className="loading-bar"><span /></div>
         <div className="loading-text">Preparing the gallery…</div>
       </div>

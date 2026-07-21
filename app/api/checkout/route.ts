@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: 'jpy', // zero-decimal: unit_amount IS the yen amount
             unit_amount: amount,
-            product_data: { name: `HAKONIWA — ${label}` },
+            product_data: { name: `Xibit360 — ${label}` },
           },
         },
       ],

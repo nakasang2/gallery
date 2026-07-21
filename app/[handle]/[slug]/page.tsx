@@ -1,4 +1,4 @@
-// Public gallery: hakoniwa.app/@username/slug
+// Public gallery: xibit360.art/@username/slug
 // Fetch the exhibition data server-side to attach OGP tags; leave the 3D rendering to the client
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
@@ -26,8 +26,8 @@ export async function generateMetadata({
   const ex = await fetchPublicExhibition(p.username, p.slug)
   if (!ex) return {}
   const title = isPlaceholderTitle(ex.title)
-    ? `${ex.ownerName} — HAKONIWA`
-    : `${ex.title} | ${ex.ownerName} — HAKONIWA`
+    ? `${ex.ownerName} — Xibit360`
+    : `${ex.title} | ${ex.ownerName} — Xibit360`
   const description =
     ex.statement || `A 3D gallery by ${ex.ownerName}. Walk through ${ex.artworks.length} works in your browser.`
   // OG image comes from the opengraph-image.tsx file convention (a composed card)

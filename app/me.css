@@ -184,7 +184,7 @@
   background: rgba(212, 162, 78, 0.08);
 }
 
-/* 箱庭カードのビジュアルヘッダー(カバー作品 or テーマ色 + 間取り) */
+/* ギャラリーカードのビジュアルヘッダー(カバー作品 or テーマ色 + 間取り) */
 .hako-visual {
   display: flex;
   align-items: center;
@@ -747,7 +747,7 @@
 .sns-links a:hover { color: var(--gold); }
 .artist-head .sns-links { margin-top: 0.5rem; font-size: 1.05rem; }
 
-/* ---- Explore feed (/explore) — every public hakoniwa on the platform ---- */
+/* ---- Explore feed (/explore) — every public gallery on the platform ---- */
 .feed-intro { max-width: 56ch; font-size: 0.88rem; line-height: 1.9; color: #cdc7bd; margin: 0.6rem 0 2rem; }
 
 /* Explore spotlight (企画展 / 特集): a curated row above the full feed */

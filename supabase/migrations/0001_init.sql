@@ -1,4 +1,4 @@
--- HAKONIWA 初期スキーマ(docs/ARCHITECTURE.md 3章)
+-- Xibit360 初期スキーマ(docs/ARCHITECTURE.md 3章)
 -- 適用方法: Supabaseダッシュボード → SQL Editor にこのファイル全文を貼り付けて Run
 -- (プロジェクト: https://supabase.com/dashboard/project/ncffdcvsksiutsjerpeb/sql/new)
 -- 再実行しても安全(if not exists / drop ... if exists でガード済み)

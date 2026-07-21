@@ -1,6 +1,6 @@
-// Hakoniwa (gallery) CRUD — gallery_id-centric (REQUIREMENTS.md 10.2 / 10.9).
+// Gallery CRUD — gallery_id-centric (REQUIREMENTS.md 10.2 / 10.9).
 // The DB row is the source of truth for a signed-in user's space settings;
-// the plan variable caps how many hakoniwa one user can own.
+// the plan variable caps how many galleries one user can own.
 import { supabase } from './supabase'
 import { PLAN, effectiveSlotCount } from './limits'
 import {
@@ -96,7 +96,7 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
   })) as GalleryRow[]
 }
 
-/** The signed-in user's hakoniwa (first one; the release plan allows a single gallery) */
+/** The signed-in user's gallery (first one; the release plan allows a single gallery) */
 export async function getMyGalleryRow(userId: string): Promise<GalleryRow | null> {
   const rows = await listMyGalleries(userId)
   return rows[0] ?? null
@@ -108,7 +108,7 @@ export async function createGallery(
 ): Promise<GalleryRow> {
   const existing = await listMyGalleries(userId)
   if (existing.length >= PLAN.galleries) {
-    throw new Error(`Your plan allows ${PLAN.galleries} hakoniwa.`)
+    throw new Error(`Your plan allows ${PLAN.galleries} galleries.`)
   }
   // Default new rooms to the "studio" template (whitecube / corridor) — the free
   // tier's theme + layout — so a free gallery never starts on paid content (the
@@ -164,7 +164,7 @@ export async function createGallery(
 export const SLUG_RE = /^[a-z0-9-]{1,40}$/
 
 /** Change the public URL slug (/@username/[slug]). Unique per owner.
- *  NOTE: no UI calls this while the plan allows a single hakoniwa — the shared
+ *  NOTE: no UI calls this while the plan allows a single gallery — the shared
  *  URL is just /@username. Kept for the multi-gallery future. */
 export async function updateGallerySlug(id: string, slug: string): Promise<void> {
   const clean = slug.trim().toLowerCase()
@@ -173,7 +173,7 @@ export async function updateGallerySlug(id: string, slug: string): Promise<void>
   }
   const { error } = await supabase!.from('galleries').update({ slug: clean }).eq('id', id)
   if (error) {
-    if (error.code === '23505') throw new Error('You already use this URL for another hakoniwa.')
+    if (error.code === '23505') throw new Error('You already use this URL for another gallery.')
     throw error
   }
 }
@@ -191,7 +191,7 @@ export async function updateGalleryDetails(
   if (error) throw error
 }
 
-/** Deletes the hakoniwa (placements cascade; the works themselves stay in the library) */
+/** Deletes the gallery (placements cascade; the works themselves stay in the library) */
 export async function deleteGallery(id: string): Promise<void> {
   const { error } = await supabase!.from('galleries').delete().eq('id', id)
   if (error) throw error

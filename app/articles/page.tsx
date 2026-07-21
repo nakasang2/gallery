@@ -8,8 +8,8 @@ import { fetchPublishedArticles } from '@/lib/blog'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Guides — HAKONIWA',
-  description: 'How to open a walkable 3D exhibition: guides on showing your art, growing an audience, and making the most of HAKONIWA.',
+  title: 'Guides — Xibit360',
+  description: 'How to open a walkable 3D exhibition: guides on showing your art, growing an audience, and making the most of Xibit360.',
 }
 
 function fmtDate(iso: string | null): string {
@@ -28,7 +28,7 @@ export default async function ArticlesPage() {
     <main className="artist-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">HAKONIWA</Link>
+          <Link href="/" className="auth-logo">XIBIT360</Link>
           <Link href="/signup" className="btn-line">Start free</Link>
         </div>
 

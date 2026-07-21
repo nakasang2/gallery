@@ -1,7 +1,7 @@
 // Gallery ambient sound and footsteps (all generated with WebAudio — no audio files needed)
 // Because of the browser's autoplay restriction, call unlock() on the first user interaction
 
-const STORAGE_KEY = 'hakoniwa.audio.v1'
+const STORAGE_KEY = 'xibit360.audio.v1'
 
 /* ---- Tune volume and fades here ---- */
 /** Room-tone (HVAC) volume. Kept low so it doesn't interfere with the works' audio */

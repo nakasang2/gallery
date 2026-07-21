@@ -1,21 +1,21 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-export const metadata: Metadata = { title: 'Terms of Service — HAKONIWA' }
+export const metadata: Metadata = { title: 'Terms of Service — Xibit360' }
 
 export default function TermsPage() {
   return (
     <main className="legal-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">HAKONIWA</Link>
+          <Link href="/" className="auth-logo">XIBIT360</Link>
         </div>
         <h1 className="me-h1">Terms of Service</h1>
         <div className="legal-body">
-          <p>Last updated: July 14, 2026. HAKONIWA is an early-stage service; these terms are intentionally short and may change as the service grows.</p>
+          <p>Last updated: July 14, 2026. Xibit360 is an early-stage service; these terms are intentionally short and may change as the service grows.</p>
 
           <h2>1. The service</h2>
-          <p>HAKONIWA lets you upload artwork and present it as a walkable 3D gallery with a public URL. The service is provided as-is, without uptime or data-durability guarantees. Export or keep originals of anything you cannot afford to lose.</p>
+          <p>Xibit360 lets you upload artwork and present it as a walkable 3D gallery with a public URL. The service is provided as-is, without uptime or data-durability guarantees. Export or keep originals of anything you cannot afford to lose.</p>
 
           <h2>2. Your content</h2>
           <p>You keep all rights to the works you upload. By publishing a gallery you grant us the technical permissions needed to host and display it (storage, resizing, serving to visitors). You must own or have permission to exhibit everything you upload.</p>
@@ -31,7 +31,7 @@ export default function TermsPage() {
           <p>You can delete your account at any time, which removes your galleries and uploaded works. We may terminate accounts that violate these terms.</p>
 
           <h2>6. Liability</h2>
-          <p>To the maximum extent permitted by law, HAKONIWA is not liable for indirect damages or loss of data arising from use of the service.</p>
+          <p>To the maximum extent permitted by law, Xibit360 is not liable for indirect damages or loss of data arising from use of the service.</p>
         </div>
         <footer className="artist-footer">
           <Link href="/privacy">Privacy</Link>

@@ -28,7 +28,7 @@ export default function ReportForm({ about }: { about: string }) {
           <Link href="/terms" style={{ color: 'var(--gold)' }}>terms</Link>.
         </p>
         <p className="auth-links">
-          <Link href="/">Back to HAKONIWA</Link>
+          <Link href="/">Back to XIBIT360</Link>
         </p>
       </AuthShell>
     )

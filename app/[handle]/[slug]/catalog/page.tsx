@@ -28,7 +28,7 @@ export async function generateMetadata({
   const ex = await fetchPublicExhibition(p.username, p.slug)
   if (!ex) return {}
   const name = isPlaceholderTitle(ex.title) ? ex.ownerName : ex.title
-  return { title: `${name} — Catalog | HAKONIWA`, robots: { index: false } }
+  return { title: `${name} — Catalog | Xibit360`, robots: { index: false } }
 }
 
 export default async function CatalogPage({

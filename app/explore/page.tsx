@@ -1,4 +1,4 @@
-// hakoniwa.app/explore — every public hakoniwa on the platform, newest-edited
+// xibit360.art/explore — every public gallery on the platform, newest-edited
 // first, so visitors can walk from one artist's room into another's.
 import type { Metadata } from 'next'
 import Link from 'next/link'
@@ -10,8 +10,8 @@ import FeedCard from '@/components/FeedCard'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Explore — HAKONIWA',
-  description: 'Walk through public hakoniwa from other artists — every exhibition on the platform, one link each.',
+  title: 'Explore — Xibit360',
+  description: 'Walk through public galleries from other artists — every exhibition on the platform, one link each.',
 }
 
 export default async function ExplorePage() {
@@ -27,13 +27,13 @@ export default async function ExplorePage() {
     <main className="artist-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">HAKONIWA</Link>
+          <Link href="/" className="auth-logo">XIBIT360</Link>
           <Link href="/signup" className="btn-line">Start free</Link>
         </div>
 
         <h1 className="artist-name">Explore</h1>
         <p className="feed-intro">
-          Every public hakoniwa on the platform, newest-edited first. Walk in — each room opens in 3D, right in your browser.
+          Every public gallery on the platform, newest-edited first. Walk in — each room opens in 3D, right in your browser.
         </p>
 
         {spotlightItems.length > 0 && (

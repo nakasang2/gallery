@@ -2,7 +2,7 @@
 // Title wall — the artist's board on the west accent wall.
 // Visitors see the exhibition title + artist + statement; a signed-in owner sees
 // THEIR board (title / name / concept, edited from the dashboard) with their avatar;
-// guests on /demo keep the HAKONIWA demo copy.
+// guests on /demo keep the Xibit360 demo copy.
 import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'

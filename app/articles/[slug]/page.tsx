@@ -26,8 +26,8 @@ export async function generateMetadata({
   const { slug } = await params
   const a = await fetchArticle(slug)
   if (!a) return {}
-  const title = `${a.title} — HAKONIWA`
-  const description = a.excerpt || `A HAKONIWA guide: ${a.title}.`
+  const title = `${a.title} — Xibit360`
+  const description = a.excerpt || `A Xibit360 guide: ${a.title}.`
   return {
     title,
     description,

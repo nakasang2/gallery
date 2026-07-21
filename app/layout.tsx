@@ -7,13 +7,13 @@ import './catalog.css'
 import './articles.css'
 
 export const metadata: Metadata = {
-  title: 'HAKONIWA — Your work, given space.',
+  title: 'Xibit360 — Your work, given space.',
   description:
-    'HAKONIWA turns your portfolio into a walkable 3D exhibition. Upload your work, compose the room, and open your show to the world with a single URL.',
+    'Xibit360 turns your portfolio into a walkable 3D exhibition. Upload your work, compose the room, and open your show to the world with a single URL.',
   openGraph: {
-    title: 'HAKONIWA — Your work, given space.',
+    title: 'Xibit360 — Your work, given space.',
     description: 'A platform for exhibiting art as walkable 3D galleries.',
-    siteName: 'HAKONIWA',
+    siteName: 'Xibit360',
     locale: 'en_US',
     type: 'website',
   },

@@ -3,7 +3,7 @@
 // At release everyone is on the same (free-equivalent) plan.
 
 export interface PlanLimits {
-  /** How many hakoniwa (galleries) one user can own */
+  /** How many galleries one user can own */
   galleries: number
   /** Works placed per gallery — effective slots = min(layout slots, this) */
   worksPerGallery: number

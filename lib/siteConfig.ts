@@ -64,7 +64,7 @@ export interface SpotlightRef {
   slug: string
 }
 export interface SpotlightConfig {
-  /** Section heading, e.g. "Summer Show" / "#夏の箱庭展" — empty hides the whole section */
+  /** Section heading, e.g. "Summer Show" / "#SummerShow" — empty hides the whole section */
   title: string
   /** One line under the heading */
   subtitle: string

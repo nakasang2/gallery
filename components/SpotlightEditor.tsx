@@ -89,7 +89,7 @@ export default function SpotlightEditor() {
         <span>Heading</span>
         <input
           value={cfg.title}
-          placeholder="e.g. Summer Show / #夏の箱庭展"
+          placeholder="e.g. Summer Show / #SummerShow"
           onChange={(e) => setCfg((c) => ({ ...c, title: e.target.value }))}
         />
       </label>

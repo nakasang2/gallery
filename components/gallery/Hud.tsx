@@ -27,7 +27,7 @@ export function HudTop() {
       <header className="hud-top">
         <div className="hud-identity">
           <span className="hud-identity-main">{untitled ? visitor.ownerName : visitor.title}</span>
-          <span className="hud-identity-sub">{!untitled && `${visitor.ownerName} · `}HAKONIWA</span>
+          <span className="hud-identity-sub">{!untitled && `${visitor.ownerName} · `}XIBIT360</span>
         </div>
         <a
           className="hud-signup-cta"
@@ -49,7 +49,7 @@ export function HudTop() {
     return (
       <header className="hud-top">
         <div className="hud-identity">
-          <Link className="hud-identity-home" href="/">HAKONIWA</Link>
+          <Link className="hud-identity-home" href="/">XIBIT360</Link>
           <Link className="hud-identity-main" href={`/@${visitor.username}`}>
             {untitled ? visitor.ownerName : visitor.title}
           </Link>
@@ -94,9 +94,9 @@ export function HudTop() {
 
   return (
     <header className="hud-top">
-      <Link className="hud-back" href="/">← HAKONIWA</Link>
+      <Link className="hud-back" href="/">← XIBIT360</Link>
       <div className="hud-title">
-        <span className="hud-title-main">HAKONIWA COLLECTION</span>
+        <span className="hud-title-main">XIBIT360 COLLECTION</span>
         <span className="hud-title-sub">A permanent collection — ten works</span>
       </div>
     </header>

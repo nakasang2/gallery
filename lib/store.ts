@@ -101,7 +101,7 @@ export const DEFAULT_SETTINGS: Settings = {
   arrangement: [],
 }
 
-const STORAGE_KEY = 'hakoniwa.settings.v1'
+const STORAGE_KEY = 'xibit360.settings.v1'
 let authInitialized = false // Prevents duplicate subscriptions from React Strict Mode's double invocation
 let syncTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -122,7 +122,7 @@ async function runGallerySync(get: () => GalleryStore): Promise<void> {
 }
 
 // Debounced write-through: signed-in edits persist to the gallery row, and if the
-// hakoniwa is public they update the placements too (decision 10.8-3: saving is live)
+// gallery is public they update the placements too (decision 10.8-3: saving is live)
 function scheduleGallerySync(get: () => GalleryStore) {
   if (syncTimer) clearTimeout(syncTimer)
   useGallery.setState({ syncState: 'saving' })
@@ -199,7 +199,7 @@ interface GalleryStore extends Settings {
   profileAvatarUrl: string | null
   /** Profile bio (the biography line at the foot of the title wall) */
   profileBio: string | null
-  /** The signed-in user's hakoniwa row (null = none created yet). DB is the source of truth */
+  /** The signed-in user's gallery row (null = none created yet). DB is the source of truth */
   myGallery: GalleryRow | null
   /** Visitor mode: overridden with read-only exhibition data on public pages */
   visitor: PublicExhibition | null
@@ -294,7 +294,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         profileAvatarUrl: profile?.avatar_url ?? null,
         profileBio: profile?.bio ?? null,
       })
-      // Works changed (upload/delete) — keep a public hakoniwa's placements in step
+      // Works changed (upload/delete) — keep a public gallery's placements in step
       if (get().myGallery) scheduleGallerySync(get)
     } catch (e) {
       // Passive load — never block the tab with an alert (runbook hints stay in the console)
@@ -349,7 +349,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
     if (!saveSettings(get())) {
       showToast('Browser storage is full. Remove some works or try smaller images.')
     }
-    // Signed-in edits write through to the hakoniwa row (and its public page)
+    // Signed-in edits write through to the gallery row (and its public page)
     if (get().user && get().myGallery) scheduleGallerySync(get)
   },
 

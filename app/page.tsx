@@ -16,7 +16,7 @@ export default function LandingPage() {
       <LandingEffects />
 
       <nav className="nav" id="nav">
-        <Link className="nav-logo" href="/">HAKONIWA</Link>
+        <Link className="nav-logo" href="/">XIBIT360</Link>
         <div className="nav-links">
           <a href="#concept">Concept</a>
           <a href="#features">Features</a>
@@ -41,7 +41,7 @@ export default function LandingPage() {
 
         {/* 入口のミニマルなクローム(ナビはスクロールで初めて現れる) */}
         <div className="hero-chrome">
-          <Link className="hero-mark" href="/">HAKONIWA</Link>
+          <Link className="hero-mark" href="/">XIBIT360</Link>
           <Link className="hero-enter" href="/demo">Walk the demo →</Link>
         </div>
 
@@ -76,7 +76,7 @@ export default function LandingPage() {
           <div className="cfeat"><span className="cfeat-no">01</span><div><h3>A solo show in the browser</h3><p>No apps, no plugins. One link opens the gallery, and visitors walk it on desktop or phone.</p></div></div>
           <div className="cfeat"><span className="cfeat-no">02</span><div><h3>Hang works by drag &amp; drop</h3><p>Upload an image and place it on a wall. Height, spacing and sightlines snap to the template.</p></div></div>
           <div className="cfeat"><span className="cfeat-no">03</span><div><h3>Light and stage every piece</h3><p>Spotlights, wall colour and flooring set the mood. Each work gets its own presentation.</p></div></div>
-          <div className="cfeat"><span className="cfeat-no">04</span><div><h3>One address, open worldwide</h3><p><code>hakoniwa.app/@you</code> — a permanent URL for your practice, made for any bio or portfolio.</p></div></div>
+          <div className="cfeat"><span className="cfeat-no">04</span><div><h3>One address, open worldwide</h3><p><code>xibit360.art/@you</code> — a permanent URL for your practice, made for any bio or portfolio.</p></div></div>
           <div className="cfeat"><span className="cfeat-no">05</span><div><h3>Captions that carry the story</h3><p>Title, year and statement are mounted beside each work, the way a museum label would be.</p></div></div>
           <div className="cfeat"><span className="cfeat-no">06</span><div><h3>Guestbook &amp; reactions</h3><p>Footprints, notes, quiet appreciation — feedback that behaves like an exhibition, not a comment feed.</p></div></div>
         </div>
@@ -104,7 +104,7 @@ export default function LandingPage() {
               it deserves around it.
             </p>
             <p>
-              HAKONIWA builds a private gallery inside the browser. Visitors walk the room,
+              Xibit360 builds a private gallery inside the browser. Visitors walk the room,
               stop, lean in, and meet your work in the context you designed. One link opens
               your show to the world.
             </p>
@@ -196,7 +196,7 @@ export default function LandingPage() {
         </div>
         <p className="pricing-note reveal">
           Everything you make stays yours — publishing is always free. Upgrades are one-time buys
-          (only Video Pass renews yearly). HAKONIWA is a prototype: these prices are the concept,
+          (only Video Pass renews yearly). Xibit360 is a prototype: these prices are the concept,
           and billing is not implemented yet.
         </p>
       </section>
@@ -218,7 +218,7 @@ export default function LandingPage() {
 
       {/* ============ FOOTER ============ */}
       <footer className="footer">
-        <div className="footer-logo">HAKONIWA</div>
+        <div className="footer-logo">XIBIT360</div>
         <p>Your work, given space.</p>
         <nav className="footer-links" aria-label="Footer">
           <a href="#concept">Concept</a>
@@ -234,7 +234,7 @@ export default function LandingPage() {
           <span>Prototype v0.4</span>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
-          <span>© 2026 HAKONIWA</span>
+          <span>© 2026 XIBIT360</span>
         </div>
       </footer>
     </>

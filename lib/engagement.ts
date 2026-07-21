@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 
 /* ---- Visits ---- */
 
-const VISIT_KEY = 'hakoniwa.visited.v1' // sessionStorage: one count per gallery per tab session
+const VISIT_KEY = 'xibit360.visited.v1' // sessionStorage: one count per gallery per tab session
 
 /** Record a page view of a public gallery (deduped per tab session; fire-and-forget) */
 export function recordVisit(galleryId: string): void {
@@ -26,7 +26,7 @@ export function recordVisit(galleryId: string): void {
 
 /* ---- Likes ---- */
 
-const LIKED_KEY = 'hakoniwa.liked.v1' // localStorage: artwork ids this browser already liked
+const LIKED_KEY = 'xibit360.liked.v1' // localStorage: artwork ids this browser already liked
 
 export function hasLiked(artworkId: string): boolean {
   try {

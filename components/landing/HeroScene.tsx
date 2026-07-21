@@ -59,7 +59,7 @@ const PANELS: { n: string; h: string; b: string; z: number }[] = [
   { n: '01', h: 'A solo show in the browser', b: 'No apps, no plugins. One link opens the gallery, and visitors walk it on desktop or phone.', z: -6 },
   { n: '02', h: 'Hang works by drag & drop', b: 'Upload an image and place it on a wall. Height, spacing and sightlines snap to the template.', z: -11 },
   { n: '03', h: 'Light and stage every piece', b: 'Spotlights, wall colour and flooring set the mood. Each work gets its own presentation.', z: -16 },
-  { n: '04', h: 'One address, open worldwide', b: 'hakoniwa.app/@you — a permanent URL for your practice, made for any bio or portfolio.', z: -21 },
+  { n: '04', h: 'One address, open worldwide', b: 'xibit360.art/@you — a permanent URL for your practice, made for any bio or portfolio.', z: -21 },
   { n: '05', h: 'Captions that carry the story', b: 'Title, year and statement are mounted beside each work, the way a museum label would be.', z: -26 },
   { n: '06', h: 'Guestbook & reactions', b: 'Footprints, notes, quiet appreciation — feedback that behaves like an exhibition, not a comment feed.', z: -31 },
 ]

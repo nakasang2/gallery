@@ -23,7 +23,7 @@ export default function FlatGallery() {
       ? isPlaceholderTitle(myGallery!.title)
         ? ownerName || 'Your exhibition'
         : myGallery!.title
-      : 'HAKONIWA COLLECTION'
+      : 'XIBIT360 COLLECTION'
   const subhead = visitor
     ? `${visitor.ownerName} — @${visitor.username}`
     : owner

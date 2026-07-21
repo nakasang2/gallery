@@ -4,7 +4,7 @@ import { fetchPublicExhibition, isPlaceholderTitle } from '@/lib/publish'
 
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
-export const alt = 'HAKONIWA — a walkable 3D exhibition'
+export const alt = 'Xibit360 — a walkable 3D exhibition'
 
 export default async function OgImage({
   params,
@@ -60,7 +60,7 @@ export default async function OgImage({
           }}
         >
           <div style={{ display: 'flex', fontSize: 24, letterSpacing: 12, color: '#d4a24e' }}>
-            HAKONIWA
+            XIBIT360
           </div>
           <div
             style={{
