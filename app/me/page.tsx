@@ -14,7 +14,7 @@ import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components
 import WorkDesign from '@/components/WorkDesign'
 import PurchaseModal from '@/components/PurchaseModal'
 import PlacementEditor from '@/components/PlacementEditor'
-import { LockIcon, VideoIcon, InfoIcon } from '@/components/icons'
+import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import {
   purchaseOptionsFor,
   capacityPurchaseOptions,
@@ -876,6 +876,21 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           ) : (
             <span className="hako-url off">{(publicUrl || `/@${username}`).replace(/^https?:\/\//, '')}</span>
           )}
+          {row.is_public && publicUrl && (
+            <button
+              className="hako-url-copy"
+              title={copied ? 'Copied' : 'Copy URL'}
+              aria-label={copied ? 'Copied' : 'Copy URL'}
+              onClick={() => {
+                void navigator.clipboard.writeText(publicUrl).then(() => {
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 1600)
+                })
+              }}
+            >
+              {copied ? <CheckIcon /> : <CopyIcon />}
+            </button>
+          )}
           <label
             className="switch"
             title={
@@ -915,22 +930,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         </div>
       )}
 
-      {/* Primary actions: walk the room, share it (open/close lives on the URL row) */}
+      {/* Share actions (open/close + copy live on the URL row above) */}
       <div className="hako-actions">
-        <Link className="btn-line btn-gold" href="/demo">Preview in 3D</Link>
-        {row.is_public && publicUrl && (
-          <button
-            className="btn-line"
-            onClick={() => {
-              void navigator.clipboard.writeText(publicUrl).then(() => {
-                setCopied(true)
-                setTimeout(() => setCopied(false), 1600)
-              })
-            }}
-          >
-            {copied ? 'Copied' : 'Copy URL'}
-          </button>
-        )}
         {row.is_public && embedCode && (
           <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
             {showEmbed ? 'Hide embed' : 'Embed'}
