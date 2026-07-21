@@ -603,12 +603,8 @@
    a full-width strip of works, then the 2-column preview+settings detail. */
 .art-section { margin-top: 2.2rem; padding-top: 2rem; border-top: 1px solid var(--hairline); }
 .art-section .works-in-room { margin-bottom: 1.4rem; }
-/* The art preview bleeds past the card's side padding to the card edge, so it reads as its
-   own surface rather than a box nested inside the settings card. The grid breaks out both
-   sides; the settings column is re-padded so its text keeps clear of the edge. */
-.art-section .works-detail { margin-left: -1.6rem; margin-right: -1.6rem; }
-.art-section .works-detail .we-right { padding-right: 1.6rem; }
-.art-section .wall-preview3d { border: none; border-radius: 0 10px 10px 0; }
+/* The art preview sits inside the card like the theme preview above it — both inset within
+   the card's side padding — so the two 3D views line up (no edge bleed). */
 .we-chips { margin-top: 0.45rem; gap: 0.35rem; }
 .wall-preview--lg { height: 320px; font-size: 22px; }
 /* 実3Dプレビュー(ルームと同じExhibitを小キャンバスで描画) */
@@ -628,9 +624,6 @@
   .wall-preview3d { height: 230px; }
   .works-cell, .works-add, .works-capacity { flex-basis: 108px; }
   .works-cell figcaption, .works-add-label { max-width: 108px; }
-  /* One column: preview bleeds full-width; settings get side padding back */
-  .art-section .wall-preview3d { border-radius: 0; }
-  .art-section .works-detail .we-right { padding: 0 1.6rem; }
 }
 
 /* 二次操作(Rename/Delete): 主要ボタンと並列にしない静かなテキスト行 */

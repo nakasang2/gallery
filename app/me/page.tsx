@@ -1784,8 +1784,8 @@ function ProfileCard() {
           onChange={(e) => setSnsWebsite(e.target.value)}
         />
       </label>
-      <button className="btn-line" disabled={busy} onClick={() => void save()}>
-        {saved ? 'Saved' : 'Save profile'}
+      <button className="wd-save-cta" disabled={busy} onClick={() => void save()}>
+        {saved ? 'Saved ✓' : 'Save profile'}
       </button>
     </div>
   )
