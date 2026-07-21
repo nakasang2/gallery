@@ -997,6 +997,9 @@ html { scroll-padding-top: 72px; }
   border-top: 1px solid var(--hairline);
   padding: 5.5rem 2.4rem 3.6rem;
   text-align: center;
+  /* Opaque so the fixed 3D hero canvas doesn't bleed through the footer.
+     The ::before seam above fades the canvas into this same var(--bg). */
+  background: var(--bg);
 }
 .footer-logo {
   font-family: var(--mono);
