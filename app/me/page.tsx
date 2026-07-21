@@ -9,10 +9,12 @@ import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
 import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, normalizeLayoutParams, normalizeArrangement, type DesignOverrides, type CustomLayoutParams } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
+import { SIZE_GROUPS, matchPreset, presetByLabel } from '@/lib/artSizes'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
 import PurchaseModal from '@/components/PurchaseModal'
 import PlacementEditor from '@/components/PlacementEditor'
+import { LockIcon, VideoIcon, InfoIcon } from '@/components/icons'
 import {
   purchaseOptionsFor,
   capacityPurchaseOptions,
@@ -48,7 +50,6 @@ import {
   uploadArtwork,
   uploadAvatar,
   uploadLogo,
-  uploadArtworkAudio,
   deleteArtwork,
   updateArtworkDetails,
   artworkPlacementCount,
@@ -69,6 +70,68 @@ import AuthShell from '@/components/auth/AuthShell'
 // until the chunk arrives the flat CSS preview holds the same footprint
 const Preview3D = dynamic(() => import('@/components/Preview3D'), { ssr: false })
 
+// The left-hand preview used by both settings sections (the room in section 1, the
+// selected work in section 2): the real 3D render when there's a subject, else the 2D
+// placeholder, plus an optional prompt when the section is empty.
+function GalleryPreview({
+  art,
+  src,
+  index,
+  themeKey,
+  frameKey,
+  matKey,
+  hangingKey,
+  captionKey,
+  designOverrides,
+  emptyNote,
+  mode = 'work',
+}: {
+  art: ArtworkData | undefined
+  src: string | undefined
+  index: number
+  themeKey: string
+  frameKey: string
+  matKey: string
+  hangingKey: string
+  captionKey: string
+  designOverrides: DesignOverrides
+  emptyNote: string
+  mode?: 'work' | 'room'
+}) {
+  return (
+    <div className="we-left">
+      {art && src ? (
+        <div className="wall-preview3d">
+          <Preview3D
+            art={art.kind === 'video' ? { ...art, kind: 'image', src } : art}
+            index={index}
+            themeKey={themeKey}
+            frameKey={frameKey}
+            matKey={matKey}
+            hangingKey={hangingKey}
+            captionKey={captionKey}
+            designOverrides={designOverrides}
+            mode={mode}
+          />
+        </div>
+      ) : (
+        <WallPreview
+          themeKey={themeKey}
+          frameKey={frameKey}
+          matKey={matKey}
+          hangingKey={hangingKey}
+          captionKey={captionKey}
+          artSrc={src}
+          artRatio={art?.ratio}
+          designOverrides={designOverrides}
+          className="wall-preview--lg"
+        />
+      )}
+      {!art && <p className="me-note">{emptyNote}</p>}
+    </div>
+  )
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return ''
   try {
@@ -81,6 +144,30 @@ function fmtDate(iso: string | null): string {
 const IMPORT_DISMISS_KEY = 'hakoniwa.importDismissed.v1'
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
+
+// Design Tools (paid recolour/light/logo) is hidden for now to keep the settings panel
+// simple — the code stays in place so it's a one-line flip to bring back. Typed `boolean`
+// (not a literal) so the JSX inside still counts as "used".
+const DESIGN_TOOLS_VISIBLE = false as boolean
+
+// A field label kept to one or two words, with the "why/how" moved into an info
+// bubble beside it — hover on desktop, tap (focus) on touch. Keeps the form scannable
+// instead of every input carrying a sentence. `hint` is the explanatory text.
+function FieldLabel({ children, hint }: { children: string; hint: string }) {
+  return (
+    <span className="me-field-label">
+      {children}
+      {/* A span, not a <button>: a button is a "labelable" element, so nesting one
+          before the input inside a <label> hijacks the label's association away from
+          the field. tabIndex keeps it keyboard-reachable; the tooltip shows on
+          :hover / :focus / :focus-within (see .field-hint in me.css). */}
+      <span className="field-hint" tabIndex={0} role="note" aria-label={hint}>
+        <InfoIcon />
+        <span className="field-hint-pop" role="tooltip">{hint}</span>
+      </span>
+    </span>
+  )
+}
 
 // The first thing a signed-in artist sees: their own face and name, not a form
 function Hero() {
@@ -279,7 +366,9 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
         {selectedLocked ? (
           <>
             <button className="btn-line" disabled aria-disabled="true">
-              {TEMPLATES[templateId]?.label} is premium 🔒
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35em' }}>
+                {TEMPLATES[templateId]?.label} is premium <LockIcon />
+              </span>
             </button>
             <p className="me-note" style={{ marginTop: '0.5rem' }}>
               This template uses a paid theme or layout. Start from a free template now — you can buy and switch to it anytime after.
@@ -342,7 +431,6 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const hangingOverrides = useGallery((s) => s.hangingOverrides)
   const captionOverrides = useGallery((s) => s.captionOverrides)
   const updateSettings = useGallery((s) => s.updateSettings)
-  const syncState = useGallery((s) => s.syncState)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [usernameInput, setUsernameInput] = useState('')
@@ -360,6 +448,12 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
+  const [priceInput, setPriceInput] = useState('')
+  const [widthInput, setWidthInput] = useState('')
+  const [heightInput, setHeightInput] = useState('')
+  // The W×H cm fields only show in "custom" mode; a preset shows just the dropdown + swap.
+  const [sizeCustom, setSizeCustom] = useState(false)
+  const [mediumInput, setMediumInput] = useState('')
   const [workSaved, setWorkSaved] = useState(false)
   const [purchaseItem, setPurchaseItem] = useState<
     { kind: 'theme' | 'layout' | 'capacity' | 'design-tools'; key: string; label: string } | null
@@ -392,11 +486,43 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
       : selected.poster ?? selected.src
     : undefined
 
+  // Live preview of the size being edited: override the selected work's dimensions with the
+  // current input values so the 3D preview follows the picker/typing immediately — before
+  // Save, and independent of whether the DB has the 0025 columns yet.
+  const previewArt = selected
+    ? (() => {
+        const w = parseFloat(widthInput)
+        const h = parseFloat(heightInput)
+        return {
+          ...selected,
+          widthCm: Number.isFinite(w) && w > 0 ? w : undefined,
+          heightCm: Number.isFinite(h) && h > 0 ? h : undefined,
+        }
+      })()
+    : undefined
+
+  // The Theme section's preview shows the room itself, so it uses a stable subject — the
+  // cover work (or the first) — rather than whichever work you're editing in the section
+  // below, and the room's default framing rather than a per-work override.
+  const roomArt = cloudArtworks.find((a) => a.id === row.cover_artwork_id) ?? cloudArtworks[0]
+  const roomSrc = roomArt
+    ? roomArt.kind === 'video'
+      ? roomArt.poster
+      : roomArt.poster ?? roomArt.src
+    : undefined
+
   // The plate fields follow whichever work is selected
   useEffect(() => {
     setTitleInput(selected?.title ?? '')
     setCaptionInput(selected?.desc ?? '')
     setPurchaseUrlInput(selected?.purchaseUrl ?? '')
+    setPriceInput(selected?.price ?? '')
+    setWidthInput(selected?.widthCm ? String(selected.widthCm) : '')
+    setHeightInput(selected?.heightCm ? String(selected.heightCm) : '')
+    // Start in preset mode when the saved size matches a standard preset; otherwise
+    // (a non-standard size, or none yet) open the custom fields so they're ready to type.
+    setSizeCustom(matchPreset(selected?.widthCm, selected?.heightCm) === null)
+    setMediumInput(selected?.medium ?? '')
     setWorkSaved(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
@@ -652,37 +778,22 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
     if (!selected) return
     setBusy(true)
     try {
+      const w = parseFloat(widthInput)
+      const h = parseFloat(heightInput)
       await updateArtworkDetails(selected.id, {
         title: titleInput,
         description: captionInput,
         purchaseUrl: purchaseUrlInput,
+        price: priceInput,
+        widthCm: Number.isFinite(w) && w > 0 ? w : null,
+        heightCm: Number.isFinite(h) && h > 0 ? h : null,
+        medium: mediumInput,
       })
       await refreshCloud()
       setWorkSaved(true)
       setTimeout(() => setWorkSaved(false), 1600)
     } catch (e) {
       alert(`Could not save the work details: ${e instanceof Error ? e.message : e}`)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  // Audio guide is a file, so it uploads immediately (separate from the text "Save plate").
-  // We re-affirm the saved title/caption/purchase so this write only changes audio_url.
-  async function setWorkAudio(file: File | null) {
-    if (!selected) return
-    setBusy(true)
-    try {
-      const audioUrl = file ? await uploadArtworkAudio(user.id, selected.id, file) : null
-      await updateArtworkDetails(selected.id, {
-        title: selected.title,
-        description: selected.desc ?? '',
-        purchaseUrl: selected.purchaseUrl,
-        audioUrl,
-      })
-      await refreshCloud()
-    } catch (e) {
-      alert(`Could not update the audio guide: ${e instanceof Error ? e.message : e}`)
     } finally {
       setBusy(false)
     }
@@ -831,136 +942,29 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
         </button>
       </div>
 
-      {/* ---- The workbench: a filmstrip of the 10 slots on top, the selected work's
-           full-width detail (3D preview + every control) below ---- */}
-      {cloudArtworks.length === 0 ? (
-        <label className="upload-hero" aria-disabled={uploading} style={{ marginTop: '1.4rem' }}>
-          <b>{uploading ? 'Uploading…' : 'Hang your first work'}</b>
-          <span>
-            Drop in images from your camera roll or portfolio —<br />
-            the preview below shows them framed on your wall.
-          </span>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            disabled={uploading}
-            onChange={(e) => {
-              void onFiles(e.target.files)
-              e.target.value = ''
-            }}
-          />
-        </label>
-      ) : (
-        <>
-          <div className="works-head">
-            <span className="works-count">
-              {cloudArtworks.length} / {row.work_cap} works
-            </span>
-            <span className="works-legend">Select a work · ★ cover · × remove</span>
-          </div>
-          {/* Filmstrip: the room's slots as a horizontal, scrollable rail — filled works,
-              then one upload tile per remaining open slot (so all work_cap slots are
-              fillable), then a distinct paid "add slots" tile beyond the cap. */}
-          <div className="works-strip">
-            {cloudArtworks.map((art) => (
-              <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={art.poster ?? art.src}
-                  alt={art.title}
-                  loading="lazy"
-                  onClick={() => setSelectedId(art.id)}
-                />
-                <figcaption>{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</figcaption>
-                <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
-                <button
-                  className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
-                  aria-label={`Use ${art.title} as the share cover`}
-                  title="Use as share cover (OGP)"
-                  onClick={() => void toggleCover(art)}
-                >
-                  {row.cover_artwork_id === art.id ? '★' : '☆'}
-                </button>
-              </figure>
-            ))}
-            {/* One upload tile per open slot — every one of the room's slots is fillable */}
-            {Array.from({ length: Math.max(0, row.work_cap - cloudArtworks.length) }).map((_, i) => (
-              <label className="works-add" key={`add-${i}`} aria-disabled={uploading} title="Upload a work">
-                <span aria-hidden="true">{uploading ? '…' : '+'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  hidden
-                  disabled={uploading}
-                  onChange={(e) => {
-                    void onFiles(e.target.files)
-                    e.target.value = ''
-                  }}
-                />
-              </label>
-            ))}
-            {/* Distinct paid add-on: extend the room past its current cap (§11.7). Set
-                apart from the neutral upload tiles so "add a work" vs "buy more room" read
-                differently. */}
-            <button
-              className="works-capacity"
-              onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
-              title={`Add ${CAPACITY_ADDON_SIZE} more work slots`}
-            >
-              <span className="works-capacity-plus" aria-hidden="true">🔒 +{CAPACITY_ADDON_SIZE}</span>
-              <small>more slots</small>
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* Detail: full width below the strip — 3D preview left, every control right.
-          Everything here changes what the preview shows — plate text, per-work
-          design, and the room itself. Poster-less videos / empty state fall to CSS. */}
+      {/* The room's editing surface: sticky 3D preview on the left, and on the right a
+          single top-to-bottom flow — the room itself, the works hanging in it, then the
+          selected work's own settings (Room ⊃ works). */}
       <div className="works-detail">
-        <div className="we-left">
-          {selected && previewSrc ? (
-            <div className="wall-preview3d">
-              <Preview3D
-                art={selected.kind === 'video' ? { ...selected, kind: 'image', src: previewSrc } : selected}
-                index={selectedIndex}
-                themeKey={row.theme}
-                frameKey={frame}
-                matKey={mat}
-                hangingKey={hanging}
-                captionKey={captionKey}
-                designOverrides={design}
-              />
-            </div>
-          ) : (
-            <WallPreview
-              themeKey={row.theme}
-              frameKey={frame}
-              matKey={mat}
-              hangingKey={hanging}
-              captionKey={captionKey}
-              artSrc={previewSrc}
-              artRatio={selected?.ratio}
-              designOverrides={design}
-              className="wall-preview--lg"
-            />
-          )}
-          {!selected && (
-            <p className="me-note">
-              Upload a work to see it hanging in your theme and frame before you publish.
-            </p>
-          )}
-        </div>
+        <GalleryPreview
+          art={roomArt}
+          src={roomSrc}
+          index={Math.max(0, cloudArtworks.indexOf(roomArt))}
+          themeKey={row.theme}
+          frameKey={row.frame_default}
+          matKey={row.mat_default}
+          hangingKey={row.hanging_default}
+          captionKey={row.caption_default}
+          designOverrides={design}
+          emptyNote="Upload a work to see your theme's atmosphere."
+          mode="room"
+        />
 
         <div className="we-right">
-          {/* Room-wide space: theme recolours the preview wall live; layout is the floor plan.
-              Room-level settings first, then Design Tools (also room-wide), then the
-              per-work controls further down — highest scope to narrowest */}
-          <div className="wd-group">
-            <div className="wd-title"><span>Room — whole gallery</span></div>
+          {/* Section 1 — the room's look: theme + layout. The 3D preview on the left
+              recolours live as you switch theme. (Design Tools hidden for now.) */}
+          <div className="wd-group wd-group--flush">
+            <div className="wd-title"><span>Theme &amp; layout</span></div>
             <div className="wd-row">
               <span className="wd-label">Theme</span>
               <div className="chips">
@@ -978,7 +982,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     >
                       <ThemeSwatch themeKey={key} />
                       {def.label}
-                      {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
+                      {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
                     </button>
                   )
                 })}
@@ -1001,7 +1005,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     >
                       <LayoutPlan layoutKey={key} className="chip-plan" />
                       {def.label}
-                      {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
+                      {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
                     </button>
                   )
                 })}
@@ -1063,8 +1067,11 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
             )}
           </div>
 
+          {DESIGN_TOOLS_VISIBLE && (
+          <>
           {/* Design Tools (§11.5/§11.8) — a buy-once capability layered on top of the
-              theme: recolour walls/floor, tune the light mood, add a small logo mark */}
+              theme: recolour walls/floor, tune the light mood, add a small logo mark.
+              Hidden for now via DESIGN_TOOLS_VISIBLE. */}
           <div className="wd-group">
             <div className="wd-title"><span>Design Tools</span></div>
             {entitlements.designToolsEnabled ? (
@@ -1174,29 +1181,127 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
               </div>
             )}
           </div>
+          </>
+          )}
+        </div>
+      </div>
 
-          <p className="me-note" style={{ marginTop: '0.5rem' }}>
-            The room settings above set the whole gallery; the per-work controls below apply to
-            the selected work only, and matching the room&apos;s setting clears the override.
-            Works are library assets — deleting a hakoniwa never deletes them.
-          </p>
+      {/* ===== Section 2 — the artworks that hang in this room ===== */}
+      <div className="art-section">
+        {/* Full-width strip: every work in the room side by side. Pick one to edit it in
+            the two-column detail (preview + settings) below. */}
+        <div className="works-in-room">
+          <div className="wd-title">
+            <span>Works in this room</span>
+            <span className="wd-title-meta">{cloudArtworks.length} / {row.work_cap}</span>
+          </div>
+            {cloudArtworks.length === 0 ? (
+              <label className="upload-hero" aria-disabled={uploading}>
+                <b>{uploading ? 'Uploading…' : 'Hang your first work'}</b>
+                <span>Drop in images from your camera roll or portfolio — the preview shows them framed on your wall.</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  disabled={uploading}
+                  onChange={(e) => {
+                    void onFiles(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            ) : (
+              <>
+                <p className="wd-sub" style={{ marginBottom: '0.5rem' }}>Tap a work to edit it · ★ cover · × remove</p>
+                <div className="works-strip">
+                  {cloudArtworks.map((art) => (
+                    <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={art.poster ?? art.src}
+                        alt={art.title}
+                        loading="lazy"
+                        onClick={() => setSelectedId(art.id)}
+                      />
+                      <figcaption>
+                        {art.kind === 'video' ? (
+                          <>
+                            <VideoIcon className="works-title-icon" /> {art.title}
+                          </>
+                        ) : (
+                          art.title
+                        )}
+                      </figcaption>
+                      <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
+                      <button
+                        className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
+                        aria-label={`Use ${art.title} as the share cover`}
+                        title="Use as share cover (OGP)"
+                        onClick={() => void toggleCover(art)}
+                      >
+                        {row.cover_artwork_id === art.id ? '★' : '☆'}
+                      </button>
+                    </figure>
+                  ))}
+                  {Array.from({ length: Math.max(0, row.work_cap - cloudArtworks.length) }).map((_, i) => (
+                    <label className="works-add" key={`add-${i}`} aria-disabled={uploading} title="Upload a work">
+                      <span className="works-add-box" aria-hidden="true">{uploading ? '…' : '+'}</span>
+                      <span className="works-add-label">Slot {cloudArtworks.length + i + 1}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        hidden
+                        disabled={uploading}
+                        onChange={(e) => {
+                          void onFiles(e.target.files)
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                  ))}
+                  <button
+                    className="works-capacity"
+                    onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
+                    title={`Add ${CAPACITY_ADDON_SIZE} more work slots`}
+                  >
+                    <span className="works-capacity-box" aria-hidden="true">
+                      <LockIcon /> +{CAPACITY_ADDON_SIZE}
+                    </span>
+                    <span className="works-capacity-label">more slots</span>
+                  </button>
+                </div>
+              </>
+            )}
+        </div>
 
-          {selected && (
-            <>
-              <p className="me-note" style={{ marginBottom: 0 }}>
-                “{selected.title}” — <b style={{ color: 'var(--ink)' }}>this work</b>
-                {syncState === 'saving' ? ' · saving…' : syncState === 'saved' ? ' · saved' : ''}
-              </p>
-
-              {/* The name plate's text: title + caption, straight onto the plate above */}
-              <div className="wd-group" style={{ marginTop: '0.6rem' }}>
+        {/* Two columns: the selected work's 3D preview (left) + its settings (right) */}
+        {selected && (
+          <div className="works-detail">
+            <GalleryPreview
+              art={previewArt}
+              src={previewSrc}
+              index={selectedIndex}
+              themeKey={row.theme}
+              frameKey={frame}
+              matKey={mat}
+              hangingKey={hanging}
+              captionKey={captionKey}
+              designOverrides={design}
+              emptyNote="Pick a work above to preview it framed on your wall."
+            />
+            <div className="we-right">
+              {/* The name plate's text: title + caption, straight onto the plate above.
+                  Flush (no top divider) — it's the first thing in the settings column now. */}
+              <div className="wd-group wd-group--flush">
                 <div className="wd-title"><span>Title &amp; caption</span></div>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
                   <span>Title</span>
                   <input type="text" value={titleInput} onChange={(e) => setTitleInput(e.target.value)} />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Caption — shown on the name plate</span>
+                  <FieldLabel hint="Shown on the name plate beside the work.">Caption</FieldLabel>
                   <textarea
                     rows={2}
                     maxLength={140}
@@ -1206,7 +1311,16 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Purchase link — shown to visitors as “Available for purchase”</span>
+                  <FieldLabel hint="Shown to visitors as you type it — include the currency (e.g. ¥50,000). Leave blank to hide.">Price</FieldLabel>
+                  <input
+                    type="text"
+                    placeholder="e.g. ¥50,000 (leave blank to hide)"
+                    value={priceInput}
+                    onChange={(e) => setPriceInput(e.target.value)}
+                  />
+                </label>
+                <label className="me-field" style={{ margin: '0.45rem 0' }}>
+                  <FieldLabel hint="Where the “Available for purchase” button sends buyers. Leave blank if it’s not for sale.">Purchase link</FieldLabel>
                   <input
                     type="text"
                     inputMode="url"
@@ -1215,52 +1329,87 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                     onChange={(e) => setPurchaseUrlInput(e.target.value)}
                   />
                 </label>
-                <button
-                  className="btn-line"
-                  disabled={
-                    busy ||
-                    (titleInput === selected.title &&
-                      captionInput === (selected.desc ?? '') &&
-                      purchaseUrlInput === (selected.purchaseUrl ?? ''))
-                  }
-                  onClick={() => void saveWorkDetails()}
-                >
-                  {workSaved ? 'Saved' : 'Save plate'}
-                </button>
-
-                {/* Audio guide: auto-reads the caption aloud (free, no recording); an
-                    uploaded file overrides that with your own narration. Auto-plays on the tour. */}
-                <div className="wd-audio">
-                  <span className="wd-audio-label">
-                    Audio guide{' '}
-                    {selected.audioUrl
-                      ? '· your recording'
-                      : (selected.desc ?? '').trim()
-                        ? '· reads the caption'
-                        : '· add a caption to enable'}
-                  </span>
-                  <div className="wd-audio-actions">
-                    <label className="btn-line wd-audio-upload" aria-disabled={busy}>
-                      {selected.audioUrl ? 'Replace' : 'Upload recording'}
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        hidden
-                        disabled={busy}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0]
-                          e.target.value = '' // allow re-selecting the same file
-                          if (f) void setWorkAudio(f)
+                <div className="wd-row" style={{ margin: '0.45rem 0' }}>
+                  <span className="wd-label">Size</span>
+                  <div className="design-controls" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {/* Pick a standard size (号 / A / B), or "Custom" to type cm. The W×H
+                        fields only appear in custom mode; a preset shows just the ⇄ swap. */}
+                    <select
+                      className="ent-select"
+                      value={sizeCustom ? 'custom' : (matchPreset(parseFloat(widthInput), parseFloat(heightInput)) ?? 'custom')}
+                      onChange={(e) => {
+                        const p = presetByLabel(e.target.value)
+                        if (p) {
+                          setWidthInput(String(p.w))
+                          setHeightInput(String(p.h))
+                          setSizeCustom(false)
+                        } else {
+                          setSizeCustom(true) // "Custom / other…" — reveal the cm fields
+                        }
+                      }}
+                    >
+                      <option value="custom">Custom / other…</option>
+                      {SIZE_GROUPS.map((g) => (
+                        <optgroup key={g.label} label={g.label}>
+                          {g.options.map((o) => (
+                            <option key={o.label} value={o.label}>
+                              {o.label} — {o.w} × {o.h} cm
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
+                      {sizeCustom && (
+                        <>
+                          <input
+                            type="number"
+                            min={1}
+                            inputMode="decimal"
+                            placeholder="W"
+                            className="size-num"
+                            value={widthInput}
+                            onChange={(e) => setWidthInput(e.target.value)}
+                          />
+                          <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
+                          <input
+                            type="number"
+                            min={1}
+                            inputMode="decimal"
+                            placeholder="H"
+                            className="size-num"
+                            value={heightInput}
+                            onChange={(e) => setHeightInput(e.target.value)}
+                          />
+                          <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        className="btn-line"
+                        title="Swap width and height (portrait ⇄ landscape)"
+                        style={{ padding: '0.35em 0.6em' }}
+                        onClick={() => {
+                          setWidthInput(heightInput)
+                          setHeightInput(widthInput)
                         }}
-                      />
-                    </label>
-                    {selected.audioUrl && (
-                      <button className="btn-line danger" disabled={busy} onClick={() => void setWorkAudio(null)}>
-                        Remove
+                      >
+                        ⇄
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
+                <label className="me-field" style={{ margin: '0.45rem 0' }}>
+                  <FieldLabel hint="The materials, e.g. “Oil on canvas”, “Giclée print”. Optional.">Medium</FieldLabel>
+                  <input
+                    type="text"
+                    placeholder="Medium (optional)"
+                    value={mediumInput}
+                    onChange={(e) => setMediumInput(e.target.value)}
+                  />
+                </label>
+                {/* Audio guide needs no upload UI — the tour reads the caption aloud
+                    automatically (text-to-speech). */}
               </div>
 
               <WorkDesign
@@ -1281,10 +1430,33 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, row.caption_default) })
                 }
               />
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Save the selected work's plate/size/framing. Frame/mat/hanging autosave on pick,
+          but the text fields don't — so this stays docked to the bottom of the viewport
+          (position: sticky) and only releases into normal flow at the end of the page, so
+          it's reachable without scrolling the whole panel. */}
+      {selected && (
+        <button
+          className="wd-save-cta wd-save-sticky"
+          disabled={
+            busy ||
+            (titleInput === selected.title &&
+              captionInput === (selected.desc ?? '') &&
+              purchaseUrlInput === (selected.purchaseUrl ?? '') &&
+              priceInput === (selected.price ?? '') &&
+              widthInput === (selected.widthCm ? String(selected.widthCm) : '') &&
+              heightInput === (selected.heightCm ? String(selected.heightCm) : '') &&
+              mediumInput === (selected.medium ?? ''))
+          }
+          onClick={() => void saveWorkDetails()}
+        >
+          {workSaved ? 'Saved ✓' : 'Save settings'}
+        </button>
+      )}
       {purchaseItem && (
         <PurchaseModal
           itemLabel={purchaseItem.label}

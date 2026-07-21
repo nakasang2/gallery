@@ -17,7 +17,11 @@ interface ArtworkRow {
   created_at: string
   kind?: 'image' | 'video'
   purchase_url?: string | null
+  price?: string | null
   audio_url?: string | null
+  width_cm?: number | null
+  height_cm?: number | null
+  medium?: string | null
 }
 
 function publicUrl(path: string): string {
@@ -38,7 +42,11 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
     src: publicUrl(`${row.storage_path}/${video ? 'video' : 'display.jpg'}`),
     poster: video ? publicUrl(`${row.storage_path}/thumb.jpg`) : undefined,
     purchaseUrl: row.purchase_url ?? undefined,
+    price: row.price ?? undefined,
     audioUrl: row.audio_url ?? undefined,
+    widthCm: row.width_cm ?? undefined,
+    heightCm: row.height_cm ?? undefined,
+    medium: row.medium ?? undefined,
   }
 }
 
@@ -191,27 +199,45 @@ export async function uploadVideoArtwork(params: {
  *  placements join artworks live */
 export async function updateArtworkDetails(
   artworkId: string,
-  fields: { title: string; description: string; purchaseUrl?: string; audioUrl?: string | null }
+  fields: {
+    title: string
+    description: string
+    purchaseUrl?: string
+    price?: string | null
+    audioUrl?: string | null
+    widthCm?: number | null
+    heightCm?: number | null
+    medium?: string | null
+  }
 ): Promise<void> {
   const update: Record<string, unknown> = {
     title: fields.title.trim() || 'Untitled',
     description: fields.description.trim(),
   }
   if (fields.purchaseUrl !== undefined) update.purchase_url = fields.purchaseUrl.trim() || null
+  if (fields.price !== undefined) update.price = (fields.price ?? '').trim() || null
   if (fields.audioUrl !== undefined) update.audio_url = fields.audioUrl || null
+  if (fields.widthCm !== undefined) update.width_cm = fields.widthCm ?? null
+  if (fields.heightCm !== undefined) update.height_cm = fields.heightCm ?? null
+  if (fields.medium !== undefined) update.medium = (fields.medium ?? '').trim() || null
+
+  // Columns from later migrations (0015/0021/0025/0026). If a target DB is behind, the write
+  // fails naming a missing column — drop whichever it names (or all optionals on a generic
+  // schema-cache miss) and retry, so title/caption always save.
+  const OPTIONAL = ['purchase_url', 'price', 'audio_url', 'width_cm', 'height_cm', 'medium']
   let { error } = await supabase!.from('artworks').update(update).eq('id', artworkId)
-  // 0015 (purchase_url) / 0021 (audio_url) not applied — title/caption must still save.
-  // Drop whichever optional column the error names and retry until it lands.
-  while (error && (error.code === 'PGRST204' || error.code === '42703' || /purchase_url|audio_url/.test(error.message ?? ''))) {
-    if (/audio_url/.test(error.message ?? '') && 'audio_url' in update) delete update.audio_url
-    else if (/purchase_url/.test(error.message ?? '') && 'purchase_url' in update) delete update.purchase_url
-    else {
-      // Generic schema-cache miss without a column name — drop both optional cols
-      delete update.audio_url
-      delete update.purchase_url
+  while (
+    error &&
+    (error.code === 'PGRST204' || error.code === '42703' || OPTIONAL.some((c) => new RegExp(c).test(error!.message ?? '')))
+  ) {
+    const named = OPTIONAL.find((c) => new RegExp(c).test(error!.message ?? '') && c in update)
+    if (named) delete update[named]
+    else OPTIONAL.forEach((c) => delete update[c]) // generic miss — drop all optionals
+    if (!OPTIONAL.some((c) => c in update)) {
+      ;({ error } = await supabase!.from('artworks').update(update).eq('id', artworkId))
+      break
     }
     ;({ error } = await supabase!.from('artworks').update(update).eq('id', artworkId))
-    if (!('audio_url' in update) && !('purchase_url' in update)) break
   }
   if (error) throw error
 }

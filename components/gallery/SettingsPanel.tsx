@@ -16,6 +16,7 @@ import { walkRef } from '@/lib/controller'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import PurchaseModal from '@/components/PurchaseModal'
+import { LockIcon, VideoIcon } from '@/components/icons'
 import { purchaseOptionsFor, purchaseEyebrow, PRICE_SINGLE_ITEM } from '@/lib/pricing'
 import {
   ThemeSwatch,
@@ -493,7 +494,15 @@ export default function SettingsPanel() {
                   <span className="works-no">{i + 1}</span>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={art.poster ?? art.src} alt="" />
-                  <span className="works-title">{art.kind === 'video' ? `🎬 ${art.title}` : art.title}</span>
+                  <span className="works-title">
+                    {art.kind === 'video' ? (
+                      <>
+                        <VideoIcon className="works-title-icon" /> {art.title}
+                      </>
+                    ) : (
+                      art.title
+                    )}
+                  </span>
                   <button
                     className="works-move"
                     aria-label={`Move ${art.title} up`}
@@ -593,7 +602,7 @@ export default function SettingsPanel() {
               >
                 <ThemeSwatch themeKey={key} />
                 {def.label}
-                {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
+                {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
               </button>
             )
           })}
@@ -618,7 +627,7 @@ export default function SettingsPanel() {
               >
                 <LayoutPlan layoutKey={key} className="chip-plan" />
                 {def.label}
-                {!unlocked && <span className="chip-price-tag" aria-hidden="true">🔒 {PRICE_SINGLE_ITEM}</span>}
+                {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
               </button>
             )
           })}

@@ -80,7 +80,7 @@ export default function WalkControls({
     () =>
       list.map((art, i) => {
         const slot = layout.slots[slots[i]]
-        const { width, height } = artSize(art.ratio)
+        const { width, height } = artSize(art.ratio, art)
         const normal = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), slot.rotY)
         return { center: new THREE.Vector3(slot.x, 1.62, slot.z), normal, width, height }
       }),
@@ -467,10 +467,18 @@ export default function WalkControls({
     if (s.bobAmp > 0.02) s.bobPhase += dt * (7.5 + speed * 1.2)
     camera.position.y = EYE + Math.sin(s.bobPhase) * 0.02 * s.bobAmp
 
-    s.stepDist += moved
-    if (s.stepDist > 0.72 && speed > 0.4) {
-      s.stepDist = 0
-      galleryAudio.step(targetAmp)
+    // Footsteps for on-foot movement (keys / joystick / floor-tap walk). Suppressed during an
+    // artwork-focus or tour glide (targetIndex >= 0): those slide the camera fast to inspect a
+    // piece and would patter like a sprint. A longer stride = a calmer, slower walking pace.
+    const focusGlide = tweens.current.length > 0 && state.current.targetIndex >= 0
+    if (!focusGlide) {
+      s.stepDist += moved
+      if (s.stepDist > 1.15 && speed > 0.4) {
+        s.stepDist = 0
+        galleryAudio.step(targetAmp)
+      }
+    } else {
+      s.stepDist = 0 // don't let distance pile up mid-glide and dump a burst when it ends
     }
 
     camera.rotation.set(s.pitch, s.yaw, 0)

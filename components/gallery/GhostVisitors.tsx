@@ -7,7 +7,7 @@
 // read as a "presence", not a specific person, and identical instances don't look like
 // clones. Visitor pages only; never the owner-editor, hidden while a work is focused,
 // and off on low-power devices.
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useGLTF, useAnimations } from '@react-three/drei'
@@ -16,11 +16,13 @@ import { useGallery, useSettings } from '@/lib/store'
 import { resolveLayout, resolveTheme, type LayoutDef } from '@/lib/presets'
 import { getSolids, usePlacement, type Solid } from '@/lib/exhibition'
 import { LOW_POWER } from '@/lib/controller'
-import { ghostCountForVisits, MAX_GHOSTS } from '@/lib/ghosts'
-import { galleryAudio } from '@/lib/audio'
+import { ghostCountForVisits } from '@/lib/ghosts'
+import { fetchGhostConfig, DEFAULT_GHOST, type GhostConfig } from '@/lib/siteConfig'
 
-// The character is Draco-compressed; decode with the vendored local decoder (no CDN).
-const MODEL_URL = '/models/visitor.glb'
+// Character models (Draco-compressed; decoded with the vendored local decoder, no CDN).
+// Each figure picks one at random for variety; both carry exactly a walk + an idle clip,
+// selected by duration below so the differing clip order between models doesn't matter.
+const MODELS = ['/models/visitor.glb', '/models/visitor2.glb']
 useGLTF.setDecoderPath('/draco/')
 
 // One shared, faint contact shadow so the figures read as grounded (the room's baked
@@ -51,14 +53,17 @@ function pickTarget(layout: LayoutDef, solids: Solid[], artSlots: ArtSlot[]): Ta
   // reads as "someone stopped to look" — else a random floor point to cross to. Only
   // occupied slots count, so nobody stops to stare at a blank wall or an empty inner face.
   const slot = artSlots.length ? artSlots[Math.floor(Math.random() * artSlots.length)] : null
+  const dwell = !!slot && Math.random() < 0.8
   let x: number
   let z: number
-  let face: number | null = null
-  if (slot && Math.random() < 0.8) {
-    const inward = 1.5 + Math.random() * 0.7
-    x = slot.x + Math.sin(slot.rotY) * inward
-    z = slot.z + Math.cos(slot.rotY) * inward
-    face = slot.rotY + Math.PI // look back toward the wall the piece hangs on
+  if (dwell) {
+    // A viewing spot in front of the piece — spread over a range so several figures can
+    // take in the SAME work at once: near–far (1.6–3.6 m out) and offset left/right along
+    // the wall (±1.3 m). normal into room = (sin rotY, cos rotY); wall tangent = (cos, -sin).
+    const inward = 1.6 + Math.random() * 2.0
+    const lateral = (Math.random() * 2 - 1) * 1.3
+    x = slot!.x + Math.sin(slot!.rotY) * inward + Math.cos(slot!.rotY) * lateral
+    z = slot!.z + Math.cos(slot!.rotY) * inward - Math.sin(slot!.rotY) * lateral
   } else {
     x = (Math.random() * 2 - 1) * (layout.hw - 1)
     z = (Math.random() * 2 - 1) * (layout.hd - 1)
@@ -70,7 +75,70 @@ function pickTarget(layout: LayoutDef, solids: Solid[], artSlots: ArtSlot[]): Ta
       z = s.z + (z >= s.z ? 1 : -1) * (s.hd + 0.7)
     }
   }
+  // Face the piece itself from the final spot, so angled/far viewers still look AT it
+  const face = dwell ? Math.atan2(slot!.x - x, slot!.z - z) : null
   return { x, z, face }
+}
+
+// Steer toward the target while curving AROUND solid obstacles (benches, centre walls).
+// Wall-follow steering: near the closest solid within a look-ahead, head mostly TANGENTIALLY
+// (round the box on whichever side faces the target) with an outward push that grows as we
+// close in, and only a little seek — so figures skirt partitions instead of clipping through
+// them. Tuned + simulated so it never penetrates even at the top admin speed; the caller's
+// stuck-watchdog handles the rare spot the figure can't reach (behind a wall's centre).
+const GHOST_BODY = 0.25 // clearance half-width
+const AVOID_LOOK = 0.4 // start steering this close to a box (≈0.5 m berth from the face)
+function steerDir(px: number, pz: number, tx: number, tz: number, solids: Solid[]): { dx: number; dz: number } {
+  let sdx = tx - px
+  let sdz = tz - pz
+  const dl = Math.hypot(sdx, sdz) || 1
+  sdx /= dl
+  sdz /= dl
+  // the single closest threatening solid
+  let bestOd = AVOID_LOOK
+  let bnx = 0
+  let bnz = 0
+  let found = false
+  for (const s of solids) {
+    const mx = s.hw + GHOST_BODY
+    const mz = s.hd + GHOST_BODY
+    const cx = THREE.MathUtils.clamp(px, s.x - mx, s.x + mx)
+    const cz = THREE.MathUtils.clamp(pz, s.z - mz, s.z + mz)
+    const ox = px - cx
+    const oz = pz - cz
+    const od = Math.hypot(ox, oz)
+    if (od >= bestOd) continue
+    if (od > 1e-4) {
+      bnx = ox / od
+      bnz = oz / od
+    } else {
+      // inside the box — push out along the shallower penetration axis
+      const penX = mx - Math.abs(px - s.x)
+      const penZ = mz - Math.abs(pz - s.z)
+      if (penX < penZ) {
+        bnx = Math.sign(px - s.x) || 1
+        bnz = 0
+      } else {
+        bnx = 0
+        bnz = Math.sign(pz - s.z) || 1
+      }
+    }
+    bestOd = od
+    found = true
+  }
+  if (!found) return { dx: sdx, dz: sdz }
+  // tangent along the box wall, on the side that still points toward the target
+  let tanx = -bnz
+  let tanz = bnx
+  if (tanx * sdx + tanz * sdz < 0) {
+    tanx = -tanx
+    tanz = -tanz
+  }
+  const close = 1 - bestOd / AVOID_LOOK // 0 far … 1 touching
+  let dx = tanx * 1.2 + bnx * (0.3 + 0.7 * close) + sdx * 0.4 * (1 - close)
+  let dz = tanz * 1.2 + bnz * (0.3 + 0.7 * close) + sdz * 0.4 * (1 - close)
+  const L = Math.hypot(dx, dz) || 1
+  return { dx: dx / L, dz: dz / L }
 }
 
 interface GhostState {
@@ -83,11 +151,18 @@ interface GhostState {
   pause: number
   speed: number
   timeScale: number
+  /** Closest we've come to the current target, and how long since it last improved —
+   *  a watchdog so a figure that can't route to a spot (behind a wall's centre) gives up
+   *  and picks a new one instead of circling forever. */
+  bestDist: number
+  stuckT: number
 }
 
 // The walk clip's own ground speed at timeScale 1 (measured from the foot bones:
 // a planted foot travels back at ~1.44 m/s). Travel speed is derived from this so the
 // feet stay locked to the floor — no moonwalking — whatever pace we pick.
+// Both models' walk clips were measured from the foot bones at ~1.43 m/s ground speed;
+// travel is derived from this so the feet stay locked to the floor at any pace.
 const WALK_GROUND_SPEED = 1.44
 
 function Ghost({
@@ -96,16 +171,22 @@ function Ghost({
   baseColor,
   active,
   artSlots,
+  walkSpeed,
+  modelUrl,
 }: {
   layout: LayoutDef
   solids: Solid[]
   baseColor: THREE.Color
   active: boolean
   artSlots: ArtSlot[]
+  /** Admin-tunable travel speed (m/s); cadence locks to it */
+  walkSpeed: number
+  /** Which character model this figure wears */
+  modelUrl: string
 }) {
   const camera = useThree((s) => s.camera)
   const root = useRef<THREE.Group>(null)
-  const { scene, animations } = useGLTF(MODEL_URL, '/draco/')
+  const { scene, animations } = useGLTF(modelUrl, '/draco/')
 
   // Per-instance clone (scene.clone() breaks skinned-mesh skeletons — must use
   // SkeletonUtils) rendered as a flat, uniform translucent silhouette tinted toward the
@@ -159,15 +240,18 @@ function Ghost({
   const mat = mats[0]
   useEffect(() => () => mats.forEach((m) => m.dispose()), [mats])
 
-  // Two clips ship in the model: index 0 = walk (1.07s), 1 = idle (14.37s). Both play
-  // always; a smoothed weight crossfades between them so starts/stops don't pop. Desync
-  // the start times so a crowd isn't in lockstep.
-  const { actions, names } = useAnimations(animations, root)
+  // Each model ships exactly two clips — a short walk cycle (~1s) and a long idle (~14s).
+  // Pick them by DURATION, not array order: the two models name/order their clips
+  // differently, so shortest = walk, longest = idle is the reliable mapping. Both play
+  // always; a smoothed weight crossfades between them so starts/stops don't pop. Desync the
+  // start times so a crowd isn't in lockstep.
+  const { actions } = useAnimations(animations, root)
   const walkAction = useRef<THREE.AnimationAction | null>(null)
   const idleAction = useRef<THREE.AnimationAction | null>(null)
   useEffect(() => {
-    const walk = actions[names[0]] ?? null
-    const idle = actions[names[1]] ?? null
+    const byDur = [...animations].sort((a, b) => a.duration - b.duration)
+    const walk = (byDur[0] && actions[byDur[0].name]) ?? null
+    const idle = (byDur[byDur.length - 1] && actions[byDur[byDur.length - 1].name]) ?? null
     walkAction.current = walk
     idleAction.current = idle
     if (idle) {
@@ -183,15 +267,15 @@ function Ghost({
       walk.timeScale = stateRef.current?.timeScale ?? 1.35
       walk.time = Math.random() * walk.getClip().duration
     }
-  }, [actions, names])
+  }, [actions, animations])
 
   const stateRef = useRef<GhostState | null>(null)
   if (!stateRef.current) {
     const start = pickTarget(layout, solids, artSlots)
     const t = pickTarget(layout, solids, artSlots)
-    // Keep the brisk playback (~1.35) with a little per-ghost variety, and derive travel
-    // speed from it so the feet stay planted at any pace.
-    const timeScale = 1.35 * (0.92 + Math.random() * 0.16)
+    // Travel at the admin-set speed (± a little per-ghost variety), and set the clip's
+    // timeScale so the stride matches the ground — feet stay planted at any speed.
+    const pace = walkSpeed * (0.92 + Math.random() * 0.16)
     stateRef.current = {
       x: start.x,
       z: start.z,
@@ -200,8 +284,10 @@ function Ghost({
       tface: t.face,
       face: Math.random() * Math.PI * 2,
       pause: 0,
-      timeScale,
-      speed: WALK_GROUND_SPEED * timeScale,
+      speed: pace,
+      timeScale: pace / WALK_GROUND_SPEED,
+      bestDist: Infinity,
+      stuckT: 0,
     }
   }
 
@@ -222,6 +308,8 @@ function Ghost({
         s.tx = nt.x
         s.tz = nt.z
         s.tface = nt.face
+        s.bestDist = Infinity
+        s.stuckT = 0
       }
     } else {
       const dx = s.tx - s.x
@@ -229,14 +317,36 @@ function Ghost({
       const dist = Math.hypot(dx, dz)
       if (dist < 0.25) {
         s.pause = 3 + Math.random() * 5 // arrived — stop and look at this piece
+        s.bestDist = Infinity
       } else {
         moving = true
+        // Curve around partitions/benches rather than walking straight through them
+        const dir = steerDir(s.x, s.z, s.tx, s.tz, solids)
         const step = Math.min(dist, s.speed * dt)
-        s.x += (dx / dist) * step
-        s.z += (dz / dist) * step
-        s.face += shortAngle(Math.atan2(dx, dz) - s.face) * Math.min(1, dt * 4)
+        s.x += dir.dx * step
+        s.z += dir.dz * step
+        s.face += shortAngle(Math.atan2(dir.dx, dir.dz) - s.face) * Math.min(1, dt * 4)
+        // Watchdog: if we're not getting any closer (circling a wall we can't round),
+        // give up after a few seconds and pick a fresh target rather than orbit forever.
+        if (dist < s.bestDist - 0.1) {
+          s.bestDist = dist
+          s.stuckT = 0
+        } else {
+          s.stuckT += dt
+          if (s.stuckT > 5) {
+            const nt = pickTarget(layout, solids, artSlots)
+            s.tx = nt.x
+            s.tz = nt.z
+            s.tface = nt.face
+            s.bestDist = Infinity
+            s.stuckT = 0
+          }
+        }
       }
     }
+    // Never let steering nudge a figure through the outer walls
+    s.x = THREE.MathUtils.clamp(s.x, -layout.hw + 0.5, layout.hw - 0.5)
+    s.z = THREE.MathUtils.clamp(s.z, -layout.hd + 0.5, layout.hd - 0.5)
     g.position.set(s.x, 0, s.z) // feet-origin model sits on the floor; the clip does the bob
     g.rotation.y = s.face
 
@@ -286,7 +396,20 @@ export default function GhostVisitors() {
     [slots, layout]
   )
 
-  const count = visitor && !LOW_POWER ? ghostCountForVisits(visitor.visitCount) : 0
+  // Admin-tunable walk speeds per model (site_config). Null until fetched — hold the
+  // figures until it resolves so each spawns at the right pace (set once, at mount).
+  const [cfg, setCfg] = useState<GhostConfig | null>(null)
+  useEffect(() => {
+    let alive = true
+    fetchGhostConfig()
+      .then((c) => alive && setCfg(c))
+      .catch(() => alive && setCfg(DEFAULT_GHOST))
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const count = visitor && !LOW_POWER && cfg ? ghostCountForVisits(visitor.visitCount) : 0
   const showing = count > 0 && !focused
 
   // Dark figures on light walls, pale on dark walls — always legible, lit by the room.
@@ -295,23 +418,38 @@ export default function GhostVisitors() {
     [theme.wall]
   )
 
-  // Crowd murmur scales with how many figures are actually present (0 when focused/none).
-  useEffect(() => {
-    galleryAudio.setCrowdLevel(showing ? count : 0, MAX_GHOSTS)
-    return () => galleryAudio.setCrowdLevel(0)
-  }, [showing, count])
+  // Model per figure (0 = male, 1 = female), balanced ~50:50 and guaranteed to include BOTH
+  // once there are two or more. Stable across re-renders (re-rolled only on headcount change).
+  const modelIdx = useMemo(() => {
+    const start = Math.round(Math.random()) // vary a lone figure's gender
+    const idx = Array.from({ length: count }, (_, i) => (i + start) % 2)
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[idx[i], idx[j]] = [idx[j], idx[i]]
+    }
+    return idx
+  }, [count])
 
-  if (count === 0) return null
+  if (count === 0 || !cfg) return null
 
   return (
     <Suspense fallback={null}>
       <group visible={showing}>
         {Array.from({ length: count }).map((_, i) => (
-          <Ghost key={i} layout={layout} solids={solids} baseColor={baseColor} active={showing} artSlots={artSlots} />
+          <Ghost
+            key={i}
+            layout={layout}
+            solids={solids}
+            baseColor={baseColor}
+            active={showing}
+            artSlots={artSlots}
+            walkSpeed={modelIdx[i] === 0 ? cfg.walkSpeedMale : cfg.walkSpeedFemale}
+            modelUrl={MODELS[modelIdx[i]]}
+          />
         ))}
       </group>
     </Suspense>
   )
 }
 
-useGLTF.preload(MODEL_URL, '/draco/')
+MODELS.forEach((m) => useGLTF.preload(m, '/draco/'))

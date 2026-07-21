@@ -1,0 +1,52 @@
+// Small inline icon set standing in for emoji glyphs (🔒, 🎬) — renders identically
+// across every platform/font and inherits colour via currentColor, unlike emoji.
+
+export function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V7.5a4 4 0 0 1 8 0V11" />
+    </svg>
+  )
+}
+
+export function VideoIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" className={className}>
+      <rect x="2.5" y="4" width="19" height="16" rx="3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M10 8.5v7l6-3.5-6-3.5Z" fill="currentColor" />
+    </svg>
+  )
+}
+
+export function InfoIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" />
+      <path d="M12 8h.01" />
+    </svg>
+  )
+}

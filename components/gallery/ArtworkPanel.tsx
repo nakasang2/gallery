@@ -132,6 +132,12 @@ export default function ArtworkPanel() {
           <div className="panel-no">No. {String(focusedIndex + 1).padStart(2, '0')}</div>
           <h2 className="panel-title">{art.title}</h2>
           <div className="panel-artist">{art.artist} — {art.year}</div>
+          {/* Gallery label: dimensions and medium, when the artist gave them */}
+          {(() => {
+            const dims = art.widthCm && art.heightCm ? `${art.widthCm} × ${art.heightCm} cm` : ''
+            const meta = [dims, art.medium].filter(Boolean).join(' · ')
+            return meta ? <div className="panel-medium">{meta}</div> : null
+          })()}
           {/* The visitor's one reaction deserves a real touch target, not an afterthought */}
           {visitor && <LikeButton galleryId={visitor.galleryId} artworkId={art.id} />}
           <p className="panel-desc">{art.desc}</p>
@@ -141,10 +147,12 @@ export default function ArtworkPanel() {
             ))}
           </div>
           {guide && <AudioGuideButton source={guide} />}
-          {art.purchaseUrl && (
+          {art.purchaseUrl ? (
             <a className="panel-buy" href={toHref(art.purchaseUrl)} target="_blank" rel="noopener noreferrer">
-              Available for purchase ↗
+              {art.price ? `${art.price} · ` : ''}Available for purchase ↗
             </a>
+          ) : (
+            art.price && <div className="panel-price">{art.price}</div>
           )}
           {/* Per-work design (frame / mat / hanging / caption) cannot be changed in visitor mode */}
           {!visitor && (

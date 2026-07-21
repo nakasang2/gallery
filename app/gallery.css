@@ -340,6 +340,12 @@ body.gallery-mode {
   margin-bottom: 1.4rem;
   border-bottom: 1px solid var(--hairline);
 }
+.panel-medium {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: -0.7rem 0 1.2rem;
+}
 .panel-desc {
   font-size: 0.88rem;
   line-height: 2;
@@ -371,6 +377,14 @@ body.gallery-mode {
   transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 .panel-buy:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(212, 162, 78, 0.34); }
+/* Price shown on its own when there's no purchase link to fold it into */
+.panel-price {
+  margin-top: 1.4rem;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
 
 /* Audio-guide play/pause on the artwork panel */
 .panel-guide {
@@ -788,6 +802,9 @@ body.gallery-mode {
   top: 0.5rem;
   right: 0.5rem;
   z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
   font-family: var(--sans);
   font-size: 0.6rem;
   font-weight: 600;
@@ -904,6 +921,8 @@ body.gallery-mode {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.32);
   pointer-events: none;
 }
+/* Lock badge with no price — a compact round gold chip showing only the padlock */
+.chip-price-tag.chip-lock-only { gap: 0; padding: 0.32em; font-size: 0.66rem; }
 
 /* ---- Purchase modal — tap-through from anything locked ---- */
 .purchase-backdrop {
@@ -1058,22 +1077,49 @@ body.gallery-mode {
 
 /* ---- 作品デザインパネル(構造化): グループ > 行(ラベル+適材コントロール) ---- */
 .wd-group { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--hairline); }
+/* First group in the settings column — nothing above it needs a divider rule */
+.wd-group--flush { margin-top: 0; padding-top: 0; border-top: none; }
 .work-design .wd-group:first-child { margin-top: 0.6rem; padding-top: 0; border-top: none; }
+/* "Works in this room": the child list nested under the room's own settings */
+.wd-title-meta { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; color: var(--muted); }
+.works-in-room .works-strip { margin-top: 0.2rem; }
 
-/* Dashboard: per-work audio-guide upload row (inside the Title & caption group) */
-.wd-audio {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  margin-top: 0.9rem;
-  padding-top: 0.8rem;
-  border-top: 1px dashed var(--hairline);
+/* Closing CTA for the whole per-work panel — full-width and visually weighted so
+   it reads as THE save action, not a .btn-line easy to scroll past mid-form (frame/
+   mat/hanging above already auto-save; this is the one click that persists title/
+   caption/link/size/medium) */
+.wd-save-cta {
+  display: block;
+  width: 100%;
+  margin-top: 1.1rem;
+  text-align: center;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #1a1510;
+  background: linear-gradient(135deg, #e6bb70, var(--gold));
+  border: none;
+  border-radius: 8px;
+  padding: 0.85em 1.2em;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(212, 162, 78, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
-.wd-audio-label { font-size: 0.72rem; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
-.wd-audio-actions { display: flex; gap: 0.4rem; }
-.wd-audio-upload { cursor: pointer; }
-.wd-audio-upload[aria-disabled='true'] { opacity: 0.5; pointer-events: none; }
+.wd-save-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(212, 162, 78, 0.38); }
+.wd-save-cta:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: 0 4px 14px rgba(212, 162, 78, 0.28); }
+.wd-save-cta:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+/* Global save: docks to the bottom of the viewport while the panel scrolls, then releases
+   into normal flow at the very end of the card — a classic sticky action bar. The lifted
+   shadow makes it read as floating above the content it overlaps. */
+.wd-save-sticky {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 5;
+  margin-top: 1.6rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(212, 162, 78, 0.28);
+}
+
 .wd-title {
   display: flex;
   align-items: center;
@@ -1282,9 +1328,11 @@ body.gallery-mode {
   border-radius: 6px;
   padding: 0.6em 1.1em;
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
+  transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.1s;
 }
-.btn-line:hover { border-color: var(--gold); color: var(--gold); }
+.btn-line:hover { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.06); }
+.btn-line:active:not(:disabled) { transform: translateY(1px); }
+.btn-line:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .file-btn { margin-top: 0.7rem; }
 
 .field-row { display: flex; gap: 0.5rem; margin-top: 0.7rem; }
@@ -1353,6 +1401,7 @@ body.gallery-mode {
   white-space: nowrap;
   font-size: 0.78rem;
 }
+.works-title-icon { vertical-align: -0.1em; color: var(--muted); }
 .works-move {
   width: 26px !important;
   height: 26px !important;

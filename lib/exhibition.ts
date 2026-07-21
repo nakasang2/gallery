@@ -112,8 +112,27 @@ export function setOverride(
   return next
 }
 
-// Determine display size from aspect ratio (landscape keys off width, portrait off height)
-export function artSize(ratio: [number, number]): { width: number; height: number } {
+// Display size (metres) for a work. When the artist gave real cm dimensions, honour them
+// so the piece hangs at its true proportions AND relative scale — a big canvas reads big,
+// a small one small — clamped to [0.4, 2.4] m tall (and ≤ 2.6 m wide) so a postage stamp or
+// a mural still hangs cleanly on the wall grid. Otherwise fall back to the image's pixel
+// ratio, normalised to a common height (landscape keys off width, portrait off height).
+export function artSize(
+  ratio: [number, number],
+  dims?: { widthCm?: number; heightCm?: number }
+): { width: number; height: number } {
+  const wCm = dims?.widthCm
+  const hCm = dims?.heightCm
+  if (wCm && hCm && wCm > 0 && hCm > 0) {
+    const aspect = wCm / hCm
+    let height = Math.min(2.4, Math.max(0.4, hCm / 100))
+    let width = height * aspect
+    if (width > 2.6) {
+      width = 2.6
+      height = width / aspect
+    }
+    return { width, height }
+  }
   const [rw, rh] = ratio
   let height = rw >= rh ? 1.3 : 1.6
   let width = (height * rw) / rh

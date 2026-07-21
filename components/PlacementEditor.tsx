@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react'
 import { resolveLayout } from '@/lib/presets'
 import { effectiveSlotCount } from '@/lib/limits'
 import { placeWorks } from '@/lib/arrangement'
+import { VideoIcon } from '@/components/icons'
 import type { ArtworkData } from '@/lib/artworks'
 import type { CustomLayoutParams } from '@/lib/presets'
 
@@ -137,7 +138,13 @@ export default function PlacementEditor({
                   title={elsewhere ? `${art.title || 'Untitled'} — currently in another spot` : art.title || 'Untitled'}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {src ? <img src={src} alt={art.title} loading="lazy" /> : <span aria-hidden="true">🎬</span>}
+                  {src ? (
+                    <img src={src} alt={art.title} loading="lazy" />
+                  ) : (
+                    <span style={{ fontSize: '1.4rem', color: 'var(--muted)' }}>
+                      <VideoIcon />
+                    </span>
+                  )}
                   {elsewhere && <span className="place-pick-badge" aria-hidden="true">↔</span>}
                 </button>
               )

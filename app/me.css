@@ -363,6 +363,82 @@
 }
 .me-field input:focus, .me-field textarea:focus, .spotlight-row input:focus { border-color: var(--gold); }
 
+/* Size row W×H number inputs — match the dashboard's other fields (were browser-default) */
+.size-num {
+  width: 4.5em;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.05);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.45em 0.55em;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.size-num:focus { border-color: var(--gold); }
+
+/* Field label + inline info bubble. The "why/how" that used to trail each label as a
+   sentence now lives in this ⓘ beside the label — hover on desktop, tap (focus) on touch. */
+.me-field .me-field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+.field-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: help;
+  font-size: 0.86rem; /* sizes the 1em icon */
+  line-height: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.field-hint:hover,
+.field-hint:focus-visible { opacity: 1; color: var(--gold); outline: none; }
+.me-field .field-hint-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  display: block;
+  width: max-content;
+  max-width: 230px;
+  margin: 0;
+  padding: 0.55em 0.75em;
+  border-radius: 9px;
+  background: #1b1813;
+  border: 1px solid var(--hairline);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  text-transform: none;
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
+  z-index: 30;
+}
+.field-hint:hover .field-hint-pop,
+.field-hint:focus .field-hint-pop,
+.field-hint:focus-within .field-hint-pop {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
 /* Admin: spotlight curation rows (@username / slug + reorder/remove) */
 .spotlight-rows { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.9rem; }
 .spotlight-row { display: flex; align-items: center; gap: 0.4rem; }
@@ -392,17 +468,7 @@
   .hako-actions .btn-line { flex: 1 1 44%; }
 }
 
-/* 作品ワークベンチ: 上=10枠のフィルムストリップ / 下=選択作品の詳細(全幅) */
-.works-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.8rem;
-  margin: 1.4rem 0 0.6rem;
-  flex-wrap: wrap;
-}
-.works-count { font-size: 0.72rem; letter-spacing: 0.14em; color: var(--ink); }
-.works-legend { font-size: 0.68rem; color: var(--muted); }
+/* 作品ワークベンチ: 設定カラム内に Room → 作品カルーセル → 選択作品の詳細 と縦に流れる */
 
 /* フィルムストリップ: 10枠を横一列にスクロール。スクロールバーは細く控えめに */
 .works-strip {
@@ -454,9 +520,16 @@
 .works-cell button { color: #c96a5a; } /* 完全削除であることが静置状態でも伝わる色 */
 .works-cell button:hover { border-color: #e08a7a; color: #e08a7a; }
 
-/* ストリップ末尾の追加タイル */
+/* ストリップ末尾の追加タイル: 塗り済みセルと同じ「正方形の枠 + 下にキャプション」構成
+   にして、行全体の高さを揃える(枠だけだとキャプション分だけ塗り済みセルより低くなる) */
 .works-add {
   flex: 0 0 130px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+}
+.works-add-box {
+  width: 100%;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
@@ -465,30 +538,56 @@
   color: var(--muted);
   border: 1px dashed rgba(212, 162, 78, 0.45);
   border-radius: 8px;
-  cursor: pointer;
   transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
-.works-add:hover { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.05); }
+.works-add:hover .works-add-box { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.05); }
+.works-add-label {
+  font-size: 0.64rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
 
-/* Paid "add more slots" tile — distinct from the neutral upload tiles (gold, locked) */
+/* Paid "add more slots" tile — distinct from the neutral upload tiles (gold, locked),
+   same box+caption shape as everything else in the row */
 .works-capacity {
   flex: 0 0 130px;
-  aspect-ratio: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.works-capacity-box {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 0.15rem;
+  gap: 0.3em;
   border: 1px dashed rgba(212, 162, 78, 0.55);
   border-radius: 8px;
   background: rgba(212, 162, 78, 0.05);
   color: var(--gold);
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+  transition: border-color 0.2s, background 0.2s;
 }
-.works-capacity:hover { border-color: var(--gold); background: rgba(212, 162, 78, 0.1); transform: translateY(-2px); }
-.works-capacity-plus { font-size: 1.1rem; letter-spacing: 0.02em; }
-.works-capacity small { font-size: 0.6rem; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+.works-capacity:hover .works-capacity-box { border-color: var(--gold); background: rgba(212, 162, 78, 0.1); }
+.works-capacity-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-top: 0.35rem;
+}
 @media (max-width: 640px) { .works-capacity { flex-basis: 108px; } }
 
 /* 詳細: プレビュー左 / 設定右。全幅なので余裕を持って2カラム */
@@ -500,6 +599,16 @@
   margin-top: 0.4rem;
 }
 .works-detail .we-left { position: sticky; top: 1rem; }
+/* The artworks section sits below the theme section, set apart by a divider. Inside it:
+   a full-width strip of works, then the 2-column preview+settings detail. */
+.art-section { margin-top: 2.2rem; padding-top: 2rem; border-top: 1px solid var(--hairline); }
+.art-section .works-in-room { margin-bottom: 1.4rem; }
+/* The art preview bleeds past the card's side padding to the card edge, so it reads as its
+   own surface rather than a box nested inside the settings card. The grid breaks out both
+   sides; the settings column is re-padded so its text keeps clear of the edge. */
+.art-section .works-detail { margin-left: -1.6rem; margin-right: -1.6rem; }
+.art-section .works-detail .we-right { padding-right: 1.6rem; }
+.art-section .wall-preview3d { border: none; border-radius: 0 10px 10px 0; }
 .we-chips { margin-top: 0.45rem; gap: 0.35rem; }
 .wall-preview--lg { height: 320px; font-size: 22px; }
 /* 実3Dプレビュー(ルームと同じExhibitを小キャンバスで描画) */
@@ -517,8 +626,11 @@
   .works-detail .we-left { position: static; }
   .wall-preview--lg { height: 230px; font-size: 16px; }
   .wall-preview3d { height: 230px; }
-  .works-cell, .works-add { flex-basis: 108px; }
-  .works-cell figcaption { max-width: 108px; }
+  .works-cell, .works-add, .works-capacity { flex-basis: 108px; }
+  .works-cell figcaption, .works-add-label { max-width: 108px; }
+  /* One column: preview bleeds full-width; settings get side padding back */
+  .art-section .wall-preview3d { border-radius: 0; }
+  .art-section .works-detail .we-right { padding: 0 1.6rem; }
 }
 
 /* 二次操作(Rename/Delete): 主要ボタンと並列にしない静かなテキスト行 */

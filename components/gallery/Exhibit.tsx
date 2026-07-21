@@ -58,7 +58,7 @@ export default function Exhibit({
   captionDef: CaptionDef
 }) {
   const gl = useThree((s) => s.gl)
-  const { width, height } = artSize(art.ratio)
+  const { width, height } = artSize(art.ratio, art)
 
   // Video artworks: VideoTexture + spatial audio (image artworks are cached as before)
   const artWorldPos = useMemo(() => new THREE.Vector3(slot.x, 1.62, slot.z), [slot])

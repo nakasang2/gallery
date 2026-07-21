@@ -510,6 +510,11 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - 追補2: ユーザー指摘の2点をさらに修正:
   - **モーションと移動速度の不一致(足の空回り)**: 前回`timeScale`を1.35に上げたが移動速度(0.9〜1.4)がそれに追いつかず、足が接地せず滑っていた。歩行クリップの自然な地上速度を`walk.glb`の足ボーンから実測(接地足が後退する速度 ≒ **V0=1.44 m/s**@timeScale1)し、**移動速度をアニメから導出**(`speed = V0 × timeScale`)。これで**足が常に接地に一致**(=ムーンウォーク解消)。ユーザー了承どおり再生速度(≈1.35)は据え置き、ゴーストごとに`pace`(0.92〜1.08)で微差をつけつつ`speed`と`timeScale`を連動させ、どの個体も足がロックされたまま自然なばらつきを出す
   - **作品の無い壁の前で止まって眺めてしまう**: `pickTarget`が全レイアウトスロットから滞在先を選んでいたため、作品2点だけの部屋でも空きスロットや内壁面の前で立ち止まっていた。`usePlacement().slots`(=実際に作品が載っているスロット番号)から**作品のあるスロットだけ**を`artSlots`として渡し、滞在(正対して眺める)はそこに限定。作品ゼロなら滞在せず床を回遊するだけ。QAで実行時エラーなし・描画確認、`tsc`・`next build`クリーン
+- 追補7: 群衆の質感を4点調整。(a) **歩行速度を男女別に**: `site_config`の`ghost`値を`{walkSpeedMale, walkSpeedFemale}`へ(旧`walkSpeed`は両方にフォールバックする後方互換あり)。admin`GhostSpeedEditor`は男女2スライダーに。既定を1.94→**1.30 m/s**(やや早い指摘を受け落ち着いた散歩ペースへ)。各ゴーストは自分のモデルに応じた速度を使用(足ロックは維持)。(b) **障害物回避の離隔を約1m→約0.5mに**: `GHOST_BODY`0.4→0.25・`AVOID_LOOK`1.2→0.4。最高速2.6 m/sでも貫通ゼロ・壁面最接近≈0.6mをシミュレーションで確認。(c) **男女比を保証**: `GhostVisitors`の割り当てをランダム独立から**均等配分+シャッフル**へ。2体以上なら必ず男女両方を含み、全体≈50:50(単体テストで確認: count2/3/4いずれも100%両方・平均50%男性、単体は50%でランダム)。(d) **同じ絵を複数人で鑑賞できるレンジ拡大**: `pickTarget`の滞在位置を「正面1.5〜2.2m固定」から**奥行き1.6〜3.6m×左右±1.3m**のレンジへ広げ、オフセット位置からでも作品中心を向くよう`face`を`atan2(slot-位置)`で算出。遠く・やや左右からでも同じ絵を見られる。QAで男女2スライダーUI・4体シルエット描画(エラーなし)を確認。`tsc`・`next build`クリーン
+- 追補6: 女性アバターを追加してバリエーション化(ユーザーが本番へ`walk2.glb`/`idle2.glb`をアップ)。`walk2.glb`(51.5MB)を解析すると街の混入は無く、バルクはテクスチャ(PNG 6枚=49MB)。ゴーストはテクスチャを外した単色シルエットなので、同じ`gltf-transform`処理(テクスチャWebP化+Draco)で**51.5MB→1.2MB**の`visitor2.glb`を生成(LFS外の通常blob)。**クリップ特定は要注意だった**: `walk2.glb`は4クリップ入りで、名前や尺では判別できず(`mixamo.com`/`mixamo.com.001`は**両方Tポーズ**の不要クリップ)。足ボーンの移動量と手の横開き量を実測し、**walk=`mixamo.com.002`**(足動く・腕下)、**idle=`Armature|mixamo.com|Layer0`**(足静止・腕下=自然な立ち待機)を特定して2クリップだけ残した。女性のwalk地上速度も実測(V0≈1.42≒男性1.44なので共通定数を流用)。`GhostVisitors`は2モデル(`visitor.glb`/`visitor2.glb`)を`MODELS`配列で持ち、各ゴーストが`useMemo`で安定ランダムに1体選択(`useGLTF`はURL単位キャッシュ)。**クリップ選択をindexから尺ベース(最短=walk/最長=idle)に変更**——2モデルでクリップの名前/順序が違うため。QAで女性のwalk/idle(Tポーズでない自然な待機)と、実シーンでの2モデル混在シルエット描画・エラーなしを撮影確認。`tsc`・`next build`クリーン。原本`walk2.glb`/`idle2.glb`は`visitor2.glb`が代替のため未参照(保全のため残置)
+- 追補5: 音まわりの調整。(a) **環境ざわめきを無効化**(ユーザー判断「ざわめき不要」): `GhostVisitors`の`setCrowdLevel`呼び出しを削除しゴーストが群衆音を鳴らさないように(`lib/audio`の`setCrowdLevel`基盤は残置=可逆)。(b) **プレイヤー足音を落ち着いた歩調に**: 距離ベースのトリガー閾値を0.72m→**1.15m**に広げ(歩幅を長く=歩調ゆっくり)。(c) **アート/ツアーのグライド中は足音を消音**: `WalkControls`でフォーカスグライド(トゥイーン中かつ`targetIndex>=0`)を検出し足音をスキップ(高速移動で走っているように聞こえる問題を解消)。床タップ移動(`targetIndex=-1`)と手動歩行は足音を維持。※音の変更のためスクショ検証は不可、ロジックのみ確認。`tsc`・`next build`クリーン
+- 追補4: ユーザー指摘「中央壁レイアウトなどで、目的地への直線が壁を横切ると壁をすり抜けて歩く」→ 障害物回避を実装(選択肢B=壁を検知して回り込むステアリング)。`GhostVisitors`の移動を、目的地への直線から**壁沿いステアリング**(`steerDir`)に変更: 最寄りの`Solid`(ベンチ/中央壁、軸並行ボックス)が`AVOID_LOOK`(1.2m)以内にあると、目的地方向を捨てて主に**接線方向**(目的地側の面を回る向き)へ進み、近いほど強い外向き押し出しを足して壁面に触れず回り込む。加えて**ウォッチドッグ**(`bestDist`/`stuckT`): 中央壁の真裏など反応型では回り込めない目的地で無限旋回しないよう、5秒間 目的地に近づけなければ目的地を選び直す。外周壁はレイアウトが凸なので目的地内クランプで足り、`solids`にも含めない(=クランプのみ)。Nodeシミュレーションで、正面/斜め/対称の各ケース・**adminで設定可能な最高速2.6 m/sでも貫通ゼロ**を確認(壁面から約1mの自然な離隔)。実シーン(island=中央壁+作品6点)でも中央ブロックを誰も貫通せず配置されることを俯瞰スクショで確認。`tsc`・`next build`クリーン
+- 追補3: 歩行速度をadminから調整できるダイヤルを追加。`site_config`(migration 0018・admin書込/公開読取)に`ghost.walkSpeed`(m/s)キーを追加(**migration不要**の拡張key/value)。`lib/siteConfig`に`fetchGhostConfig`/`saveGhostConfig`(0.6〜2.6にクランプ・デフォルト1.94)、admin編集UI`components/GhostSpeedEditor`(スライダー+ライブ数値/ラベル+Save/Reset、`app/admin`に配置)。`GhostVisitors`は公開ページで`fetchGhostConfig`を読み、各ゴーストの`speed`基準に使用(取得までゴースト生成を保留し、各個体が正しいペースで湧く)。**足ロック維持**: `speed = walkSpeed × pace`、`timeScale = speed / V0` なので、どの速度に変えても足は接地に一致(空回りしない)。QAでスライダー操作・ラベル・Save有効化・デフォルト表示を確認。`tsc`・`next build`クリーン
 
 ### 11.20 Customレイアウトの調整UIをダッシュボードへ(v0.56)
 
@@ -517,3 +522,162 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
 - `app/me/page.tsx`: `row.layout === 'custom'` のとき「Custom size」ブロック(Width 16–36m / Depth 8–20m スライダー + 「Centre wall」チェック)を表示。既存グローバルCSS(`.slider-row`/`.toggle`)を流用しCSS追加なし
 - 保存はローカルstate + デバウンス(500ms)で`saveGallerySpace`(+公開時`rebuildPlacements`。サイズ変更=スロット数変化のため)。テーマ/レイアウト・配置編集と同じrow基準の書き戻し
 - **課金扱いはユーザー判断で「無料のまま」**。ただし別途確認した**Customチップにロック判定が無い件(無料枠は`corridor`のみ、custom未ゲート)は既知**として保留(今回は無料方針なので実害なし)
+
+### 11.21 作品の実寸・画材(v0.57 — 入力寸法を3Dの比率/スケールに反映)
+
+ユーザー要望「各絵に詳細(縦横・medium)を入れたい。入力した縦横と実際の空間上での比率を合わせたい」。作品ごとに**実寸(cm)と画材(medium)**を持たせ、実寸を3D表示の比率・スケールに反映:
+- migration `0025_artwork_dimensions.sql`: `artworks`に`width_cm real` / `height_cm real` / `medium text`を追加(既存の`width`/`height`=画像ピクセル寸法とは別物。ピクセル寸法は従来どおり画像比の算出に使用)
+- `ArtworkData`に`widthCm?`/`heightCm?`/`medium?`、`lib/cloud`の`ArtworkRow`/`rowToArtwork`/`updateArtworkDetails`を対応拡張(0025未適用環境でもtitle/caption等が保存できるよう、列名指定エラーで該当列を落として再試行する既存のグレースフルデグレードを一般化し、5つの任意列すべてを対象に)
+- **3Dサイズ算出`artSize(ratio, dims?)`**: 実寸(w,h cm)が両方あれば**アスペクト比=w:h**、**高さ=h/100 m**(実スケール)を採用。ただしレイアウトが崩れないよう**高さを[0.4, 2.4]m・幅を≤2.6mにクランプ**。未入力時は従来のピクセル比・正規化高さ。呼び出し3箇所(`Exhibit`/`WalkControls`/`Preview3D`)を`artSize(art.ratio, art)`に更新。ビジター側は`placements`の`artworks (*)`経由で自動的に新列が流れる
+- ダッシュボード(`app/me/page.tsx`)の作品編集に「Size (cm)」(W×H数値)と「Medium」入力を追加(既存のautosaveに相乗り)。鑑賞パネル(`ArtworkPanel`)に「60 × 90 cm · Oil on canvas」形式のラベル行(`.panel-medium`)を追加
+- 検証: 一時QAルートで同じ正方形画像を「寸法なし=正方形」「60×90=縦長」「120×40=横長」で`Preview3D`描画し、入力寸法が画像ピクセル比を上書きして**比率・実スケール両方**に反映されることをスクショ確認(削除済み)。`tsc`・`next build`クリーン
+- 設計判断: 「実際の空間上での比率」を、比率だけでなく**実スケールも反映**(大きい絵は大きく)と解釈。ただし壁グリッドと衝突しないようクランプ。クランプ域は必要なら調整可
+
+#### 11.21.1 サイズはプリセットから選択(号 / A / B)+その他手入力
+
+ユーザー要望「cmを手入力させるより、最初は選択肢(A1・B2・10号=F10など)をずらっと並べ、その他として手入力」。`lib/artSizes.ts`に定番サイズを定義(**号 F系** F0〜F100、**A判** A4〜A0、**B判** B4〜B0、cm実寸)。作品編集の「Size」行に`<optgroup>`分けの`<select>`を追加——選ぶとW×Hのcmフィールドに実寸が入り、そのまま手入力で微調整も可(「Custom / other…」が既定=完全手入力)。既存寸法がプリセットに一致すれば`matchPreset`で選択状態を復元(向き違いも一致扱い)。**入替ボタン(⇄)**でW/Hを交換し縦横向きを切替(号は横位置・A/B判は縦位置で定義しているため)。QAでF10選択→53×45.5充填・一致表示・エラーなしを確認(削除済み)。`tsc`・`next build`クリーン
+
+#### 11.21.2 ダッシュボードのプレビューに人物スケール基準(サイズが相対的に見える)
+
+ユーザー指摘「A1/A2でサイズを切り替えても3Dプレビューが変わらない/人物基準で相対的な大きさを正しく見せて」。原因は`Preview3D`のカメラが**作品にフィット(常にフレームいっぱい)**していたため、比率が同じA判(全て1:√2)は絶対サイズが違っても同じに見えていた。対処:
+- **カメラを「作品フィット」から「作品＋人物をまとめて収める」に変更**(`Rig`)。作品は実寸`artSize`で`y=1.62m`中心に固定表示され、横に**実寸1.72mの人物シルエット**(`ScaleFigure`、canvas生成の半透明ビルボード・壁の明度で色反転)を配置。人物が一定基準になるので、A4=頭ほど→A0=ほぼ全身、と**相対サイズが一目で分かる**
+- 人物は作品幅に応じて左に約0.5mクリアランスで配置。カメラはプレビュー枠のアスペクトに合わせ両者が収まる距離を算出
+- 実際の歩ける部屋は従来どおり`artSize`実寸で描画され、ゴースト(約1.8m)が基準になるため相対サイズはそこでも成立
+- 検証: 一時QAでA4/A2/A1/A0(同比率・サイズ増)を並べ、人物基準で段階的に大きくなることをスクショ確認(削除済み)。`tsc`・`next build`クリーン
+
+#### 11.21.3 プレビューは入力寸法を即時反映 + 本番反映の前提(migration 0025)
+
+ユーザー報告「サイズを変えてもプレビューも3Dギャラリーも変わらない/画像の形に関わらず指定サイズに合わせたい」。切り分け:
+- ダッシュボードのプレビューと実ギャラリーは**保存済みデータ**を読む。`app/me/page.tsx`のプレビューは`selected`(保存値)を渡していたため、入力しても保存するまで反映されなかった → **`previewArt`で入力中の`widthCm`/`heightCm`をselectedに上書きして`Preview3D`へ渡すよう変更**。プリセット選択/手入力で**即座にプレビューが変わる**(保存・DB列に依存しない)
+- 実ギャラリー(歩ける部屋/公開ページ)に反映するには、(1) **migration 0025を本番DBに適用**して`width_cm`/`height_cm`列を作り、(2) 作品編集で**「Save plate」で保存**する必要がある。0025未適用だと`updateArtworkDetails`のグレースフルデグレードが寸法列を黙って落とすため、保存しても永続化されず画像のピクセル比にフォールバックする(=画像の形のまま)。※適用後もPostgRESTのスキーマキャッシュが古いと同様に落ちることがあるため、その場合はスキーマreloadを待つ
+- `artSize`自体は寸法があれば比率・実スケールを正しく採用することをQAで確認済み(正方形画像+指定寸法→指定比率、A判サイズ差→人物基準で相対表示)。`tsc`・`next build`クリーン
+
+#### 11.21.4 スケール基準を実グラフィックの人型モデルに置き換え
+
+ユーザー指摘「プレビューのシルエットが微妙。普通のギャラリーで使う人型モデルを使えないか」。11.21.2ではcanvas描画の平面ビルボード(頭+胴+手足の簡易シルエット)を基準にしていたが安っぽかった。対処:
+- `ScaleFigure`を**ゴースト来場者と同じリグ付きglTF(`public/models/visitor.glb`)**に置き換え。`useGLTF(url,'/draco/')`+`SkeletonUtils.clone`でインスタンス化し、`GhostVisitors`と同じ**深度プリパス方式のフラット半透明シルエット**(壁の明度で暗/淡を反転、二重ブレンドの継ぎ目なし)で描画。真正面の切り絵に見えないよう`rotation-y=0.5`の3/4ビュー
+- ポーズ付け: `frameloop="demand"`はmixerを自動前進させないため、**最長クリップ(=idle)をmixer.setTimeで固定サンプリング**(t=0のTポーズを避ける)。モデルは実寸(feet at origin, 約1.75m)で出力されているので**スケール補正なし**でそのまま床に立たせる(部屋と同じ扱い)。※`Box3().setFromObject`はスキンドメッシュのバインドポーズ境界をほぼ0で返すため、bbox駆動スケールは使わない(474倍に暴走した)
+- 検証: 一時QAルートで単一`Preview3D`をF0(18×14)/A2/A0(84×119)/F100(162×130)個別描画し、実写級の人型が正しい相対サイズで立つことをスクショ確認(F0=足元に小さく、A0=人の約2/3、F100=胴ほどの高さ)。複数canvasを同時描画するとswiftshaderのWebGLコンテキスト上限で後発canvasのモデルが落ちるが、本番ダッシュボードは常に単一プレビューのため問題なし。QAルート削除済み。`tsc`・`next build`クリーン
+
+#### 11.21.5 人型モデルの壁の距離を是正(「壁にめり込んでる」)
+
+ユーザー指摘「人のシルエットが壁にめり込んでる」。原因切り分け: top-down正投影でジオメトリを直接確認したところ、実は壁面(z=0)を物理的に貫通してはいなかった(§11.21.4時点のz=0.1でも人物は常にz>0側)。真因はダッシュボードのカメラが**常に正面固定(チルト無し)**であること — 正面視では奥行きの視差が一切出ないため、壁からわずか0.1mしか離れていないと、足元の接地位置が壁と床の境界線とほぼ重なって見え、「壁に貼り付いている/めり込んでいる」ように読めてしまう(実際に別アングルの固定カメラで比較描画し視覚的に確認)。対処:
+- 壁からのクリアランスを`PERSON_Z`(0.1→0.55m)に拡大。正面固定カメラでも足元と壁際の間に床の帯が見え、「部屋の中に立っている」ことが伝わるように
+- 足元に**接地シャドウ(半透明の円形プレーン)**を追加(`GhostVisitors`と同じ手法)。床に立っている手がかりを補強
+- **`Rig`のカメラ距離計算を厳密化**: 従来は作品と人物を同一z(壁面)にあるものとして単純に囲む矩形でフィットしていたが、人物が壁から離れた分カメラに近くなり同じフィットでは実際より大きく写ってしまう。作品(z=0)と人物(z=PERSON_Z)それぞれの奥行きから個別に必要なカメラ距離を投影計算し(`requiredZ(z, dxMax, dyMax) = z + max((dxMax+margin)/tanH, (dyMax+margin)/tanV)`)、大きい方を採用するよう修正。両者とも必ずフレーム内に収まることを数学的に保証(距離を伸ばす方向は常に安全側)
+- 検証: 実`Preview3D`をF0/A2/A0/F100でスクショし、いずれも足元の接地シャドウと床の帯が見え「部屋に立っている」ことを確認、かつ相対サイズ感は§11.21.4と同様に保たれていることを確認。`tsc`・`next build`クリーン
+
+#### 11.21.6 サイズ入力行のUI改行修正
+
+ユーザー指摘「cm ⇄が改行されちゃってる」。`app/me`のSize行(プリセットselect + W × H cm ⇄)が`.design-controls`(flex-wrap:wrap)の直下に平置きされていたため、狭い幅では折り返し位置が悪く「cm」や「⇄」だけが単独で次の行に落ちていた。**W/×/H/cm/⇄をひとつの`flexWrap:'nowrap'`の内側divにまとめてグループ化**し、外側の折り返しはこのグループごと(select vs 寸法グループ)で起こるよう修正。`tsc`・`next build`クリーン
+
+#### 11.21.7 作品ストリップの空き枠を塗り済みセルと高さ揃え + 保存ボタンを全体の締めCTAへ再配置
+
+ユーザー指摘2点、スクショ付き:
+1.「アート追加UIが枠線のみで、塗り済みセル(画像+タイトル)と高さが揃わない。追加UIも枠線+テキスト(スロットNo→設定後にアート+タイトル)にしたい」
+2.「Save platesが中途半端な位置にある。全体にかかるsave settingという位置付けにして押しそびれないUIにしたい」
+
+対処:
+- **`.works-add`(空きアップロードタイル)・`.works-capacity`(有料追加枠タイル)を「正方形の枠+外側キャプション」構成に再構築**。従来は枠(aspect-ratio 1)のみで下にテキストが無く、`.works-strip`(flexの既定`align-items: stretch`)の下で塗り済みセル(画像+figcaption)よりキャプション分だけ低い高さになっていた。`.works-add`は内側`.works-add-box`(枠)+`.works-add-label`(「Slot N」、Nはストリップ内の表示上の通し番号)に分割、`.works-capacity`も同様に`.works-capacity-box`(🔒 +5)+`.works-capacity-label`(more slots、従来ボックス内にあったテキストを枠外へ移動)に分割。これで塗り済み/空き/追加購入の3種とも「枠+テキスト」の同一シェイプになり、行全体の高さが揃う
+- **「Save plate」ボタンを個別作品パネルの最下部(`WorkDesign`の後)へ移動し、"Save settings"にリネーム、全幅の金グラデーションCTA(`.wd-save-cta`)へ格上げ**。従来はMedium欄とAudio guideの間という中途半端な位置に地味な`.btn-line`で置かれており「押し忘れそう」だった。frame/mat/hanging/caption styleは選択した瞬間に自動保存されるため保存不要だが、title/caption/購入リンク/サイズ/mediumのテキスト系は明示保存が必要 — その一点をパネル全体の締めくくりとして目立たせる。無効化条件(未変更時disabled)は従来のロジックを保持
+- 検証: 実クラス名を使った軽量QAルートでストリップ(塗り済み2枚+空き4枠+追加購入枠)を描画し、全セルが同じ高さで揃うこと、CTAが有効/無効それぞれのスタイルで正しく表示されることをスクショ確認・削除済み。`tsc`・`next build`クリーン
+
+### 11.22 絵文字アイコンをSVGアイコンに置換
+
+ユーザー指摘「絵文字アイコン使用している箇所は全て普通のsvgアイコンに変更してください」。全リポジトリの`.tsx`/`.ts`を走査し、実際にレンダリングされる真の絵文字は**🔒(ロック)と🎬(動画)の2種のみ**と特定(×/✓/⇄/★☆/♥♡/▶■/♪など他の「アイコンっぽい」文字はUnicodeの記号・ダイングバットであって絵文字ではないため対象外。既存の`components/SnsLinks.tsx`のアイコン群と同様、プラットフォーム間で見た目が変わらない/`currentColor`で色を継承できる性質を保つ)。
+- **`components/icons.tsx`(新規)**: `LockIcon`・`VideoIcon`を追加。`SnsLinks.tsx`と同じ規約(`viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"`、`stroke="currentColor"`/`fill="currentColor"`)に揃え、呼び出し側のfont-sizeで自然にスケールする
+- 置換箇所(🔒 7箇所・🎬 3箇所、計10箇所): `components/gallery/SettingsPanel.tsx`(テーマ/レイアウトのchip-price-tag×2、works-titleの動画表示)・`components/SpacePreviews.tsx`(テンプレートカードのtpl-lock)・`components/PlacementEditor.tsx`(配置ピッカーの動画プレースホルダ)・`app/me/page.tsx`(テンプレ premium 表示・works-capacity-boxのロック・chip-price-tag×2・filmstripのfigcaption動画表示)。アイコン+テキストが並ぶコンテナ(`.chip-price-tag`/`.tpl-lock`/`.works-capacity-box`)には`display:inline-flex; gap`を付与し、絵文字直後の半角スペースに頼っていた見た目の間隔をCSS側で担保
+- 検証: 軽量QAルートで全アイコン(価格タグ・プレミアムバッジ・追加枠タイル・動画キャプション・disabled CTA内)をレンダリングし、サイズ/色/間隔が絵文字版と遜色ないことをスクショ確認・削除済み。`grep`で`.tsx`/`.ts`中に絵文字が残っていないことを確認(`components/icons.tsx`の説明コメント内の言及のみ)。`tsc`・`next build`クリーン
+
+### 11.23 ギャラリー設定画面を Room ⊃ 作品 の入れ子構造に再構成(v0.58 — ダッシュボードUX)
+
+ユーザー指摘「一番気になってるのはギャラリーの設定画面」。
+
+**中間案(不採用・×1)**: 設定カラム(`we-right`)冒頭に「Room / This work」の全幅セグメント切替を置き、2スコープを片方ずつ表示する案を実装 → ユーザー評価「50点・微妙」。理由は**情報設計の粒度がおかしい**こと。「Room があって、その中に作品がある」のが正しい親子関係なのに、当時のレイアウトは ① 上に作品を選ぶカルーセル ② その下に Room/This-work トグル、と**子(作品選択)が親(Room)より上に来て入れ子が破綻**していた。トグルは「スコープ切替」という別の抽象を持ち込み粒度をずらしただけだった。→ **教訓: 「見えている情報の並び順」ではなく「概念の包含関係(親⊃子)」を先に合わせる。**
+
+**採用案(Room ⊃ 作品の縦一本フロー)**: `works-detail`は従来通り2カラム(左=固定3Dプレビュー / 右=`we-right`)。`we-right`を**上から Room → 作品 → 選択作品 の一本の流れ**に再構成:
+1. **The room**(部屋そのもの): Theme / Layout / Custom size / Placement
+2. **Design Tools**(部屋のデザイン)
+3. **Works in this room**(部屋に掛かる作品 = 子): 作品カルーセルをここへ移設し、`wd-title`に「Works in this room」+ 枚数(`N / cap`)を表示。**カルーセルが Room の設定の"下(=中)"に明確にネスト**される
+4. **Editing "◯◯"**(選択した1作品): プレート/サイズ/画材/額装 + Save settings
+- 左の**固定3Dプレビューが Room 変更(テーマ/レイアウト)も作品変更(額装)も同時に反映**するので、片方ずつ隠すトグルより情報量が多く、スクロール中も常に結果が見える
+- 従来カード上部に全幅で置いていた作品ストリップ(+works-head/legend)は廃し、上記③へ集約。カルーセルは半幅カラム内でも横スクロールで機能。空状態(作品0)は③内に`upload-hero`を出す
+- あわせて全アプリ共通`.btn-line`に**押下(`:active` translateY)・キーボードフォーカスリング(`:focus-visible`)・hover淡背景**を追加(a11y+触感)
+- 検証: 実クラス名の軽量QAルートで新フロー(The room→Design Tools→Works in this room カルーセル→Editing "◯◯"→Save)をスクショし、親⊃子の並びと固定プレビューを確認・削除済み。`tsc`・`next build`クリーン、`/code-review`(未到達な空状態noteを削除)
+
+### 11.24 設定画面をテーマ節/アート節の2セクションに分離＋簡素化(v0.59)
+
+ユーザー要望3点(§11.23の一本フローを見た上で):
+1.「価格タグは価格を見せずロックアイコンのみに」
+2.「Design Tools(カスタマイズ)はいったん非表示に(シンプルにしたい)」
+3.「テーマ選択セクションとアート設定セクションを分ける。最初にテーマ選択(左:3Dview/右:設定)、スクロールしたら下部にアート選択UI+設定UI」
+
+対処:
+- **価格タグ→ロックのみ**: `.chip-price-tag`の`{PRICE_SINGLE_ITEM}`テキストを削除し`<LockIcon />`だけに。`.chip-lock-only`修飾クラスで丸い小型ロックバッジ(gap:0・正方padding)に。`app/me/page.tsx`(テーマ/レイアウト)と`components/gallery/SettingsPanel.tsx`(3D内設定)の計4箇所。`PRICE_SINGLE_ITEM` importは未使用化するので削除
+- **Design Tools非表示**: module定数`DESIGN_TOOLS_VISIBLE = false as boolean`で`{DESIGN_TOOLS_VISIBLE && (…)}`ゲート。`false as boolean`は**リテラルでなくboolean型**にしてESLintのno-unused-vars/constant-conditionを回避しつつ中のハンドラ(editDesign/onLogoFile等)を"使用中"に保つ→ コードは残し1行で復帰可能
+- **2セクション化**: `we-right`一本を廃し、**works-detailグリッドを2つ縦に並べる**。§1「Theme & layout」=[左:3D room preview(左) / 右:テーマ+レイアウトchip]、§2「Works in this room」=[左:3D 選択作品preview / 右:カルーセル+選択作品の設定+Save]。区切りは`.works-detail--art`のtop border。各グリッドの`.we-left`は個別にsticky(§1ではテーマpreviewが、§2では作品previewが貼り付く)
+- §1のpreview主題は**カバー作品(or先頭)+部屋のデフォルト額装**(`roomArt`/`roomSrc`)にして「部屋そのもの」を表示、§2は従来の選択作品(`previewArt`)。両者の[Preview3D or WallPreview]描画は`GalleryPreview`ヘルパへ共通化(重複でドリフトしないよう`/code-review`指摘で抽出)
+- 既知トレードオフ: ダッシュボードに3Dプレビュー(WebGL)が2枚同時に載る(いずれも`frameloop="demand"`でアイドル・glTFは`useGLTF`キャッシュ共有なので実負荷は限定的だが、低スペック端末では単一時より重い)
+- 検証: 実クラス名の軽量QAルートで2セクション(テーマ節=chip+ロックのみバッジ、アート節=カルーセル+作品設定+Save、区切り線)をスクショ確認・削除済み。`tsc`・`next build`クリーン
+
+### 11.25 テーマpreviewを空間モードに / アート節を全幅ストリップ+2カラムに / 音声UI削除(v0.60)
+
+§11.24の2セクション化を見たユーザーから3点:
+1.「テーマの3Dviewとアートの3Dviewが同じ。テーマ側は人モデル不要、テーマ=展示場の雰囲気がわかる形に」
+2.「アート設定は、アートが画面幅いっぱいに横並び(以前のような)→ その下に2カラム(左:3Dview / 右:設定)に」
+3.「オーディオガイドのアップロードUIは不要(読み上げがあるので)」
+
+対処:
+- **`Preview3D`に`mode?: 'work' | 'room'`追加**。`room`は**人型スケール figureを描画せず、カメラを引いて空間(壁・床・スポットの光溜まり)を見せる**——サイズ基準ではなくテーマの雰囲気が伝わる画。`Rig`にroom分岐(fov42・`spanY=max(3.6, ART_CY+height/2+1.3)`から距離算出・`(0,1.4,dist)`正面・figure無し)。`ScaleFigure`は`mode==='work'`時のみ描画。`GalleryPreview`ヘルパに`mode`を通し、テーマ節は`mode="room"`
+- **アート節を全幅ストリップ+2カラムに再構成**。`.art-section`(§1との区切りborder)直下に **全幅の`.works-in-room`(作品カルーセル横並び)**、その下に**`.works-detail`2カラム(左:選択作品の3Dプレビュー`mode="work"` / 右:プレート/サイズ/額装/Save)**。2カラムは`{selected && …}`ゲート(作品0なら全幅ストリップのupload-heroのみ)。§11.24でwe-right内にネストしていたカルーセルを全幅へ戻した形
+- **音声ガイドのアップロードUI(`.wd-audio`)を削除**。ツアーはキャプションをTTSで読み上げるためアップロード不要。`setWorkAudio`ハンドラ・`uploadArtworkAudio` import・`.wd-audio*` CSSも撤去。※既存の`audio_url`値は温存(`saveWorkDetails`は`audioUrl`を渡さず、`updateArtworkDetails`は`fields.audioUrl !== undefined`時のみ更新するので保存でクリアされないことを確認)
+- 既知トレードオフ: ダッシュボードに3Dプレビュー2枚(テーマroom=figure無しで軽量化・作品work)。いずれもdemand-frameloop・glTFキャッシュ共有
+- 検証: 軽量QAで room/work モード比較(roomは人無し・引き画で空間が見える)、アート節の全幅ストリップ+2カラムをスクショ確認・削除済み。`tsc`・`next build`クリーン、`/code-review`(音声UI削除がaudio_urlをクリアしないことを確認)
+
+### 11.26 サイズ入力: カスタム時のみW×H欄を表示 + スタイル統一(v0.61)
+
+ユーザー指摘「サイズの入力フォームだけデフォルトの見え方。カスタム設定した時だけ表示されて欲しい、それ以外は⇄だけでOK」。対処:
+- **W×Hのnumber入力にデフォルトブラウザ体裁が出ていた**(クラス無しのinline style)→ `.size-num`クラスを付与し他フォーム(`.me-field input`)と同じ体裁(背景rgba・hairline枠・角丸8px・フォーカスで金枠)に
+- **プリセット/カスタムの表示切替**: 明示state `sizeCustom`を追加。プリセット選択時(号/A/B)はセレクト+**⇄のみ**表示、「Custom / other…」選択時のみW×H cm欄が出現。作品切替時は保存寸法が`matchPreset`にヒットすればプリセット表示・非ヒット(非標準or未設定)ならカスタム表示で開始。selectの`value`は`sizeCustom ? 'custom' : (matchPreset(w,h) ?? 'custom')`、onChangeでプリセット→dims設定+`sizeCustom=false`／custom→`sizeCustom=true`
+- ⇄は常時表示(プリセットでも縦横入替可、`matchPreset`は向き非依存なのでラベル保持)
+- `tsc`・`next build`クリーン
+
+### 11.27 保存ボタンをsticky footer化 / Editing文削除 / プレビューをボーダー外へ(v0.62)
+
+ユーザー3点:
+1.「保存ボタンは全体にかかるのにアート設定に付随して見える。スクロールせず見えるようbottom固定、下端まで行ったら固定解除(従来web的sticky)」
+2.「Editing "◯◯" — the plate, size... · saved のテキストは不要」
+3.「スクショ(3Dプレビュー)の領域をボーダーの外に出せるといいかも」
+
+対処:
+- **保存を`me-card`直下のsticky footerへ移設**。`we-right`末尾から出し、art-sectionの後に`{selected && <button className="wd-save-cta wd-save-sticky">}`。CSS `.wd-save-sticky { position: sticky; bottom: 1rem; z-index: 5 }` — カード最下の子なので、スクロール中はビューポート下端に固定、カード終端で通常フローに解放(Terms/Privacyフッタの手前にドック)。浮遊感を出す濃いシャドウ追加。全幅=カード幅で「全体にかかる」ことを表現。※`me-card`及び祖先に`overflow:hidden`が無いこと確認済み(stickyが効く条件)
+- **`Editing "◯◯"…`のme-note削除**。併せて唯一の参照だった`syncState`も撤去(額装等の自動保存表示は消えるが、明示保存は`Save settings`の`Saved ✓`が担う)
+- **アートプレビューをカード端までブリード**。`.art-section .works-detail`を左右`-1.6rem`(=カード左右padding)でbreakout、設定カラムは`padding-right:1.6rem`で戻す。プレビューの内側borderを除去し右上/右下のみ角丸に→ カードのpadding内に収まった「箱入り」感を解消し、プレビューが左端まで自分の面として広がる。モバイル(1カラム)はプレビュー全幅・設定は左右padding復帰
+- 検証: 軽量QAでme-card内にstats/theme/art節+sticky保存を再現、上スクロール=保存がビューポート下端に固定・下端=解放してフッタ手前にドック、Editing文なし、プレビューが左カード端までブリードすることをスクショ確認・削除済み。`tsc`・`next build`クリーン
+
+### 11.28 Title&caption上 borderの除去 / フレーム最小1cm / 作品価格の設定(v0.63)
+
+ユーザー3点:
+1.「アート設定内の title and caption の上の border も消して欲しい」
+2.「アートフレームの thickness は minimum を1cmにできますか」
+3.「価格を設定できるようにして欲しい」
+
+対処:
+- **Title&captionグループを flush 化**。設定カラム(`we-right`)先頭の`Title & caption`グループを`.wd-group`(上に`border-top`のhairline)から`.wd-group--flush`(margin/padding/border 0)へ。§11.27で保存文やプレビュー節を整理した結果、このグループが設定カラムの実質先頭になったため、頭にだけ残る区切り線が浮いて見えていた
+- **フレーム太さの下限を30mm→10mm(1cm)に**。`FRAME_BAR_MM = { min: 10, max: 150 }`。太さスライダ(WorkDesign)の`min`と`clampBarMm`が共有参照。※カスタム額装キー`c:<style>:<hex>:<mm>`のmmは正規表現`\d{2,3}`で2〜3桁固定なので、下限は1桁にならない10mm(="10")が安全な最小値(1桁だとキーがパースできず壊れる)
+- **作品ごとの表示価格(自由入力テキスト)**。HAKONIWAは決済を代行しないので、作家が入力したそのまま(`¥50,000`/`$500`/`Ask`等・通貨や書式は自由)を作品パネルに表示するだけ。
+  - `ArtworkData.price?: string`追加、`cloud.ts`は`ArtworkRow.price`・`rowToArtwork`・`updateArtworkDetails`(空trimでnull)に対応、`OPTIONAL`配列に`'price'`追加(migration未適用DBでもtitle/caption保存は死なない従来のグレースフルデグレード)。migration `0026_artwork_price.sql`(`add column if not exists price text`)
+  - ダッシュボード: `priceInput` state・作品切替時seed・保存ペイロード・dirty判定に追加。入力欄は Title&caption グループ内、Purchase link の上に配置(「Price — shown to visitors」/ placeholder「e.g. ¥50,000 (leave blank to hide)」)。Purchase linkの説明文も「where "Available for purchase" sends buyers」へ整理
+  - 作品パネル(`ArtworkPanel`): 購入リンクがあれば`{price} · Available for purchase ↗`と前置、無ければ価格のみ`.panel-price`(serif/gold)で単独表示。両方未設定なら何も出さない
+- 検証: 全変更が`tsc`・`next build`クリーン。※本番反映には migration 0026 の適用が必要(未適用でも価格以外は保存継続)
+
+### 11.29 入力欄の補足を「ラベル横のⓘ」に集約(v0.64 — フォームの視認性)
+
+ユーザー指摘「titleとかダッシュボードの入力欄に補足テキストが入ってて、ごちゃごちゃしてる。基本 補足はアイコンをラベル横に置いて補足する形に」。§11.28で Price を足した結果、作品設定フォームの各ラベルが「Caption — shown on the name plate」「Price — shown to visitors …」のように一文を抱え、縦に説明文が積んで散らかって見えていた。
+
+対処:
+- **`FieldLabel`ヘルパを新設**(`app/me/page.tsx`)。ラベルを1〜2語に切り詰め、「なぜ/どう使う」を横の`ⓘ`(`InfoIcon`をSVGで`components/icons.tsx`に追加)に格納。desktopはhover、touchはtap(focus)で吹き出し表示。`<span className="me-field-label">{label}<button className="field-hint"><InfoIcon/><span className="field-hint-pop" role="tooltip">{hint}</span></button></span>`
+- **適用先は作品設定フォームの4ラベル**: Caption / Price / Purchase link / Medium。ラベル本体は短語のみに。Title は元々補足無しなのでそのまま
+- **CSS**(`app/me.css`): `.me-field-label`を`display:flex`(既存`.me-field span`の`display:block`を`.me-field .me-field-label`の高詳細度で上書き)。`.field-hint`は下線なしのアイコンボタン(hover/focusで`--gold`)。`.me-field .field-hint-pop`は`.me-field span`(uppercase/muted/block/margin)を打ち消した吹き出し(暗bg `#1b1813`+hairline境界+影、`text-transform:none`、`font-size:0.72rem`、`line-height:1.5`、`opacity/visibility`遷移、`z-index:30`)。アイコン直上に`left:0`起点で右へ展開
+- **対象外**: 動的な現在値を見せる Email「currently …」/ Username「public URL: /@…」や、別カードのギャラリー作成 Concept 欄は"補足"ではなく機能的な情報なのでツールチップ化しない
+- 検証: 軽量QAルート(`/qa-hint`)で4ラベルを実CSS付きで描画→短ラベル+ⓘの整列、Price の ⓘ hover で吹き出し(非uppercase・可読)をスクショ確認・削除済み。`tsc`・`next build`クリーン

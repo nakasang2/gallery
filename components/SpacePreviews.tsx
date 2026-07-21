@@ -17,6 +17,7 @@ import {
   type DesignOverrides,
 } from '@/lib/presets'
 import { effectiveSlotCount } from '@/lib/limits'
+import { LockIcon } from '@/components/icons'
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
 
@@ -270,7 +271,11 @@ export function TemplateCard({
       <span className="tpl-plan-chip">
         <LayoutPlan layoutKey={t.layout} className="tpl-plan" />
       </span>
-      {locked && <span className="tpl-lock" aria-hidden="true">🔒 Premium</span>}
+      {locked && (
+        <span className="tpl-lock" aria-hidden="true">
+          <LockIcon /> Premium
+        </span>
+      )}
       <span className="tpl-name">{t.label}</span>
       <span className="tpl-sub">
         {THEMES[t.theme]?.label} · {LAYOUTS[t.layout]?.label} · {FRAMES[t.frame]?.label} frame
