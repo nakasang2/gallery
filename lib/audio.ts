@@ -18,6 +18,9 @@ const TOGGLE_FADE = 0.35
 /** Distant-crowd murmur: peak volume (at a full room) and how fast it eases in/out */
 const CROWD_LEVEL = 0.05
 const CROWD_FADE = 2.2
+/** Ambient BGM pad: peak volume and how slowly it swells in on unlock */
+const BGM_LEVEL = 0.055
+const BGM_FADE_IN = 4
 
 class GalleryAudio {
   private ctx: AudioContext | null = null
@@ -127,6 +130,50 @@ class GalleryAudio {
     room.start()
     // Ease it in gently
     roomGain.gain.setTargetAtTime(ROOM_TONE_LEVEL, ctx.currentTime, ROOM_TONE_FADE_IN)
+
+    /* ---- Ambient BGM (STRATEGY §7 P3-12): a generative pad loop — a handful of
+       sparse, slow notes over a pentatonic scale, each windowed (fade in/out) so
+       overlapping notes never click. Notes are kept away from the buffer's edges,
+       so the buffer itself starts and ends silent and the loop point is seamless.
+       Built once from raw math like the room tone above — one track, no files. */
+    const bgmDur = 30
+    const bgmBuf = ctx.createBuffer(2, Math.floor(ctx.sampleRate * bgmDur), ctx.sampleRate)
+    const scale = [130.81, 146.83, 174.61, 196.0, 220.0, 261.63, 293.66, 329.63] // two octaves, C major pentatonic-ish
+    const bgmNotes: { start: number; dur: number; freq: number; pan: number }[] = []
+    for (let t = 2; t < bgmDur - 4; ) {
+      const dur = 8 + Math.random() * 8
+      if (t + dur > bgmDur - 1) break
+      bgmNotes.push({ start: t, dur, freq: scale[Math.floor(Math.random() * scale.length)], pan: Math.random() * 2 - 1 })
+      t += dur * (0.4 + Math.random() * 0.4) // let the next note's swell-in overlap this one's tail
+    }
+    for (let ch = 0; ch < 2; ch++) {
+      const d = bgmBuf.getChannelData(ch)
+      for (const n of bgmNotes) {
+        const g = 0.4 * (ch === 0 ? 1 - Math.max(0, n.pan) : 1 + Math.min(0, n.pan))
+        const i0 = Math.floor(n.start * ctx.sampleRate)
+        const i1 = Math.min(d.length, Math.floor((n.start + n.dur) * ctx.sampleRate))
+        for (let i = i0; i < i1; i++) {
+          const localT = (i - i0) / ctx.sampleRate
+          const time = i / ctx.sampleRate
+          const win = 0.5 - 0.5 * Math.cos((2 * Math.PI * localT) / n.dur) // Hann: zero at both ends
+          d[i] += g * win * (Math.sin(2 * Math.PI * n.freq * time) + 0.15 * Math.sin(4 * Math.PI * n.freq * time))
+        }
+      }
+    }
+    const bgm = ctx.createBufferSource()
+    bgm.buffer = bgmBuf
+    bgm.loop = true
+    const bgmFilter = ctx.createBiquadFilter()
+    bgmFilter.type = 'lowpass'
+    bgmFilter.frequency.value = 1400
+    const bgmGain = ctx.createGain()
+    bgmGain.gain.value = 0
+    bgm.connect(bgmFilter)
+    bgmFilter.connect(bgmGain)
+    bgmGain.connect(this.master)
+    bgmGain.connect(this.convolver)
+    bgm.start()
+    bgmGain.gain.setTargetAtTime(BGM_LEVEL, ctx.currentTime, BGM_FADE_IN)
 
     /* ---- Footstep bus (dry + reverb) ---- */
     this.stepBus = ctx.createGain()
