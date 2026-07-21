@@ -670,3 +670,14 @@ effectiveSlotCount = min(レイアウトのスロット数, その部屋の work
   - ダッシュボード: `priceInput` state・作品切替時seed・保存ペイロード・dirty判定に追加。入力欄は Title&caption グループ内、Purchase link の上に配置(「Price — shown to visitors」/ placeholder「e.g. ¥50,000 (leave blank to hide)」)。Purchase linkの説明文も「where "Available for purchase" sends buyers」へ整理
   - 作品パネル(`ArtworkPanel`): 購入リンクがあれば`{price} · Available for purchase ↗`と前置、無ければ価格のみ`.panel-price`(serif/gold)で単独表示。両方未設定なら何も出さない
 - 検証: 全変更が`tsc`・`next build`クリーン。※本番反映には migration 0026 の適用が必要(未適用でも価格以外は保存継続)
+
+### 11.29 入力欄の補足を「ラベル横のⓘ」に集約(v0.64 — フォームの視認性)
+
+ユーザー指摘「titleとかダッシュボードの入力欄に補足テキストが入ってて、ごちゃごちゃしてる。基本 補足はアイコンをラベル横に置いて補足する形に」。§11.28で Price を足した結果、作品設定フォームの各ラベルが「Caption — shown on the name plate」「Price — shown to visitors …」のように一文を抱え、縦に説明文が積んで散らかって見えていた。
+
+対処:
+- **`FieldLabel`ヘルパを新設**(`app/me/page.tsx`)。ラベルを1〜2語に切り詰め、「なぜ/どう使う」を横の`ⓘ`(`InfoIcon`をSVGで`components/icons.tsx`に追加)に格納。desktopはhover、touchはtap(focus)で吹き出し表示。`<span className="me-field-label">{label}<button className="field-hint"><InfoIcon/><span className="field-hint-pop" role="tooltip">{hint}</span></button></span>`
+- **適用先は作品設定フォームの4ラベル**: Caption / Price / Purchase link / Medium。ラベル本体は短語のみに。Title は元々補足無しなのでそのまま
+- **CSS**(`app/me.css`): `.me-field-label`を`display:flex`(既存`.me-field span`の`display:block`を`.me-field .me-field-label`の高詳細度で上書き)。`.field-hint`は下線なしのアイコンボタン(hover/focusで`--gold`)。`.me-field .field-hint-pop`は`.me-field span`(uppercase/muted/block/margin)を打ち消した吹き出し(暗bg `#1b1813`+hairline境界+影、`text-transform:none`、`font-size:0.72rem`、`line-height:1.5`、`opacity/visibility`遷移、`z-index:30`)。アイコン直上に`left:0`起点で右へ展開
+- **対象外**: 動的な現在値を見せる Email「currently …」/ Username「public URL: /@…」や、別カードのギャラリー作成 Concept 欄は"補足"ではなく機能的な情報なのでツールチップ化しない
+- 検証: 軽量QAルート(`/qa-hint`)で4ラベルを実CSS付きで描画→短ラベル+ⓘの整列、Price の ⓘ hover で吹き出し(非uppercase・可読)をスクショ確認・削除済み。`tsc`・`next build`クリーン

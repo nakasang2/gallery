@@ -378,6 +378,67 @@
 }
 .size-num:focus { border-color: var(--gold); }
 
+/* Field label + inline info bubble. The "why/how" that used to trail each label as a
+   sentence now lives in this ⓘ beside the label — hover on desktop, tap (focus) on touch. */
+.me-field .me-field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+.field-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: help;
+  font-size: 0.86rem; /* sizes the 1em icon */
+  line-height: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.field-hint:hover,
+.field-hint:focus-visible { opacity: 1; color: var(--gold); outline: none; }
+.me-field .field-hint-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  display: block;
+  width: max-content;
+  max-width: 230px;
+  margin: 0;
+  padding: 0.55em 0.75em;
+  border-radius: 9px;
+  background: #1b1813;
+  border: 1px solid var(--hairline);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  text-transform: none;
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
+  z-index: 30;
+}
+.field-hint:hover .field-hint-pop,
+.field-hint:focus .field-hint-pop,
+.field-hint:focus-within .field-hint-pop {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
 /* Admin: spotlight curation rows (@username / slug + reorder/remove) */
 .spotlight-rows { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.9rem; }
 .spotlight-row { display: flex; align-items: center; gap: 0.4rem; }

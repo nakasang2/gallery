@@ -14,7 +14,7 @@ import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components
 import WorkDesign from '@/components/WorkDesign'
 import PurchaseModal from '@/components/PurchaseModal'
 import PlacementEditor from '@/components/PlacementEditor'
-import { LockIcon, VideoIcon } from '@/components/icons'
+import { LockIcon, VideoIcon, InfoIcon } from '@/components/icons'
 import {
   purchaseOptionsFor,
   capacityPurchaseOptions,
@@ -149,6 +149,21 @@ const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
 // simple — the code stays in place so it's a one-line flip to bring back. Typed `boolean`
 // (not a literal) so the JSX inside still counts as "used".
 const DESIGN_TOOLS_VISIBLE = false as boolean
+
+// A field label kept to one or two words, with the "why/how" moved into an info
+// bubble beside it — hover on desktop, tap (focus) on touch. Keeps the form scannable
+// instead of every input carrying a sentence. `hint` is the explanatory text.
+function FieldLabel({ children, hint }: { children: string; hint: string }) {
+  return (
+    <span className="me-field-label">
+      {children}
+      <button type="button" className="field-hint" aria-label={hint}>
+        <InfoIcon />
+        <span className="field-hint-pop" role="tooltip">{hint}</span>
+      </button>
+    </span>
+  )
+}
 
 // The first thing a signed-in artist sees: their own face and name, not a form
 function Hero() {
@@ -1282,7 +1297,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   <input type="text" value={titleInput} onChange={(e) => setTitleInput(e.target.value)} />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Caption — shown on the name plate</span>
+                  <FieldLabel hint="Shown on the name plate beside the work.">Caption</FieldLabel>
                   <textarea
                     rows={2}
                     maxLength={140}
@@ -1292,7 +1307,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Price — shown to visitors (type it with its currency)</span>
+                  <FieldLabel hint="Shown to visitors as you type it — include the currency (e.g. ¥50,000). Leave blank to hide.">Price</FieldLabel>
                   <input
                     type="text"
                     placeholder="e.g. ¥50,000 (leave blank to hide)"
@@ -1301,7 +1316,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Purchase link — where “Available for purchase” sends buyers</span>
+                  <FieldLabel hint="Where the “Available for purchase” button sends buyers. Leave blank if it’s not for sale.">Purchase link</FieldLabel>
                   <input
                     type="text"
                     inputMode="url"
@@ -1381,7 +1396,7 @@ function HakoniwaCard({ row, onChanged }: { row: GalleryRow; onChanged: () => vo
                   </div>
                 </div>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Medium — e.g. “Oil on canvas”, “Giclée print”</span>
+                  <FieldLabel hint="The materials, e.g. “Oil on canvas”, “Giclée print”. Optional.">Medium</FieldLabel>
                   <input
                     type="text"
                     placeholder="Medium (optional)"
