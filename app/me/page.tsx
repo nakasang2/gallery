@@ -157,10 +157,14 @@ function FieldLabel({ children, hint }: { children: string; hint: string }) {
   return (
     <span className="me-field-label">
       {children}
-      <button type="button" className="field-hint" aria-label={hint}>
+      {/* A span, not a <button>: a button is a "labelable" element, so nesting one
+          before the input inside a <label> hijacks the label's association away from
+          the field. tabIndex keeps it keyboard-reachable; the tooltip shows on
+          :hover / :focus / :focus-within (see .field-hint in me.css). */}
+      <span className="field-hint" tabIndex={0} role="note" aria-label={hint}>
         <InfoIcon />
         <span className="field-hint-pop" role="tooltip">{hint}</span>
-      </button>
+      </span>
     </span>
   )
 }
