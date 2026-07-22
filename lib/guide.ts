@@ -10,24 +10,37 @@
 import { useSyncExternalStore } from 'react'
 import { galleryAudio } from './audio'
 
-/** What a work's guide plays: an uploaded file, or its caption read aloud. */
+/** What a work's guide plays: an uploaded file, or its caption read aloud.
+ *  The 'tts' source carries the work id (server synthesizes the DB caption via
+ *  OpenAI) plus the caption text (browser-speech fallback when OpenAI is off). */
 export type GuideSource =
   | { key: string; kind: 'url'; url: string }
-  | { key: string; kind: 'tts'; text: string }
+  | { key: string; kind: 'tts'; id: string; text: string }
+
+/** Voice for OpenAI TTS — one place to swap it. */
+export const TTS_VOICE = 'alloy'
 
 /** Can this browser synthesize speech? (false during SSR / unsupported engines) */
 export function ttsSupported(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined'
 }
 
-/** The guide source for a work: uploaded audio wins; otherwise read the caption. */
+/** Set false once /api/tts answers 501 (OpenAI not configured) so we stop trying
+ *  and go straight to browser speech; true once a generation succeeds. */
+let openaiTtsAvailable: boolean | null = null
+
+/** The guide source for a work: uploaded audio wins; otherwise read the caption.
+ *  Offered whenever there's a caption — playback resolves OpenAI first, then falls
+ *  back to browser speech, so it works even where speechSynthesis is unavailable. */
 export function guideSourceFor(
   art: { id: string; audioUrl?: string; desc?: string },
   allowTts = true
 ): GuideSource | null {
   if (art.audioUrl) return { key: art.audioUrl, kind: 'url', url: art.audioUrl }
   const text = art.desc?.trim()
-  if (allowTts && text && ttsSupported()) return { key: `tts:${art.id}`, kind: 'tts', text }
+  if (allowTts && text && (ttsSupported() || openaiTtsAvailable !== false)) {
+    return { key: `tts:${art.id}`, kind: 'tts', id: art.id, text }
+  }
   return null
 }
 
@@ -67,6 +80,10 @@ class AudioGuide {
     return () => this.listeners.delete(l)
   }
 
+  /** Resolved OpenAI mp3 URLs, keyed by guide source key, so re-playing a work
+   *  within a session skips the /api/tts round trip. */
+  private ttsUrlCache = new Map<string, string>()
+
   /** Play a guide source. No-op when muted. Requires a prior user gesture
    *  (the tour/panel is opened by a tap, which satisfies autoplay). */
   play(src: GuideSource) {
@@ -75,26 +92,72 @@ class AudioGuide {
     this.stopMedia()
     this.current = src.key
     if (src.kind === 'url') {
-      const el = this.ensureEl()
-      if (!el) return
-      if (el.src !== src.url) el.src = src.url
-      el.currentTime = 0
-      void el.play().catch(() => this.setPlaying(false))
+      this.playUrl(src.url)
     } else {
-      if (!ttsSupported()) return
-      const u = new SpeechSynthesisUtterance(src.text)
-      u.rate = 0.98
-      u.onend = () => {
-        if (this.current === src.key) this.setPlaying(false)
-      }
-      u.onerror = () => {
-        if (this.current === src.key) this.setPlaying(false)
-      }
-      // cancel() then speak() — some engines queue instead of replacing
-      window.speechSynthesis.cancel()
-      window.speechSynthesis.speak(u)
-      this.setPlaying(true) // reflect immediately; onend/onerror will clear it
+      // Reflect playing immediately; resolution (network) happens in the background.
+      this.setPlaying(true)
+      void this.resolveTts(src)
     }
+  }
+
+  private playUrl(url: string) {
+    const el = this.ensureEl()
+    if (!el) return
+    if (el.src !== url) el.src = url
+    el.currentTime = 0
+    void el.play().catch(() => this.setPlaying(false))
+  }
+
+  /** Prefer OpenAI (a cached mp3 the server returns); fall back to browser speech. */
+  private async resolveTts(src: { key: string; kind: 'tts'; id: string; text: string }) {
+    const cached = this.ttsUrlCache.get(src.key)
+    if (cached) {
+      if (this.current === src.key) this.playUrl(cached)
+      return
+    }
+    if (openaiTtsAvailable !== false && src.id) {
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workId: src.id, voice: TTS_VOICE }),
+        })
+        if (res.ok) {
+          const { url } = (await res.json()) as { url?: string }
+          openaiTtsAvailable = true
+          if (url) {
+            this.ttsUrlCache.set(src.key, url)
+            if (this.current === src.key) this.playUrl(url)
+            return
+          }
+        } else if (res.status === 501) {
+          openaiTtsAvailable = false // not configured — stop trying this session
+        }
+        // Other errors (404 no caption, 502 generation) fall through to browser speech.
+      } catch {
+        // Network error — fall through to browser speech.
+      }
+    }
+    if (this.current === src.key) this.speakBrowser(src)
+  }
+
+  private speakBrowser(src: { key: string; text: string }) {
+    if (!ttsSupported()) {
+      this.setPlaying(false)
+      return
+    }
+    const u = new SpeechSynthesisUtterance(src.text)
+    u.rate = 0.98
+    u.onend = () => {
+      if (this.current === src.key) this.setPlaying(false)
+    }
+    u.onerror = () => {
+      if (this.current === src.key) this.setPlaying(false)
+    }
+    // cancel() then speak() — some engines queue instead of replacing
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(u)
+    this.setPlaying(true) // reflect immediately; onend/onerror will clear it
   }
 
   /** Toggle a source: stop if it's the one playing, else play it. */
