@@ -18,7 +18,7 @@ export type GuideSource =
   | { key: string; kind: 'tts'; id: string; text: string }
 
 /** Voice for OpenAI TTS — one place to swap it. */
-export const TTS_VOICE = 'alloy'
+export const TTS_VOICE = 'shimmer'
 
 /** Can this browser synthesize speech? (false during SSR / unsupported engines) */
 export function ttsSupported(): boolean {
