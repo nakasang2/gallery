@@ -733,6 +733,125 @@
   .works-cell figcaption, .works-add-label { max-width: 108px; }
 }
 
+/* ---- Gallery workbench: second-level rail + content card (枠外サブメニュー) ---- */
+/* Desktop: a narrow vertical rail beside the content card. Phones: a horizontal
+   scroller above it (see the 720px block below). */
+.me-gallery-body {
+  display: grid;
+  grid-template-columns: 172px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+.me-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  position: sticky;
+  top: 1rem;
+}
+.me-subnav-item,
+.me-subnav-add,
+.me-subnav-cap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  padding: 0.5em 0.6em;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+.me-subnav-item:hover,
+.me-subnav-add:hover,
+.me-subnav-cap:hover { color: var(--ink); background: rgba(212, 162, 78, 0.06); }
+.me-subnav-item.active {
+  color: var(--ink);
+  background: rgba(212, 162, 78, 0.1);
+  border-color: rgba(212, 162, 78, 0.4);
+}
+.me-subnav-ic {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold);
+}
+.me-subnav-thumb {
+  flex: none;
+  width: 30px;
+  height: 22px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--hairline);
+}
+.me-subnav-item.active .me-subnav-thumb { border-color: var(--gold); }
+.me-subnav-tx {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.me-subnav-star { flex: none; color: var(--gold); font-size: 0.7rem; }
+.me-subnav-group {
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.9rem 0.6em 0.3rem;
+}
+.me-subnav-add { color: var(--gold); }
+.me-subnav-add .me-subnav-ic {
+  border: 1px dashed rgba(212, 162, 78, 0.5);
+  border-radius: 5px;
+  font-size: 1rem;
+  line-height: 1;
+}
+.me-subnav-add[aria-disabled='true'] { opacity: 0.6; cursor: default; }
+.me-subnav-cap .me-subnav-ic { color: var(--gold); }
+
+/* The content card sits flush with the rail (no extra top margin — the row owns it) */
+.me-subcard { margin: 0; }
+
+/* Per-work housekeeping (cover / remove), a quiet row above the work's fields */
+.work-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+.work-actions .btn-line.active { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
+.work-actions .btn-line.danger { color: #c96a5a; }
+.work-actions .btn-line.danger:hover { border-color: #e08a7a; color: #e08a7a; }
+
+@media (max-width: 720px) {
+  .me-gallery-body { grid-template-columns: 1fr; gap: 0.8rem; }
+  .me-subnav {
+    flex-direction: row;
+    position: static;
+    overflow-x: auto;
+    gap: 0.3rem;
+    padding-bottom: 0.4rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--hairline) transparent;
+  }
+  .me-subnav-item,
+  .me-subnav-add,
+  .me-subnav-cap { width: auto; flex: 0 0 auto; }
+  /* On a horizontal rail the group label would break the flow — hide it on phones */
+  .me-subnav-group { display: none; }
+  .me-subnav-tx { max-width: 8rem; }
+}
+
 /* 二次操作(Rename/Delete): 主要ボタンと並列にしない静かなテキスト行 */
 .hako-secondary {
   display: flex;

@@ -473,7 +473,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const [showEmbed, setShowEmbed] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Which sub-view the workbench shows: the room, or one work by id. The second-level
+  // rail drives it; per-work editing shows one work at a time (no more works strip).
+  const [nav, setNav] = useState<'room' | string>('room')
+  const selectedId = nav === 'room' ? null : nav
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
@@ -504,7 +507,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const [custom, setCustom] = useState<CustomLayoutParams>(() => normalizeLayoutParams(row.layout_params))
   const customTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const selected = cloudArtworks.find((a) => a.id === selectedId) ?? cloudArtworks[0]
+  const selected = selectedId ? cloudArtworks.find((a) => a.id === selectedId) : undefined
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
   // Effective per-work design: the override when set, else the gallery default
   const frame = (selected && frameOverrides[selected.id]) || row.frame_default
@@ -542,6 +545,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       ? roomArt.poster
       : roomArt.poster ?? roomArt.src
     : undefined
+
+  // If the shown work is deleted (here or on another device), fall back to the room
+  useEffect(() => {
+    if (nav !== 'room' && !cloudArtworks.some((a) => a.id === nav)) setNav('room')
+  }, [nav, cloudArtworks])
 
   // The plate fields follow whichever work is selected
   useEffect(() => {
@@ -1039,11 +1047,70 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           Delete
         </button>
       </div>
+    </div>
 
-      {/* The room's editing surface: sticky 3D preview on the left, and on the right a
-          single top-to-bottom flow — the room itself, the works hanging in it, then the
-          selected work's own settings (Room ⊃ works). */}
-      <div className="works-detail">
+    {/* Second-level rail (outside the card): the room, then every work as its own
+        entry. Vertical on desktop, a horizontal scroller on phones. */}
+    <div className="me-gallery-body">
+      <nav className="me-subnav" aria-label="Gallery sections">
+        <button
+          type="button"
+          className={`me-subnav-item${nav === 'room' ? ' active' : ''}`}
+          onClick={() => setNav('room')}
+        >
+          <span className="me-subnav-ic" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3.5" y="5" width="17" height="14" rx="1" /><path d="M3.5 9.5h17" /></svg>
+          </span>
+          <span className="me-subnav-tx">Room</span>
+        </button>
+        <div className="me-subnav-group">Works {cloudArtworks.length} / {row.work_cap}</div>
+        {cloudArtworks.map((art) => (
+          <button
+            type="button"
+            key={art.id}
+            className={`me-subnav-item me-subnav-work${nav === art.id ? ' active' : ''}`}
+            onClick={() => setNav(art.id)}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="me-subnav-thumb" src={art.poster ?? art.src} alt="" loading="lazy" />
+            <span className="me-subnav-tx">
+              {art.kind === 'video' ? <><VideoIcon className="works-title-icon" /> {art.title}</> : art.title}
+            </span>
+            {row.cover_artwork_id === art.id && <span className="me-subnav-star" title="Share cover">★</span>}
+          </button>
+        ))}
+        {cloudArtworks.length < row.work_cap && (
+          <label className={`me-subnav-add${uploading ? ' busy' : ''}`} aria-disabled={uploading}>
+            <span className="me-subnav-ic" aria-hidden="true">{uploading ? '…' : '+'}</span>
+            <span className="me-subnav-tx">{cloudArtworks.length === 0 ? 'Hang your first work' : 'Add work'}</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              disabled={uploading}
+              onChange={(e) => {
+                void onFiles(e.target.files)
+                e.target.value = ''
+              }}
+            />
+          </label>
+        )}
+        <button
+          type="button"
+          className="me-subnav-cap"
+          onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
+          title={`Add ${CAPACITY_ADDON_SIZE} more work slots`}
+        >
+          <span className="me-subnav-ic" aria-hidden="true"><LockIcon /></span>
+          <span className="me-subnav-tx">+{CAPACITY_ADDON_SIZE} slots</span>
+        </button>
+      </nav>
+
+      <div className="me-card me-subcard">
+      {nav === 'room' ? (
+        /* The room's editing surface: sticky 3D preview on the left, its design on the right */
+        <div className="works-detail">
         <GalleryPreview
           art={roomArt}
           src={roomSrc}
@@ -1348,100 +1415,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           )}
         </div>
       </div>
-
-      {/* ===== Section 2 — the artworks that hang in this room ===== */}
-      <div className="art-section">
-        {/* Full-width strip: every work in the room side by side. Pick one to edit it in
-            the two-column detail (preview + settings) below. */}
-        <div className="works-in-room">
-          <div className="wd-title">
-            <span>Works in this room</span>
-            <span className="wd-title-meta">{cloudArtworks.length} / {row.work_cap}</span>
-          </div>
-            {cloudArtworks.length === 0 ? (
-              <label className="upload-hero" aria-disabled={uploading}>
-                <b>{uploading ? 'Uploading…' : 'Hang your first work'}</b>
-                <span>Drop in images from your camera roll or portfolio — the preview shows them framed on your wall.</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  hidden
-                  disabled={uploading}
-                  onChange={(e) => {
-                    void onFiles(e.target.files)
-                    e.target.value = ''
-                  }}
-                />
-              </label>
-            ) : (
-              <>
-                <p className="wd-sub" style={{ marginBottom: '0.5rem' }}>Tap a work to edit it · ★ cover · × remove</p>
-                <div className="works-strip">
-                  {cloudArtworks.map((art) => (
-                    <figure className={`works-cell${selected?.id === art.id ? ' selected' : ''}`} key={art.id}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={art.poster ?? art.src}
-                        alt={art.title}
-                        loading="lazy"
-                        onClick={() => setSelectedId(art.id)}
-                      />
-                      <figcaption>
-                        {art.kind === 'video' ? (
-                          <>
-                            <VideoIcon className="works-title-icon" /> {art.title}
-                          </>
-                        ) : (
-                          art.title
-                        )}
-                      </figcaption>
-                      <button aria-label={`Remove ${art.title}`} onClick={() => void removeWork(art)}>×</button>
-                      <button
-                        className={`works-star${row.cover_artwork_id === art.id ? ' active' : ''}`}
-                        aria-label={`Use ${art.title} as the share cover`}
-                        title="Use as share cover (OGP)"
-                        onClick={() => void toggleCover(art)}
-                      >
-                        {row.cover_artwork_id === art.id ? '★' : '☆'}
-                      </button>
-                    </figure>
-                  ))}
-                  {Array.from({ length: Math.max(0, row.work_cap - cloudArtworks.length) }).map((_, i) => (
-                    <label className="works-add" key={`add-${i}`} aria-disabled={uploading} title="Upload a work">
-                      <span className="works-add-box" aria-hidden="true">{uploading ? '…' : '+'}</span>
-                      <span className="works-add-label">Slot {cloudArtworks.length + i + 1}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        hidden
-                        disabled={uploading}
-                        onChange={(e) => {
-                          void onFiles(e.target.files)
-                          e.target.value = ''
-                        }}
-                      />
-                    </label>
-                  ))}
-                  <button
-                    className="works-capacity"
-                    onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
-                    title={`Add ${CAPACITY_ADDON_SIZE} more work slots`}
-                  >
-                    <span className="works-capacity-box" aria-hidden="true">
-                      <LockIcon /> +{CAPACITY_ADDON_SIZE}
-                    </span>
-                    <span className="works-capacity-label">more slots</span>
-                  </button>
-                </div>
-              </>
-            )}
-        </div>
-
-        {/* Two columns: the selected work's 3D preview (left) + its settings (right) */}
-        {selected && (
-          <div className="works-detail">
+      ) : selected ? (
+        /* One work: its 3D preview (left) + its content and look (right) */
+        <div className="works-detail">
             <GalleryPreview
               art={previewArt}
               src={previewSrc}
@@ -1455,6 +1431,24 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               emptyNote="Pick a work above to preview it framed on your wall."
             />
             <div className="we-right">
+              {/* Per-work housekeeping the rail used to carry: share cover + remove */}
+              <div className="work-actions">
+                <button
+                  type="button"
+                  className={`btn-line${row.cover_artwork_id === selected.id ? ' active' : ''}`}
+                  title="Use as share cover (OGP)"
+                  onClick={() => void toggleCover(selected)}
+                >
+                  {row.cover_artwork_id === selected.id ? '★ Share cover' : '☆ Set as cover'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-line danger"
+                  onClick={() => void removeWork(selected)}
+                >
+                  Remove work
+                </button>
+              </div>
               {/* The name plate's text: title + caption, straight onto the plate above.
                   Flush (no top divider) — it's the first thing in the settings column now. */}
               <div className="wd-group wd-group--flush">
@@ -1595,10 +1589,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               />
             </div>
           </div>
-        )}
+      ) : null}
       </div>
+    </div>
 
-      {purchaseItem && (
+    {purchaseItem && (
         <PurchaseModal
           itemLabel={purchaseItem.label}
           eyebrow={purchaseEyebrow(purchaseItem.kind)}
@@ -1645,7 +1640,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           onClose={() => setPurchaseItem(null)}
         />
       )}
-    </div>
     </>
   )
 }
