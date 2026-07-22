@@ -27,5 +27,5 @@ export default function DemoPage() {
     }
   }, [])
 
-  return <GalleryApp demoTheme={demoTheme} />
+  return <GalleryApp demo demoTheme={demoTheme} />
 }

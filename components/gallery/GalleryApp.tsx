@@ -97,10 +97,17 @@ function useTour() {
   }, [tourActive, count])
 }
 
-export default function GalleryApp({ onShellReady, demoTheme }: { onShellReady?: () => void; demoTheme?: string | null }) {
+export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { onShellReady?: () => void; demoTheme?: string | null; demo?: boolean }) {
   const ready = useGallery((s) => s.ready)
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
+
+  // The /demo house showcase populates a fixed ambient crowd (no real visit count).
+  // Flag it in the store so GhostVisitors knows; clear it when leaving.
+  useEffect(() => {
+    useGallery.getState().setDemoMode(demo)
+    return () => useGallery.getState().setDemoMode(false)
+  }, [demo])
   const [loadingDone, setLoadingDone] = useState(false)
   // null = still detecting; false = no WebGL → 2D list fallback
   const [webgl, setWebgl] = useState<boolean | null>(null)

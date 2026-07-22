@@ -9,6 +9,11 @@
 
 ---
 
+## 2026-07-22 読み上げに館内リバーブ＋/demoにゴースト来場者
+- 決定1（リバーブ）: OpenAI音声の読み上げを既存の「ホール残響」ConvolverNode（[lib/audio.ts]の足音用リバーブ）に通し、館内で流れているような空気感を付与。控えめ（`GUIDE_REVERB_WET=0.18`、dryは全開）。`galleryAudio.connectGuide(el)`で`MediaElementSource→dry→master`＋`send→convolver`。**ブラウザ読み上げ（SpeechSynthesis）はWebAudioに通せず素のまま**（OpenAI音声のみ加工）。要点: `<audio>`に`crossOrigin='anonymous'`必須（`createMediaElementSource`はCORSなしで無音化。Supabaseは`ACAO:*`で可）。♪ミュート/離脱suspendはmaster経由で自動継承。
+- 決定2（demoの人）: /demoは実訪問数が無いためゴースト0人だった→**固定4〜6人**の賑わいを表示（見せ場のため`visitor`ページの`MAX_GHOSTS=4`上限を意図的に超える）。`store.demoMode`を追加、`GalleryApp`が`demo`propで設定、`GhostVisitors`が`visitor`不在時に`demoMode`で固定人数を出す。人数は`4+random(0..2)`で起動時に固定。`!LOW_POWER`で低性能端末は自動オフ。
+- 検証: tsc・buildクリーン。/demoで`demoMode:true`＋`visitor.glb/visitor2.glb`が200取得（フィギュア表示時のみ取得＝ゴースト生成の証拠）＋エラーなしを確認。リバーブの実音とゴーストの画角内目視は3D＋実音声要のため本番QA。
+
 ## 2026-07-22 読み上げ(音声ガイド)をOpenAI TTS化
 - 決定: 現行のブラウザ読み上げ(Web Speech・無料)に代えて、既定をOpenAI TTS(`gpt-4o-mini-tts`)に。
 - 生成タイミング=**初回再生時**にオンデマンド生成＋Supabase Storageキャッシュ(実際に聴かれた分だけ課金、2回目以降ゼロ)。ブラウザ読み上げは**フォールバックとして存置**(キー未設定/失敗/ネットワーク時)。

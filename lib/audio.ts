@@ -13,6 +13,9 @@ const STEP_BASE = 0.04
 const STEP_SPEED_GAIN = 0.08
 /** Footstep reverb (wet) amount */
 const STEP_REVERB_WET = 0.4
+/** Audio-guide narration reverb (wet) send — subtle, so the voice reads as "in the
+ *  hall" while staying intelligible. Dry stays at full. */
+const GUIDE_REVERB_WET = 0.18
 /** Fade for toggling ambient sound on/off (seconds) */
 const TOGGLE_FADE = 0.35
 /** Distant-crowd murmur: peak volume (at a full room) and how fast it eases in/out */
@@ -39,6 +42,8 @@ class GalleryAudio {
   /** Bumped on every setBgm() so a slow decode from a stale URL can't start over a newer one */
   private bgmToken = 0
   private unlocked = false
+  /** Audio-guide elements already wired into the graph (one MediaElementSource each) */
+  private guideEls = new WeakSet<HTMLAudioElement>()
   enabled = true
 
   constructor() {
@@ -92,6 +97,32 @@ class GalleryAudio {
       this.master.gain.setTargetAtTime(this.enabled ? 1 : 0, t, TOGGLE_FADE)
     }
     return this.enabled
+  }
+
+  /** Route an audio-guide <audio> element through the hall reverb so the narration
+   *  sounds like it's playing in the room (dry at full + a subtle wet send). Returns
+   *  false when the graph isn't built yet (no user gesture) — the caller then plays
+   *  the element directly, unprocessed. Idempotent: one MediaElementSource per element
+   *  (creating a second for the same element throws). The element must have
+   *  crossOrigin='anonymous' set and its source must send CORS (Supabase does). */
+  connectGuide(el: HTMLAudioElement): boolean {
+    if (!this.ctx || !this.master || !this.convolver) return false
+    if (this.guideEls.has(el)) return true
+    try {
+      const src = this.ctx.createMediaElementSource(el)
+      const dry = this.ctx.createGain()
+      dry.gain.value = 1
+      src.connect(dry)
+      dry.connect(this.master)
+      const send = this.ctx.createGain()
+      send.gain.value = GUIDE_REVERB_WET
+      src.connect(send)
+      send.connect(this.convolver)
+      this.guideEls.add(el)
+      return true
+    } catch {
+      return false
+    }
   }
 
   private build() {

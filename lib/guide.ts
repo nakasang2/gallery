@@ -58,6 +58,9 @@ class AudioGuide {
     if (!this.el) {
       this.el = new Audio()
       this.el.preload = 'none'
+      // Needed so the narration can be routed through the WebAudio hall reverb
+      // (createMediaElementSource taints without CORS; Supabase sends ACAO *).
+      this.el.crossOrigin = 'anonymous'
       this.el.addEventListener('ended', () => this.setPlaying(false))
       this.el.addEventListener('pause', () => {
         if (this.el && !this.el.ended && this.playing && this.el.paused) this.setPlaying(false)
@@ -103,6 +106,9 @@ class AudioGuide {
   private playUrl(url: string) {
     const el = this.ensureEl()
     if (!el) return
+    // Route through the hall reverb when the audio graph is up (subtle "in the room"
+    // ambience); if not (no gesture yet), it just plays dry.
+    galleryAudio.connectGuide(el)
     if (el.src !== url) el.src = url
     el.currentTime = 0
     void el.play().catch(() => this.setPlaying(false))

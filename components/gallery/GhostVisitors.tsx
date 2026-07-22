@@ -374,8 +374,13 @@ function Ghost({
 
 export default function GhostVisitors() {
   const visitor = useGallery((s) => s.visitor)
+  const demoMode = useGallery((s) => s.demoMode)
   const focused = useGallery((s) => s.focusedIndex) >= 0
   const settings = useSettings()
+  // The /demo showcase has no real visit count, so give it a fixed lively crowd
+  // (4–6, chosen once for natural variety — above the visitor-page MAX_GHOSTS cap
+  // because the demo is a deliberate "busy gallery" set piece).
+  const demoGhostCount = useMemo(() => 4 + Math.floor(Math.random() * 3), [])
 
   const layout = useMemo(
     () => resolveLayout(settings.layout, settings.layoutParams),
@@ -409,7 +414,13 @@ export default function GhostVisitors() {
     }
   }, [])
 
-  const count = visitor && !LOW_POWER && cfg ? ghostCountForVisits(visitor.visitCount) : 0
+  const count = !LOW_POWER && cfg
+    ? visitor
+      ? ghostCountForVisits(visitor.visitCount)
+      : demoMode
+        ? demoGhostCount
+        : 0
+    : 0
   const showing = count > 0 && !focused
 
   // Dark figures on light walls, pale on dark walls — always legible, lit by the room.

@@ -187,6 +187,9 @@ interface GalleryStore extends Settings {
   /** True while the tour is driven by the recorder — brisk fixed dwell (the WebM
    *  captures video only, no narration), vs the live tour which waits for audio. */
   tourRecording: boolean
+  /** The /demo house showcase (no real visitor data). Drives a fixed ambient
+   *  crowd so the demo feels alive even though it has no visit count. */
+  demoMode: boolean
   /** Cloud write-through status for the signed-in editor (chip in the settings panel) */
   syncState: 'idle' | 'saving' | 'saved' | 'error'
   /** Whether fonts have loaded and settings have been restored */
@@ -226,6 +229,7 @@ interface GalleryStore extends Settings {
   setGuestbookOpen(open: boolean): void
   setInfoOpen(open: boolean): void
   setTourActive(active: boolean, recording?: boolean): void
+  setDemoMode(on: boolean): void
   /** Re-run a failed cloud sync immediately */
   retrySync(): void
 }
@@ -238,6 +242,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   infoOpen: false,
   tourActive: false,
   tourRecording: false,
+  demoMode: false,
   syncState: 'idle',
   ready: false,
   user: null,
@@ -401,6 +406,9 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   setTourActive(active, recording = false) {
     // recording only applies while active; ending the tour always clears it
     set({ tourActive: active, tourRecording: active ? recording : false })
+  },
+  setDemoMode(on) {
+    set({ demoMode: on })
   },
   retrySync() {
     if (syncTimer) {

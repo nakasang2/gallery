@@ -20,6 +20,8 @@
 
 - 2026-07-22 | ガイドツアーが作品の音声読み上げを最後まで再生せず次の作品へ進む（ユーザー報告）→ `useTour`が音声の長さと無関係に固定6.2秒で自動送りしていた（TTS化で音声が6.2秒を超え顕在化） → **「自動再生＋自動送り」を組み合わせる体験では、送り間隔を固定にせず『最低尺 + 再生完了待ち（暴走防止の上限つき）』にする。完了は再生singletonの状態購読で検知（`audioGuide.subscribe`で`playing`→falseを待つ）。ただし録画ツアーはcanvas映像のみで音声がファイルに入らないため待つ意味がなく固定尺のまま＝ライブと録画で送りロジックを分ける（`store.tourRecording`フラグ）**（`components/gallery/GalleryApp.tsx` の `useTour`。3D＋実音声要のため実挙動は本番QA）
 
+- 2026-07-22 | 既存の`<audio>`直再生をWebAudio（Convolverリバーブ）へ通す拡張。**落とし穴**: `AudioContext.createMediaElementSource()`はcrossOrigin未設定/CORS無しのソースだと無音（tainted）になる → **クロスオリジン音源をWebAudioで加工するなら`el.crossOrigin='anonymous'`をsrc設定前に立て、配信側のCORS（`access-control-allow-origin`）を`curl -H "Origin:..."`で事前確認する（Supabase Storage公開は`*`でOK）。ctx未構築（ユーザー未操作）時はグラフに繋がず素で再生にフォールバックする**（`lib/audio.ts` `connectGuide` / `lib/guide.ts`）
+
 ### 3Dアセット
 - 2026-07-16 | 「使えるモデルを追加した」と渡された`walk.glb`/`idle.glb`が各約200MB(Web要件に3桁オーバー) → Blenderエクスポート時にKitBash3D「NeoCity」街並みキット(99%)が誤同梱され、実キャラは約2MBだった → **取得した3Dアセットは使う前に必ず中身を検分する(`gltf-transform inspect`/glbのJSONチャンク解析でメッシュ名・skin有無・テクスチャ解像度・シーン構成を見る)。巨大化の一次対処は「圧縮」ではなく「不要コンテンツの除去」。skin付き(=キャラ)とstatic(=環境)を分けて実サイズを測ると原因が即分かる。仕上げに `gltf-transform` で街シーン破棄→テクスチャWebP縮小→Draco圧縮で200MB→1.6MB**
 - 2026-07-16 | glTFキャラを多数インスタンス化したら全員T字ポーズで固まりアニメが効かない → skinメッシュを`scene.clone()`するとスケルトン(ボーン)参照が切れ、mixerが駆動できずバインドポーズのまま → **skinメッシュの複製は必ず`three/examples/jsm/utils/SkeletonUtils.js`の`clone()`を使う。`useGLTF`はurl単位でキャッシュされるので、共有シーンを各インスタンスで`SkeletonUtils.clone`し、`useAnimations(clips, instanceRef)`で個別mixerを張る**
