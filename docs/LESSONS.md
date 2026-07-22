@@ -22,6 +22,8 @@
 
 - 2026-07-22 | 既存の`<audio>`直再生をWebAudio（Convolverリバーブ）へ通す拡張。**落とし穴**: `AudioContext.createMediaElementSource()`はcrossOrigin未設定/CORS無しのソースだと無音（tainted）になる → **クロスオリジン音源をWebAudioで加工するなら`el.crossOrigin='anonymous'`をsrc設定前に立て、配信側のCORS（`access-control-allow-origin`）を`curl -H "Origin:..."`で事前確認する（Supabase Storage公開は`*`でOK）。ctx未構築（ユーザー未操作）時はグラフに繋がず素で再生にフォールバックする**（`lib/audio.ts` `connectGuide` / `lib/guide.ts`）
 
+- 2026-07-23 | 額装作品の影が「フレームの輪郭だけ」で中抜けになる（ユーザー報告）→ Exhibitで`castShadow`が付いていたのは中抜き形状の**フレーム枠メッシュだけ**で、開口部を覆うマット面・アート面(`<mesh>`平面)は`castShadow`なし→枠の縁しか影を落とさなかった → **額装/合成オブジェクトの影は「一番外側の枠」ではなく開口部を埋める面（マット/アート/バッキング）に`castShadow`を付けて“塗りつぶしの影”にする。中空フレーム＋非castShadowの内側面はhollowシルエットになる。baked影（`shadowMap.autoUpdate=false`）でもcastShadow付与は次回bake（GallerySceneのneedsUpdate）で反映される**（`components/gallery/Exhibit.tsx` 額装分岐のmat/art plane）
+
 ### 3Dアセット
 - 2026-07-16 | 「使えるモデルを追加した」と渡された`walk.glb`/`idle.glb`が各約200MB(Web要件に3桁オーバー) → Blenderエクスポート時にKitBash3D「NeoCity」街並みキット(99%)が誤同梱され、実キャラは約2MBだった → **取得した3Dアセットは使う前に必ず中身を検分する(`gltf-transform inspect`/glbのJSONチャンク解析でメッシュ名・skin有無・テクスチャ解像度・シーン構成を見る)。巨大化の一次対処は「圧縮」ではなく「不要コンテンツの除去」。skin付き(=キャラ)とstatic(=環境)を分けて実サイズを測ると原因が即分かる。仕上げに `gltf-transform` で街シーン破棄→テクスチャWebP縮小→Draco圧縮で200MB→1.6MB**
 - 2026-07-16 | glTFキャラを多数インスタンス化したら全員T字ポーズで固まりアニメが効かない → skinメッシュを`scene.clone()`するとスケルトン(ボーン)参照が切れ、mixerが駆動できずバインドポーズのまま → **skinメッシュの複製は必ず`three/examples/jsm/utils/SkeletonUtils.js`の`clone()`を使う。`useGLTF`はurl単位でキャッシュされるので、共有シーンを各インスタンスで`SkeletonUtils.clone`し、`useAnimations(clips, instanceRef)`で個別mixerを張る**

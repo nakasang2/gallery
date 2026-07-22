@@ -157,14 +157,17 @@ export default function Exhibit({
                 bumpScale={0.35}
               />
             </mesh>
-            {/* Mat board (gap 0 = "no mat": the work sits right against the frame) */}
+            {/* Mat board (gap 0 = "no mat": the work sits right against the frame).
+                castShadow so the framed piece casts a FILLED shadow, not just the
+                frame's hollow outline (the mat fills the opening; art fills it when
+                there's no mat). */}
             {frameDef.gap! > 0 && (
-              <mesh position={[0, 0, 0.035]}>
+              <mesh position={[0, 0, 0.035]} castShadow>
                 <planeGeometry args={[width + frameDef.gap! * 2 + 0.02, height + frameDef.gap! * 2 + 0.02]} />
                 <meshStandardMaterial color={frameDef.mat!} roughness={0.9} />
               </mesh>
             )}
-            <mesh position={[0, 0, 0.04]} onClick={onClick} onPointerOver={onOver} onPointerOut={onOut}>
+            <mesh position={[0, 0, 0.04]} castShadow onClick={onClick} onPointerOver={onOver} onPointerOut={onOut}>
               <planeGeometry args={[width, height]} />
               <meshStandardMaterial
                 map={artTex}
