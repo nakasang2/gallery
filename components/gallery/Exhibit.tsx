@@ -232,7 +232,7 @@ export default function Exhibit({
         penumbra={spotPenumbra}
         decay={1.1}
         castShadow
-        shadowMapSize={LOW_POWER ? 512 : 1024}
+        shadowMapSize={LOW_POWER ? 512 : 2048}
       />
 
       {/* Light shaft (fake volumetric) */}

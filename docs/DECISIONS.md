@@ -14,6 +14,7 @@
 - 決定（自然/上品な範囲で）: ①`gl.shadowMap.type` を `PCFShadowMap`→`PCFSoftShadowMap`。②`SpotWithTarget` に `shadow-radius`(既定4)を追加しソフトな半影に（作品スポット＋ベンチのダウンライト＝床の接触影も自動でソフト化）。baked（autoUpdate=false）でもtypeとradiusは描画時サンプリングに効くので有効。③`N8AO` を `aoRadius 1.2→1.5 / intensity 2.4→2.6` で接地感を少し強く。
 - 検証: tsc・buildクリーン。/demo（PC）で白/ネイビー額縁の柔らかい落ち影＋隅のAO接地陰を実機確認、コンソールエラーなし。強さは`shadow-radius`/N8AO値で微調整可。
 - 残（今回対象外）: スマホは`LOW_POWER`でAO等オフのため平面的なまま。必要なら軽量な接地陰の別途検討。
+- **追記 2026-07-23（追い込み）**: ①`shadow-radius 4`はソフトすぎて影が見えづらいFB→**2**へ（くっきり寄り）＋作品スポット`shadowMapSize`を`1024→2048`(PC)で輪郭を明瞭化。ベンチ・額装とも共有で改善。②`PCFSoftShadowMap`は「一番外の枠」だけcastだと中抜けになる件はmat/art面castShadowで対応済（LESSON 2026-07-23）。③**反射床**: 床を`meshPhysicalMaterial`→**drei `MeshReflectorMaterial`**(PCのみ・`LOW_POWER`は従来のclearcoat維持)。作品/ゴースト/室内が床に映り込みリアリティUP。設定=resolution512/blur[320,90]/mixStrength0.55/mirror0.4/roughness0.82で「鏡でなく艶のある木床」。木目はmap/roughnessMap/bumpMapで維持、`receiveShadow`維持でベンチ影も床に出る。/demoで反射・影・エラーなしを実機確認。
 
 ## 2026-07-23 /demoを額縁の「見本市」化＋来場者編集UIをデモで非表示
 - 背景: デモで額縁を変えられる方が良いか？の議論。結論=デモは来場者に編集させるより、**多様な見た目を並べた見本市**として見せる方が価値が高い（歩くだけで額縁/マット/掛け方の幅が伝わる）。編集の自由度はサインイン後の自分のギャラリーで提供。

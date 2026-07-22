@@ -13,7 +13,7 @@ export default function SpotWithTarget({
   decay,
   castShadow = false,
   shadowMapSize = 1024,
-  shadowRadius = 4,
+  shadowRadius = 2,
 }: {
   position: [number, number, number]
   targetPosition: [number, number, number]

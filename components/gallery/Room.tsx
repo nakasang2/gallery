@@ -3,8 +3,9 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import type { ThreeEvent } from '@react-three/fiber'
+import { MeshReflectorMaterial } from '@react-three/drei'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
-import { walkRef } from '@/lib/controller'
+import { walkRef, LOW_POWER } from '@/lib/controller'
 import { getFloorTextures, getPlasterBump, getPlasterNormal, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
@@ -139,15 +140,42 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
       {/* Floor */}
       <mesh rotation-x={-Math.PI / 2} receiveShadow onClick={onFloorClick}>
         <planeGeometry args={[hw * 2, hd * 2]} />
-        <meshPhysicalMaterial
-          {...floorTex}
-          color={theme.floorTint}
-          bumpScale={0.5}
-          roughness={0.85}
-          clearcoat={0.45}
-          clearcoatRoughness={0.35}
-          envMapIntensity={1.1}
-        />
+        {LOW_POWER ? (
+          // Mobile/low-power: the real-time reflection pass is too costly, so keep the
+          // cheap clearcoat sheen.
+          <meshPhysicalMaterial
+            {...floorTex}
+            color={theme.floorTint}
+            bumpScale={0.5}
+            roughness={0.85}
+            clearcoat={0.45}
+            clearcoatRoughness={0.35}
+            envMapIntensity={1.1}
+          />
+        ) : (
+          // Desktop: a polished floor that softly reflects the works and room (planar
+          // reflection). Blurred + roughness kept high so it reads as waxed wood, not a
+          // mirror; the wood grain stays via map/roughnessMap/bumpMap.
+          <MeshReflectorMaterial
+            map={floorTex.map}
+            roughnessMap={floorTex.roughnessMap}
+            bumpMap={floorTex.bumpMap}
+            bumpScale={0.5}
+            color={theme.floorTint}
+            resolution={512}
+            blur={[320, 90]}
+            mixBlur={1}
+            mixStrength={0.55}
+            mixContrast={1}
+            mirror={0.4}
+            depthScale={0.9}
+            minDepthThreshold={0.3}
+            maxDepthThreshold={1.2}
+            roughness={0.82}
+            metalness={0.1}
+            envMapIntensity={0.9}
+          />
+        )}
       </mesh>
 
       {/* Ceiling */}
