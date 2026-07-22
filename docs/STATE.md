@@ -2,13 +2,13 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-22（読み上げのOpenAI TTS化をship／次: OPENAI_API_KEY設定→本番QA→ボイス選定）
+- **最終更新**: 2026-07-22（読み上げTTS: 本番キー設定・動作確認・ボイスshimmer確定）
 
 ## 進行中
 - なし
 
 ## 次にやること（再開ポイント）
-- **読み上げTTSの有効化＆ボイス選定**: ①OpenAIでキー発行→VercelにENV `OPENAI_API_KEY`追加→再デプロイ（未設定時はブラウザ読み上げのまま無害）。②本番QA（作品ガイド再生でOpenAI音声が鳴るか・キャッシュ効くか）。③キー設定後、数ボイス(alloy/nova/sage/onyx等)のサンプルmp3を生成して聴き比べ→`lib/guide.ts`の`TTS_VOICE`を確定。
+- **読み上げTTS**: 本番ENV(`OPENAI_API_KEY`/`SUPABASE_SERVICE_ROLE_KEY`)設定済み。`/api/tts`は本番で200・mp3公開再生可・キャッシュ動作を確認済み。ボイスは**shimmer確定**。残: アプリ実画面での再生体験（ツアー▶/作品ガイド）＆日本語キャプションでの発音は本番QAで最終確認。
 - **Stripe本番接続の運用作業**（コードは完成・未接続）: `0019_checkout.sql`適用 → `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`SUPABASE_SERVICE_ROLE_KEY`/`NEXT_PUBLIC_SITE_URL` 設定 → Stripe CLIで実カード確認（手順は supabase/README §5）
 - docs/STRATEGY.md **§7** の残タスク:
   - P1-5 有料テーマ/レイアウト第1弾。前提(FOREVER_FREE固定化)は**解消済**。残るは実際の有料テーマ/レイアウトの制作という事業/制作判断
