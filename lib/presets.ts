@@ -50,6 +50,9 @@ export interface DesignOverrides {
   lightColor: string | null
   /** Multiplier on ambient+hemi intensity, ~0.4–1.8 ("light mood") */
   lightIntensity: number | null
+  /** Where each work's spotlight sits: a ceiling track angled at the piece ('ceiling',
+   *  the default) or directly above the work shining down ('overhead') */
+  lightMode: 'ceiling' | 'overhead' | null
   /** Small mark composited into the title wall's corner */
   logoUrl: string | null
 }
@@ -59,6 +62,7 @@ export const EMPTY_DESIGN_OVERRIDES: DesignOverrides = {
   floor: null,
   lightColor: null,
   lightIntensity: null,
+  lightMode: null,
   logoUrl: null,
 }
 
@@ -70,6 +74,7 @@ export function normalizeDesignOverrides(raw: unknown): DesignOverrides {
     lightColor: typeof r.lightColor === 'string' ? r.lightColor : null,
     lightIntensity:
       typeof r.lightIntensity === 'number' ? Math.min(1.8, Math.max(0.4, r.lightIntensity)) : null,
+    lightMode: r.lightMode === 'overhead' || r.lightMode === 'ceiling' ? r.lightMode : null,
     logoUrl: typeof r.logoUrl === 'string' ? r.logoUrl : null,
   }
 }

@@ -72,6 +72,9 @@ export default function WalkControls({
     // Which work the prev/next stepper is anchored to (-1 = free-walking).
     // Tracked here (not from the store) so rapid taps step correctly before the glide finishes.
     targetIndex: -1,
+    // True while a programmatic "glide to face" (e.g. the title wall) is running but no
+    // work is anchored — used to mute footsteps the same way an artwork focus does.
+    autoGlide: false,
   })
   const tweens = useRef<Tween[]>([])
 
@@ -99,6 +102,7 @@ export default function WalkControls({
     tweens.current.length = 0
     // Any glide being cancelled means we're no longer anchored to a work
     state.current.targetIndex = -1
+    state.current.autoGlide = false
   }
 
   function clampToRoom(v: THREE.Vector3) {
@@ -196,6 +200,7 @@ export default function WalkControls({
   function focusWall() {
     cancelTweens()
     state.current.targetIndex = -1
+    state.current.autoGlide = true // mute footsteps during this glide (it's not walking)
     const { hw } = layoutRef.current
     const center = new THREE.Vector3(-hw, 2.4, 0) // board centre-ish (it sits high on the wall)
     const normal = new THREE.Vector3(1, 0, 0) // faces +x, into the room
@@ -213,12 +218,18 @@ export default function WalkControls({
     const fromYaw = state.current.yaw
     const fromPitch = state.current.pitch
     const dYaw = shortestAngle(targetYaw - fromYaw)
-    tween(1.15, (t) => {
-      const k = easeInOut(t)
-      camera.position.lerpVectors(from, to, k)
-      state.current.yaw = fromYaw + dYaw * k
-      state.current.pitch = fromPitch + (targetPitch - fromPitch) * k
-    })
+    tween(
+      1.15,
+      (t) => {
+        const k = easeInOut(t)
+        camera.position.lerpVectors(from, to, k)
+        state.current.yaw = fromYaw + dYaw * k
+        state.current.pitch = fromPitch + (targetPitch - fromPitch) * k
+      },
+      () => {
+        state.current.autoGlide = false
+      }
+    )
   }
 
   // Index of the work whose center is closest to the camera on the floor plane
@@ -500,7 +511,7 @@ export default function WalkControls({
     // Footsteps for on-foot movement (keys / joystick / floor-tap walk). Suppressed during an
     // artwork-focus or tour glide (targetIndex >= 0): those slide the camera fast to inspect a
     // piece and would patter like a sprint. A longer stride = a calmer, slower walking pace.
-    const focusGlide = tweens.current.length > 0 && state.current.targetIndex >= 0
+    const focusGlide = tweens.current.length > 0 && (state.current.targetIndex >= 0 || state.current.autoGlide)
     if (!focusGlide) {
       s.stepDist += moved
       if (s.stepDist > 1.15 && speed > 0.4) {

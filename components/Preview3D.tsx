@@ -278,6 +278,7 @@ export default function Preview3D({
         frameDef={applyMat(frameDefFor(frameKey), matKey)}
         hangingDef={HANGINGS[hangingKey] ?? HANGINGS.wire}
         captionDef={CAPTIONS[captionKey] ?? CAPTIONS.side}
+        lightMode={designOverrides?.lightMode ?? 'ceiling'}
       />
     </Canvas>
   )

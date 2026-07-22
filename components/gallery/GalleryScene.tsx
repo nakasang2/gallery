@@ -78,7 +78,7 @@ export default function GalleryScene() {
       gl.shadowMap.needsUpdate = true
     })
     return () => cancelAnimationFrame(id)
-  }, [gl, scene, settings.theme, settings.layout, settings.layoutParams, settings.frame, settings.mat, settings.hanging, settings.caption, settings.frameOverrides, settings.matOverrides, settings.hangingOverrides, settings.captionOverrides, list])
+  }, [gl, scene, settings.theme, settings.layout, settings.layoutParams, settings.frame, settings.mat, settings.hanging, settings.caption, settings.frameOverrides, settings.matOverrides, settings.hangingOverrides, settings.captionOverrides, settings.designOverrides, list])
 
   return (
     <>
@@ -93,6 +93,7 @@ export default function GalleryScene() {
           frameDef={applyMat(frameDefFor(frameKeyFor(settings, art)), matKeyFor(settings, art))}
           hangingDef={HANGINGS[hangingKeyFor(settings, art)] ?? HANGINGS.wire}
           captionDef={CAPTIONS[captionKeyFor(settings, art)] ?? CAPTIONS.side}
+          lightMode={settings.designOverrides.lightMode ?? 'ceiling'}
         />
       ))}
       <TitleWall theme={theme} layout={layout} />

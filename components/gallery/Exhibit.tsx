@@ -48,6 +48,7 @@ export default function Exhibit({
   frameDef,
   hangingDef,
   captionDef,
+  lightMode,
 }: {
   art: ArtworkData
   index: number
@@ -56,6 +57,8 @@ export default function Exhibit({
   frameDef: FrameDef
   hangingDef: HangingDef
   captionDef: CaptionDef
+  /** Spotlight placement: 'ceiling' track angled at the work, or 'overhead' straight down */
+  lightMode: 'ceiling' | 'overhead'
 }) {
   const gl = useThree((s) => s.gl)
   const { width, height } = artSize(art.ratio, art)
@@ -92,10 +95,13 @@ export default function Exhibit({
     [slot.rotY]
   )
   const lightPos = useMemo(() => {
-    const p = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(2.1))
+    // 'ceiling': a track light set 2.1m into the room, angling down at the work.
+    // 'overhead': just in front of the wall, directly above the work, washing straight down.
+    const outDist = lightMode === 'overhead' ? 0.45 : 2.1
+    const p = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(outDist))
     p.y = CEIL_H - 0.15
     return p
-  }, [slot, normal])
+  }, [slot, normal, lightMode])
   const fixtureQuat = useMemo(() => {
     const dir = new THREE.Vector3(slot.x, 1.62, slot.z).sub(lightPos).normalize()
     return new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir)

@@ -1118,6 +1118,24 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 </button>
               </div>
             </div>
+            <div className="wd-row">
+              <span className="wd-label">Lighting</span>
+              <div className="chips">
+                {([
+                  ['ceiling', 'Ceiling'],
+                  ['overhead', 'Above work'],
+                ] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    className={`chip${(design.lightMode ?? 'ceiling') === key ? ' active' : ''}`}
+                    disabled={busy}
+                    onClick={() => editDesign({ lightMode: key })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {row.layout === 'custom' && (
               <div className="wd-row wd-row-block">
                 <span className="wd-label">Custom size</span>
