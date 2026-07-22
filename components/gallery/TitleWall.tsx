@@ -5,6 +5,7 @@
 // guests on /demo keep the Xibit360 demo copy.
 import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
+import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { useGallery, useSettings } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
@@ -36,7 +37,9 @@ function boardText(opts: {
 }
 
 export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: LayoutDef }) {
+  const gl = useThree((s) => s.gl)
   const settings = useSettings()
+  const setInfoOpen = useGallery((s) => s.setInfoOpen)
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
   const myGallery = useGallery((s) => s.myGallery)
@@ -113,9 +116,25 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
 
   const w = Math.min(9.6, layout.hd * 2 - 1.4)
 
+  // The board is clickable — like an artwork, it opens a detail panel (the exhibition
+  // info). Tap-guard (e.delta) matches WalkControls so a drag never triggers it.
+  const onClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation()
+    if (e.delta > 10) return
+    setInfoOpen(true)
+  }
+  const onOver = () => (gl.domElement.style.cursor = 'pointer')
+  const onOut = () => (gl.domElement.style.cursor = '')
+
   return (
     <>
-      <mesh position={[-layout.hw + 0.03, 2.55, 0]} rotation-y={Math.PI / 2}>
+      <mesh
+        position={[-layout.hw + 0.03, 2.55, 0]}
+        rotation-y={Math.PI / 2}
+        onClick={onClick}
+        onPointerOver={onOver}
+        onPointerOut={onOut}
+      >
         <planeGeometry args={[w, w / 2]} />
         {/* Use a material that catches the spotlight so it blends with the lighting */}
         <meshStandardMaterial map={tex} transparent roughness={0.9} />

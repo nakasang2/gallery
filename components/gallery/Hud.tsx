@@ -124,15 +124,16 @@ export function HudActions() {
   const guestbookOpen = useGallery((s) => s.guestbookOpen)
   const setGuestbookOpen = useGallery((s) => s.setGuestbookOpen)
   const focusedIndex = useGallery((s) => s.focusedIndex)
+  const infoOpen = useGallery((s) => s.infoOpen)
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
   const [audioOn, setAudioOn] = useState(galleryAudio.enabled)
   const [othersOpen, setOthersOpen] = useState(false)
   const recorder = useWalkRecorder()
 
-  // Any open surface (artwork sheet, settings, guestbook) covers this corner —
-  // tuck the cluster away instead of leaving dead buttons underneath
-  const tucked = focusedIndex >= 0 || settingsOpen || guestbookOpen
+  // Any open surface (artwork sheet, settings, guestbook, exhibition info) covers this
+  // corner — tuck the cluster away instead of leaving dead buttons underneath
+  const tucked = focusedIndex >= 0 || settingsOpen || guestbookOpen || infoOpen
 
   const toggleAudio = () => {
     galleryAudio.unlock()
@@ -157,28 +158,35 @@ export function HudActions() {
   const showOthers = hasReport || recorder.available
 
   return (
-    <div className={`hud-cluster${tucked ? ' tucked' : ''}`} aria-hidden={tucked} inert={tucked}>
-      <HudAction icon="♪" label={audioOn ? 'BGM on' : 'BGM off'} active={audioOn} onClick={toggleAudio} />
+    <div
+      className={`hud-cluster${tucked ? ' tucked' : ''}${othersOpen ? ' others-open' : ''}`}
+      aria-hidden={tucked}
+      inert={tucked}
+    >
+      {/* Base actions — hidden while Others is open so the submenu stands alone */}
+      <div className="hud-base">
+        <HudAction icon="♪" label={audioOn ? 'BGM on' : 'BGM off'} active={audioOn} onClick={toggleAudio} />
 
-      {visitor && <HudAction icon="↗" label="Share" onClick={share} />}
+        {visitor && <HudAction icon="↗" label="Share" onClick={share} />}
 
-      {visitor ? (
-        <HudAction
-          icon="✎"
-          label="Guestbook"
-          active={guestbookOpen}
-          onClick={() => setGuestbookOpen(!guestbookOpen)}
-        />
-      ) : (
-        user && (
+        {visitor ? (
           <HudAction
             icon="✎"
-            label="Edit space"
-            active={settingsOpen}
-            onClick={() => setSettingsOpen(!settingsOpen)}
+            label="Guestbook"
+            active={guestbookOpen}
+            onClick={() => setGuestbookOpen(!guestbookOpen)}
           />
-        )
-      )}
+        ) : (
+          user && (
+            <HudAction
+              icon="✎"
+              label="Edit space"
+              active={settingsOpen}
+              onClick={() => setSettingsOpen(!settingsOpen)}
+            />
+          )
+        )}
+      </div>
 
       {showOthers && (
         <div className={`hud-others${othersOpen ? ' open' : ''}`} onMouseLeave={() => setOthersOpen(false)}>
@@ -231,10 +239,11 @@ export function HudStepper() {
   const setTourActive = useGallery((s) => s.setTourActive)
   const settingsOpen = useGallery((s) => s.settingsOpen)
   const guestbookOpen = useGallery((s) => s.guestbookOpen)
+  const infoOpen = useGallery((s) => s.infoOpen)
   if (count === 0) return null
   const current = focusedIndex >= 0 ? String(focusedIndex + 1).padStart(2, '0') : '–'
-  // Settings/guestbook sheets cover the pager — hide it rather than bury it
-  const tucked = settingsOpen || guestbookOpen
+  // Settings/guestbook/info sheets cover the pager — hide it rather than bury it
+  const tucked = settingsOpen || guestbookOpen || infoOpen
   return (
     // 'lifted' rides above the phone bottom sheet so browsing next/prev never needs closing it
     <div
@@ -270,7 +279,8 @@ export function Hint() {
   const focusedIndex = useGallery((s) => s.focusedIndex)
   const settingsOpen = useGallery((s) => s.settingsOpen)
   const guestbookOpen = useGallery((s) => s.guestbookOpen)
-  const suppressed = focusedIndex >= 0 || settingsOpen || guestbookOpen
+  const infoOpen = useGallery((s) => s.infoOpen)
+  const suppressed = focusedIndex >= 0 || settingsOpen || guestbookOpen || infoOpen
 
   // Fade after a while, but come back for lost users: 25s of idle re-shows the hint
   useEffect(() => {

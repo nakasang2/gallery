@@ -181,6 +181,8 @@ interface GalleryStore extends Settings {
   settingsOpen: boolean
   /** Visitor guestbook panel */
   guestbookOpen: boolean
+  /** Exhibition-info panel (opened by clicking the title wall) */
+  infoOpen: boolean
   tourActive: boolean
   /** Cloud write-through status for the signed-in editor (chip in the settings panel) */
   syncState: 'idle' | 'saving' | 'saved' | 'error'
@@ -219,6 +221,7 @@ interface GalleryStore extends Settings {
   setFocused(i: number): void
   setSettingsOpen(open: boolean): void
   setGuestbookOpen(open: boolean): void
+  setInfoOpen(open: boolean): void
   setTourActive(active: boolean): void
   /** Re-run a failed cloud sync immediately */
   retrySync(): void
@@ -229,6 +232,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   focusedIndex: -1,
   settingsOpen: false,
   guestbookOpen: false,
+  infoOpen: false,
   tourActive: false,
   syncState: 'idle',
   ready: false,
@@ -377,14 +381,18 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   },
 
   setFocused(i) {
-    // Focusing a work also closes the settings drawer so the artwork panel is never hidden behind it
-    set(i >= 0 ? { focusedIndex: i, settingsOpen: false } : { focusedIndex: i })
+    // Focusing a work also closes the settings drawer + info panel so the artwork panel is never hidden behind them
+    set(i >= 0 ? { focusedIndex: i, settingsOpen: false, infoOpen: false } : { focusedIndex: i })
   },
   setSettingsOpen(open) {
-    set({ settingsOpen: open })
+    set(open ? { settingsOpen: true, infoOpen: false } : { settingsOpen: false })
   },
   setGuestbookOpen(open) {
-    set({ guestbookOpen: open })
+    set(open ? { guestbookOpen: true, infoOpen: false } : { guestbookOpen: false })
+  },
+  setInfoOpen(open) {
+    // The info panel is a peer of the artwork/guestbook drawers — opening it closes them
+    set(open ? { infoOpen: true, focusedIndex: -1, settingsOpen: false, guestbookOpen: false } : { infoOpen: false })
   },
   setTourActive(active) {
     set({ tourActive: active })
