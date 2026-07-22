@@ -243,20 +243,49 @@ export default function Exhibit({
 
       {/* Light fixture (visual only) */}
       {lightMode === 'overhead' ? (
-        // Picture light: a bracket on the wall above the frame, arm reaching out to a
-        // horizontal shade tilted down at the work
-        <group position={[slot.x, 1.62 + halfH + 0.22, slot.z]} rotation-y={slot.rotY}>
-          <mesh position={[0, 0, PICTURE_ARM / 2]}>
-            <boxGeometry args={[0.05, 0.05, PICTURE_ARM]} />
-            <meshStandardMaterial color={0x14110d} roughness={0.5} metalness={0.45} />
-          </mesh>
-          <group position={[0, -0.02, PICTURE_ARM]} rotation-x={0.7}>
-            <mesh rotation-z={Math.PI / 2}>
-              <cylinderGeometry args={[0.05, 0.06, Math.min(halfW * 2, 1.3), 16]} />
-              <meshStandardMaterial color={0x1c1915} roughness={0.4} metalness={0.55} />
-            </mesh>
-          </group>
-        </group>
+        // Brass gallery picture light: a backplate on the wall, an arm reaching out, and a
+        // tubular shade (with rounded end caps + a glowing bulb) tilted down at the work
+        (() => {
+          const brass = { color: 0x9a7b40, metalness: 0.92, roughness: 0.3 }
+          const hoodLen = Math.min(halfW * 2 + 0.12, 1.45)
+          return (
+            <group position={[slot.x, 1.62 + halfH + 0.24, slot.z]} rotation-y={slot.rotY}>
+              {/* wall backplate */}
+              <mesh position={[0, 0.02, 0.016]}>
+                <boxGeometry args={[0.11, 0.11, 0.03]} />
+                <meshStandardMaterial {...brass} />
+              </mesh>
+              {/* arm — a slim rod angling out and slightly up to the shade */}
+              <mesh position={[0, 0.035, PICTURE_ARM * 0.5]} rotation-x={Math.PI / 2 + 0.22}>
+                <cylinderGeometry args={[0.013, 0.013, PICTURE_ARM * 1.08, 12]} />
+                <meshStandardMaterial {...brass} />
+              </mesh>
+              {/* shade: a tube across the frame width, tilted to throw light down the work */}
+              <group position={[0, 0.02, PICTURE_ARM]} rotation-x={0.55}>
+                <mesh rotation-z={Math.PI / 2}>
+                  <cylinderGeometry args={[0.045, 0.045, hoodLen, 24]} />
+                  <meshStandardMaterial {...brass} roughness={0.26} />
+                </mesh>
+                {[-1, 1].map((s) => (
+                  <mesh key={s} position={[(s * hoodLen) / 2, 0, 0]}>
+                    <sphereGeometry args={[0.046, 16, 12]} />
+                    <meshStandardMaterial {...brass} roughness={0.26} />
+                  </mesh>
+                ))}
+                {/* glowing bulb strip on the underside, facing the work */}
+                <mesh position={[0, -0.03, 0.02]} rotation-z={Math.PI / 2}>
+                  <cylinderGeometry args={[0.02, 0.02, hoodLen * 0.9, 12]} />
+                  <meshStandardMaterial
+                    color={theme.spotColor}
+                    emissive={theme.spotColor}
+                    emissiveIntensity={1.7}
+                    toneMapped={false}
+                  />
+                </mesh>
+              </group>
+            </group>
+          )
+        })()
       ) : (
         <mesh position={[lightPos.x, CEIL_H - 0.11, lightPos.z]} quaternion={fixtureQuat}>
           <cylinderGeometry args={[0.055, 0.075, 0.22, 12]} />
