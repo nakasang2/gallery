@@ -1,8 +1,8 @@
 'use client'
 // "Record a shareable walkthrough": run the guided tour while capturing the
 // canvas to a WebM the artist can post to X/Instagram (STRATEGY §4.1-1 growth
-// loop). Rendered only inside the WebGL branch, so a canvas is guaranteed; the
-// button still hides itself if the browser can't record (canRecord check).
+// loop). Exposed as a hook so the HUD action cluster (Others → Record) can drive
+// it; the recorder still no-ops if the browser can't record (canRecord check).
 import { useEffect, useRef, useState } from 'react'
 import { useGallery } from '@/lib/store'
 import { useExhibitionList } from '@/lib/exhibition'
@@ -16,7 +16,7 @@ const PER_WORK_MS = 6200
 const TAIL_MS = 1200
 const MAX_MS = 90_000
 
-export default function RecordButton() {
+export function useWalkRecorder() {
   const count = useExhibitionList().length
   const [recording, setRecording] = useState(false)
   const [supported, setSupported] = useState(true)
@@ -24,9 +24,8 @@ export default function RecordButton() {
   const unsubRef = useRef<(() => void) | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Gate on browser capability (MediaRecorder + a WebM mime), which is knowable
-  // at mount. The canvas itself is created after this component mounts, so we
-  // must NOT check canvasRef here — its captureStream is re-verified at click.
+  // Gate on browser capability (MediaRecorder + a WebM mime), knowable at mount.
+  // The canvas is created after mount, so its captureStream is re-verified at click.
   useEffect(() => {
     setSupported(pickWebmMime() !== null)
   }, [])
@@ -86,15 +85,10 @@ export default function RecordButton() {
     timerRef.current = setTimeout(finish, expected)
   }
 
-  if (!supported || count === 0) return null
-
-  return (
-    <button
-      className={`hud-btn hud-record${recording ? ' recording' : ''}`}
-      onClick={() => (recording ? finish() : start())}
-      title={recording ? 'Stop and save the clip' : 'Record a shareable walkthrough'}
-    >
-      {recording ? '■ Recording…' : '● Record'}
-    </button>
-  )
+  return {
+    /** false when the browser can't record or there are no works to tour */
+    available: supported && count > 0,
+    recording,
+    toggle: () => (recording ? finish() : start()),
+  }
 }

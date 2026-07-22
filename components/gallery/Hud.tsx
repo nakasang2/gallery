@@ -8,7 +8,8 @@ import { useExhibitionList } from '@/lib/exhibition'
 import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
-import SnsLinks from '@/components/SnsLinks'
+import { showToast } from '@/lib/toast'
+import { useWalkRecorder } from './RecordButton'
 
 export function HudTop() {
   const visitor = useGallery((s) => s.visitor)
@@ -46,26 +47,14 @@ export function HudTop() {
   // here is a prospective artist, not just a browser of the demo collection.
   if (visitor) {
     const untitled = isPlaceholderTitle(visitor.title)
+    // Top-left is just the essentials — service name, exhibition, exhibitor.
+    // Everything else (report, sharing, the guestbook) lives in the bottom-right cluster.
     return (
       <header className="hud-top">
         <div className="hud-identity">
           <Link className="hud-identity-home" href="/">XIBIT360</Link>
-          <Link className="hud-identity-main" href={`/@${visitor.username}`}>
-            {untitled ? visitor.ownerName : visitor.title}
-          </Link>
-          <span className="hud-identity-sub">
-            {!untitled && `${visitor.ownerName} · `}@{visitor.username}
-            <SnsLinks sns={visitor.ownerSns} className="hud-sns" />
-            {' · '}
-            <Link className="hud-report" href="/explore">Explore</Link>
-            {' · '}
-            <Link
-              className="hud-report"
-              href={`/report?about=${encodeURIComponent(`@${visitor.username}/${visitor.slug}`)}`}
-            >
-              Report
-            </Link>
-          </span>
+          <span className="hud-identity-main">{untitled ? visitor.ownerName : visitor.title}</span>
+          {!untitled && <span className="hud-identity-sub">{visitor.ownerName}</span>}
         </div>
         <Link className="hud-signup-cta" href="/signup">Start free</Link>
       </header>
@@ -103,6 +92,32 @@ export function HudTop() {
   )
 }
 
+// One icon-only round button that expands into a labelled capsule on hover/focus.
+// On touch there's no hover, so it stays a circle and a single tap fires the action.
+function HudAction({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: string
+  label: string
+  active?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      className={`hud-action${active ? ' active' : ''}`}
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+    >
+      <span className="hud-action-label">{label}</span>
+      <span className="hud-action-icon" aria-hidden="true">{icon}</span>
+    </button>
+  )
+}
+
 export function HudActions() {
   const settingsOpen = useGallery((s) => s.settingsOpen)
   const setSettingsOpen = useGallery((s) => s.setSettingsOpen)
@@ -112,43 +127,96 @@ export function HudActions() {
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
   const [audioOn, setAudioOn] = useState(galleryAudio.enabled)
+  const [othersOpen, setOthersOpen] = useState(false)
+  const recorder = useWalkRecorder()
 
   // Any open surface (artwork sheet, settings, guestbook) covers this corner —
-  // tuck the actions away instead of leaving dead buttons underneath
+  // tuck the cluster away instead of leaving dead buttons underneath
   const tucked = focusedIndex >= 0 || settingsOpen || guestbookOpen
 
+  const toggleAudio = () => {
+    galleryAudio.unlock()
+    const on = galleryAudio.toggle()
+    setAudioOn(on)
+    if (!on) audioGuide.stop() // one mute silences the narration too
+  }
+
+  const share = () => {
+    if (!visitor) return
+    const url = `${location.origin}/@${visitor.username}/${visitor.slug}`
+    const title = isPlaceholderTitle(visitor.title) ? `${visitor.ownerName} — XIBIT360` : visitor.title
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      void navigator.share({ title, url }).catch(() => {})
+    } else {
+      navigator.clipboard?.writeText(url).then(() => showToast('Link copied to clipboard')).catch(() => {})
+    }
+  }
+
+  // Others: Report (public galleries only) + Record (wherever the browser can capture)
+  const hasReport = !!visitor
+  const showOthers = hasReport || recorder.available
+
   return (
-    <div className={`hud-actions${tucked ? ' tucked' : ''}`} aria-hidden={tucked} inert={tucked}>
-      {/* Sound: icon-only mute toggle, video-player style */}
-      <button
-        id="btn-audio"
-        className={`hud-icon${audioOn ? ' active' : ' muted'}`}
-        aria-label={audioOn ? 'Mute ambience' : 'Unmute ambience'}
-        title={audioOn ? 'Ambience on' : 'Ambience off'}
-        onClick={() => {
-          galleryAudio.unlock()
-          const on = galleryAudio.toggle()
-          setAudioOn(on)
-          if (!on) audioGuide.stop() // one mute silences the narration too
-        }}
-      >
-        ♪
-      </button>
-      {/* Visitors sign the guestbook; the space editor is for signed-in owners only */}
+    <div className={`hud-cluster${tucked ? ' tucked' : ''}`} aria-hidden={tucked} inert={tucked}>
+      <HudAction icon="♪" label={audioOn ? 'BGM on' : 'BGM off'} active={audioOn} onClick={toggleAudio} />
+
+      {visitor && <HudAction icon="↗" label="Share" onClick={share} />}
+
       {visitor ? (
-        <button
-          id="btn-guestbook"
-          className={`hud-btn${guestbookOpen ? ' active' : ''}`}
+        <HudAction
+          icon="✎"
+          label="Guestbook"
+          active={guestbookOpen}
           onClick={() => setGuestbookOpen(!guestbookOpen)}
-        >
-          ✎ Guestbook
-        </button>
+        />
       ) : (
         user && (
-          <button id="btn-settings" className="hud-btn" onClick={() => setSettingsOpen(!settingsOpen)}>
-            Edit space
-          </button>
+          <HudAction
+            icon="✎"
+            label="Edit space"
+            active={settingsOpen}
+            onClick={() => setSettingsOpen(!settingsOpen)}
+          />
         )
+      )}
+
+      {showOthers && (
+        <div className={`hud-others${othersOpen ? ' open' : ''}`} onMouseLeave={() => setOthersOpen(false)}>
+          {/* Revealed above the Others button on hover (desktop) / tap (touch) */}
+          <div className="hud-others-menu" role="menu">
+            {hasReport && (
+              <Link
+                className="hud-action as-link"
+                role="menuitem"
+                href={`/report?about=${encodeURIComponent(`@${visitor!.username}/${visitor!.slug}`)}`}
+                aria-label="Report this gallery"
+              >
+                <span className="hud-action-label">Report</span>
+                <span className="hud-action-icon" aria-hidden="true">⚑</span>
+              </Link>
+            )}
+            {recorder.available && (
+              <button
+                className={`hud-action${recorder.recording ? ' active' : ''}`}
+                role="menuitem"
+                onClick={recorder.toggle}
+                aria-label={recorder.recording ? 'Stop recording' : 'Record a walkthrough'}
+              >
+                <span className="hud-action-label">{recorder.recording ? 'Stop' : 'Record'}</span>
+                <span className="hud-action-icon" aria-hidden="true">{recorder.recording ? '■' : '●'}</span>
+              </button>
+            )}
+          </div>
+          <button
+            className={`hud-action${othersOpen ? ' active' : ''}`}
+            aria-label="More actions"
+            aria-expanded={othersOpen}
+            onClick={() => setOthersOpen((v) => !v)}
+          >
+            <span className="hud-action-label">Others</span>
+            <span className="hud-action-icon" aria-hidden="true">⋯</span>
+          </button>
+        </div>
       )}
     </div>
   )

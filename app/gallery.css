@@ -429,47 +429,97 @@ body.gallery-mode {
 .hud-sns.sns-links a { color: inherit; }
 
 /* ---- HUD アクション ---- */
-.hud-actions {
+/* ---- Bottom-right action cluster: icon circles that expand to labelled capsules ---- */
+.hud-cluster {
   position: fixed;
   right: 1.2rem;
   bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
-  z-index: 15;
+  z-index: 16;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
   align-items: flex-end;
+  gap: 0.55rem;
   transition: opacity 0.25s;
 }
 /* An open surface (artwork sheet / settings / guestbook) covers this corner */
-.hud-actions.tucked { opacity: 0; pointer-events: none; }
-.hud-btn {
-  font-family: var(--sans);
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  color: var(--ink);
-  background: rgba(11, 10, 9, 0.6);
+.hud-cluster.tucked { opacity: 0; pointer-events: none; }
+
+.hud-action {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 46px;
   border: 1px solid var(--hairline);
   border-radius: 100px;
-  padding: 0.6em 1.3em;
-  cursor: pointer;
+  background: rgba(11, 10, 9, 0.62);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  transition: border-color 0.2s, color 0.2s;
+  color: var(--ink);
+  cursor: pointer;
+  overflow: hidden;
+  text-decoration: none;
   white-space: nowrap;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
-.hud-btn:hover { border-color: var(--gold); color: var(--gold); }
-.hud-btn.active { border-color: var(--gold); color: var(--gold); }
+.hud-action-icon {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.hud-action-label {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 0;
+  transition: max-width 0.28s ease, opacity 0.18s ease, padding 0.28s ease;
+}
+.hud-action.active { border-color: var(--gold); color: var(--gold); }
+/* Desktop only: hover/focus expands the circle into a capsule showing its label */
+@media (hover: hover) {
+  .hud-action:hover,
+  .hud-action:focus-visible { border-color: var(--gold); color: var(--gold); }
+  .hud-action:hover .hud-action-label,
+  .hud-action:focus-visible .hud-action-label { max-width: 12rem; opacity: 1; padding-left: 1rem; }
+}
 
-/* Walkthrough recorder — bottom-left, stacked ABOVE the minimap so the two
-   never collide. Only the canvas is captured, so this button never shows up in
-   the clip itself. */
-.hud-record {
-  position: fixed;
-  left: 1.2rem;
-  bottom: calc(1.2rem + 124px + env(safe-area-inset-bottom, 0px));
-  z-index: 16;
+/* Others: a button with a submenu (Report / Record) that lifts above it */
+.hud-others { position: relative; display: flex; }
+.hud-others-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.55rem);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.55rem;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, visibility 0.18s ease, transform 0.18s ease;
 }
-.hud-record.recording {
+.hud-others:hover .hud-others-menu,
+.hud-others.open .hud-others-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+/* Submenu items are a deliberate reveal → show their labels outright */
+.hud-others-menu .hud-action .hud-action-label {
+  max-width: 12rem;
+  opacity: 1;
+  padding-left: 1rem;
+}
+/* Recording state (the Record menu item) reads red, with a gentle pulse */
+.hud-others-menu .hud-action.active {
   border-color: #e0574e;
   color: #f0847c;
   animation: hud-record-pulse 1.4s ease-in-out infinite;
@@ -479,7 +529,7 @@ body.gallery-mode {
   50% { opacity: 0.55; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hud-record.recording { animation: none; }
+  .hud-others-menu .hud-action.active { animation: none; }
 }
 
 /* ---- 作品ステッパー(前へ/次へ:移動と正対を一操作で) ---- */

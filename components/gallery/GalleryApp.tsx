@@ -16,7 +16,6 @@ import FlatGallery from './FlatGallery'
 import MiniMap from './MiniMap'
 import { HudTop, HudActions, HudStepper, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
-import RecordButton from './RecordButton'
 import SettingsPanel from './SettingsPanel'
 import GuestbookPanel from './GuestbookPanel'
 import LoadingScreen from './LoadingScreen'
@@ -167,7 +166,6 @@ export default function GalleryApp({ onShellReady, demoTheme }: { onShellReady?:
           <HudStepper />
           <MiniMap />
           <ArtworkPanel />
-          <RecordButton />
         </>
       ) : null}
       <HudActions />
