@@ -95,17 +95,26 @@ export default function Exhibit({
     [slot.rotY]
   )
   const lightPos = useMemo(() => {
-    // 'ceiling': a track light set 2.1m into the room, angling down at the work.
+    // 'ceiling': a track light set out from the wall, washing the wall from above.
     // 'overhead': just in front of the wall, directly above the work, washing straight down.
-    const outDist = lightMode === 'overhead' ? 0.45 : 2.1
+    const outDist = lightMode === 'overhead' ? 0.45 : 1.5
     const p = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(outDist))
     p.y = CEIL_H - 0.15
     return p
   }, [slot, normal, lightMode])
+  // Where the beam is aimed. Ceiling mode aims high — the bright pool sits above the frame
+  // and washes down over it (the reference look); overhead aims straight at the work.
+  const spotTarget = useMemo(
+    () => new THREE.Vector3(slot.x, lightMode === 'ceiling' ? 2.45 : 1.62, slot.z),
+    [slot, lightMode]
+  )
+  // A wider, softer cone for the ceiling wall-wash; a tighter spot when overhead
+  const spotAngle = lightMode === 'ceiling' ? 0.62 : 0.46
+  const spotPenumbra = lightMode === 'ceiling' ? 0.85 : 0.65
   const fixtureQuat = useMemo(() => {
-    const dir = new THREE.Vector3(slot.x, 1.62, slot.z).sub(lightPos).normalize()
+    const dir = spotTarget.clone().sub(lightPos).normalize()
     return new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir)
-  }, [slot, lightPos])
+  }, [spotTarget, lightPos])
 
   return (
     <>
@@ -213,11 +222,11 @@ export default function Exhibit({
       {/* Spotlight (also bakes the shadow the frame casts on the wall) */}
       <SpotWithTarget
         position={[lightPos.x, lightPos.y, lightPos.z]}
-        targetPosition={[slot.x, 1.62, slot.z]}
+        targetPosition={[spotTarget.x, spotTarget.y, spotTarget.z]}
         color={theme.spotColor}
         intensity={theme.spotIntensity}
-        angle={0.46}
-        penumbra={0.65}
+        angle={spotAngle}
+        penumbra={spotPenumbra}
         decay={1.1}
         castShadow
         shadowMapSize={LOW_POWER ? 512 : 1024}
@@ -226,8 +235,8 @@ export default function Exhibit({
       {/* Light shaft (fake volumetric) */}
       <LightCone
         from={lightPos}
-        to={artWorldPos}
-        angle={0.46}
+        to={spotTarget}
+        angle={spotAngle}
         color={theme.spotColor}
         opacity={theme.coneOpacity}
       />
