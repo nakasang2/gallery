@@ -7,7 +7,7 @@ import type { ArtworkData } from '@/lib/artworks'
 import { CEIL_H, type CaptionDef, type FrameDef, type HangingDef, type SlotDef, type ThemeDef } from '@/lib/presets'
 import { artSize } from '@/lib/exhibition'
 import { walkRef, LOW_POWER } from '@/lib/controller'
-import { getArtTexture, makePlaqueTexture, getFrameFinish, disposeAll } from './textures'
+import { getArtTexture, makePlaqueTexture, getFrameFinish, getSoftShadowTexture, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
 import { useVideoArt } from './VideoArt'
@@ -119,6 +119,22 @@ export default function Exhibit({
   return (
     <>
       <group position={[slot.x, 1.62, slot.z]} rotation-y={slot.rotY}>
+        {/* Art-directed soft drop shadow on the wall — reads as the piece standing off
+            the wall. Sits just off the wall (behind the frame), a bit larger than the
+            work and shifted down, since the light comes from above. Independent of the
+            per-work light mode, so it's reliable where the real shadow map is too faint. */}
+        <mesh position={[0.02, -0.06, 0.006]}>
+          <planeGeometry args={[halfW * 2 + 0.24, halfH * 2 + 0.26]} />
+          <meshBasicMaterial
+            map={getSoftShadowTexture()}
+            transparent
+            opacity={0.42}
+            color={0x000000}
+            depthWrite={false}
+            polygonOffset
+            polygonOffsetFactor={-1}
+          />
+        </mesh>
         {frameless ? (
           // Stretched canvas: no frame, just showing the thickness on the sides
           <mesh

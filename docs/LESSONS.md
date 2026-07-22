@@ -24,6 +24,8 @@
 
 - 2026-07-23 | 額装作品の影が「フレームの輪郭だけ」で中抜けになる（ユーザー報告）→ Exhibitで`castShadow`が付いていたのは中抜き形状の**フレーム枠メッシュだけ**で、開口部を覆うマット面・アート面(`<mesh>`平面)は`castShadow`なし→枠の縁しか影を落とさなかった → **額装/合成オブジェクトの影は「一番外側の枠」ではなく開口部を埋める面（マット/アート/バッキング）に`castShadow`を付けて“塗りつぶしの影”にする。中空フレーム＋非castShadowの内側面はhollowシルエットになる。baked影（`shadowMap.autoUpdate=false`）でもcastShadow付与は次回bake（GallerySceneのneedsUpdate）で反映される**（`components/gallery/Exhibit.tsx` 額装分岐のmat/art plane）
 
+- 2026-07-23 | 額装作品の壁への落ち影が「物理的には正しいのに弱くて見えない」問題を、実シャドウマップの調整（castShadow付与→radius→解像度）で3回追っても安定せず、ユーザーは参考写真並みの明確な影を要求 → 近接マウント（フレームが壁から数cm）＋スポット角度＋壁の明るさで、実影はどうしても淡くなる（PCFSoft・baked・低コントラスト） → **「参考写真のような見た目」を狙うUIでは、物理シャドウの微調整に固執せず“アートディレクションされた偽ソフト影”（壁面に置くブラー済みの暗い角丸プレーン。作品の背後・少し下・やや大きめ・opacity可変）を併用する。ライトモードに依存せず確実に出て、スマホ（AOオフ）でも効く。実影は接地/床用に残す**（`components/gallery/textures.ts` `getSoftShadowTexture` ＋ `Exhibit` のshadow plane。opacity/offset/sizeで調整可）
+
 ### 3Dアセット
 - 2026-07-16 | 「使えるモデルを追加した」と渡された`walk.glb`/`idle.glb`が各約200MB(Web要件に3桁オーバー) → Blenderエクスポート時にKitBash3D「NeoCity」街並みキット(99%)が誤同梱され、実キャラは約2MBだった → **取得した3Dアセットは使う前に必ず中身を検分する(`gltf-transform inspect`/glbのJSONチャンク解析でメッシュ名・skin有無・テクスチャ解像度・シーン構成を見る)。巨大化の一次対処は「圧縮」ではなく「不要コンテンツの除去」。skin付き(=キャラ)とstatic(=環境)を分けて実サイズを測ると原因が即分かる。仕上げに `gltf-transform` で街シーン破棄→テクスチャWebP縮小→Draco圧縮で200MB→1.6MB**
 - 2026-07-16 | glTFキャラを多数インスタンス化したら全員T字ポーズで固まりアニメが効かない → skinメッシュを`scene.clone()`するとスケルトン(ボーン)参照が切れ、mixerが駆動できずバインドポーズのまま → **skinメッシュの複製は必ず`three/examples/jsm/utils/SkeletonUtils.js`の`clone()`を使う。`useGLTF`はurl単位でキャッシュされるので、共有シーンを各インスタンスで`SkeletonUtils.clone`し、`useAnimations(clips, instanceRef)`で個別mixerを張る**

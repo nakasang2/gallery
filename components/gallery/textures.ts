@@ -403,6 +403,42 @@ export function getFrameFinish(kind: FrameFinish) {
   return out
 }
 
+/* ---- Soft drop-shadow (a blurred dark rounded rectangle on transparent) ----
+   Used behind each framed/canvas work as an art-directed contact shadow on the wall,
+   so the piece reads as standing off the wall with a soft shadow regardless of the
+   per-work light angle (the real shadow map alone is too faint at a near-flush mount).
+   One shared texture, stretched to each work's proportions. */
+let softShadowTex: THREE.CanvasTexture | null = null
+export function getSoftShadowTexture(): THREE.CanvasTexture {
+  if (softShadowTex) return softShadowTex
+  const s = 256
+  const c = document.createElement('canvas')
+  c.width = c.height = s
+  const ctx = c.getContext('2d')!
+  ctx.clearRect(0, 0, s, s)
+  // A big blur radius gives the soft penumbra; padding leaves room for it to fade out.
+  const pad = 46
+  ctx.filter = `blur(${Math.round(pad * 0.62)}px)`
+  ctx.fillStyle = 'rgba(0,0,0,0.92)'
+  const x = pad
+  const y = pad
+  const w = s - pad * 2
+  const h = s - pad * 2
+  const r = 18
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+  ctx.fill()
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  softShadowTex = tex
+  return tex
+}
+
 /** Helper for useMemo + dispose on unmount */
 export function disposeAll(objs: Array<{ dispose(): void } | null | undefined>) {
   for (const o of objs) o?.dispose()
