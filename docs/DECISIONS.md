@@ -9,6 +9,12 @@
 
 ---
 
+## 2026-07-23 3Dギャラリーの陰影realism強化（PC向け・自然/上品）
+- 背景: ユーザー「影がない／3Dのリアリティがない」。現状は作品スポットが額縁影を壁に焼き込み＋N8AO接地は入っていたが、影が`PCFShadowMap`(硬い)でCGっぽかった。対象はPC（スマホはLOW_POWERでEffects一式オフ＝別問題、今回は対象外）。
+- 決定（自然/上品な範囲で）: ①`gl.shadowMap.type` を `PCFShadowMap`→`PCFSoftShadowMap`。②`SpotWithTarget` に `shadow-radius`(既定4)を追加しソフトな半影に（作品スポット＋ベンチのダウンライト＝床の接触影も自動でソフト化）。baked（autoUpdate=false）でもtypeとradiusは描画時サンプリングに効くので有効。③`N8AO` を `aoRadius 1.2→1.5 / intensity 2.4→2.6` で接地感を少し強く。
+- 検証: tsc・buildクリーン。/demo（PC）で白/ネイビー額縁の柔らかい落ち影＋隅のAO接地陰を実機確認、コンソールエラーなし。強さは`shadow-radius`/N8AO値で微調整可。
+- 残（今回対象外）: スマホは`LOW_POWER`でAO等オフのため平面的なまま。必要なら軽量な接地陰の別途検討。
+
 ## 2026-07-23 /demoを額縁の「見本市」化＋来場者編集UIをデモで非表示
 - 背景: デモで額縁を変えられる方が良いか？の議論。結論=デモは来場者に編集させるより、**多様な見た目を並べた見本市**として見せる方が価値が高い（歩くだけで額縁/マット/掛け方の幅が伝わる）。編集の自由度はサインイン後の自分のギャラリーで提供。
 - 決定1: デモ10作品(`ARTWORKS` a01〜a10)に**多様な額縁を割り当て**（`lib/artworks.ts` の `DEMO_DESIGN`＋`demoDesignOverrides()`）。gold/oak/white/black/none＋custom(navy paint/walnut/silver metal/wine/極太ink)、マット・掛け方・キャプションも変化。`GalleryApp`のdemo時に`useGallery.setState(...)`で流し込む=**永続化しない**(updateSettingsでなくsetState。ゲストのlocalStorageを汚さない。LESSON 2026-07-13の永続設定汚染回避)。適用は`loadingDone && !user && !visitor`後(hydrateにclobberされない)。

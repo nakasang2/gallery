@@ -9,7 +9,7 @@ import HeightFog from './HeightFog'
 export default function Effects({ theme }: { theme: ThemeDef }) {
   return (
     <EffectComposer multisampling={0}>
-      <N8AO aoRadius={1.2} distanceFalloff={2.5} intensity={2.4} quality="medium" />
+      <N8AO aoRadius={1.5} distanceFalloff={2.5} intensity={2.6} quality="medium" />
       {/* Continuous mist (depth-based). Thicker near the floor, no stepping as you move */}
       <HeightFog
         color={theme.mistColor}

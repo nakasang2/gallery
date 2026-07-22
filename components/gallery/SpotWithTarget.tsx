@@ -13,6 +13,7 @@ export default function SpotWithTarget({
   decay,
   castShadow = false,
   shadowMapSize = 1024,
+  shadowRadius = 4,
 }: {
   position: [number, number, number]
   targetPosition: [number, number, number]
@@ -23,6 +24,7 @@ export default function SpotWithTarget({
   decay: number
   castShadow?: boolean
   shadowMapSize?: number
+  shadowRadius?: number
 }) {
   const light = useRef<THREE.SpotLight>(null!)
   const target = useMemo(() => new THREE.Object3D(), [])
@@ -44,6 +46,7 @@ export default function SpotWithTarget({
         castShadow={castShadow}
         shadow-mapSize={[shadowMapSize, shadowMapSize]}
         shadow-bias={-0.0003}
+        shadow-radius={shadowRadius}
         shadow-camera-near={0.5}
       />
       <primitive object={target} position={targetPosition} />

@@ -204,9 +204,12 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
             camera.rotation.order = 'YXZ'
             gl.toneMapping = THREE.ACESFilmicToneMapping
             gl.toneMappingExposure = 1.1
-            // The scene is static, so shadows are baked (GalleryScene sets needsUpdate)
+            // The scene is static, so shadows are baked (GalleryScene sets needsUpdate).
+            // PCFSoft + per-light shadow radius gives soft, natural penumbra edges
+            // instead of the hard stair-stepped CG look (sampled at render, so it
+            // still applies to the baked maps).
             gl.shadowMap.enabled = true
-            gl.shadowMap.type = THREE.PCFShadowMap
+            gl.shadowMap.type = THREE.PCFSoftShadowMap
             gl.shadowMap.autoUpdate = false
             gl.domElement.style.touchAction = 'none'
             canvasRef.current = gl.domElement // for the walkthrough recorder
