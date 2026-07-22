@@ -73,6 +73,7 @@ export default function ArtworkPanel() {
   const setTourActive = useGallery((s) => s.setTourActive)
   const updateSettings = useGallery((s) => s.updateSettings)
   const visitor = useGallery((s) => s.visitor)
+  const demoMode = useGallery((s) => s.demoMode)
   const settings = useSettings()
 
   const tourActive = useGallery((s) => s.tourActive)
@@ -154,8 +155,10 @@ export default function ArtworkPanel() {
           ) : (
             art.price && <div className="panel-price">{art.price}</div>
           )}
-          {/* Per-work design (frame / mat / hanging / caption) cannot be changed in visitor mode */}
-          {!visitor && (
+          {/* Per-work design editor: owner-editing only. Hidden in the public visitor
+              view AND on the /demo showcase (the demo is a curated "sampler" — its
+              varied looks are set in code, not tweaked by casual visitors). */}
+          {!visitor && !demoMode && (
             <div className="panel-frame">
               <div className="panel-frame-label">Design — this work</div>
               <WorkDesign

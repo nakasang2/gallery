@@ -127,6 +127,47 @@ export const ARTWORKS: ArtworkData[] = [
   },
 ]
 
+/* ---- /demo "sampler": a curated per-work look so walking the showcase shows the
+   range of framing (materials, colours, thickness), mats, hangings and captions.
+   Keys are the same strings the per-work overrides use — a FRAMES preset id
+   ('gold'/'wood'/'white'/'black'/'none') or the custom form 'c:<material>:<hex6>:<mm>'
+   (material = wood|metal|paint). Applied on /demo only, in-memory (never persisted). */
+export const DEMO_DESIGN: Record<
+  string,
+  { frame?: string; mat?: string; hanging?: string; caption?: string }
+> = {
+  a01: { frame: 'gold', mat: 'ivory', hanging: 'wire', caption: 'side' },
+  a02: { frame: 'wood', mat: 'white', hanging: 'flush', caption: 'under' },
+  a03: { frame: 'c:paint:2e3f54:90', mat: 'grey', hanging: 'ledge', caption: 'label' },
+  a04: { frame: 'none', hanging: 'flush', caption: 'side' },
+  a05: { frame: 'white', mat: 'white', hanging: 'wire', caption: 'under' },
+  a06: { frame: 'c:wood:46311f:110', mat: 'ivory', hanging: 'wire', caption: 'side' },
+  a07: { frame: 'c:metal:b9babd:60', mat: 'black', hanging: 'flush', caption: 'label' },
+  a08: { frame: 'black', mat: 'auto', hanging: 'ledge', caption: 'under' },
+  a09: { frame: 'c:paint:6e2f36:100', mat: 'ivory', hanging: 'wire', caption: 'side' },
+  a10: { frame: 'c:wood:141210:140', mat: 'white', hanging: 'flush', caption: 'under' },
+}
+
+/** Build the four per-work override maps the store reads, from DEMO_DESIGN. */
+export function demoDesignOverrides(): {
+  frameOverrides: Record<string, string>
+  matOverrides: Record<string, string>
+  hangingOverrides: Record<string, string>
+  captionOverrides: Record<string, string>
+} {
+  const frameOverrides: Record<string, string> = {}
+  const matOverrides: Record<string, string> = {}
+  const hangingOverrides: Record<string, string> = {}
+  const captionOverrides: Record<string, string> = {}
+  for (const [id, d] of Object.entries(DEMO_DESIGN)) {
+    if (d.frame) frameOverrides[id] = d.frame
+    if (d.mat) matOverrides[id] = d.mat
+    if (d.hanging) hangingOverrides[id] = d.hanging
+    if (d.caption) captionOverrides[id] = d.caption
+  }
+  return { frameOverrides, matOverrides, hangingOverrides, captionOverrides }
+}
+
 /* ---- Draw functions for each style ---- */
 
 const styles: Record<string, StyleFn> = {

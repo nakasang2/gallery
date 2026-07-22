@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
 import { resolveLayout, THEMES } from '@/lib/presets'
 import { useExhibitionList } from '@/lib/exhibition'
+import { demoDesignOverrides } from '@/lib/artworks'
 import { useGallery } from '@/lib/store'
 import { useToast } from '@/lib/toast'
 import { walkRef, canvasRef, LOW_POWER } from '@/lib/controller'
@@ -181,6 +182,15 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
       useGallery.getState().updateSettings({ theme: demoTheme })
     }
   }, [loadingDone, demoTheme, user, visitor])
+
+  // /demo "sampler": seed a curated per-work look (varied frames/mats/hangings/
+  // captions) so walking the showcase shows the range. In-memory only (setState, not
+  // updateSettings) so it never persists into a guest's own localStorage settings.
+  useEffect(() => {
+    if (demo && loadingDone && !user && !visitor) {
+      useGallery.setState(demoDesignOverrides())
+    }
+  }, [demo, loadingDone, user, visitor])
 
   return (
     <>

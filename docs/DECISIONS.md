@@ -9,6 +9,13 @@
 
 ---
 
+## 2026-07-23 /demoを額縁の「見本市」化＋来場者編集UIをデモで非表示
+- 背景: デモで額縁を変えられる方が良いか？の議論。結論=デモは来場者に編集させるより、**多様な見た目を並べた見本市**として見せる方が価値が高い（歩くだけで額縁/マット/掛け方の幅が伝わる）。編集の自由度はサインイン後の自分のギャラリーで提供。
+- 決定1: デモ10作品(`ARTWORKS` a01〜a10)に**多様な額縁を割り当て**（`lib/artworks.ts` の `DEMO_DESIGN`＋`demoDesignOverrides()`）。gold/oak/white/black/none＋custom(navy paint/walnut/silver metal/wine/極太ink)、マット・掛け方・キャプションも変化。`GalleryApp`のdemo時に`useGallery.setState(...)`で流し込む=**永続化しない**(updateSettingsでなくsetState。ゲストのlocalStorageを汚さない。LESSON 2026-07-13の永続設定汚染回避)。適用は`loadingDone && !user && !visitor`後(hydrateにclobberされない)。
+- 決定2: 作品詳細パネル下部の**per-work編集UI(WorkDesign)をデモで非表示**。条件を`!visitor`→`!visitor && !demoMode`に(オーナー編集時のみ表示、公開閲覧とデモでは非表示)。デモは純粋な見本市に。
+- 見送り: B案(管理のDemo設定画面)は当面見送り。デモ内容は頻繁に変えないためまずコード見本市で効果を見る→頻繁に変えたくなったら`/admin`に設定画面を追加(既存`DemoLookEditor`/`site_config`拡張)。
+- 検証: tsc・buildクリーン。/demoで`frameOverrides`等がa01〜a10に適用・編集UI非表示・a01=gold/a04=額縁なしの描画差を実機確認。
+
 ## 2026-07-22 読み上げに館内リバーブ＋/demoにゴースト来場者
 - 決定1（リバーブ）: OpenAI音声の読み上げを既存の「ホール残響」ConvolverNode（[lib/audio.ts]の足音用リバーブ）に通し、館内で流れているような空気感を付与。控えめ（`GUIDE_REVERB_WET=0.18`、dryは全開）。`galleryAudio.connectGuide(el)`で`MediaElementSource→dry→master`＋`send→convolver`。**ブラウザ読み上げ（SpeechSynthesis）はWebAudioに通せず素のまま**（OpenAI音声のみ加工）。要点: `<audio>`に`crossOrigin='anonymous'`必須（`createMediaElementSource`はCORSなしで無音化。Supabaseは`ACAO:*`で可）。♪ミュート/離脱suspendはmaster経由で自動継承。
 - 決定2（demoの人）: /demoは実訪問数が無いためゴースト0人だった→**固定4〜6人**の賑わいを表示（見せ場のため`visitor`ページの`MAX_GHOSTS=4`上限を意図的に超える）。`store.demoMode`を追加、`GalleryApp`が`demo`propで設定、`GhostVisitors`が`visitor`不在時に`demoMode`で固定人数を出す。人数は`4+random(0..2)`で起動時に固定。`!LOW_POWER`で低性能端末は自動オフ。
