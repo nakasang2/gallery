@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
+import { ARTWORKS } from '@/lib/artworks'
 
 export const runtime = 'nodejs'
 
@@ -40,17 +41,23 @@ export async function POST(req: NextRequest) {
 
   const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
 
-  // Read the caption from the DB — this is the ONLY text we synthesize.
-  const { data: art, error: readErr } = await db
-    .from('artworks')
-    .select('description')
-    .eq('id', workId)
-    .maybeSingle()
-  if (readErr) {
-    console.error('tts: artwork read failed', readErr.message)
-    return NextResponse.json({ error: 'Lookup failed.' }, { status: 500 })
+  // The ONLY text we synthesize is a real caption we look up server-side (never
+  // client-supplied), so this can't be abused to voice arbitrary text.
+  // Bundled demo works (/demo — ids like "a01") are checked first: they aren't in
+  // the DB, and their ids aren't uuids, so querying the DB for them would error.
+  let text = (ARTWORKS.find((a) => a.id === workId)?.desc ?? '').trim()
+  if (!text) {
+    const { data: art, error: readErr } = await db
+      .from('artworks')
+      .select('description')
+      .eq('id', workId)
+      .maybeSingle()
+    if (readErr) {
+      console.error('tts: artwork read failed', readErr.message)
+      return NextResponse.json({ error: 'Lookup failed.' }, { status: 500 })
+    }
+    text = (art?.description ?? '').trim()
   }
-  const text = (art?.description ?? '').trim()
   if (!text) return NextResponse.json({ error: 'No caption to read.' }, { status: 404 })
   if (text.length > MAX_CHARS) return NextResponse.json({ error: 'Caption too long.' }, { status: 400 })
 
