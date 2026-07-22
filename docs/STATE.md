@@ -2,7 +2,7 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-22（3D Gallery: ライト位置(天井/作品真上)選択＋壁グライド中の足音抑制）
+- **最終更新**: 2026-07-22（ライト: overheadを壁付きピクチャーライト化＋造形を本格化）
 
 ## 進行中
 - なし
@@ -27,7 +27,7 @@
 - なし
 
 ## 完了ログ（直近5件）
-- 2026-07-22: **ライト位置選択＋壁グライド足音抑制**。ユーザー指示2点。①各作品スポットの位置を選択可に: `design_overrides.lightMode`('ceiling'|'overhead'、マイグレ不要)追加。Exhibitの`lightPos`を切替(ceiling=壁法線2.1mのトラック照明・既定/overhead=作品真上0.45mから真下へ)。ダッシュボードTheme節に「Lighting: Ceiling/Above work」チップ追加、GalleryScene・Preview3Dへ伝播、影焼き直しの依存に`designOverrides`追加。②壁情報へ寄る時の高速足音: `focusWall`は`targetIndex=-1`で従来の足音抑制条件を外れ鳴っていた→`state.autoGlide`フラグを追加しfootstepガードに反映(focusExhibitと同様に抑制)。`/demo`でライト移動を確認、tsc・buildクリーン。※Lighting UIは認証必須/me実描画は本番QA。
+- 2026-07-22: **ライト位置選択＋壁グライド足音抑制**。ユーザー指示2点。①各作品スポットの位置を選択可に: `design_overrides.lightMode`('ceiling'|'overhead'、マイグレ不要)追加。Exhibitの`lightPos`を切替(ceiling=壁法線2.1mのトラック照明・既定/overhead=作品真上0.45mから真下へ)。ダッシュボードTheme節に「Lighting: Ceiling/Above work」チップ追加、GalleryScene・Preview3Dへ伝播、影焼き直しの依存に`designOverrides`追加。②壁情報へ寄る時の高速足音: `focusWall`は`targetIndex=-1`で従来の足音抑制条件を外れ鳴っていた→`state.autoGlide`フラグを追加しfootstepガードに反映(focusExhibitと同様に抑制)。`/demo`でライト移動を確認、tsc・buildクリーン。※Lighting UIは認証必須/me実描画は本番QA。**追記(同日ユーザーFB)**: 「作品真上」は天井光でなく“作品上の壁から出っ張るピクチャーライト”が正解→overheadを壁付きピクチャーライト(フレーム上0.22m/壁法線0.34m先、angle0.85)に作り直し。フィックスチャーも真鍮バックプレート＋アーム＋横チューブシェード＋丸エンドキャップ＋暖色発光ラインへ本格化。ceilingは天井トラック(2.1m/作品中心/0.46)に戻し。`/demo`で造形確認。
 - 2026-07-22: **3D Gallery 仕上げ4点**。ユーザー指示。①タイトル壁クリックで作品同様にカメラを壁正面へグライド(`WalkAPI.focusWall`追加)＋情報パネル。②壁テキストを中央縦積みに簡略化(展示名→アイコン→名前→@account。eyebrow/subtitle/statement/bio・2カラム・未使用wrapNote/mutedを撤去。statement/bioは情報パネル側)。③ガイドツアー▶をページャー横から右下クラスタのbase先頭へ移動(ページャーは‹›のみ)。④Others展開中(hover/open)はアイコン⋯→✕(デュアルグリフCSS)、SHAREを↗→紙ヒコーキ(送信)SVG`SendIcon`(HudAction.iconをReactNode化)。`/demo`＋静的ハーネスで検証、tsc・buildクリーン。※プレビュークリック座標系は691×784(CSS)。
 - 2026-07-22: **3D Gallery UI追い込み3点**。ユーザー指示。①Others展開中は base アクション(BGM/Share/Guestbook)を隠しサブメニューのみ表示(`.hud-base`+`.others-open`／`:has(.hud-others:hover)`)。②タイトル壁をクリック可能にし作品同様の詳細パネル`InfoPanel`(Exhibition/タイトル/statement/作家bio)を開く。store に `infoOpen`/`setInfoOpen` 追加(他ドロワーと排他)、GalleryAppで描画、HUD/ステッパー/ヒントは infoOpen 時も tuck。③壁 hover でカーソル pointer(作品と同一 onOver/onOut。作品側は既存対応)。`/demo`実機で3点とも確認(infoOpen発火・base非表示)。tsc・buildクリーン。※プレビュークリックの座標系は 691×784(CSS)で、デバイスpxではない点に注意(検証時ハマった)。
 - 2026-07-22: **3D Gallery HUDの刷新**。ユーザー指示。①左上テキストをサービス名(XIBIT360)＋展示名＋展示者のみに（@ユーザー名/SNS/Explore/Report撤去）。②右下に統一アクションクラスタ新設(左下のRecordも統合): BGM/SHARE/GUESTBOOK/OTHERS(→REPORT/RECORD)。既定はアイコン+丸、hover/focusでラベル付きカプセルに拡張(`@media (hover:hover)`でタッチは丸のままタップ即実行)、OTHERSはhover/タップで上にサブメニュー。③SHARE新規: `navigator.share`対応時はOS共有シート、非対応時は公開URLコピー+トースト。④`RecordButton`を`useWalkRecorder`フック化しクラスタから駆動(GalleryApp単独描画を廃止)。モード差: visitor=全部、demo/owner=該当分のみ。tsc・buildクリーン、静的ハーネス＋/demoでコンソールエラー無しを確認。※visitor実画面(全ボタン/実共有・録画・記帳)は認証・実データ・3D要のため本番QA。
