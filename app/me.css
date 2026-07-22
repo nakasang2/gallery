@@ -852,6 +852,22 @@
   .me-subnav-tx { max-width: 8rem; }
 }
 
+/* Wide screens: break the rail out into the left gutter so it reads as a page-level
+   sidebar, while the content column stays aligned with the 880px column above it.
+   The body widens leftward by the rail's footprint and shifts left by the same amount,
+   so the content column overlays the centred column exactly and the rail spills into
+   the gutter. The rail stays an in-flow sticky item, so its top lines up with the
+   content card and it follows the page on scroll (no fixed-offset guessing).
+   Gated at 1300px so the gutter has room for the ~196px rail footprint. */
+@media (min-width: 1300px) {
+  .me-gallery-body {
+    width: calc(100% + 172px + 1.5rem);
+    margin-left: calc(-172px - 1.5rem);
+    gap: 1.5rem;
+  }
+  .me-subnav { max-height: calc(100dvh - 2rem); overflow-y: auto; padding-right: 2px; }
+}
+
 /* 二次操作(Rename/Delete): 主要ボタンと並列にしない静かなテキスト行 */
 .hako-secondary {
   display: flex;

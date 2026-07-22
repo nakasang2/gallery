@@ -486,7 +486,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   // The W×H cm fields only show in "custom" mode; a preset shows just the dropdown + swap.
   const [sizeCustom, setSizeCustom] = useState(false)
   const [mediumInput, setMediumInput] = useState('')
-  const [workSaved, setWorkSaved] = useState(false)
+  // Per-work text autosaves (like the exhibition title/statement) — no Save button.
+  const [workState, setWorkState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const workTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [purchaseItem, setPurchaseItem] = useState<
     { kind: 'theme' | 'layout' | 'capacity' | 'design-tools'; key: string; label: string } | null
   >(null)
@@ -563,7 +565,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     // (a non-standard size, or none yet) open the custom fields so they're ready to type.
     setSizeCustom(matchPreset(selected?.widthCm, selected?.heightCm) === null)
     setMediumInput(selected?.medium ?? '')
-    setWorkSaved(false)
+    setWorkState('idle')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
 
@@ -841,59 +843,59 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     }
   }
 
-  // Title + caption as shown on the work's name plate (and the public page)
-  async function saveWorkDetails() {
-    if (!selected) return
-    setBusy(true)
-    try {
-      const w = parseFloat(widthInput)
-      const h = parseFloat(heightInput)
-      await updateArtworkDetails(selected.id, {
-        title: titleInput,
-        description: captionInput,
-        purchaseUrl: purchaseUrlInput,
-        price: priceInput,
-        widthCm: Number.isFinite(w) && w > 0 ? w : null,
-        heightCm: Number.isFinite(h) && h > 0 ? h : null,
-        medium: mediumInput,
-      })
-      await refreshCloud()
-      setWorkSaved(true)
-      setTimeout(() => setWorkSaved(false), 1600)
-    } catch (e) {
-      alert(`Could not save the work details: ${e instanceof Error ? e.message : e}`)
-    } finally {
-      setBusy(false)
+  // The work's plate text (title/caption/price/link/size/medium) autosaves after a
+  // short pause — same "type and it saves" model as the exhibition title/statement,
+  // so there's no Save button. The payload is captured at call time, so switching
+  // works mid-debounce still commits the edit to the work it was made on.
+  function editWork(next: Partial<{
+    title: string; caption: string; purchaseUrl: string; price: string; width: string; height: string; medium: string
+  }>) {
+    if (next.title !== undefined) setTitleInput(next.title)
+    if (next.caption !== undefined) setCaptionInput(next.caption)
+    if (next.purchaseUrl !== undefined) setPurchaseUrlInput(next.purchaseUrl)
+    if (next.price !== undefined) setPriceInput(next.price)
+    if (next.width !== undefined) setWidthInput(next.width)
+    if (next.height !== undefined) setHeightInput(next.height)
+    if (next.medium !== undefined) setMediumInput(next.medium)
+    const id = selected?.id
+    if (!id) return
+    const w = parseFloat(next.width ?? widthInput)
+    const h = parseFloat(next.height ?? heightInput)
+    const payload = {
+      title: next.title ?? titleInput,
+      description: next.caption ?? captionInput,
+      purchaseUrl: next.purchaseUrl ?? purchaseUrlInput,
+      price: next.price ?? priceInput,
+      widthCm: Number.isFinite(w) && w > 0 ? w : null,
+      heightCm: Number.isFinite(h) && h > 0 ? h : null,
+      medium: next.medium ?? mediumInput,
     }
+    setWorkState('saving')
+    if (workTimer.current) clearTimeout(workTimer.current)
+    workTimer.current = setTimeout(() => {
+      updateArtworkDetails(id, payload)
+        .then(async () => {
+          await refreshCloud()
+          setWorkState('saved')
+          setTimeout(() => setWorkState('idle'), 1600)
+        })
+        .catch((e) => {
+          alert(`Could not save the work details: ${e instanceof Error ? e.message : e}`)
+          setWorkState('idle')
+        })
+    }, 900)
   }
+  useEffect(() => () => {
+    if (workTimer.current) clearTimeout(workTimer.current)
+  }, [])
 
   const themeDef = THEMES[row.theme] ?? THEMES.chic
 
   return (
     <>
-    <SectionSaveHeader
-      title="My gallery"
-      action={
-        selected ? (
-          <button
-            className="wd-save-cta wd-save-compact"
-            disabled={
-              busy ||
-              (titleInput === selected.title &&
-                captionInput === (selected.desc ?? '') &&
-                purchaseUrlInput === (selected.purchaseUrl ?? '') &&
-                priceInput === (selected.price ?? '') &&
-                widthInput === (selected.widthCm ? String(selected.widthCm) : '') &&
-                heightInput === (selected.heightCm ? String(selected.heightCm) : '') &&
-                mediumInput === (selected.medium ?? ''))
-            }
-            onClick={() => void saveWorkDetails()}
-          >
-            {workSaved ? 'Saved ✓' : 'Save settings'}
-          </button>
-        ) : undefined
-      }
-    />
+    <div className="me-section-head">
+      <h2>My gallery</h2>
+    </div>
     <div className="me-card">
       {/* The room's own colours, as a ribbon — this card IS that room */}
       <div
@@ -1448,6 +1450,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 >
                   Remove work
                 </button>
+                {workState !== 'idle' && (
+                  <span className="hako-save-state">{workState === 'saving' ? 'saving…' : 'saved'}</span>
+                )}
               </div>
               {/* The name plate's text: title + caption, straight onto the plate above.
                   Flush (no top divider) — it's the first thing in the settings column now. */}
@@ -1455,7 +1460,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 <div className="wd-title"><span>Title &amp; caption</span></div>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
                   <span>Title</span>
-                  <input type="text" value={titleInput} onChange={(e) => setTitleInput(e.target.value)} />
+                  <input type="text" value={titleInput} onChange={(e) => editWork({ title: e.target.value })} />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
                   <FieldLabel hint="Shown on the name plate beside the work.">Caption</FieldLabel>
@@ -1464,7 +1469,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                     maxLength={140}
                     placeholder="A line about this work (year, medium, a thought…)"
                     value={captionInput}
-                    onChange={(e) => setCaptionInput(e.target.value)}
+                    onChange={(e) => editWork({ caption: e.target.value })}
                   />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
@@ -1473,7 +1478,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                     type="text"
                     placeholder="e.g. ¥50,000 (leave blank to hide)"
                     value={priceInput}
-                    onChange={(e) => setPriceInput(e.target.value)}
+                    onChange={(e) => editWork({ price: e.target.value })}
                   />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
@@ -1483,7 +1488,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                     inputMode="url"
                     placeholder="yourshop.com/this-piece (leave blank if not for sale)"
                     value={purchaseUrlInput}
-                    onChange={(e) => setPurchaseUrlInput(e.target.value)}
+                    onChange={(e) => editWork({ purchaseUrl: e.target.value })}
                   />
                 </label>
                 <div className="wd-row" style={{ margin: '0.45rem 0' }}>
@@ -1497,8 +1502,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                       onChange={(e) => {
                         const p = presetByLabel(e.target.value)
                         if (p) {
-                          setWidthInput(String(p.w))
-                          setHeightInput(String(p.h))
+                          editWork({ width: String(p.w), height: String(p.h) })
                           setSizeCustom(false)
                         } else {
                           setSizeCustom(true) // "Custom / other…" — reveal the cm fields
@@ -1526,7 +1530,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                             placeholder="W"
                             className="size-num"
                             value={widthInput}
-                            onChange={(e) => setWidthInput(e.target.value)}
+                            onChange={(e) => editWork({ width: e.target.value })}
                           />
                           <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
                           <input
@@ -1536,7 +1540,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                             placeholder="H"
                             className="size-num"
                             value={heightInput}
-                            onChange={(e) => setHeightInput(e.target.value)}
+                            onChange={(e) => editWork({ height: e.target.value })}
                           />
                           <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
                         </>
@@ -1546,10 +1550,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                         className="btn-line"
                         title="Swap width and height (portrait ⇄ landscape)"
                         style={{ padding: '0.35em 0.6em' }}
-                        onClick={() => {
-                          setWidthInput(heightInput)
-                          setHeightInput(widthInput)
-                        }}
+                        onClick={() => editWork({ width: heightInput, height: widthInput })}
                       >
                         ⇄
                       </button>
@@ -1562,7 +1563,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                     type="text"
                     placeholder="Medium (optional)"
                     value={mediumInput}
-                    onChange={(e) => setMediumInput(e.target.value)}
+                    onChange={(e) => editWork({ medium: e.target.value })}
                   />
                 </label>
                 {/* Audio guide needs no upload UI — the tour reads the caption aloud
