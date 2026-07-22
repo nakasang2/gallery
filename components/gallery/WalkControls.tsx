@@ -191,6 +191,36 @@ export default function WalkControls({
     )
   }
 
+  // Glide to face the title wall (west accent wall), the way focusExhibit frames a work.
+  // Pairs with the info panel (a right drawer), so shift the board left of centre on wide screens.
+  function focusWall() {
+    cancelTweens()
+    state.current.targetIndex = -1
+    const { hw } = layoutRef.current
+    const center = new THREE.Vector3(-hw, 2.4, 0) // board centre-ish (it sits high on the wall)
+    const normal = new THREE.Vector3(1, 0, 0) // faces +x, into the room
+    const isPhone = window.innerWidth <= 640
+    const viewDist = isPhone ? 6.4 : 5.4
+    const side = new THREE.Vector3(normal.z, 0, -normal.x)
+    const shift = isPhone ? 0 : viewDist * 0.2
+    const to = clampToRoom(
+      center.clone().add(normal.clone().multiplyScalar(viewDist)).add(side.multiplyScalar(shift))
+    )
+    to.y = EYE
+    const from = camera.position.clone()
+    const targetYaw = Math.atan2(normal.x, normal.z) // turn to face the wall
+    const targetPitch = 0.14 // the board is above eye level — tilt up a touch
+    const fromYaw = state.current.yaw
+    const fromPitch = state.current.pitch
+    const dYaw = shortestAngle(targetYaw - fromYaw)
+    tween(1.15, (t) => {
+      const k = easeInOut(t)
+      camera.position.lerpVectors(from, to, k)
+      state.current.yaw = fromYaw + dYaw * k
+      state.current.pitch = fromPitch + (targetPitch - fromPitch) * k
+    })
+  }
+
   // Index of the work whose center is closest to the camera on the floor plane
   function nearestIndex() {
     const meta = metaRef.current
@@ -241,7 +271,7 @@ export default function WalkControls({
 
   // Expose so the UI (panel, tour, joystick) can call it
   useEffect(() => {
-    walkRef.current = { focusExhibit, focusStep, walkTo, cancel: cancelTweens, resetToEntry }
+    walkRef.current = { focusExhibit, focusStep, focusWall, walkTo, cancel: cancelTweens, resetToEntry }
     return () => {
       walkRef.current = null
     }

@@ -10,6 +10,8 @@ export interface WalkAPI {
    * first step goes to the nearest work.
    */
   focusStep(dir: number): void
+  /** Glide to face the title wall (its board opens the exhibition-info panel) */
+  focusWall(): void
   walkTo(point: THREE.Vector3): void
   /** Stop the in-progress movement tween */
   cancel(): void

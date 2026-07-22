@@ -10,6 +10,7 @@ import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { useGallery, useSettings } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
 import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll, type TitleWallText } from './textures'
+import { walkRef } from '@/lib/controller'
 import { loadImage } from '@/lib/upload'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
@@ -121,6 +122,7 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
     if (e.delta > 10) return
+    walkRef.current?.focusWall() // glide to face the board, like focusing a work
     setInfoOpen(true)
   }
   const onOver = () => (gl.domElement.style.cursor = 'pointer')
