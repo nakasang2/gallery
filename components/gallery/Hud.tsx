@@ -127,6 +127,9 @@ export function HudActions() {
   const infoOpen = useGallery((s) => s.infoOpen)
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
+  const tourActive = useGallery((s) => s.tourActive)
+  const setTourActive = useGallery((s) => s.setTourActive)
+  const hasWorks = useExhibitionList().length > 0
   const [audioOn, setAudioOn] = useState(galleryAudio.enabled)
   const [othersOpen, setOthersOpen] = useState(false)
   const recorder = useWalkRecorder()
@@ -165,6 +168,15 @@ export function HudActions() {
     >
       {/* Base actions — hidden while Others is open so the submenu stands alone */}
       <div className="hud-base">
+        {hasWorks && (
+          <HudAction
+            icon={tourActive ? '■' : '▶'}
+            label={tourActive ? 'End tour' : 'Tour'}
+            active={tourActive}
+            onClick={() => setTourActive(!tourActive)}
+          />
+        )}
+
         <HudAction icon="♪" label={audioOn ? 'BGM on' : 'BGM off'} active={audioOn} onClick={toggleAudio} />
 
         {visitor && <HudAction icon="↗" label="Share" onClick={share} />}
@@ -235,8 +247,6 @@ export function HudActions() {
 export function HudStepper() {
   const count = useExhibitionList().length
   const focusedIndex = useGallery((s) => s.focusedIndex)
-  const tourActive = useGallery((s) => s.tourActive)
-  const setTourActive = useGallery((s) => s.setTourActive)
   const settingsOpen = useGallery((s) => s.settingsOpen)
   const guestbookOpen = useGallery((s) => s.guestbookOpen)
   const infoOpen = useGallery((s) => s.infoOpen)
@@ -246,6 +256,7 @@ export function HudStepper() {
   const tucked = settingsOpen || guestbookOpen || infoOpen
   return (
     // 'lifted' rides above the phone bottom sheet so browsing next/prev never needs closing it
+    // The guided tour toggle now lives in the bottom-right cluster (HudActions), not here.
     <div
       className={`hud-stepper${focusedIndex >= 0 ? ' lifted' : ''}${tucked ? ' tucked' : ''}`}
       aria-hidden={tucked}
@@ -259,15 +270,6 @@ export function HudStepper() {
       </span>
       <button className="step-btn" aria-label="Next work" onClick={() => walkRef.current?.focusStep(1)}>
         ›
-      </button>
-      <span className="step-divider" aria-hidden="true" />
-      <button
-        className={`step-btn step-tour${tourActive ? ' active' : ''}`}
-        aria-label={tourActive ? 'End the guided tour' : 'Start the guided tour'}
-        title={tourActive ? 'End tour' : 'Guided tour'}
-        onClick={() => setTourActive(!tourActive)}
-      >
-        {tourActive ? '■' : '▶'}
       </button>
     </div>
   )
