@@ -73,7 +73,7 @@ export function useWalkRecorder() {
     const g = useGallery.getState()
     g.setSettingsOpen(false)
     g.setGuestbookOpen(false)
-    g.setTourActive(true)
+    g.setTourActive(true, true) // recording mode → fixed dwell (no narration in the file)
 
     // Stop when the tour ends on its own (tourActive flips back to false)
     unsubRef.current = useGallery.subscribe((s, prev) => {

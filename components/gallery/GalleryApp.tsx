@@ -31,29 +31,69 @@ function Toast() {
   )
 }
 
-// Guided tour: focus works in order, pausing to view each before moving on
+// Guided tour: focus works in order, pausing to view each before moving on.
+// Live tour: hold each work at least MIN_DWELL, then wait for its narration to
+// finish (MAX_DWELL ceiling so a long/stuck guide can't stall). Recording run:
+// a brisk fixed dwell — the WebM captures video only, so there's no narration to
+// wait for and short beats keep the shareable clip tight.
+const MIN_DWELL_MS = 6200
+const MAX_DWELL_MS = 30_000
+const REC_DWELL_MS = 6200
 function useTour() {
   const tourActive = useGallery((s) => s.tourActive)
   const count = useExhibitionList().length
 
   useEffect(() => {
     if (!tourActive) return
+    const recording = useGallery.getState().tourRecording
     let idx = 0
-    let timer: ReturnType<typeof setTimeout>
+    let minTimer: ReturnType<typeof setTimeout> | undefined
+    let maxTimer: ReturnType<typeof setTimeout> | undefined
+    let unsub: (() => void) | undefined
     useGallery.getState().setSettingsOpen(false)
+
+    const clearStep = () => {
+      if (minTimer) clearTimeout(minTimer)
+      if (maxTimer) clearTimeout(maxTimer)
+      unsub?.()
+      unsub = undefined
+    }
+    const next = () => {
+      clearStep()
+      idx++
+      if (idx >= count) {
+        useGallery.getState().setTourActive(false)
+        return
+      }
+      step()
+    }
     const step = () => {
       walkRef.current?.focusExhibit(idx)
-      timer = setTimeout(() => {
-        idx++
-        if (idx >= count) {
-          useGallery.getState().setTourActive(false)
+      if (recording) {
+        minTimer = setTimeout(next, REC_DWELL_MS)
+        return
+      }
+      let advanced = false
+      const advance = () => {
+        if (advanced) return
+        advanced = true
+        next()
+      }
+      // After the minimum dwell, move on as soon as the narration isn't playing;
+      // if it's still going, wait for it to end. MAX_DWELL is the hard ceiling.
+      minTimer = setTimeout(() => {
+        if (!audioGuide.playing) {
+          advance()
           return
         }
-        step()
-      }, 6200)
+        unsub = audioGuide.subscribe(() => {
+          if (!audioGuide.playing) advance()
+        })
+      }, MIN_DWELL_MS)
+      maxTimer = setTimeout(advance, MAX_DWELL_MS)
     }
     step()
-    return () => clearTimeout(timer)
+    return () => clearStep()
   }, [tourActive, count])
 }
 
