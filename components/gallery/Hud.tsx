@@ -1,6 +1,6 @@
 'use client'
 // Top HUD (back/title), bottom-right actions (guided tour / edit space / ambience), and control hints
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
@@ -9,6 +9,7 @@ import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
 import { showToast } from '@/lib/toast'
+import { SendIcon } from '@/components/icons'
 import { useWalkRecorder } from './RecordButton'
 
 export function HudTop() {
@@ -100,7 +101,7 @@ function HudAction({
   active,
   onClick,
 }: {
-  icon: string
+  icon: ReactNode
   label: string
   active?: boolean
   onClick: () => void
@@ -179,7 +180,7 @@ export function HudActions() {
 
         <HudAction icon="♪" label={audioOn ? 'BGM on' : 'BGM off'} active={audioOn} onClick={toggleAudio} />
 
-        {visitor && <HudAction icon="↗" label="Share" onClick={share} />}
+        {visitor && <HudAction icon={<SendIcon />} label="Share" onClick={share} />}
 
         {visitor ? (
           <HudAction
@@ -228,13 +229,17 @@ export function HudActions() {
             )}
           </div>
           <button
-            className={`hud-action${othersOpen ? ' active' : ''}`}
-            aria-label="More actions"
+            className={`hud-action hud-others-toggle${othersOpen ? ' active' : ''}`}
+            aria-label={othersOpen ? 'Close menu' : 'More actions'}
             aria-expanded={othersOpen}
             onClick={() => setOthersOpen((v) => !v)}
           >
             <span className="hud-action-label">Others</span>
-            <span className="hud-action-icon" aria-hidden="true">⋯</span>
+            {/* ⋯ while closed, ✕ while the submenu is showing (hover or open) */}
+            <span className="hud-action-icon" aria-hidden="true">
+              <span className="others-icon-closed">⋯</span>
+              <span className="others-icon-open">✕</span>
+            </span>
           </button>
         </div>
       )}

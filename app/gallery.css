@@ -529,6 +529,12 @@ body.gallery-mode {
   visibility: visible;
   transform: translateY(0);
 }
+/* Others toggle icon: ⋯ while closed, ✕ once the submenu is showing (hover or open) */
+.hud-others-toggle .others-icon-open { display: none; }
+.hud-others:hover .hud-others-toggle .others-icon-closed,
+.hud-others.open .hud-others-toggle .others-icon-closed { display: none; }
+.hud-others:hover .hud-others-toggle .others-icon-open,
+.hud-others.open .hud-others-toggle .others-icon-open { display: inline; }
 /* Submenu items are a deliberate reveal → show their labels outright */
 .hud-others-menu .hud-action .hud-action-label {
   max-width: 12rem;

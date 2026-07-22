@@ -71,6 +71,26 @@ export function CopyIcon({ className }: { className?: string }) {
   )
 }
 
+export function SendIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22l-4-9-9-4 20-7z" />
+    </svg>
+  )
+}
+
 export function CheckIcon({ className }: { className?: string }) {
   return (
     <svg
