@@ -89,28 +89,28 @@ export default function Exhibit({
   const onOver = () => (gl.domElement.style.cursor = 'pointer')
   const onOut = () => (gl.domElement.style.cursor = '')
 
-  // Spotlight position (2.1m along the wall normal, near the ceiling)
   const normal = useMemo(
     () => new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), slot.rotY),
     [slot.rotY]
   )
+  // Both modes light the work itself
+  const spotTarget = artWorldPos
+  // 'overhead' = a picture light mounted on the wall just above the frame, its arm reaching
+  // this far into the room where the lamp head sits. 'ceiling' = a track light near the ceiling.
+  const PICTURE_ARM = 0.34
   const lightPos = useMemo(() => {
-    // 'ceiling': a track light set out from the wall, washing the wall from above.
-    // 'overhead': just in front of the wall, directly above the work, washing straight down.
-    const outDist = lightMode === 'overhead' ? 0.45 : 1.5
-    const p = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(outDist))
+    if (lightMode === 'overhead') {
+      const p = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(PICTURE_ARM))
+      p.y = 1.62 + halfH + 0.22 // just above the top of the frame
+      return p
+    }
+    const p = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(2.1))
     p.y = CEIL_H - 0.15
     return p
-  }, [slot, normal, lightMode])
-  // Where the beam is aimed. Ceiling mode aims high — the bright pool sits above the frame
-  // and washes down over it (the reference look); overhead aims straight at the work.
-  const spotTarget = useMemo(
-    () => new THREE.Vector3(slot.x, lightMode === 'ceiling' ? 2.45 : 1.62, slot.z),
-    [slot, lightMode]
-  )
-  // A wider, softer cone for the ceiling wall-wash; a tighter spot when overhead
-  const spotAngle = lightMode === 'ceiling' ? 0.62 : 0.46
-  const spotPenumbra = lightMode === 'ceiling' ? 0.85 : 0.65
+  }, [slot, normal, lightMode, halfH])
+  // The picture light sits close above the work, so it needs a wider cone to cover the frame
+  const spotAngle = lightMode === 'overhead' ? 0.85 : 0.46
+  const spotPenumbra = lightMode === 'overhead' ? 0.7 : 0.65
   const fixtureQuat = useMemo(() => {
     const dir = spotTarget.clone().sub(lightPos).normalize()
     return new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir)
@@ -242,10 +242,27 @@ export default function Exhibit({
       />
 
       {/* Light fixture (visual only) */}
-      <mesh position={[lightPos.x, CEIL_H - 0.11, lightPos.z]} quaternion={fixtureQuat}>
-        <cylinderGeometry args={[0.055, 0.075, 0.22, 12]} />
-        <meshStandardMaterial color={0x0c0b0a} roughness={0.5} />
-      </mesh>
+      {lightMode === 'overhead' ? (
+        // Picture light: a bracket on the wall above the frame, arm reaching out to a
+        // horizontal shade tilted down at the work
+        <group position={[slot.x, 1.62 + halfH + 0.22, slot.z]} rotation-y={slot.rotY}>
+          <mesh position={[0, 0, PICTURE_ARM / 2]}>
+            <boxGeometry args={[0.05, 0.05, PICTURE_ARM]} />
+            <meshStandardMaterial color={0x14110d} roughness={0.5} metalness={0.45} />
+          </mesh>
+          <group position={[0, -0.02, PICTURE_ARM]} rotation-x={0.7}>
+            <mesh rotation-z={Math.PI / 2}>
+              <cylinderGeometry args={[0.05, 0.06, Math.min(halfW * 2, 1.3), 16]} />
+              <meshStandardMaterial color={0x1c1915} roughness={0.4} metalness={0.55} />
+            </mesh>
+          </group>
+        </group>
+      ) : (
+        <mesh position={[lightPos.x, CEIL_H - 0.11, lightPos.z]} quaternion={fixtureQuat}>
+          <cylinderGeometry args={[0.055, 0.075, 0.22, 12]} />
+          <meshStandardMaterial color={0x0c0b0a} roughness={0.5} />
+        </mesh>
+      )}
     </>
   )
 }
