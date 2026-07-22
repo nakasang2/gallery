@@ -833,6 +833,39 @@
 .work-actions .btn-line.danger { color: #c96a5a; }
 .work-actions .btn-line.danger:hover { border-color: #e08a7a; color: #e08a7a; }
 
+/* Dashboard-wide autosave toast — a transient confirmation for every save */
+.me-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  background: rgba(20, 18, 15, 0.96);
+  border: 1px solid rgba(212, 162, 78, 0.5);
+  color: var(--ink);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  padding: 0.6em 1.2em;
+  border-radius: 100px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(212, 162, 78, 0.08);
+  animation: me-toast-in 0.18s ease-out;
+  pointer-events: none;
+}
+.me-toast::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+@keyframes me-toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 @media (max-width: 720px) {
   .me-gallery-body { grid-template-columns: 1fr; gap: 0.8rem; }
   .me-subnav {

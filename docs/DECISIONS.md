@@ -9,6 +9,13 @@
 
 ---
 
+## 2026-07-22 /me ダッシュボード全体を自動保存化＋保存トースト
+- 背景: 実機確認でユーザーFB「Profileが保存できていない(Saveボタン押さないと保存されない)」「保存したらトーストを出して」。
+- 決定1: **編集項目は全部自動保存**に。Profileの表示名/Bio/SNSを`editProfile`(900msデバウンス)で自動保存化し「Save profile」ボタン廃止。username(重複チェックあり)は手動Set/Change・アバターは即時のまま。Account(メール変更/パスワード/削除)は確認・破壊的操作なので手動据え置き。
+- 決定2: **ダッシュボード全体で保存トースト**。`ToastContext`＋MePageのprovider＋`.me-toast`(下中央・金ドット・1.8秒・単一スロット)。全保存成功箇所で`toast()`を呼ぶ(Gallery: run/editDetails/editDesign/editPlacement/editCustom/editWork/BGM/username/WorkDesign、Profile: editProfile/username/avatar)。インライン"saved"は廃し"saving…"のみ残す(完了はトーストで示す)。
+- 整理: 未使用化した`SectionSaveHeader`部品と`ReactNode` importを削除。
+- 対象: `app/me/page.tsx`, `app/me.css`。tsc・buildクリーン、一時ハーネスでProfile無ボタン化・saving…・Savedトーストの発火を確認。
+
 ## 2026-07-22 /me Gallery微調整（保存の統一・サイドバー化）
 - 背景: レビュー実機確認でユーザーから2点のFB。
 - 決定1（保存）: **前回の「保存は現状維持」を撤回し、全部自動保存に統一**。自動保存と手動Saveの混在が気持ち悪いため。作品テキスト(タイトル/キャプション/価格/購入リンク/サイズ/画材)も展示タイトルと同じ900msデバウンス自動保存(`editWork`)に。Saveボタン＋スクロール追従保存バーを廃止。作品パネルに「saving…/saved」表示。payloadは呼び出し時確定なので作品切替中の保存もその作品に確定。

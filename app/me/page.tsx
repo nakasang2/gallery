@@ -1,7 +1,7 @@
 'use client'
 // Dashboard: manage your gallery (create / rename / publish / delete), profile, and links.
 // Designed for multiple galleries; the release plan caps creation at PLAN.galleries.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
@@ -171,32 +171,13 @@ function FieldLabel({ children, hint }: { children: string; hint: string }) {
   )
 }
 
-// A section header with its primary Save action on the right, sitting OUTSIDE the card
-// outline. When the header scrolls up out of view, the same action re-docks as a floating
-// bottom bar so the Save is never out of reach — then disappears again on scroll-up.
-function SectionSaveHeader({ title, action }: { title: string; action?: ReactNode }) {
-  const headRef = useRef<HTMLDivElement>(null)
-  const [offscreen, setOffscreen] = useState(false)
-  useEffect(() => {
-    const el = headRef.current
-    if (!el || !action) return
-    const io = new IntersectionObserver(
-      ([e]) => setOffscreen(!e.isIntersecting && e.boundingClientRect.top < 0),
-      { threshold: 0 }
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [action])
-  return (
-    <>
-      <div className="me-section-head" ref={headRef}>
-        <h2>{title}</h2>
-        {action && <div className="me-section-head-action">{action}</div>}
-      </div>
-      {action && offscreen && <div className="me-sticky-save">{action}</div>}
-    </>
-  )
+// Dashboard-wide "Saved" toast. Everything autosaves, so a single transient toast is
+// the shared confirmation: any save success calls toast(). Provided by MePage.
+const ToastContext = createContext<(msg?: string) => void>(() => {})
+function useToast() {
+  return useContext(ToastContext)
 }
+
 
 // The first thing a signed-in artist sees: their own face and name, not a form
 function Hero() {
@@ -462,6 +443,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const updateSettings = useGallery((s) => s.updateSettings)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const toast = useToast()
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [nameInput, setNameInput] = useState(row.title)
@@ -583,8 +565,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         .then(async () => {
           await refreshMyGallery()
           onChanged()
-          setDetailsState('saved')
-          setTimeout(() => setDetailsState('idle'), 1600)
+          setDetailsState('idle')
+          toast()
         })
         .catch((e) => {
           alert(`Could not save the details: ${e instanceof Error ? e.message : e}`)
@@ -623,6 +605,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       await fn()
       await refreshMyGallery()
       onChanged()
+      toast()
     } catch (e) {
       alert(`${label} failed: ${e instanceof Error ? e.message : e}`)
     } finally {
@@ -671,7 +654,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     if (designTimer.current) clearTimeout(designTimer.current)
     designTimer.current = setTimeout(() => {
       saveDesignOverrides(row.id, next)
-        .then(() => refreshMyGallery())
+        .then(() => {
+          void refreshMyGallery()
+          toast()
+        })
         .catch((e) => alert(`Could not save design: ${e instanceof Error ? e.message : e}`))
     }, 500)
   }
@@ -699,6 +685,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
           await refreshMyGallery()
           onChanged()
+          toast()
         } catch (e) {
           alert(`Could not save placement: ${e instanceof Error ? e.message : e}`)
         }
@@ -729,6 +716,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
           await refreshMyGallery()
           onChanged()
+          toast()
         } catch (e) {
           alert(`Could not save the layout: ${e instanceof Error ? e.message : e}`)
         }
@@ -760,6 +748,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       await saveGalleryBgm(row.id, url)
       setBgmUrl(url)
       onChanged()
+      toast()
     } catch (e) {
       alert(`BGM upload failed: ${e instanceof Error ? e.message : e}`)
     } finally {
@@ -773,6 +762,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       await saveGalleryBgm(row.id, null)
       setBgmUrl(null)
       onChanged()
+      toast()
     } catch (e) {
       alert(`Could not remove BGM: ${e instanceof Error ? e.message : e}`)
     } finally {
@@ -791,6 +781,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     try {
       await setUsername(user.id, name)
       await refreshCloud()
+      toast()
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e))
     } finally {
@@ -876,8 +867,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       updateArtworkDetails(id, payload)
         .then(async () => {
           await refreshCloud()
-          setWorkState('saved')
-          setTimeout(() => setWorkState('idle'), 1600)
+          setWorkState('idle')
+          toast()
         })
         .catch((e) => {
           alert(`Could not save the work details: ${e instanceof Error ? e.message : e}`)
@@ -1575,18 +1566,22 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 matKey={mat}
                 hangingKey={hanging}
                 captionKey={captionKey}
-                onFrame={(k) =>
+                onFrame={(k) => {
                   updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, k, row.frame_default) })
-                }
-                onMat={(k) =>
+                  toast()
+                }}
+                onMat={(k) => {
                   updateSettings({ matOverrides: setOverride(matOverrides, selected.id, k, row.mat_default) })
-                }
-                onHanging={(k) =>
+                  toast()
+                }}
+                onHanging={(k) => {
                   updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, k, row.hanging_default) })
-                }
-                onCaption={(k) =>
+                  toast()
+                }}
+                onCaption={(k) => {
                   updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, row.caption_default) })
-                }
+                  toast()
+                }}
               />
             </div>
           </div>
@@ -1764,6 +1759,7 @@ function ProfileCard() {
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const toast = useToast()
   const [nameInput, setNameInput] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
@@ -1772,7 +1768,9 @@ function ProfileCard() {
   const [snsInstagram, setSnsInstagram] = useState('')
   const [snsWebsite, setSnsWebsite] = useState('')
   const [busy, setBusy] = useState(false)
-  const [saved, setSaved] = useState(false)
+  // Profile text (display name / bio / SNS) autosaves like everything else.
+  const [profileState, setProfileState] = useState<'idle' | 'saving'>('idle')
+  const profileTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -1797,6 +1795,7 @@ function ProfileCard() {
     setBusy(true)
     try {
       setAvatarUrl(await uploadAvatar(user.id, file))
+      toast()
     } catch (e) {
       alert(`Avatar upload failed: ${e instanceof Error ? e.message : e}`)
     } finally {
@@ -1815,6 +1814,7 @@ function ProfileCard() {
       await setUsername(user.id, name)
       await refreshCloud()
       setNameInput('')
+      toast()
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e))
     } finally {
@@ -1822,34 +1822,50 @@ function ProfileCard() {
     }
   }
 
-  async function save() {
-    setBusy(true)
-    try {
-      await saveProfile(user.id, {
-        displayName,
-        bio,
-        sns: { x: snsX, instagram: snsInstagram, website: snsWebsite },
-      })
-      await refreshCloud()
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1600)
-    } catch (e) {
-      alert(`Could not save your profile: ${e instanceof Error ? e.message : e}`)
-    } finally {
-      setBusy(false)
+  // Display name / bio / SNS autosave after a short pause (payload captured at call
+  // time, like the gallery's editWork). Username + avatar stay explicit above.
+  function editProfile(next: Partial<{
+    displayName: string; bio: string; x: string; instagram: string; website: string
+  }>) {
+    if (next.displayName !== undefined) setDisplayName(next.displayName)
+    if (next.bio !== undefined) setBio(next.bio)
+    if (next.x !== undefined) setSnsX(next.x)
+    if (next.instagram !== undefined) setSnsInstagram(next.instagram)
+    if (next.website !== undefined) setSnsWebsite(next.website)
+    const payload = {
+      displayName: next.displayName ?? displayName,
+      bio: next.bio ?? bio,
+      sns: {
+        x: next.x ?? snsX,
+        instagram: next.instagram ?? snsInstagram,
+        website: next.website ?? snsWebsite,
+      },
     }
+    setProfileState('saving')
+    if (profileTimer.current) clearTimeout(profileTimer.current)
+    profileTimer.current = setTimeout(() => {
+      saveProfile(user.id, payload)
+        .then(async () => {
+          await refreshCloud()
+          setProfileState('idle')
+          toast()
+        })
+        .catch((e) => {
+          alert(`Could not save your profile: ${e instanceof Error ? e.message : e}`)
+          setProfileState('idle')
+        })
+    }, 900)
   }
+  useEffect(() => () => {
+    if (profileTimer.current) clearTimeout(profileTimer.current)
+  }, [])
 
   return (
     <>
-    <SectionSaveHeader
-      title="Profile"
-      action={
-        <button className="wd-save-cta wd-save-compact" disabled={busy} onClick={() => void save()}>
-          {saved ? 'Saved ✓' : 'Save profile'}
-        </button>
-      }
-    />
+    <div className="me-section-head">
+      <h2>Profile</h2>
+      {profileState === 'saving' && <span className="hako-save-state">saving…</span>}
+    </div>
     <div className="me-card">
       <div className="avatar-row">
         {avatarUrl ? (
@@ -1888,11 +1904,11 @@ function ProfileCard() {
       </label>
       <label className="me-field">
         <span>Display name (artist name)</span>
-        <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+        <input type="text" value={displayName} onChange={(e) => editProfile({ displayName: e.target.value })} />
       </label>
       <label className="me-field">
         <span>Bio / statement</span>
-        <textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
+        <textarea rows={3} value={bio} onChange={(e) => editProfile({ bio: e.target.value })} />
       </label>
       <p className="me-field-group-label">
         Link your SNS — shown on your public page and while visitors walk your room, so they can follow you elsewhere.
@@ -1905,7 +1921,7 @@ function ProfileCard() {
             type="text"
             placeholder="yourhandle"
             value={snsX}
-            onChange={(e) => setSnsX(e.target.value.replace(/^@/, ''))}
+            onChange={(e) => editProfile({ x: e.target.value.replace(/^@/, '') })}
           />
         </div>
       </label>
@@ -1917,7 +1933,7 @@ function ProfileCard() {
             type="text"
             placeholder="yourhandle"
             value={snsInstagram}
-            onChange={(e) => setSnsInstagram(e.target.value.replace(/^@/, ''))}
+            onChange={(e) => editProfile({ instagram: e.target.value.replace(/^@/, '') })}
           />
         </div>
       </label>
@@ -1927,7 +1943,7 @@ function ProfileCard() {
           type="text"
           placeholder="yoursite.com"
           value={snsWebsite}
-          onChange={(e) => setSnsWebsite(e.target.value)}
+          onChange={(e) => editProfile({ website: e.target.value })}
         />
       </label>
     </div>
@@ -1959,6 +1975,17 @@ export default function MePage() {
   const [usage, setUsage] = useState<number | null>(null)
   // Set when Stripe Checkout sent the user back here (?purchase=success|cancelled)
   const [purchaseReturn, setPurchaseReturn] = useState<'success' | 'cancelled' | null>(null)
+  // Dashboard-wide autosave toast (single slot; each save refreshes it)
+  const [toast, setToast] = useState<{ msg: string; n: number } | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showToast = useCallback((msg = 'Saved') => {
+    setToast((t) => ({ msg, n: (t?.n ?? 0) + 1 }))
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), 1800)
+  }, [])
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+  }, [])
 
   useEffect(() => {
     hydrate() // frameOverrides etc. from this browser feed placement rebuilds
@@ -2017,7 +2044,11 @@ export default function MePage() {
   }
 
   return (
+    <ToastContext.Provider value={showToast}>
     <main className="me-page">
+      {toast && (
+        <div className="me-toast" role="status" aria-live="polite" key={toast.n}>{toast.msg}</div>
+      )}
       <div className="me-inner">
         <div className="me-top">
           <Link href="/" className="auth-logo">XIBIT360</Link>
@@ -2132,5 +2163,6 @@ export default function MePage() {
         </footer>
       </div>
     </main>
+    </ToastContext.Provider>
   )
 }
