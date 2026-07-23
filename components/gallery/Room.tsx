@@ -188,10 +188,10 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
             {...floorTex}
             color={theme.floorTint}
             bumpScale={0.5}
-            roughness={0.85}
-            clearcoat={0.45}
-            clearcoatRoughness={0.35}
-            envMapIntensity={1.1}
+            roughness={0.9}
+            clearcoat={0.25}
+            clearcoatRoughness={0.55}
+            envMapIntensity={0.6}
           />
         ) : (
           // Desktop: a polished floor that softly reflects the works and room (planar
@@ -217,9 +217,14 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
             mixStrength={0.32}
             mixContrast={1}
             mirror={0.22}
-            roughness={0.82}
-            metalness={0.1}
-            envMapIntensity={0.9}
+            // roughness high + metalness 0: the spotlights otherwise paint a huge
+            // view-dependent specular hotspot on the floor when you face a wall
+            // head-on (eye/light/floor angles align) — the "white patch" that only
+            // shows from straight-on viewpoints. The planar reflection (mixStrength/
+            // mirror above) is unaffected; only the direct light specular dims.
+            roughness={0.93}
+            metalness={0}
+            envMapIntensity={0.5}
           />
         )}
       </mesh>
