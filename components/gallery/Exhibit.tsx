@@ -123,12 +123,12 @@ export default function Exhibit({
             the wall. Sits just off the wall (behind the frame), a bit larger than the
             work and shifted down, since the light comes from above. Independent of the
             per-work light mode, so it's reliable where the real shadow map is too faint. */}
-        <mesh position={[0.02, -0.06, 0.006]}>
-          <planeGeometry args={[halfW * 2 + 0.24, halfH * 2 + 0.26]} />
+        <mesh position={[0.03, -0.16, 0.006]}>
+          <planeGeometry args={[halfW * 2 + 0.42, halfH * 2 + 0.66]} />
           <meshBasicMaterial
             map={getSoftShadowTexture()}
             transparent
-            opacity={0.42}
+            opacity={0.52}
             color={0x000000}
             depthWrite={false}
             polygonOffset
