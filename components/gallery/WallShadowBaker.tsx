@@ -226,6 +226,8 @@ export default function WallShadowBaker({
       stencilBuffer: false,
     })
     rts.current.set(spec.id, rt)
+    // Prototype debugging (matches GalleryScene's __scene/__gl exposure)
+    ;(window as unknown as Record<string, unknown>).__bakedRTs = rts.current
     const u = bake.mat.uniforms
     // The DEPTH attachment (compareFunction=LessEqual): sampled with sampler2DShadow
     u.uShadowMap.value = light.shadow.map.depthTexture

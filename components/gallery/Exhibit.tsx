@@ -165,17 +165,36 @@ export default function Exhibit({
           (() => {
             const patch = shadowPatch(halfW, halfH)
             return (
-              <mesh position={[0, patch.offsetY, 0.006]}>
-                <planeGeometry args={[patch.w, patch.h]} />
-                <meshBasicMaterial
-                  map={bakedShadow}
-                  transparent
-                  opacity={lightMode === 'overhead' ? 0.75 : 0.78}
-                  depthWrite={false}
-                  polygonOffset
-                  polygonOffsetFactor={-1}
-                />
-              </mesh>
+              <>
+                <mesh position={[0, patch.offsetY, 0.006]}>
+                  <planeGeometry args={[patch.w, patch.h]} />
+                  <meshBasicMaterial
+                    map={bakedShadow}
+                    transparent
+                    opacity={lightMode === 'overhead' ? 0.75 : 0.78}
+                    depthWrite={false}
+                    polygonOffset
+                    polygonOffsetFactor={-1}
+                  />
+                </mesh>
+                {/* Faint contact halo hugging the frame: the spot shadow is displaced
+                    downward, so the wall right behind the frame's TOP band stays lit —
+                    seen at an angle that reads as a "punched-out" gap between frame
+                    and shadow. In reality the frame also blocks ambient light there;
+                    this stands in for that ambient occlusion. */}
+                <mesh position={[0.015, -0.05, 0.0055]}>
+                  <planeGeometry args={[halfW * 2 + 0.18, halfH * 2 + 0.22]} />
+                  <meshBasicMaterial
+                    map={getSoftShadowTexture()}
+                    transparent
+                    opacity={0.2}
+                    color={0x000000}
+                    depthWrite={false}
+                    polygonOffset
+                    polygonOffsetFactor={-1}
+                  />
+                </mesh>
+              </>
             )
           })()
         ) : (
