@@ -30,6 +30,7 @@ export interface BakeSpec {
   lightPos: THREE.Vector3
   target: THREE.Vector3
   angle: number
+  penumbra: number
   /** Shadow camera near plane — the picture light hangs ~0.3m from its casters,
    *  so the default 0.5 would clip them out of the depth map */
   near: number
@@ -52,7 +53,11 @@ const bakeVert = /* glsl */ `
   }
 `
 
-// Occlusion = 1 where the light is blocked. Output = black with occlusion alpha.
+// Output = black, alpha = occlusion × the SPOT's own relative irradiance at that
+// texel. A real shadow only removes the spotlight's contribution: outside the
+// light pool there is nothing to block, so the shadow must fade to zero there.
+// Without this ratio the silhouette reads as a uniform dark decal (a full-height
+// band peeking around the floated frame — user-reported as "not correct").
 const bakeFrag = /* glsl */ `
   precision highp float;
   precision highp sampler2DShadow;
@@ -62,7 +67,14 @@ const bakeFrag = /* glsl */ `
   uniform vec3 uAxisU;
   uniform vec3 uAxisV;
   uniform float uBias;
-  uniform float uRadius; // PCF radius in shadow-map UV units
+  uniform float uRadius;   // PCF radius in shadow-map UV units
+  uniform vec3 uLightPos;  // spot rig (world)
+  uniform vec3 uSpotDir;   // normalized light→target
+  uniform float uCosOuter; // cos(angle)
+  uniform float uCosInner; // cos(angle * (1 - penumbra))
+  uniform float uRefDist;  // light→target distance (irradiance normalizer)
+  uniform vec3 uWallNormal;
+  uniform float uAmbient;  // non-spot light floor, in pool-peak-relative units
   in vec2 vUv;
   out vec4 outColor;
 
@@ -88,7 +100,17 @@ const bakeFrag = /* glsl */ `
       for (int i = 0; i < 16; i++) sum += texture(uShadowMap, vec3(p.xy + taps[i] * uRadius, z));
       vis = sum / 16.0;
     }
-    outColor = vec4(0.0, 0.0, 0.0, 1.0 - vis);
+    // How much spot light would have hit this texel (cone falloff × incidence ×
+    // inverse-square, normalized so ~1 at the artwork). The shadow can only be
+    // as strong as the light it blocks: alpha = occlusion × pool / (pool + rest).
+    vec3 Lv = world - uLightPos;
+    float d = max(length(Lv), 1e-4);
+    vec3 Ldir = Lv / d;
+    float cone = smoothstep(uCosOuter, uCosInner, dot(Ldir, uSpotDir));
+    float ndl = max(dot(-Ldir, uWallNormal), 0.0);
+    float pool = cone * ndl * (uRefDist * uRefDist) / (d * d);
+    float ratio = pool / (pool + uAmbient);
+    outColor = vec4(0.0, 0.0, 0.0, (1.0 - vis) * ratio);
   }
 `
 
@@ -132,6 +154,13 @@ export default function WallShadowBaker({
         uAxisV: { value: new THREE.Vector3() },
         uBias: { value: 0.0025 },
         uRadius: { value: 5.5 / SHADOW_MAP_SIZE },
+        uLightPos: { value: new THREE.Vector3() },
+        uSpotDir: { value: new THREE.Vector3() },
+        uCosOuter: { value: 0 },
+        uCosInner: { value: 0 },
+        uRefDist: { value: 1 },
+        uWallNormal: { value: new THREE.Vector3() },
+        uAmbient: { value: 0.35 },
       },
       depthTest: false,
       depthWrite: false,
@@ -205,8 +234,9 @@ export default function WallShadowBaker({
     // Patch corners in world space (mirrors the display plane in Exhibit local space)
     const tangent = new THREE.Vector3(Math.cos(spec.rotY), 0, -Math.sin(spec.rotY))
     const normal = new THREE.Vector3(Math.sin(spec.rotY), 0, Math.cos(spec.rotY))
-    const center = new THREE.Vector3(spec.slotX, 1.62 + spec.patchOffsetY, spec.slotZ).add(
-      normal.multiplyScalar(0.006)
+    const center = new THREE.Vector3(spec.slotX, 1.62 + spec.patchOffsetY, spec.slotZ).addScaledVector(
+      normal,
+      0.006
     )
     u.uAxisU.value.copy(tangent).multiplyScalar(spec.patchW)
     u.uAxisV.value.set(0, spec.patchH, 0)
@@ -214,6 +244,13 @@ export default function WallShadowBaker({
       .copy(center)
       .addScaledVector(u.uAxisU.value, -0.5)
       .addScaledVector(u.uAxisV.value, -0.5)
+    // Spot irradiance model (same rig the visual light uses)
+    u.uLightPos.value.copy(spec.lightPos)
+    u.uSpotDir.value.copy(spec.target).sub(spec.lightPos).normalize()
+    u.uCosOuter.value = Math.cos(spec.angle)
+    u.uCosInner.value = Math.cos(spec.angle * (1 - spec.penumbra))
+    u.uRefDist.value = spec.lightPos.distanceTo(spec.target)
+    u.uWallNormal.value.copy(normal)
 
     const prevRT = gl.getRenderTarget()
     gl.setRenderTarget(rt)

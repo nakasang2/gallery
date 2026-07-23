@@ -170,7 +170,7 @@ export default function Exhibit({
                 <meshBasicMaterial
                   map={bakedShadow}
                   transparent
-                  opacity={lightMode === 'overhead' ? 0.68 : 0.7}
+                  opacity={lightMode === 'overhead' ? 0.75 : 0.78}
                   depthWrite={false}
                   polygonOffset
                   polygonOffsetFactor={-1}

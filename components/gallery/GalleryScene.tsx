@@ -75,6 +75,7 @@ export default function GalleryScene() {
           lightPos: rig.position,
           target: rig.target,
           angle: rig.angle,
+          penumbra: rig.penumbra,
           // The picture light hangs ~0.3m from its casters — 0.5 would near-clip them
           near: lightMode === 'overhead' ? 0.1 : 0.5,
           // A close light throws a much broader penumbra than a distant track
