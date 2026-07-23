@@ -15,6 +15,9 @@ export interface ThemeDef {
   titleInk: 'light' | 'dark'
   /** Whether to cast a skylight (a soft natural-light effect). */
   skylight?: boolean
+  /** Wall surface: smooth plaster (default) or board-formed concrete/stone
+   *  (formwork seams + tie holes + aggregate — the moody premium look). */
+  wallFinish?: 'plaster' | 'concrete'
   /** Fog density (aerial perspective; the denser it is, the more distant objects recede). */
   fogDensity: number
   /** Opacity of the spotlight's light cone (fake volumetric). */
@@ -164,6 +167,7 @@ export const THEMES: Record<string, ThemeDef> = {
     stripColor: 0xfff0d8,
     fog: 0x0b0a09,
     titleInk: 'light',
+    wallFinish: 'concrete',
     fogDensity: 0.018,
     coneOpacity: 0.05,
     mistLevel: 0.55,
@@ -207,6 +211,7 @@ export const THEMES: Record<string, ThemeDef> = {
     stripColor: 0xffd9a0,
     fog: 0x050404,
     titleInk: 'light',
+    wallFinish: 'concrete',
     fogDensity: 0.024,
     coneOpacity: 0.095,
     mistLevel: 0.8,

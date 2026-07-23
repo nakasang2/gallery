@@ -9,6 +9,9 @@
 ### ビルド・デプロイ
 - 2026-07-21 | 別セッション成果をpullしたら `git-lfs: command not found` で途中中断し、作業ツリーが中途半端に更新（HEADは旧のまま／tracked=modified・新規=untrackedが大量に発生） → このリポジトリはLFS管理（`visitor`系glb等）なのに実行環境へgit-lfs未導入 → **セッション開始時にpullが「Filtering content」やlfs関連で失敗したら、まず `brew install git-lfs`+`git lfs install`。中途破損した作業ツリーは、開始時クリーンなら `git reset --hard origin/main` で一括復旧できる（HEADは未移動＝コミット履歴は無傷）。破壊的コマンドがauto-mode classifierにブロックされたらユーザー承認を取ってから実行する**
 
+### ビルド・デプロイ（dev環境）
+- 2026-07-23 | HMRを何十回も重ねた後にページが素のHTML（"Preparing the gallery…"）で固まり、コンソールエラーなし → Next devのビルドマニフェスト破損（`main-app.js`/`layout.css`が404、`read_network_requests`で判明） → **devサーバーが「エラーなしなのに描画されない」時はまずネットワークタブで`_next/static`の404を疑い、devサーバー再起動で復旧（コード起因ではない）**
+
 ### 品質・レビュー
 - 2026-07-13 | デモ→戻るで環境音が鳴り止まない（ユーザー報告）→ `galleryAudio`がモジュールsingletonで`AudioContext`を停止する手段が無く、`GalleryApp`アンマウント時に何も止めていなかった → **没入体験が使うsingletonの外部リソース（AudioContext等）は体験コンポーネントのアンマウントで明示的にsuspend/停止する。`ctx.suspend()`は非同期で反映に約1秒かかるため、master gainを即0にして即時ミュートを併用する**（`lib/audio.ts`/`lib/videohub.ts`/`GalleryApp`。Playwright+同梱Chromiumで離脱後にsuspendされることを実挙動検証）
 - 2026-07-13 | 「サインイン中はデモ作品を混ぜない」を`rowSpace`で`showDemo:false`にしたら、その値が`localStorage`へ永続化され、サインアウト後のゲスト体験でデモが空になる副作用 → 永続設定(`Settings.showDemo`)にサインイン依存の値を書き込むと状態が漏れる → **サインイン状態に依存する表示分岐は永続設定に書かず派生状態（フック`useIsOwnerEditing`）で計算する**

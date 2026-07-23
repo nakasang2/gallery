@@ -109,6 +109,218 @@ export function getPlasterNormal(size = 512): THREE.CanvasTexture {
   return plasterNormal
 }
 
+/* ---- Board-formed concrete / stone wall (procedural PBR set) ----
+   The reference look for the premium themes: formwork panel seams, form-tie holes,
+   aggregate pitting and faint water stains. One 1024px tile represents 3.2m x 3.2m
+   (2x2 panels of 1.6m), so Room's existing repeat math puts a horizontal seam at
+   1.6m height and vertical seams every 1.6m — real board-form proportions.
+   The color map is kept near-neutral light gray so theme.wall still tints it. */
+
+let concreteMaps: {
+  map: THREE.CanvasTexture
+  normalMap: THREE.CanvasTexture
+  roughnessMap: THREE.CanvasTexture
+} | null = null
+
+// Bilinear-upscaled white noise (the same drawImage trick the plaster maps use)
+function noiseLayer(size: number, cells: number): Uint8ClampedArray {
+  const cell = document.createElement('canvas')
+  cell.width = cell.height = cells
+  const cx = cell.getContext('2d')!
+  const img = cx.createImageData(cells, cells)
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = Math.random() * 255
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v
+    img.data[i + 3] = 255
+  }
+  cx.putImageData(img, 0, 0)
+  const big = document.createElement('canvas')
+  big.width = big.height = size
+  const bx = big.getContext('2d')!
+  bx.imageSmoothingEnabled = true
+  bx.drawImage(cell, 0, 0, size, size)
+  return bx.getImageData(0, 0, size, size).data
+}
+
+// Sobel-filter a height field into a tangent-space normal map
+function heightToNormalCanvas(height: Float32Array, size: number, strength: number): HTMLCanvasElement {
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')!
+  const out = ctx.createImageData(size, size)
+  const at = (x: number, y: number) => height[((y + size) % size) * size + ((x + size) % size)]
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (at(x - 1, y) - at(x + 1, y)) * strength
+      const dy = (at(x, y - 1) - at(x, y + 1)) * strength
+      const len = Math.hypot(dx, dy, 1)
+      const i = (y * size + x) * 4
+      out.data[i] = ((dx / len) * 0.5 + 0.5) * 255
+      out.data[i + 1] = ((dy / len) * 0.5 + 0.5) * 255
+      out.data[i + 2] = (1 / len) * 0.5 * 255 + 127
+      out.data[i + 3] = 255
+    }
+  }
+  ctx.putImageData(out, 0, 0)
+  return c
+}
+
+export function getConcreteMaps(size = 1024) {
+  if (concreteMaps) return concreteMaps
+  const S = size
+  const M = S / 3.2 // pixels per metre
+
+  // Shared feature geometry so height, color and roughness stay registered
+  const seams = [0, S / 2] // groove centres (both axes): world 0m and 1.6m
+  const holes: [number, number][] = []
+  for (const px of [0.35 * M, S / 2 + 0.35 * M])
+    for (const py of [0.35 * M, S / 2 + 0.35 * M]) holes.push([px, py])
+  const pits: [number, number, number][] = []
+  for (let i = 0; i < 2400; i++) pits.push([Math.random() * S, Math.random() * S, 0.8 + Math.random() * 2.4])
+
+  /* height field: broad undulation + fine grain, then carve features */
+  const height = new Float32Array(S * S)
+  const octaves: [number, number][] = [
+    [8, 0.26],
+    [32, 0.2],
+    [128, 0.13],
+    [512, 0.07],
+  ]
+  for (const [cells, amp] of octaves) {
+    const d = noiseLayer(S, cells)
+    for (let i = 0; i < height.length; i++) height[i] += (d[i * 4] / 255) * amp
+  }
+  const stamp = (cx: number, cy: number, r: number, depth: number) => {
+    const ri = Math.ceil(r)
+    for (let dy = -ri; dy <= ri; dy++) {
+      for (let dx = -ri; dx <= ri; dx++) {
+        const d = Math.hypot(dx, dy)
+        if (d > r) continue
+        const f = Math.min(1, (1 - d / r) * 2.2) // flat bottom, soft shoulder
+        const x = (((cx + dx) | 0) + S) % S
+        const y = (((cy + dy) | 0) + S) % S
+        height[y * S + x] -= depth * f
+      }
+    }
+  }
+  for (const [x, y, r] of pits) stamp(x, y, r, 0.09)
+  for (const [x, y] of holes) stamp(x, y, 0.024 * M, 0.5)
+  // formwork seams: shallow grooves with a soft shoulder, both axes
+  const HALF = 4
+  for (const p of seams) {
+    for (let w = -HALF; w <= HALF; w++) {
+      const depth = 0.3 * (1 - Math.abs(w) / (HALF + 1))
+      const line = (((p + w) | 0) + S) % S
+      for (let t = 0; t < S; t++) {
+        height[line * S + t] -= depth // horizontal groove
+        height[t * S + line] -= depth // vertical groove
+      }
+    }
+  }
+
+  /* color map: near-neutral base + blotches, speckle, stains — theme.wall tints it */
+  const cc = document.createElement('canvas')
+  cc.width = cc.height = S
+  const ctx = cc.getContext('2d')!
+  ctx.fillStyle = '#cfcac2'
+  ctx.fillRect(0, 0, S, S)
+  for (let i = 0; i < 90; i++) {
+    // cloudy cement blotches, slightly warm or cool
+    const x = Math.random() * S
+    const y = Math.random() * S
+    const r = 40 + Math.random() * 200
+    const warm = Math.random() > 0.5
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r)
+    g.addColorStop(0, warm ? 'rgba(146,132,116,0.07)' : 'rgba(108,112,118,0.07)')
+    g.addColorStop(1, 'rgba(128,128,128,0)')
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  // faint water stains bleeding down
+  for (let i = 0; i < 10; i++) {
+    const x = Math.random() * S
+    const w = 14 + Math.random() * 50
+    const y0 = Math.random() * S * 0.5
+    const len = S * (0.2 + Math.random() * 0.5)
+    const g = ctx.createLinearGradient(0, y0, 0, y0 + len)
+    g.addColorStop(0, 'rgba(96,90,80,0.085)')
+    g.addColorStop(1, 'rgba(96,90,80,0)')
+    ctx.fillStyle = g
+    ctx.fillRect(x - w / 2, y0, w, len)
+  }
+  // aggregate speckle registered with the height pits
+  for (const [x, y, r] of pits) {
+    const dark = Math.random() > 0.32
+    ctx.fillStyle = dark ? 'rgba(70,66,60,0.16)' : 'rgba(236,233,228,0.14)'
+    ctx.beginPath()
+    ctx.arc(x, y, r * 0.9, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  // seams: a darker shadow line inside the groove
+  ctx.fillStyle = 'rgba(60,56,50,0.28)'
+  for (const p of seams) {
+    ctx.fillRect(0, p - 2, S, 4)
+    ctx.fillRect(p - 2, 0, 4, S)
+  }
+  // form-tie holes: dark recessed disc with a faint rust halo below
+  for (const [x, y] of holes) {
+    const r = 0.024 * M
+    const halo = ctx.createRadialGradient(x, y + r, r * 0.4, x, y + r, r * 3)
+    halo.addColorStop(0, 'rgba(122,96,72,0.10)')
+    halo.addColorStop(1, 'rgba(122,96,72,0)')
+    ctx.fillStyle = halo
+    ctx.beginPath()
+    ctx.arc(x, y + r, r * 3, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = 'rgba(40,37,33,0.75)'
+    ctx.beginPath()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  /* roughness map: matte base, pits/seams rougher, cement patches slightly tighter */
+  const rc = document.createElement('canvas')
+  rc.width = rc.height = S
+  const rx = rc.getContext('2d')!
+  rx.fillStyle = '#dedede'
+  rx.fillRect(0, 0, S, S)
+  for (let i = 0; i < 70; i++) {
+    const x = Math.random() * S
+    const y = Math.random() * S
+    const r = 50 + Math.random() * 180
+    const v = Math.random() > 0.5 ? 255 : 190
+    const g = rx.createRadialGradient(x, y, 0, x, y, r)
+    g.addColorStop(0, `rgba(${v},${v},${v},0.10)`)
+    g.addColorStop(1, 'rgba(222,222,222,0)')
+    rx.fillStyle = g
+    rx.beginPath()
+    rx.arc(x, y, r, 0, Math.PI * 2)
+    rx.fill()
+  }
+  rx.fillStyle = 'rgba(255,255,255,0.5)'
+  for (const [x, y, r] of pits) {
+    rx.beginPath()
+    rx.arc(x, y, r, 0, Math.PI * 2)
+    rx.fill()
+  }
+
+  const mk = (c: HTMLCanvasElement, srgb = false) => {
+    const t = new THREE.CanvasTexture(c)
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace
+    t.wrapS = t.wrapT = THREE.RepeatWrapping
+    t.anisotropy = 16
+    return t
+  }
+  concreteMaps = {
+    map: mk(cc, true),
+    normalMap: mk(heightToNormalCanvas(height, S, 3.0)),
+    roughnessMap: mk(rc),
+  }
+  return concreteMaps
+}
+
 /* ---- Artwork textures (reused across scene rebuilds) ---- */
 
 const texLoader = new THREE.TextureLoader()

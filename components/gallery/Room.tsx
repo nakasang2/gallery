@@ -6,7 +6,7 @@ import type { ThreeEvent } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { walkRef, LOW_POWER, QUALITY } from '@/lib/controller'
-import { getFloorTextures, getPlasterBump, getPlasterNormal, getSoftShadowTexture, disposeAll } from './textures'
+import { getFloorTextures, getPlasterBump, getPlasterNormal, getConcreteMaps, getSoftShadowTexture, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 
@@ -19,41 +19,55 @@ if (typeof window !== 'undefined' && !rectAreaInited) {
 
 const TRIM_COLOR = 0x0e0c0a
 
-// Wall plaster maps (normal + roughness for sheen variation). Tiled to real-world scale
-function useWallMaps(widthM: number) {
+// Wall surface maps, tiled to real-world scale (one tile = 3.2m). Plaster =
+// normal + roughness only; concrete adds a tinted color map (seams/tie holes/
+// stains) and a stronger relief.
+type WallFinish = 'plaster' | 'concrete'
+function useWallMaps(widthM: number, finish: WallFinish) {
   const maps = useMemo(() => {
     const rep: [number, number] = [widthM / 3.2, CEIL_H / 3.2]
+    if (finish === 'concrete') {
+      const base = getConcreteMaps()
+      const map = base.map.clone()
+      const normalMap = base.normalMap.clone()
+      const roughnessMap = base.roughnessMap.clone()
+      for (const t of [map, normalMap, roughnessMap]) t.repeat.set(...rep)
+      return { map, normalMap, roughnessMap, normalScale: 1.0 }
+    }
     const normalMap = getPlasterNormal().clone()
     normalMap.repeat.set(...rep)
     const roughnessMap = getPlasterBump().clone()
     roughnessMap.repeat.set(...rep)
-    return { normalMap, roughnessMap }
-  }, [widthM])
-  useEffect(() => () => disposeAll([maps.normalMap, maps.roughnessMap]), [maps])
+    return { map: null, normalMap, roughnessMap, normalScale: 0.6 }
+  }, [widthM, finish])
+  useEffect(() => () => disposeAll([maps.map, maps.normalMap, maps.roughnessMap]), [maps])
   return maps
 }
 
 function Wall({
   width,
   color,
+  finish,
   position,
   rotationY,
 }: {
   width: number
   color: number
+  finish: WallFinish
   position: [number, number, number]
   rotationY: number
 }) {
-  const { normalMap, roughnessMap } = useWallMaps(width)
+  const { map, normalMap, roughnessMap, normalScale } = useWallMaps(width, finish)
   return (
     <mesh position={position} rotation-y={rotationY} receiveShadow>
       <planeGeometry args={[width, CEIL_H]} />
       {/* The normal map catches grazing light and the roughness map gives uneven sheen */}
       <meshStandardMaterial
         color={color}
+        map={map}
         roughness={0.93}
         normalMap={normalMap}
-        normalScale={new THREE.Vector2(0.6, 0.6)}
+        normalScale={new THREE.Vector2(normalScale, normalScale)}
         roughnessMap={roughnessMap}
         envMapIntensity={0.25}
       />
@@ -109,10 +123,10 @@ function Bench({ x, z, theme }: { x: number; z: number; theme: ThemeDef }) {
         position={[0, CEIL_H - 0.1, 0]}
         targetPosition={[0, 0, 0]}
         color={theme.spotColor}
-        intensity={16}
+        intensity={26}
         angle={1.05}
         penumbra={0.9}
-        decay={1.6}
+        decay={2}
         castShadow
       />
     </group>
@@ -136,7 +150,8 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
   }, [hw, hd])
   useEffect(() => () => disposeAll(Object.values(floorTex)), [floorTex])
 
-  const partitionMaps = useWallMaps(8)
+  const finish: WallFinish = theme.wallFinish ?? 'plaster'
+  const partitionMaps = useWallMaps(8, finish)
   // The ceiling reuses the plaster normal map: dead-flat white overhead is a big
   // CG tell once the emissive strips and skylight graze it
   const ceilingNormal = useMemo(() => {
@@ -212,10 +227,10 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
       </mesh>
 
       {/* Walls (the west face uses the accent color for the title wall) */}
-      <Wall width={hw * 2} color={theme.wall} position={[0, h / 2, -hd]} rotationY={0} />
-      <Wall width={hw * 2} color={theme.wall} position={[0, h / 2, hd]} rotationY={Math.PI} />
-      <Wall width={hd * 2} color={theme.wall} position={[hw, h / 2, 0]} rotationY={-Math.PI / 2} />
-      <Wall width={hd * 2} color={theme.accentWall} position={[-hw, h / 2, 0]} rotationY={Math.PI / 2} />
+      <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, -hd]} rotationY={0} />
+      <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, hd]} rotationY={Math.PI} />
+      <Wall width={hd * 2} color={theme.wall} finish={finish} position={[hw, h / 2, 0]} rotationY={-Math.PI / 2} />
+      <Wall width={hd * 2} color={theme.accentWall} finish={finish} position={[-hw, h / 2, 0]} rotationY={Math.PI / 2} />
 
       {/* Baseboards and crown molding */}
       {(
@@ -239,9 +254,10 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
             <boxGeometry args={[p.w, p.h, p.t]} />
             <meshStandardMaterial
               color={theme.accentWall}
+              map={partitionMaps.map}
               roughness={0.95}
               normalMap={partitionMaps.normalMap}
-              normalScale={new THREE.Vector2(0.6, 0.6)}
+              normalScale={new THREE.Vector2(partitionMaps.normalScale, partitionMaps.normalScale)}
               roughnessMap={partitionMaps.roughnessMap}
               envMapIntensity={0.25}
             />

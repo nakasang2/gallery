@@ -140,7 +140,21 @@ export default function Exhibit({
           <meshBasicMaterial
             map={getSoftShadowTexture()}
             transparent
-            opacity={0.52}
+            opacity={0.4}
+            color={0x000000}
+            depthWrite={false}
+            polygonOffset
+            polygonOffsetFactor={-1}
+          />
+        </mesh>
+        {/* Second, tighter core just past the frame edge — the two layers together
+            approximate contact hardening (sharp near the frame, soft further out) */}
+        <mesh position={[0.015, -0.07, 0.007]}>
+          <planeGeometry args={[halfW * 2 + 0.15, halfH * 2 + 0.24]} />
+          <meshBasicMaterial
+            map={getSoftShadowTexture()}
+            transparent
+            opacity={0.36}
             color={0x000000}
             depthWrite={false}
             polygonOffset
@@ -254,15 +268,19 @@ export default function Exhibit({
         )}
       </group>
 
-      {/* Spotlight (also bakes the shadow the frame casts on the wall) */}
+      {/* Spotlight (also bakes the shadow the frame casts on the wall).
+          decay 2 = physical inverse-square falloff: the pool of light is bright at
+          its centre and dies off quickly, like a real gallery spot. The per-mode
+          factor rebalances theme.spotIntensity for each mounting distance
+          (ceiling track ~2.9m vs picture light ~0.5m) so overall exposure holds. */}
       <SpotWithTarget
         position={[lightPos.x, lightPos.y, lightPos.z]}
         targetPosition={[spotTarget.x, spotTarget.y, spotTarget.z]}
         color={theme.spotColor}
-        intensity={theme.spotIntensity}
+        intensity={theme.spotIntensity * (lightMode === 'overhead' ? 0.62 : 2.6)}
         angle={spotAngle}
         penumbra={spotPenumbra}
-        decay={1.1}
+        decay={2}
         castShadow
         shadowMapSize={QUALITY === 'high' ? 2048 : 1024}
       />
@@ -322,10 +340,45 @@ export default function Exhibit({
           )
         })()
       ) : (
-        <mesh position={[lightPos.x, CEIL_H - 0.11, lightPos.z]} quaternion={fixtureQuat}>
-          <cylinderGeometry args={[0.055, 0.075, 0.22, 12]} />
-          <meshStandardMaterial color={0x0c0b0a} roughness={0.5} />
-        </mesh>
+        // Ceiling track spot: canopy + stem + angled barrel with a bright aperture.
+        // The glowing front disc is what sells it as the source of the light pool.
+        (() => {
+          const body = { color: 0x111010, roughness: 0.42, metalness: 0.55 }
+          return (
+            <group position={[lightPos.x, CEIL_H, lightPos.z]}>
+              <mesh position={[0, -0.014, 0]}>
+                <cylinderGeometry args={[0.056, 0.056, 0.028, 16]} />
+                <meshStandardMaterial {...body} />
+              </mesh>
+              <mesh position={[0, -0.055, 0]}>
+                <cylinderGeometry args={[0.011, 0.011, 0.06, 10]} />
+                <meshStandardMaterial {...body} />
+              </mesh>
+              <group position={[0, -0.1, 0]} quaternion={fixtureQuat}>
+                {/* barrel (slightly flared toward the mouth) */}
+                <mesh position={[0, -0.095, 0]}>
+                  <cylinderGeometry args={[0.045, 0.052, 0.19, 20]} />
+                  <meshStandardMaterial {...body} />
+                </mesh>
+                {/* front trim ring */}
+                <mesh position={[0, -0.196, 0]}>
+                  <cylinderGeometry args={[0.056, 0.056, 0.02, 20]} />
+                  <meshStandardMaterial color={0x1b1917} roughness={0.3} metalness={0.7} />
+                </mesh>
+                {/* glowing aperture */}
+                <mesh position={[0, -0.2075, 0]} rotation-x={Math.PI / 2}>
+                  <circleGeometry args={[0.04, 20]} />
+                  <meshStandardMaterial
+                    color={theme.spotColor}
+                    emissive={theme.spotColor}
+                    emissiveIntensity={2.4}
+                    toneMapped={false}
+                  />
+                </mesh>
+              </group>
+            </group>
+          )
+        })()
       )}
     </>
   )
