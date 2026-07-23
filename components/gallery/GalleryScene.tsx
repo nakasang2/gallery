@@ -1,13 +1,13 @@
 'use client'
 // Assembles the whole scene (applies theme/layout/exhibit list and bakes static shadows)
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { useThree } from '@react-three/fiber'
+import { useThree, useFrame } from '@react-three/fiber'
 import { getNeutralEnvTexture } from './textures'
 import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat } from '@/lib/presets'
 import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
-import { LOW_POWER } from '@/lib/controller'
+import { LOW_POWER, camPose } from '@/lib/controller'
 import Room from './Room'
 import Exhibit from './Exhibit'
 import TitleWall from './TitleWall'
@@ -46,6 +46,49 @@ export default function GalleryScene() {
   const theme = resolveTheme(settings.theme, settings.designOverrides)
   const layout = resolveLayout(settings.layout, settings.layoutParams)
   const { list, slots } = usePlacement()
+
+  // Real-shadow budget, assigned DYNAMICALLY to the works nearest the camera.
+  // Every shadow-casting light costs one texture unit in every material shader
+  // (WebGL guarantees only 16), so at most SHADOW_BUDGET exhibit spots cast at a
+  // time — but which ones follows the visitor, so every work reads as shadowed
+  // where it matters (up close). The count stays constant, so swapping members
+  // reuses the same shader programs; only the maps re-bake (cheap, one frame).
+  const SHADOW_BUDGET = 5
+  const [shadowIdxs, setShadowIdxs] = useState<number[]>(() =>
+    Array.from({ length: Math.min(SHADOW_BUDGET, list.length) }, (_, i) => i)
+  )
+  const shadowRef = useRef(shadowIdxs)
+  const lastEval = useRef({ x: Infinity, z: Infinity })
+  useFrame(() => {
+    if (list.length <= SHADOW_BUDGET) return // everyone casts; nothing to rotate
+    const dx = camPose.x - lastEval.current.x
+    const dz = camPose.z - lastEval.current.z
+    if (Number.isFinite(lastEval.current.x) && dx * dx + dz * dz < 2.25) return // re-evaluate every ~1.5m
+    lastEval.current = { x: camPose.x, z: camPose.z }
+    const next = list
+      .map((_, i) => i)
+      .sort((a, b) => {
+        const sa = layout.slots[slots[a]]
+        const sb = layout.slots[slots[b]]
+        return (
+          Math.hypot(sa.x - camPose.x, sa.z - camPose.z) -
+          Math.hypot(sb.x - camPose.x, sb.z - camPose.z)
+        )
+      })
+      .slice(0, SHADOW_BUDGET)
+      .sort((a, b) => a - b)
+    if (next.join() !== shadowRef.current.join()) {
+      shadowRef.current = next
+      setShadowIdxs(next)
+    }
+  })
+  // Swapping which lights cast requires a re-bake (maps are static otherwise)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      gl.shadowMap.needsUpdate = true
+    })
+    return () => cancelAnimationFrame(id)
+  }, [gl, shadowIdxs])
 
   // Environment map: faint room light reflects in the floor sheen and metal frame parts
   useEffect(() => {
@@ -96,12 +139,7 @@ export default function GalleryScene() {
           index={i}
           slot={layout.slots[slots[i]]}
           theme={theme}
-          // Shadow-map budget: every shadow-casting light costs one texture unit in
-          // EVERY material shader, and WebGL guarantees only 16 units. Beyond
-          // ~7 shadow lights (2 bench + 5 exhibits) the standard materials fail to
-          // compile and render black. Works past the budget keep their light —
-          // the art-directed shadow planes carry their depth cues.
-          castRealShadow={i < 5}
+          castRealShadow={shadowIdxs.includes(i)}
           frameDef={applyMat(frameDefFor(frameKeyFor(settings, art)), matKeyFor(settings, art))}
           hangingDef={HANGINGS[hangingKeyFor(settings, art)] ?? HANGINGS.wire}
           captionDef={CAPTIONS[captionKeyFor(settings, art)] ?? CAPTIONS.side}
