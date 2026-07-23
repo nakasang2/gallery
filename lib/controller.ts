@@ -30,6 +30,27 @@ export const canvasRef: { current: HTMLCanvasElement | null } = { current: null 
 // (a shared ref keeps this off React's re-render path)
 export const camPose = { x: 0, z: 0, yaw: 0 }
 
-// On touch devices, disable post-processing and lower shadow resolution to hold 30fps
-export const LOW_POWER =
-  typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
+// Three render-quality tiers:
+//   high   = fine pointer (desktop). Full pipeline: post effects, reflective floor,
+//            2K shadows, high DPR (with FPS-based fallback in GalleryApp).
+//   medium = touch device with decent hardware. Real shadows at reduced resolution,
+//            clearcoat floor instead of planar reflection, no post effects.
+//   low    = weak touch device (little memory / few cores). Real-time shadows and
+//            reflections fully off; depth is carried by the baked/fake shadow planes.
+// deviceMemory is Chrome/Android only (undefined on iOS → tier decided by cores).
+export type RenderQuality = 'high' | 'medium' | 'low'
+
+function detectQuality(): RenderQuality {
+  if (typeof window === 'undefined') return 'high'
+  if (!window.matchMedia('(pointer: coarse)').matches) return 'high'
+  const nav = navigator as Navigator & { deviceMemory?: number }
+  const cores = navigator.hardwareConcurrency ?? 4
+  if ((nav.deviceMemory !== undefined && nav.deviceMemory <= 4) || cores <= 4) return 'low'
+  return 'medium'
+}
+
+export const QUALITY: RenderQuality = detectQuality()
+
+// Back-compat flag: "not the full desktop pipeline" (post effects, ghosts,
+// reflective floor are all desktop-only). Same value as the old touch check.
+export const LOW_POWER = QUALITY !== 'high'

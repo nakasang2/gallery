@@ -5,8 +5,8 @@ import * as THREE from 'three'
 import type { ThreeEvent } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
-import { walkRef, LOW_POWER } from '@/lib/controller'
-import { getFloorTextures, getPlasterBump, getPlasterNormal, disposeAll } from './textures'
+import { walkRef, LOW_POWER, QUALITY } from '@/lib/controller'
+import { getFloorTextures, getPlasterBump, getPlasterNormal, getSoftShadowTexture, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 
@@ -90,6 +90,20 @@ function Bench({ x, z, theme }: { x: number; z: number; theme: ThemeDef }) {
           <meshStandardMaterial color={TRIM_COLOR} roughness={0.6} />
         </mesh>
       ))}
+      {/* Low tier renders no real shadows, so fake the bench's contact shadow with
+          the shared blurred-blob texture (same trick as the wall drop shadows) */}
+      {QUALITY === 'low' && (
+        <mesh rotation-x={-Math.PI / 2} position={[0, 0.012, 0]}>
+          <planeGeometry args={[2.5, 0.95]} />
+          <meshBasicMaterial
+            map={getSoftShadowTexture()}
+            transparent
+            opacity={0.34}
+            color={0x000000}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
       {/* Downlight directly above the bench (casts a contact shadow) */}
       <SpotWithTarget
         position={[0, CEIL_H - 0.1, 0]}
@@ -123,6 +137,14 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
   useEffect(() => () => disposeAll(Object.values(floorTex)), [floorTex])
 
   const partitionMaps = useWallMaps(8)
+  // The ceiling reuses the plaster normal map: dead-flat white overhead is a big
+  // CG tell once the emissive strips and skylight graze it
+  const ceilingNormal = useMemo(() => {
+    const t = getPlasterNormal().clone()
+    t.repeat.set((hw * 2) / 3.2, (hd * 2) / 3.2)
+    return t
+  }, [hw, hd])
+  useEffect(() => () => disposeAll([ceilingNormal]), [ceilingNormal])
 
   const onFloorClick = (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > 10) return // it was a drag (matches WalkControls.TAP_THRESHOLD)
@@ -181,7 +203,12 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
       {/* Ceiling */}
       <mesh rotation-x={Math.PI / 2} position={[0, h, 0]}>
         <planeGeometry args={[hw * 2, hd * 2]} />
-        <meshStandardMaterial color={theme.ceiling} roughness={0.95} />
+        <meshStandardMaterial
+          color={theme.ceiling}
+          roughness={0.95}
+          normalMap={ceilingNormal}
+          normalScale={new THREE.Vector2(0.35, 0.35)}
+        />
       </mesh>
 
       {/* Walls (the west face uses the accent color for the title wall) */}

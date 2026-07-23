@@ -6,8 +6,8 @@ import { useThree, type ThreeEvent } from '@react-three/fiber'
 import type { ArtworkData } from '@/lib/artworks'
 import { CEIL_H, type CaptionDef, type FrameDef, type HangingDef, type SlotDef, type ThemeDef } from '@/lib/presets'
 import { artSize } from '@/lib/exhibition'
-import { walkRef, LOW_POWER } from '@/lib/controller'
-import { getArtTexture, makePlaqueTexture, getFrameFinish, getSoftShadowTexture, disposeAll } from './textures'
+import { walkRef, QUALITY } from '@/lib/controller'
+import { getArtTexture, makePlaqueTexture, getFrameFinish, getSoftShadowTexture, getCanvasWeave, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
 import { useVideoArt } from './VideoArt'
@@ -38,7 +38,7 @@ function makeFrameGeo(w: number, h: number, bar: number, gap: number) {
     bevelEnabled: true,
     bevelThickness: 0.018,
     bevelSize: 0.014,
-    bevelSegments: 3,
+    bevelSegments: 5, // rounder shoulder — the highlight sweeps instead of stepping
   })
 }
 
@@ -72,6 +72,16 @@ export default function Exhibit({
 
   const plaqueTex = useMemo(() => makePlaqueTexture(art, index), [art, index])
   useEffect(() => () => disposeAll([plaqueTex]), [plaqueTex])
+
+  // Linen-weave bump on the paint surface (image works only — video stays glossy).
+  // Repeat is tied to the work's real size so the thread pitch is constant.
+  const weaveTex = useMemo(() => {
+    if (videoArt.texture) return null
+    const t = getCanvasWeave().clone()
+    t.repeat.set(width / 0.12, height / 0.12)
+    return t
+  }, [videoArt.texture, width, height])
+  useEffect(() => () => disposeAll([weaveTex]), [weaveTex])
 
   const frameless = frameDef.mat === null
   const frameGeo = useMemo(
@@ -156,6 +166,8 @@ export default function Exhibit({
               map={artTex}
               roughness={0.75}
               envMapIntensity={0.35}
+              bumpMap={weaveTex}
+              bumpScale={0.35}
               emissiveMap={videoArt.texture ? artTex : null}
               emissive={videoArt.texture ? 0xffffff : 0x000000}
               emissiveIntensity={videoArt.texture ? 0.7 : 0}
@@ -191,6 +203,8 @@ export default function Exhibit({
                 map={artTex}
                 roughness={0.7}
                 envMapIntensity={0.4}
+                bumpMap={weaveTex}
+                bumpScale={0.35}
                 emissiveMap={videoArt.texture ? artTex : null}
                 emissive={videoArt.texture ? 0xffffff : 0x000000}
                 emissiveIntensity={videoArt.texture ? 0.7 : 0}
@@ -250,7 +264,7 @@ export default function Exhibit({
         penumbra={spotPenumbra}
         decay={1.1}
         castShadow
-        shadowMapSize={LOW_POWER ? 512 : 2048}
+        shadowMapSize={QUALITY === 'high' ? 2048 : 1024}
       />
 
       {/* Light shaft (fake volumetric) */}

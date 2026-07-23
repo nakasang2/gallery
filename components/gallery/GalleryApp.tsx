@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
+import { PerformanceMonitor } from '@react-three/drei'
 import { resolveLayout, THEMES } from '@/lib/presets'
 import { useExhibitionList } from '@/lib/exhibition'
 import { demoDesignOverrides } from '@/lib/artworks'
 import { useGallery } from '@/lib/store'
 import { useToast } from '@/lib/toast'
-import { walkRef, canvasRef, LOW_POWER } from '@/lib/controller'
+import { walkRef, canvasRef, QUALITY } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
 import { unlockVideoAudio, suspendVideoAudio } from '@/lib/videohub'
@@ -112,6 +113,11 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   const [loadingDone, setLoadingDone] = useState(false)
   // null = still detecting; false = no WebGL → 2D list fallback
   const [webgl, setWebgl] = useState<boolean | null>(null)
+  // Render resolution per quality tier. The high tier starts at native retina and
+  // steps down when PerformanceMonitor sees sustained low FPS (weak iGPU laptops).
+  const [dpr, setDpr] = useState<[number, number]>(
+    QUALITY === 'high' ? [1, 2] : QUALITY === 'medium' ? [1, 1.5] : [1, 1.25]
+  )
   const entryRef = useRef(
     resolveLayout(useGallery.getState().layout, useGallery.getState().layoutParams).entry
   )
@@ -198,7 +204,7 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
         <Canvas
           className="stage-root"
           gl={{ antialias: true }}
-          dpr={[1, LOW_POWER ? 1.5 : 1.75]}
+          dpr={dpr}
           camera={{ fov: 60, near: 0.1, far: 100, position: [entryRef.current.x, 1.6, entryRef.current.z] }}
           onCreated={({ gl, camera }) => {
             camera.rotation.order = 'YXZ'
@@ -207,14 +213,29 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
             // The scene is static, so shadows are baked (GalleryScene sets needsUpdate).
             // PCFSoft + per-light shadow radius gives soft, natural penumbra edges
             // instead of the hard stair-stepped CG look (sampled at render, so it
-            // still applies to the baked maps).
-            gl.shadowMap.enabled = true
+            // still applies to the baked maps). The low tier skips real shadows
+            // entirely — the art-directed shadow planes carry the depth cues.
+            gl.shadowMap.enabled = QUALITY !== 'low'
             gl.shadowMap.type = THREE.PCFSoftShadowMap
             gl.shadowMap.autoUpdate = false
             gl.domElement.style.touchAction = 'none'
             canvasRef.current = gl.domElement // for the walkthrough recorder
           }}
         >
+          {/* Weak-GPU desktops: after sustained low FPS, drop render resolution once
+              (no onIncline restore — flipping back and forth is more jarring).
+              Armed only after the loading screen so the shadow-bake/texture-load dip
+              can't trigger it, and ignored while the tab is hidden (rAF throttling
+              reads as low FPS there). */}
+          {QUALITY === 'high' && loadingDone && (
+            <PerformanceMonitor
+              flipflops={2}
+              onDecline={() => {
+                if (document.visibilityState !== 'visible') return
+                setDpr((d) => (d[1] > 1.5 ? [1, 1.5] : [1, 1.25])) // 2 → 1.5 → 1.25
+              }}
+            />
+          )}
           <GalleryScene />
         </Canvas>
       )}

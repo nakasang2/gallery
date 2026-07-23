@@ -120,7 +120,8 @@ export function getArtTexture(art: ArtworkData): THREE.Texture {
   if (cached) return cached
   const tex = art.src ? texLoader.load(art.src) : new THREE.CanvasTexture(renderArtworkCanvas(art, 1024))
   tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 8
+  // 16 keeps the paint crisp at grazing view angles (the renderer clamps to the GPU max)
+  tex.anisotropy = 16
   artTexCache.set(key, tex)
   return tex
 }
@@ -319,7 +320,7 @@ export function getFloorTextures() {
     const t = texLoader.load(url)
     if (srgb) t.colorSpace = THREE.SRGBColorSpace
     t.wrapS = t.wrapT = THREE.RepeatWrapping
-    t.anisotropy = 8
+    t.anisotropy = 16
     return t
   }
   floorBase = {
@@ -439,6 +440,37 @@ export function getSoftShadowTexture(): THREE.CanvasTexture {
   tex.colorSpace = THREE.SRGBColorSpace
   softShadowTex = tex
   return tex
+}
+
+/* ---- Canvas weave (procedural bump map for the paint surface) ----
+   A perfectly flat plane under a spotlight is the biggest "screenshot on a wall"
+   tell. A fine linen weave catches the raking spot light and reads as a physical
+   canvas. One shared tile; Exhibit clones it with a repeat matched to the work's
+   real-world size so the thread pitch stays ~1.5mm on every canvas. */
+let weaveTex: THREE.CanvasTexture | null = null
+export function getCanvasWeave(size = 256): THREE.CanvasTexture {
+  if (weaveTex) return weaveTex
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')!
+  ctx.fillStyle = '#808080'
+  ctx.fillRect(0, 0, size, size)
+  // Interleaved warp/weft threads: alternating light/dark bands both ways, with
+  // per-thread jitter so it doesn't read as a printed grid
+  const pitch = 4
+  for (let y = 0; y < size; y += pitch) {
+    const v = 128 + (Math.random() - 0.5) * 26 + ((y / pitch) % 2 === 0 ? 14 : -14)
+    ctx.fillStyle = `rgb(${v},${v},${v})`
+    ctx.fillRect(0, y, size, pitch / 2)
+  }
+  for (let x = 0; x < size; x += pitch) {
+    const v = 128 + (Math.random() - 0.5) * 26 + ((x / pitch) % 2 === 0 ? 12 : -12)
+    ctx.fillStyle = `rgba(${v},${v},${v},0.55)`
+    ctx.fillRect(x, 0, pitch / 2, size)
+  }
+  weaveTex = new THREE.CanvasTexture(c)
+  weaveTex.wrapS = weaveTex.wrapT = THREE.RepeatWrapping
+  return weaveTex
 }
 
 /** Helper for useMemo + dispose on unmount */
