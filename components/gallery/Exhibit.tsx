@@ -132,12 +132,12 @@ export default function Exhibit({
             the wall. Sits just off the wall (behind the frame), a bit larger than the
             work and shifted down, since the light comes from above. Independent of the
             per-work light mode, so it's reliable where the real shadow map is too faint. */}
-        <mesh position={[0.04, -0.2, 0.006]}>
+        <mesh position={[0.05, -0.24, 0.006]}>
           <planeGeometry args={[halfW * 2 + 0.6, halfH * 2 + 0.85]} />
           <meshBasicMaterial
             map={getSoftShadowTexture()}
             transparent
-            opacity={0.46}
+            opacity={0.5}
             color={0x000000}
             depthWrite={false}
             polygonOffset
@@ -146,12 +146,12 @@ export default function Exhibit({
         </mesh>
         {/* Second, tighter core just past the frame edge — the two layers together
             approximate contact hardening (sharp near the frame, soft further out) */}
-        <mesh position={[0.02, -0.09, 0.007]}>
+        <mesh position={[0.025, -0.11, 0.007]}>
           <planeGeometry args={[halfW * 2 + 0.22, halfH * 2 + 0.34]} />
           <meshBasicMaterial
             map={getSoftShadowTexture()}
             transparent
-            opacity={0.4}
+            opacity={0.45}
             color={0x000000}
             depthWrite={false}
             polygonOffset
@@ -161,7 +161,7 @@ export default function Exhibit({
         {frameless ? (
           // Stretched canvas: no frame, just showing the thickness on the sides
           <mesh
-            position={[0, 0, 0.028]}
+            position={[0, 0, 0.063]}
             castShadow
             onClick={onClick}
             onPointerOver={onOver}
@@ -187,7 +187,10 @@ export default function Exhibit({
           </mesh>
         ) : (
           <>
-            <mesh geometry={frameGeo!} position={[0, 0, 0.02]} castShadow>
+            {/* The whole stack floats ~3.5cm off the wall (gallery standoff mount):
+                the gap makes the drop shadow read as real depth, and the spot now
+                throws a visible cast shadow below the frame */}
+            <mesh geometry={frameGeo!} position={[0, 0, 0.055]} castShadow>
               {/* Uniform sheen reads as plastic, so add subtle unevenness per finish */}
               <meshStandardMaterial
                 color={frameDef.color}
@@ -203,12 +206,12 @@ export default function Exhibit({
                 frame's hollow outline (the mat fills the opening; art fills it when
                 there's no mat). */}
             {frameDef.gap! > 0 && (
-              <mesh position={[0, 0, 0.075]} castShadow>
+              <mesh position={[0, 0, 0.11]} castShadow>
                 <planeGeometry args={[width + frameDef.gap! * 2 + 0.02, height + frameDef.gap! * 2 + 0.02]} />
                 <meshStandardMaterial color={frameDef.mat!} roughness={0.9} />
               </mesh>
             )}
-            <mesh position={[0, 0, 0.08]} castShadow onClick={onClick} onPointerOver={onOver} onPointerOut={onOut}>
+            <mesh position={[0, 0, 0.115]} castShadow onClick={onClick} onPointerOver={onOver} onPointerOut={onOut}>
               <planeGeometry args={[width, height]} />
               <meshStandardMaterial
                 map={artTex}
@@ -229,16 +232,37 @@ export default function Exhibit({
 
         {/* Name plate — beside the work, below it, or hidden */}
         {captionDef.place !== 'none' && (
-          <mesh
+          // Physical standoff plaque: a thin board floating off the wall with its
+          // own soft shadow, instead of a flat decal (which read as printed-on)
+          <group
             position={
               captionDef.place === 'under'
-                ? [0, -halfH - 0.2, 0.02]
-                : [halfW + 0.42, -height / 2 + 0.28, 0.02]
+                ? [0, -halfH - 0.2, 0.042]
+                : [halfW + 0.42, -height / 2 + 0.28, 0.042]
             }
           >
-            <planeGeometry args={[0.42, 0.246]} />
-            <meshStandardMaterial map={plaqueTex} roughness={0.9} />
-          </mesh>
+            <mesh position={[0.01, -0.035, -0.035]}>
+              <planeGeometry args={[0.54, 0.37]} />
+              <meshBasicMaterial
+                map={getSoftShadowTexture()}
+                transparent
+                opacity={0.4}
+                color={0x000000}
+                depthWrite={false}
+                polygonOffset
+                polygonOffsetFactor={-1}
+              />
+            </mesh>
+            <mesh castShadow>
+              <boxGeometry args={[0.42, 0.246, 0.014]} />
+              <meshStandardMaterial attach="material-0" color={0xd8d3c7} roughness={0.85} />
+              <meshStandardMaterial attach="material-1" color={0xd8d3c7} roughness={0.85} />
+              <meshStandardMaterial attach="material-2" color={0xe4dfd4} roughness={0.85} />
+              <meshStandardMaterial attach="material-3" color={0xc9c4b8} roughness={0.85} />
+              <meshStandardMaterial attach="material-4" map={plaqueTex} roughness={0.82} />
+              <meshStandardMaterial attach="material-5" color={0xd8d3c7} roughness={0.85} />
+            </mesh>
+          </group>
         )}
 
         {/* Hanging hardware. wire = twin cords to the picture rail; ledge = a shelf
@@ -251,14 +275,14 @@ export default function Exhibit({
             const wireLen = topY - height / 2
             if (wireLen <= 0.05) return null
             return (
-              <mesh key={side} position={[side * width * 0.3, height / 2 + wireLen / 2, 0.012]}>
+              <mesh key={side} position={[side * width * 0.3, height / 2 + wireLen / 2, 0.03]}>
                 <cylinderGeometry args={[0.0045, 0.0045, wireLen, 6]} />
                 <meshStandardMaterial color={0x2a2622} roughness={0.4} metalness={0.6} />
               </mesh>
             )
           })}
         {hangingDef.kind === 'ledge' && (
-          <mesh position={[0, -halfH - 0.02, 0.1]} castShadow>
+          <mesh position={[0, -halfH - 0.02, 0.135]} castShadow>
             <boxGeometry args={[halfW * 2 + 0.12, 0.035, 0.16]} />
             <meshStandardMaterial color={0x1c1916} roughness={0.5} metalness={0.3} />
           </mesh>

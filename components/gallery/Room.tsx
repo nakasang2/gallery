@@ -118,13 +118,15 @@ function Bench({ x, z, theme }: { x: number; z: number; theme: ThemeDef }) {
           />
         </mesh>
       )}
-      {/* Downlight directly above the bench (casts a contact shadow) */}
+      {/* Downlight directly above the bench (casts a contact shadow). Kept to a
+          tight cone — a wide one paints a huge unexplained bright patch across
+          the floor in dark themes */}
       <SpotWithTarget
         position={[0, CEIL_H - 0.1, 0]}
         targetPosition={[0, 0, 0]}
         color={theme.spotColor}
-        intensity={26}
-        angle={1.05}
+        intensity={22}
+        angle={0.62}
         penumbra={0.9}
         decay={2}
         castShadow

@@ -36,7 +36,28 @@ export default function Dust({ layout }: { layout: LayoutDef }) {
     return new THREE.CanvasTexture(c)
   }, [])
 
-  useEffect(() => () => disposeAll([geo, tex]), [geo, tex])
+  // Perspective attenuation makes a mote that drifts right past the camera balloon
+  // into a big white orb (reads as a glowing artifact on dark walls) — clamp the
+  // on-screen point size. fog_vertex is the last chunk after gl_PointSize is set.
+  const mat = useMemo(() => {
+    const m = new THREE.PointsMaterial({
+      map: tex,
+      size: 0.02,
+      transparent: true,
+      opacity: 0.32,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+    m.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <fog_vertex>',
+        '#include <fog_vertex>\n\tgl_PointSize = min(gl_PointSize, 9.0);'
+      )
+    }
+    return m
+  }, [tex])
+
+  useEffect(() => () => disposeAll([geo, tex, mat]), [geo, tex, mat])
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05)
@@ -49,16 +70,5 @@ export default function Dust({ layout }: { layout: LayoutDef }) {
     pos.needsUpdate = true
   })
 
-  return (
-    <points ref={points} geometry={geo}>
-      <pointsMaterial
-        map={tex}
-        size={0.02}
-        transparent
-        opacity={0.32}
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-      />
-    </points>
-  )
+  return <points ref={points} geometry={geo} material={mat} />
 }

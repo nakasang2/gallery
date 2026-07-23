@@ -238,17 +238,22 @@ export function getConcreteMaps(size = 1024) {
     ctx.arc(x, y, r, 0, Math.PI * 2)
     ctx.fill()
   }
-  // faint water stains bleeding down
-  for (let i = 0; i < 10; i++) {
+  // faint water stains bleeding down — soft stretched ellipses. Hard-edged rects
+  // here read as weird dark bars/smears on the wall at room scale (user-reported).
+  for (let i = 0; i < 8; i++) {
     const x = Math.random() * S
-    const w = 14 + Math.random() * 50
+    const w = 24 + Math.random() * 60
     const y0 = Math.random() * S * 0.5
-    const len = S * (0.2 + Math.random() * 0.5)
-    const g = ctx.createLinearGradient(0, y0, 0, y0 + len)
-    g.addColorStop(0, 'rgba(96,90,80,0.085)')
+    const len = S * (0.25 + Math.random() * 0.45)
+    ctx.save()
+    ctx.translate(x, y0)
+    ctx.scale(w / 100, len / 100)
+    const g = ctx.createRadialGradient(0, 50, 0, 0, 50, 62)
+    g.addColorStop(0, 'rgba(96,90,80,0.055)')
     g.addColorStop(1, 'rgba(96,90,80,0)')
     ctx.fillStyle = g
-    ctx.fillRect(x - w / 2, y0, w, len)
+    ctx.fillRect(-100, -20, 200, 160)
+    ctx.restore()
   }
   // aggregate speckle registered with the height pits
   for (const [x, y, r] of pits) {
