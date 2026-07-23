@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react'
 import { resolveLayout } from '@/lib/presets'
 import { effectiveSlotCount } from '@/lib/limits'
-import { placeWorks } from '@/lib/arrangement'
+import { placeWorks, balancedFillOrder } from '@/lib/arrangement'
 import { VideoIcon } from '@/components/icons'
 import type { ArtworkData } from '@/lib/artworks'
 import type { CustomLayoutParams } from '@/lib/presets'
@@ -38,9 +38,25 @@ export default function PlacementEditor({
   // Effective occupancy right now (auto-fill included), snapshotted as an explicit
   // per-slot id array. Writing THIS on every edit makes every shown work explicit, so
   // clearing a slot leaves a real gap instead of being back-filled by an unplaced work.
-  const perSlot = useMemo(() => placeWorks(n, arrangement, works), [n, arrangement, works])
+  // Full physical slot array + capacity cap, matching the live scene's placement.
+  const perSlot = useMemo(
+    () => placeWorks(def.slots.length, arrangement, works, [], balancedFillOrder(def), n),
+    [def, n, arrangement, works]
+  )
   const current = useMemo(() => perSlot.map((a) => a?.id ?? null), [perSlot])
   const byId = useMemo(() => new Map(works.map((w) => [w.id, w] as const)), [works])
+  // Spots shown on the map: the balanced usable subset, plus any slot an existing
+  // arrangement already occupies (pre-balance rooms pinned works on slots 0..n-1) —
+  // sorted so numbering follows the walk order.
+  const usable = useMemo(() => {
+    // Occupied slots are ALWAYS shown (a pre-balance arrangement may pin works
+    // outside the balanced subset); only empty spots are limited to the subset.
+    const set = new Set(balancedFillOrder(def).slice(0, n))
+    perSlot.forEach((a, i) => {
+      if (a) set.add(i)
+    })
+    return [...set].sort((a, b) => a - b)
+  }, [def, n, perSlot])
 
   const pad = 1.6
   const w = def.hw * 2 + pad * 2
@@ -73,16 +89,17 @@ export default function PlacementEditor({
         {def.benches.map((b, i) => (
           <rect key={`b${i}`} className="lp-bench" x={b.x - 1.05} y={b.z - 0.28} width={2.1} height={0.56} rx={0.2} />
         ))}
-        {def.slots.slice(0, n).map((s, i) => {
-          const art = perSlot[i]
+        {usable.map((slotIdx, order) => {
+          const s = def.slots[slotIdx]
+          const art = perSlot[slotIdx]
           const src = art ? thumb(art) : undefined
-          const cid = `pe-clip-${i}`
+          const cid = `pe-clip-${slotIdx}`
           return (
             <g
-              key={`s${i}`}
-              className={`pe-slot${i === sel ? ' sel' : ''}${art ? ' filled' : ' empty'}`}
+              key={`s${slotIdx}`}
+              className={`pe-slot${slotIdx === sel ? ' sel' : ''}${art ? ' filled' : ' empty'}`}
               transform={`translate(${s.x} ${s.z})`}
-              onClick={() => !disabled && setSel(i)}
+              onClick={() => !disabled && setSel(slotIdx)}
               style={{ cursor: disabled ? 'default' : 'pointer' }}
             >
               <clipPath id={cid}>
@@ -101,7 +118,7 @@ export default function PlacementEditor({
                 />
               )}
               <rect className="pe-slot-ring" x={-S / 2} y={-S / 2} width={S} height={S} rx={0.16} />
-              {!art && <text className="pe-slot-num" x={0} y={0.12}>{i + 1}</text>}
+              {!art && <text className="pe-slot-num" x={0} y={0.12}>{order + 1}</text>}
             </g>
           )
         })}
@@ -111,7 +128,7 @@ export default function PlacementEditor({
       {sel == null ? null : (
         <div className="place-picker">
           <div className="place-picker-head">
-            <span>Spot {sel + 1}{selWork ? ` — ${selWork.title || 'Untitled'}` : ' — empty'}</span>
+            <span>Spot {usable.indexOf(sel) >= 0 ? usable.indexOf(sel) + 1 : '–'}{selWork ? ` — ${selWork.title || 'Untitled'}` : ' — empty'}</span>
             <button className="btn-line" onClick={() => setSel(null)}>Done</button>
           </div>
           <div className="place-picker-strip">

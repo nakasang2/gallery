@@ -3,19 +3,37 @@ import { useMemo } from 'react'
 import { ARTWORKS, type ArtworkData } from './artworks'
 import { isFrameKey, MATS, HANGINGS, CAPTIONS, resolveLayout, type LayoutDef } from './presets'
 import { effectiveSlotCount } from './limits'
-import { placeWorks, toPlacement, type Placement } from './arrangement'
+import { placeWorks, toPlacement, balancedFillOrder, type Placement } from './arrangement'
 import { useGallery, useSettings, type Settings } from './store'
 
+/** True when this scene is the guest sample show (no own works, demo collection on):
+ *  a marketing showcase, so the plan's works-per-gallery cap doesn't apply — the
+ *  full demo collection fills the whole room. */
+function isDemoShowcase(s: Settings, ownCount: number): boolean {
+  return s.showDemo && ownCount === 0
+}
+
 /** Usable slots for the current layout (layout slots capped by the plan's works-per-gallery) */
-export function slotCount(s: Settings): number {
-  return effectiveSlotCount(resolveLayout(s.layout, s.layoutParams).slots.length, s.workCap)
+export function slotCount(s: Settings, ownCount = 1): number {
+  const layoutSlots = resolveLayout(s.layout, s.layoutParams).slots.length
+  return isDemoShowcase(s, ownCount) ? layoutSlots : effectiveSlotCount(layoutSlots, s.workCap)
 }
 
 /** The full placement: which work hangs on which physical slot (honouring the room's
- *  manual arrangement §11.13), plus the parallel list/slots arrays consumers read. */
+ *  manual arrangement §11.13), plus the parallel list/slots arrays consumers read.
+ *  Auto-filled works spread across the walls (balancedFillOrder) instead of packing
+ *  the first wall solid. */
 export function buildPlacement(s: Settings, own: ArtworkData[]): Placement {
   const demo = s.showDemo ? ARTWORKS : []
-  const perSlot = placeWorks(slotCount(s), s.arrangement, own, demo)
+  const layout = resolveLayout(s.layout, s.layoutParams)
+  const perSlot = placeWorks(
+    layout.slots.length,
+    s.arrangement,
+    own,
+    demo,
+    balancedFillOrder(layout),
+    slotCount(s, own.length)
+  )
   return toPlacement(perSlot, own.length + demo.length)
 }
 
@@ -26,7 +44,7 @@ export function buildExhibitionList(s: Settings, own: ArtworkData[]): ArtworkDat
 export function overflowCount(s: Settings, ownCount: number): number {
   const total = ownCount + (s.showDemo ? ARTWORKS.length : 0)
   // Surplus works auto-fill every slot, so anything past the slot count is hidden.
-  return Math.max(0, total - slotCount(s))
+  return Math.max(0, total - slotCount(s, ownCount))
 }
 
 /** Your own exhibited works (visitor mode = public data, signed in = cloud, guest = localStorage) */

@@ -94,6 +94,12 @@ export default function GalleryScene() {
           index={i}
           slot={layout.slots[slots[i]]}
           theme={theme}
+          // Shadow-map budget: every shadow-casting light costs one texture unit in
+          // EVERY material shader, and WebGL guarantees only 16 units. Beyond
+          // ~7 shadow lights (2 bench + 5 exhibits) the standard materials fail to
+          // compile and render black. Works past the budget keep their light —
+          // the art-directed shadow planes carry their depth cues.
+          castRealShadow={i < 5}
           frameDef={applyMat(frameDefFor(frameKeyFor(settings, art)), matKeyFor(settings, art))}
           hangingDef={HANGINGS[hangingKeyFor(settings, art)] ?? HANGINGS.wire}
           captionDef={CAPTIONS[captionKeyFor(settings, art)] ?? CAPTIONS.side}

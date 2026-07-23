@@ -52,6 +52,7 @@ export default function Exhibit({
   hangingDef,
   captionDef,
   lightMode,
+  castRealShadow,
 }: {
   art: ArtworkData
   index: number
@@ -62,6 +63,8 @@ export default function Exhibit({
   captionDef: CaptionDef
   /** Spotlight placement: 'ceiling' track angled at the work, or 'overhead' straight down */
   lightMode: 'ceiling' | 'overhead'
+  /** Whether this work's spot renders a real shadow map (see GalleryScene's budget) */
+  castRealShadow: boolean
 }) {
   const gl = useThree((s) => s.gl)
   const { width, height } = artSize(art.ratio, art)
@@ -308,7 +311,7 @@ export default function Exhibit({
         angle={spotAngle}
         penumbra={spotPenumbra}
         decay={2}
-        castShadow
+        castShadow={castRealShadow}
         shadowMapSize={QUALITY === 'high' ? 2048 : 1024}
       />
 

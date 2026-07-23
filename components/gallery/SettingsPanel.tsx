@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { THEMES, LAYOUTS, FRAMES, MATS, HANGINGS, CAPTIONS, TEMPLATES } from '@/lib/presets'
-import { overflowCount, slotCount, useOwnArtworks, useIsOwnerEditing } from '@/lib/exhibition'
+import { buildPlacement, overflowCount, slotCount, useOwnArtworks, useIsOwnerEditing } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { showToast } from '@/lib/toast'
 import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
@@ -246,16 +246,22 @@ export default function SettingsPanel() {
   const urlRef = useRef<HTMLInputElement>(null!)
 
   // Upload feedback: close the panel and glide to the freshly hung work so the
-  // result is actually seen (the panel otherwise hides it)
+  // result is actually seen (the panel otherwise hides it). The new work's list
+  // position is looked up from the fresh placement — with balanced auto-fill it
+  // is NOT simply "after the previous works".
   const slots = slotCount(settings)
-  function revealNew(prevOwnCount: number) {
-    if (prevOwnCount >= slots) return // it landed beyond the visible slots
+  function revealNew(prevIds: Set<string>) {
+    const st = useGallery.getState()
+    const own = st.user ? st.cloudArtworks : st.artworks
+    const eff = ownerEditing && settings.showDemo ? { ...settings, showDemo: false } : settings
+    const idx = buildPlacement(eff, own).list.findIndex((a) => !prevIds.has(a.id))
+    if (idx < 0) return // it landed beyond the visible slots
     setOpen(false)
-    walkRef.current?.focusExhibit(prevOwnCount)
+    walkRef.current?.focusExhibit(idx)
   }
 
   async function addEntries(entries: { title: string; dataUrl: string; w: number; h: number }[]) {
-    const prevCount = ownArtworks.length
+    const prevIds = new Set(ownArtworks.map((a) => a.id))
     if (user) {
       // Cloud exhibit (Storage + DB)
       setUploading(true)
@@ -264,7 +270,7 @@ export default function SettingsPanel() {
           await uploadArtwork({ ownerId: user.id, dataUrl: e.dataUrl, title: e.title, w: e.w, h: e.h })
         }
         await refreshCloud()
-        revealNew(prevCount)
+        revealNew(prevIds)
       } catch (e) {
         console.error('upload failed (are supabase/migrations applied?):', e)
         showToast(`Upload failed: ${e instanceof Error ? e.message : e}`)
@@ -278,7 +284,7 @@ export default function SettingsPanel() {
         newArtworkEntry({ title: e.title, artist, src: e.dataUrl, w: e.w, h: e.h })
       )
       updateSettings({ artworks: [...settings.artworks, ...items] })
-      revealNew(prevCount)
+      revealNew(prevIds)
     }
   }
 
@@ -297,7 +303,7 @@ export default function SettingsPanel() {
       showToast(`Videos are limited to ${Math.floor(VIDEO_MAX_BYTES / 1024 / 1024)}MB (“${file.name}” is ${Math.ceil(file.size / 1024 / 1024)}MB).`)
       return
     }
-    const prevCount = ownArtworks.length
+    const prevIds = new Set(ownArtworks.map((a) => a.id))
     setUploading(true)
     try {
       const meta = await videoFileMeta(file)
@@ -310,7 +316,7 @@ export default function SettingsPanel() {
         h: meta.h,
       })
       await refreshCloud()
-      revealNew(prevCount)
+      revealNew(prevIds)
     } catch (e) {
       console.error('video upload failed (is 0002_video.sql applied?):', e)
       showToast(`Video upload failed: ${e instanceof Error ? e.message : e}`)
@@ -356,7 +362,7 @@ export default function SettingsPanel() {
         c.getContext('2d')!.drawImage(img, 0, 0)
         await addEntries([{ title, dataUrl: c.toDataURL('image/jpeg', 0.9), w: img.width, h: img.height }])
       } else {
-        const prevCount = ownArtworks.length
+        const prevIds = new Set(ownArtworks.map((a) => a.id))
         updateSettings({
           artworks: [
             ...settings.artworks,
@@ -369,7 +375,7 @@ export default function SettingsPanel() {
             }),
           ],
         })
-        revealNew(prevCount)
+        revealNew(prevIds)
       }
       titleRef.current.value = ''
       urlRef.current.value = ''

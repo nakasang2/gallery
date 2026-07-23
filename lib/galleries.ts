@@ -12,7 +12,7 @@ import {
   type CustomLayoutParams,
   type DesignOverrides,
 } from './presets'
-import { placeWorks } from './arrangement'
+import { placeWorks, balancedFillOrder } from './arrangement'
 import type { Settings } from './store'
 import type { ArtworkData } from './artworks'
 
@@ -285,11 +285,20 @@ export async function rebuildPlacements(
   ownArtworks: ArtworkData[]
 ): Promise<void> {
   const sb = supabase!
-  const slots = effectiveSlotCount(resolveLayout(settings.layout, settings.layoutParams).slots.length, settings.workCap)
+  const layout = resolveLayout(settings.layout, settings.layoutParams)
+  const cap = effectiveSlotCount(layout.slots.length, settings.workCap)
   // Honour the room's manual arrangement (§11.13): a work hangs on its chosen slot,
   // and an intentionally-empty slot is simply skipped. No demo collection on a real
   // published gallery, so `extra` is empty and this reduces to the owner's own works.
-  const perSlot = placeWorks(slots, settings.arrangement, ownArtworks)
+  // Auto-filled works spread across the walls (same balanced order the live scene uses).
+  const perSlot = placeWorks(
+    layout.slots.length,
+    settings.arrangement,
+    ownArtworks,
+    [],
+    balancedFillOrder(layout),
+    cap
+  )
   const rows = perSlot
     .map((art, i) =>
       art

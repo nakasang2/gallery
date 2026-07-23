@@ -368,6 +368,9 @@ function Ghost({
     // Only fade when the camera is basically on top of one, so they stay legible otherwise
     const d = Math.hypot(s.x - camera.position.x, s.z - camera.position.z)
     mat.opacity = 0.5 * THREE.MathUtils.clamp((d - 0.7) / 0.8, 0, 1)
+    // Fully faded → hide the whole figure: the depth pre-pass twin otherwise keeps
+    // writing depth, and AO/fog paint a dark ghost-shaped blob at zero opacity
+    g.visible = mat.opacity > 0.02
   })
 
   return (

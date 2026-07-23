@@ -279,6 +279,7 @@ export default function Preview3D({
         hangingDef={HANGINGS[hangingKey] ?? HANGINGS.wire}
         captionDef={CAPTIONS[captionKey] ?? CAPTIONS.side}
         lightMode={designOverrides?.lightMode ?? 'ceiling'}
+        castRealShadow
       />
     </Canvas>
   )
