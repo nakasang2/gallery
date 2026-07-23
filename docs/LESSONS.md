@@ -10,6 +10,7 @@
 - 2026-07-21 | 別セッション成果をpullしたら `git-lfs: command not found` で途中中断し、作業ツリーが中途半端に更新（HEADは旧のまま／tracked=modified・新規=untrackedが大量に発生） → このリポジトリはLFS管理（`visitor`系glb等）なのに実行環境へgit-lfs未導入 → **セッション開始時にpullが「Filtering content」やlfs関連で失敗したら、まず `brew install git-lfs`+`git lfs install`。中途破損した作業ツリーは、開始時クリーンなら `git reset --hard origin/main` で一括復旧できる（HEADは未移動＝コミット履歴は無傷）。破壊的コマンドがauto-mode classifierにブロックされたらユーザー承認を取ってから実行する**
 
 ### ビルド・デプロイ（dev環境）
+- 2026-07-23 | git pushしてもVercelの自動デプロイが8分以上起動しないことがあった（同日多数デプロイ後） → **ship時は`npx vercel ls`で新しい行が出ない場合、`npx vercel --prod`で手動デプロイして先に進む（コミット済みクリーンな作業ツリーであることを確認してから）。エイリアス割当は`npx vercel inspect <url>`で確認**
 - 2026-07-23 | devサーバーのモジュール破損が繰り返発生（`main-app.js` 404 / `__webpack_modules__[moduleId] is not a function`）×2 → **devサーバー起動中に `next build` を実行したのが真因**（devとbuildが同じ `.next` を共有していて上書き破壊される） → **push前ビルド検証は必ずdevサーバー（preview）を停止してから実行する。壊れたら `rm -rf .next` → dev再起動で復旧**
 
 ### 品質・レビュー
