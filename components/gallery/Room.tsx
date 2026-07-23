@@ -197,6 +197,10 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
           // Desktop: a polished floor that softly reflects the works and room (planar
           // reflection). Blurred + roughness kept high so it reads as waxed wood, not a
           // mirror; the wood grain stays via map/roughnessMap/bumpMap.
+          // Deliberately NO depthScale: the depth-fade branch samples a 16-bit depth
+          // texture and is the reflector's only GPU-dependent path — on some machines
+          // it blows out into white patches exactly where the mirrored ray travels far
+          // (the artless stretches of wall; user-reported, not reproducible here).
           <MeshReflectorMaterial
             map={floorTex.map}
             roughnessMap={floorTex.roughnessMap}
@@ -213,9 +217,6 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
             mixStrength={0.32}
             mixContrast={1}
             mirror={0.22}
-            depthScale={0.9}
-            minDepthThreshold={0.3}
-            maxDepthThreshold={1.2}
             roughness={0.82}
             metalness={0.1}
             envMapIntensity={0.9}
