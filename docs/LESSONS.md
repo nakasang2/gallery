@@ -26,6 +26,7 @@
 - 2026-07-22 | 既存の`<audio>`直再生をWebAudio（Convolverリバーブ）へ通す拡張。**落とし穴**: `AudioContext.createMediaElementSource()`はcrossOrigin未設定/CORS無しのソースだと無音（tainted）になる → **クロスオリジン音源をWebAudioで加工するなら`el.crossOrigin='anonymous'`をsrc設定前に立て、配信側のCORS（`access-control-allow-origin`）を`curl -H "Origin:..."`で事前確認する（Supabase Storage公開は`*`でOK）。ctx未構築（ユーザー未操作）時はグラフに繋がず素で再生にフォールバックする**（`lib/audio.ts` `connectGuide` / `lib/guide.ts`）
 
 - 2026-07-23 | 額装作品の影が「フレームの輪郭だけ」で中抜けになる（ユーザー報告）→ Exhibitで`castShadow`が付いていたのは中抜き形状の**フレーム枠メッシュだけ**で、開口部を覆うマット面・アート面(`<mesh>`平面)は`castShadow`なし→枠の縁しか影を落とさなかった → **額装/合成オブジェクトの影は「一番外側の枠」ではなく開口部を埋める面（マット/アート/バッキング）に`castShadow`を付けて“塗りつぶしの影”にする。中空フレーム＋非castShadowの内側面はhollowシルエットになる。baked影（`shadowMap.autoUpdate=false`）でもcastShadow付与は次回bake（GallerySceneのneedsUpdate）で反映される**（`components/gallery/Exhibit.tsx` 額装分岐のmat/art plane）
+  - **×2（2026-07-23 再発・真の完治）**: castShadowを付けても中抜けが再発（影が実際に効き始めた後にユーザー報告で発覚）→ threeの影パスは**カリングを自動反転**（FrontSide→BackSide）するため、**片面プレーンは光の方向へ影をそもそも落とせない**（castShadowだけでは不十分だった）→ **開口部を埋める片面プレーンには`shadowSide={THREE.DoubleSide}`を明示する**（受影しない面なのでacneの副作用なし）
 
 - 2026-07-23 | 額装作品の壁への落ち影が「物理的には正しいのに弱くて見えない」問題を、実シャドウマップの調整（castShadow付与→radius→解像度）で3回追っても安定せず、ユーザーは参考写真並みの明確な影を要求 → 近接マウント（フレームが壁から数cm）＋スポット角度＋壁の明るさで、実影はどうしても淡くなる（PCFSoft・baked・低コントラスト） → **「参考写真のような見た目」を狙うUIでは、物理シャドウの微調整に固執せず“アートディレクションされた偽ソフト影”（壁面に置くブラー済みの暗い角丸プレーン。作品の背後・少し下・やや大きめ・opacity可変）を併用する。ライトモードに依存せず確実に出て、スマホ（AOオフ）でも効く。実影は接地/床用に残す**（`components/gallery/textures.ts` `getSoftShadowTexture` ＋ `Exhibit` のshadow plane。opacity/offset/sizeで調整可）
 

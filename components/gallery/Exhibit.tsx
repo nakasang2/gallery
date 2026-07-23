@@ -204,11 +204,13 @@ export default function Exhibit({
             {/* Mat board (gap 0 = "no mat": the work sits right against the frame).
                 castShadow so the framed piece casts a FILLED shadow, not just the
                 frame's hollow outline (the mat fills the opening; art fills it when
-                there's no mat). */}
+                there's no mat). shadowSide=DoubleSide is essential: the shadow pass
+                renders reversed culling, so a single-sided plane facing the light
+                casts NOTHING by default — the shadow reverts to a hollow frame ring. */}
             {frameDef.gap! > 0 && (
               <mesh position={[0, 0, 0.11]} castShadow>
                 <planeGeometry args={[width + frameDef.gap! * 2 + 0.02, height + frameDef.gap! * 2 + 0.02]} />
-                <meshStandardMaterial color={frameDef.mat!} roughness={0.9} />
+                <meshStandardMaterial color={frameDef.mat!} roughness={0.9} shadowSide={THREE.DoubleSide} />
               </mesh>
             )}
             <mesh position={[0, 0, 0.115]} castShadow onClick={onClick} onPointerOver={onOver} onPointerOut={onOut}>
@@ -219,6 +221,7 @@ export default function Exhibit({
                 envMapIntensity={0.4}
                 bumpMap={weaveTex}
                 bumpScale={0.35}
+                shadowSide={THREE.DoubleSide}
                 emissiveMap={videoArt.texture ? artTex : null}
                 emissive={videoArt.texture ? 0xffffff : 0x000000}
                 emissiveIntensity={videoArt.texture ? 0.7 : 0}
