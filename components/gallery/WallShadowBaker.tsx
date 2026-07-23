@@ -110,7 +110,9 @@ const bakeFrag = /* glsl */ `
     float ndl = max(dot(-Ldir, uWallNormal), 0.0);
     float pool = cone * ndl * (uRefDist * uRefDist) / (d * d);
     float ratio = pool / (pool + uAmbient);
-    outColor = vec4(0.0, 0.0, 0.0, (1.0 - vis) * ratio);
+    // rgb = debug channels (occlusion / ratio) — display multiplies by black, so
+    // they are invisible in the scene but readable via __bakedRTs pixel readback
+    outColor = vec4(1.0 - vis, ratio, 0.0, (1.0 - vis) * ratio);
   }
 `
 
@@ -152,7 +154,11 @@ export default function WallShadowBaker({
         uOrigin: { value: new THREE.Vector3() },
         uAxisU: { value: new THREE.Vector3() },
         uAxisV: { value: new THREE.Vector3() },
-        uBias: { value: 0.0025 },
+        // Small: receivers (walls) never render into the depth map, so classic
+        // self-shadow acne can't happen — but a big bias eats the few-cm depth
+        // separation of near-flush casters (canvas backs, plaques) and turns
+        // their occlusion into 50/50 sampling noise ("hollowed-out" shadows).
+        uBias: { value: 0.0008 },
         uRadius: { value: 5.5 / SHADOW_MAP_SIZE },
         uLightPos: { value: new THREE.Vector3() },
         uSpotDir: { value: new THREE.Vector3() },

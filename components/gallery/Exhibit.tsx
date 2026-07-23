@@ -170,6 +170,7 @@ export default function Exhibit({
                   <planeGeometry args={[patch.w, patch.h]} />
                   <meshBasicMaterial
                     map={bakedShadow}
+                    color={0x000000} // alpha carries the shadow; rgb holds debug data
                     transparent
                     opacity={lightMode === 'overhead' ? 0.75 : 0.78}
                     depthWrite={false}
@@ -238,11 +239,14 @@ export default function Exhibit({
             onPointerOver={onOver}
             onPointerOut={onOut}
           >
+            {/* shadowSide=DoubleSide: the shadow pass otherwise renders only the
+                box's BACK face (3.8cm off the wall) whose depth separation is too
+                thin for reliable comparison — the front face (8.8cm) must win */}
             <boxGeometry args={[width, height, 0.05]} />
-            <meshStandardMaterial attach="material-0" color={0x28241f} roughness={0.8} />
-            <meshStandardMaterial attach="material-1" color={0x28241f} roughness={0.8} />
-            <meshStandardMaterial attach="material-2" color={0x28241f} roughness={0.8} />
-            <meshStandardMaterial attach="material-3" color={0x28241f} roughness={0.8} />
+            <meshStandardMaterial attach="material-0" color={0x28241f} roughness={0.8} shadowSide={THREE.DoubleSide} />
+            <meshStandardMaterial attach="material-1" color={0x28241f} roughness={0.8} shadowSide={THREE.DoubleSide} />
+            <meshStandardMaterial attach="material-2" color={0x28241f} roughness={0.8} shadowSide={THREE.DoubleSide} />
+            <meshStandardMaterial attach="material-3" color={0x28241f} roughness={0.8} shadowSide={THREE.DoubleSide} />
             <meshStandardMaterial
               attach="material-4"
               map={artTex}
@@ -250,11 +254,12 @@ export default function Exhibit({
               envMapIntensity={0.35}
               bumpMap={weaveTex}
               bumpScale={0.35}
+              shadowSide={THREE.DoubleSide}
               emissiveMap={videoArt.texture ? artTex : null}
               emissive={videoArt.texture ? 0xffffff : 0x000000}
               emissiveIntensity={videoArt.texture ? 0.7 : 0}
             />
-            <meshStandardMaterial attach="material-5" color={0x1a1713} roughness={0.9} />
+            <meshStandardMaterial attach="material-5" color={0x1a1713} roughness={0.9} shadowSide={THREE.DoubleSide} />
           </mesh>
         ) : (
           <>
