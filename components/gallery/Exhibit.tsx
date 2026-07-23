@@ -32,7 +32,9 @@ function makeFrameGeo(w: number, h: number, bar: number, gap: number) {
   hole.closePath()
   shape.holes.push(hole)
   return new THREE.ExtrudeGeometry(shape, {
-    depth: 0.05,
+    // Deeper profile so the frame stands off the wall and casts a longer, more
+    // visible shadow (the mat/art planes below sit near the front of this depth).
+    depth: 0.085,
     bevelEnabled: true,
     bevelThickness: 0.018,
     bevelSize: 0.014,
@@ -178,12 +180,12 @@ export default function Exhibit({
                 frame's hollow outline (the mat fills the opening; art fills it when
                 there's no mat). */}
             {frameDef.gap! > 0 && (
-              <mesh position={[0, 0, 0.035]} castShadow>
+              <mesh position={[0, 0, 0.075]} castShadow>
                 <planeGeometry args={[width + frameDef.gap! * 2 + 0.02, height + frameDef.gap! * 2 + 0.02]} />
                 <meshStandardMaterial color={frameDef.mat!} roughness={0.9} />
               </mesh>
             )}
-            <mesh position={[0, 0, 0.04]} castShadow onClick={onClick} onPointerOver={onOver} onPointerOut={onOut}>
+            <mesh position={[0, 0, 0.08]} castShadow onClick={onClick} onPointerOver={onOver} onPointerOut={onOut}>
               <planeGeometry args={[width, height]} />
               <meshStandardMaterial
                 map={artTex}
