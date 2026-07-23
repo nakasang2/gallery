@@ -2,7 +2,7 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-23（参考写真クオリティ引き上げ第2弾: コンクリ壁・物理減衰・器具・2層影。未push）
+- **最終更新**: 2026-07-23（実機FB4件修正: 影強化・光錐白板/床白飛び・ゴーストTポーズ・器具向き検証。未push）
 
 ## 進行中
 - なし
@@ -29,9 +29,9 @@
 - なし
 
 ## 完了ログ（直近5件）
+- 2026-07-23: **実機FB4件を修正**（DECISIONS 2026-07-23追記参照）。①疑似影を拡大・濃く（全作品で確実に見える）②光錐の横視点白板化＋反射床の白飛び（軸フェード＋レイヤー隔離）③ゴーストTポーズ（クローン再生成でmixerバインド切れ→in-place tint＋key再マウント）④器具向きは数値照合で全壁一致を確認。タイトル壁もdecay2＋`TrackFixture`追加。tsc/buildクリーン、/demoでテーマライブ切替を含め実機確認。**未push**。
 - 2026-07-23: **参考写真クオリティへの引き上げ第2弾**（DECISIONS 2026-07-23参照）。chic/noirの壁を手続き生成の打ち放しコンクリ（目地/セパ穴/骨材）に、スポットdecay=2の物理減衰＋露出再平衡、天井トラック器具を組立体モデル化、疑似影を2層（外周ソフト＋際タイト）に。tsc/buildクリーン、/demoでchic・noir両テーマ実機確認。**未push**。
 - 2026-07-23: **描画品質を3ティア化＋質感ブラッシュアップ**（DECISIONS 2026-07-23参照）。`QUALITY`(high/medium/low)導入、lowは実影・反射オフ＋疑似影のみ・DPR1.25。PCはDPR上限2＋`PerformanceMonitor`でFPS低下時2→1.5→1.25自動降格（LESSONS 2026-07-23参照）。作品表面キャンバス織り目バンプ・天井漆喰ノーマル・額縁ベベル5seg・異方性16。tsc/buildクリーン、/demo(PC)実機確認済。**未push・スマホ実機QA残**。
 - 2026-07-22: **ツアーが音声を待たず送る不具合を修正**（LESSONS 2026-07-22参照）。`useTour`(GalleryApp)が固定6.2秒送りでTTS音声を途中で切っていた→ライブは「最低6.2秒＋`audioGuide.subscribe`でplaying→false待ち＋上限30秒」に。録画ツアーは映像のみ(音声非収録)で待つ意味がないため固定6.2秒維持、`store.tourRecording`フラグで分岐(RecordButtonが`setTourActive(true,true)`)。tsc・buildクリーン。※3D＋実音声要のためローカルではウォーク未初期化で再現不可＝実挙動は本番QA。push済(740957b)、本番200。
 - 2026-07-22: **読み上げ(音声ガイド)をOpenAI TTS化**（DECISIONS 2026-07-22参照）。本番ENV(`OPENAI_API_KEY`/`SUPABASE_SERVICE_ROLE_KEY`)設定済→`/api/tts`が本番200・mp3公開再生可・キャッシュ動作を実確認。ボイス=shimmer確定。`app/api/tts/route.ts`: サーバ鍵で`gpt-4o-mini-tts`をfetch直叩き、乱用防止で`workId`受け→DB(なければ同梱`ARTWORKS`=demo)から実キャプションを引いて生成、`artworks/tts/{hash}.mp3`にキャッシュ。`lib/guide.ts`: OpenAI音声優先→失敗/501時ブラウザ読み上げ。push済(717b502〜329ec7e)。`app/api/tts/route.ts`新設: サーバの`OPENAI_API_KEY`で`gpt-4o-mini-tts`をfetch直叩き(新規ライブラリなし)。乱用防止で`workId`受け→DBから実キャプションを引いて生成(生成対象は実在キャプションのみ)。`model+voice+text`のsha256で`artworks/tts/{hash}.mp3`にキャッシュ(HEADでヒット判定・公開読み)、未設定は501。`lib/guide.ts`: tts再生を「OpenAI音声(url)優先→失敗/501/ネットワーク時はブラウザ読み上げ」に拡張、セッション内URLメモリキャッシュ、声は`TTS_VOICE='alloy'`1箇所で切替。tsc・buildクリーン、ローカルは`/api/tts`が501返し→フォールバック動作を確認。push済(717b502)、本番200。※OpenAI実生成はキー設定＋本番QA。ボイスはキー後に聴き比べて確定。
-- 2026-07-22: **/me ダッシュボード全自動保存化＋保存トースト**（DECISIONS 2026-07-22参照）。Profile(表示名/Bio/SNS)を`editProfile`(900msデバウンス)で自動保存化しSave profileボタン廃止(username手動・アバター即時のまま)。全ダッシュボードに保存トースト(`ToastContext`＋`.me-toast`・下中央金ドット1.8秒・単一スロット)、全保存成功で`toast()`。インライン"saved"廃し"saving…"のみ。未使用の`SectionSaveHeader`/`ReactNode` import削除。Accountのメール/パスワード/削除は手動据え置き。tsc・buildクリーン、一時ハーネスでProfile無ボタン化・saving…・Savedトースト発火を確認。push済(64064a3)、本番200。※実データ往復は認証必須で本番QA。
 

@@ -630,16 +630,17 @@ export function getSoftShadowTexture(): THREE.CanvasTexture {
   const ctx = c.getContext('2d')!
   ctx.clearRect(0, 0, s, s)
   // A big blur radius gives the soft penumbra; padding leaves room for it to fade out.
-  // Smaller padding = larger solid dark core (the shadow reads beyond the frame edge,
-  // not just as a thin rim).
-  const pad = 34
-  ctx.filter = `blur(${Math.round(pad * 0.7)}px)`
-  ctx.fillStyle = 'rgba(0,0,0,0.96)'
+  // The pad is deliberately wide (~23% a side): the frame covers the solid core, so
+  // what shows on the wall is this gradient band — too narrow and the shadow reads
+  // as a faint rim that vanishes on a brightly lit wall (user-reported).
+  const pad = 58
+  ctx.filter = `blur(${Math.round(pad * 0.75)}px)`
+  ctx.fillStyle = 'rgba(0,0,0,0.97)'
   const x = pad
   const y = pad
   const w = s - pad * 2
   const h = s - pad * 2
-  const r = 18
+  const r = 24
   ctx.beginPath()
   ctx.moveTo(x + r, y)
   ctx.arcTo(x + w, y, x + w, y + h, r)

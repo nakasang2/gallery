@@ -199,11 +199,16 @@ function Ghost({
   // first, then the visible unlit material draws only the front-most fragment per pixel
   // (depthWrite off, so it never occludes the next figure). Result: every pixel is
   // blended exactly once → one even opacity, a true silhouette.
+  // The clone must be created exactly once per model (dep: scene only). Recreating it
+  // — e.g. because the tint changed with the theme — orphans the animation bindings:
+  // useAnimations' mixer caches actions against the FIRST clone's bones, so a new clone
+  // renders frozen in bind pose (the "T-pose ghost" bug). Tint updates happen in-place
+  // in the effect below instead.
+  const shade = useRef(0.82 + Math.random() * 0.32)
   const { model, mats } = useMemo(() => {
     const model = skeletonClone(scene)
-    const c = baseColor.clone().multiplyScalar(0.82 + Math.random() * 0.32)
     const mat = new THREE.MeshBasicMaterial({
-      color: c,
+      color: 0xffffff,
       transparent: true,
       opacity: 0.5,
       depthWrite: false, // don't occlude other ghosts / the room; the pre-pass handles self-occlusion
@@ -236,9 +241,13 @@ function Ghost({
       sm.parent?.add(twin)
     }
     return { model, mats: [mat, depthMat] }
-  }, [scene, baseColor])
+  }, [scene])
   const mat = mats[0]
   useEffect(() => () => mats.forEach((m) => m.dispose()), [mats])
+  // Wall-contrast tint, applied in place (see the clone comment above)
+  useEffect(() => {
+    mat.color.copy(baseColor).multiplyScalar(shade.current)
+  }, [baseColor, mat])
 
   // Each model ships exactly two clips — a short walk cycle (~1s) and a long idle (~14s).
   // Pick them by DURATION, not array order: the two models name/order their clips
@@ -447,8 +456,12 @@ export default function GhostVisitors() {
     <Suspense fallback={null}>
       <group visible={showing}>
         {Array.from({ length: count }).map((_, i) => (
+          // Key includes the model index: when a headcount change reshuffles which
+          // figure wears which model, the component must remount — swapping modelUrl
+          // in place re-clones the scene under a mixer still bound to the old bones
+          // (frozen T-pose)
           <Ghost
-            key={i}
+            key={`${i}:${modelIdx[i]}`}
             layout={layout}
             solids={solids}
             baseColor={baseColor}

@@ -14,6 +14,7 @@ import { walkRef } from '@/lib/controller'
 import { loadImage } from '@/lib/upload'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
+import TrackFixture from './TrackFixture'
 
 // The artist's board, grouped into two blocks: the EXHIBITION (title +
 // statement) and the ARTIST (avatar + name + handle + bio). With no real title
@@ -141,14 +142,16 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
         {/* Use a material that catches the spotlight so it blends with the lighting */}
         <meshStandardMaterial map={tex} transparent roughness={0.9} />
       </mesh>
+      {/* decay 2 = the same physical falloff as the exhibit spots; intensity is
+          rebalanced for the ~3.6m throw so the board reads as before */}
       <SpotWithTarget
         position={[-layout.hw + 3.4, CEIL_H - 0.2, 0]}
         targetPosition={[-layout.hw, 2.5, 0]}
         color={theme.spotColor}
-        intensity={30}
+        intensity={95}
         angle={0.75}
         penumbra={0.7}
-        decay={1.1}
+        decay={2}
       />
       <LightCone
         from={new THREE.Vector3(-layout.hw + 3.4, CEIL_H - 0.2, 0)}
@@ -156,6 +159,11 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
         angle={0.75}
         color={theme.spotColor}
         opacity={theme.coneOpacity * 0.8}
+      />
+      <TrackFixture
+        at={new THREE.Vector3(-layout.hw + 3.4, CEIL_H - 0.2, 0)}
+        target={new THREE.Vector3(-layout.hw, 2.5, 0)}
+        color={theme.spotColor}
       />
     </>
   )

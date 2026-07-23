@@ -10,9 +10,11 @@ const vertexShader = /* glsl */ `
   varying float vAxis;      // 1 = light source side, 0 = tip
   varying vec3 vNormal;
   varying vec3 vViewDir;
+  varying vec3 vAxisView;   // beam axis in view space
   void main() {
     vAxis = uv.y;
     vNormal = normalize(normalMatrix * normal);
+    vAxisView = normalize((modelViewMatrix * vec4(0.0, -1.0, 0.0, 0.0)).xyz);
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     vViewDir = normalize(-mv.xyz);
     gl_Position = projectionMatrix * mv;
@@ -25,14 +27,25 @@ const fragmentShader = /* glsl */ `
   varying float vAxis;
   varying vec3 vNormal;
   varying vec3 vViewDir;
+  varying vec3 vAxisView;
   void main() {
     // Denser toward the source and toward the center seen head-on (edges fade where the view and normal are perpendicular)
     float axial = pow(vAxis, 1.7);
     float edge = pow(abs(dot(normalize(vNormal), normalize(vViewDir))), 1.4);
-    float a = axial * edge * uOpacity;
+    // A real shaft is brightest looking ALONG the beam and nearly invisible from
+    // the side — without this the double-sided cone reads as a white slab when
+    // seen side-on across the room.
+    float along = abs(dot(normalize(vViewDir), normalize(vAxisView)));
+    float axisFade = mix(0.22, 1.0, pow(along, 1.6));
+    float a = axial * edge * axisFade * uOpacity;
     gl_FragColor = vec4(uColor, a);
   }
 `
+
+/** Cones live on this layer only: the main camera enables it (GalleryScene), but the
+ *  floor's planar-reflection camera (layer 0 only) never sees them — reflected light
+ *  shafts otherwise smear into a big white wash on the polished floor. */
+export const CONE_LAYER = 11
 
 export default function LightCone({
   from,
@@ -72,5 +85,13 @@ export default function LightCone({
 
   useEffect(() => () => disposeAll([geometry, material]), [geometry, material])
 
-  return <mesh geometry={geometry} material={material} position={position} quaternion={quaternion} />
+  return (
+    <mesh
+      geometry={geometry}
+      material={material}
+      position={position}
+      quaternion={quaternion}
+      layers-mask={1 << CONE_LAYER}
+    />
+  )
 }

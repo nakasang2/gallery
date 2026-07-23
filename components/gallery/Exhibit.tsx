@@ -10,6 +10,7 @@ import { walkRef, QUALITY } from '@/lib/controller'
 import { getArtTexture, makePlaqueTexture, getFrameFinish, getSoftShadowTexture, getCanvasWeave, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
+import TrackFixture from './TrackFixture'
 import { useVideoArt } from './VideoArt'
 
 // Beveled frame (extrude a hollowed-out border shape with a bevel)
@@ -123,10 +124,6 @@ export default function Exhibit({
   // The picture light sits close above the work, so it needs a wider cone to cover the frame
   const spotAngle = lightMode === 'overhead' ? 0.85 : 0.46
   const spotPenumbra = lightMode === 'overhead' ? 0.7 : 0.65
-  const fixtureQuat = useMemo(() => {
-    const dir = spotTarget.clone().sub(lightPos).normalize()
-    return new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir)
-  }, [spotTarget, lightPos])
 
   return (
     <>
@@ -135,12 +132,12 @@ export default function Exhibit({
             the wall. Sits just off the wall (behind the frame), a bit larger than the
             work and shifted down, since the light comes from above. Independent of the
             per-work light mode, so it's reliable where the real shadow map is too faint. */}
-        <mesh position={[0.03, -0.16, 0.006]}>
-          <planeGeometry args={[halfW * 2 + 0.42, halfH * 2 + 0.66]} />
+        <mesh position={[0.04, -0.2, 0.006]}>
+          <planeGeometry args={[halfW * 2 + 0.6, halfH * 2 + 0.85]} />
           <meshBasicMaterial
             map={getSoftShadowTexture()}
             transparent
-            opacity={0.4}
+            opacity={0.46}
             color={0x000000}
             depthWrite={false}
             polygonOffset
@@ -149,12 +146,12 @@ export default function Exhibit({
         </mesh>
         {/* Second, tighter core just past the frame edge — the two layers together
             approximate contact hardening (sharp near the frame, soft further out) */}
-        <mesh position={[0.015, -0.07, 0.007]}>
-          <planeGeometry args={[halfW * 2 + 0.15, halfH * 2 + 0.24]} />
+        <mesh position={[0.02, -0.09, 0.007]}>
+          <planeGeometry args={[halfW * 2 + 0.22, halfH * 2 + 0.34]} />
           <meshBasicMaterial
             map={getSoftShadowTexture()}
             transparent
-            opacity={0.36}
+            opacity={0.4}
             color={0x000000}
             depthWrite={false}
             polygonOffset
@@ -340,45 +337,7 @@ export default function Exhibit({
           )
         })()
       ) : (
-        // Ceiling track spot: canopy + stem + angled barrel with a bright aperture.
-        // The glowing front disc is what sells it as the source of the light pool.
-        (() => {
-          const body = { color: 0x111010, roughness: 0.42, metalness: 0.55 }
-          return (
-            <group position={[lightPos.x, CEIL_H, lightPos.z]}>
-              <mesh position={[0, -0.014, 0]}>
-                <cylinderGeometry args={[0.056, 0.056, 0.028, 16]} />
-                <meshStandardMaterial {...body} />
-              </mesh>
-              <mesh position={[0, -0.055, 0]}>
-                <cylinderGeometry args={[0.011, 0.011, 0.06, 10]} />
-                <meshStandardMaterial {...body} />
-              </mesh>
-              <group position={[0, -0.1, 0]} quaternion={fixtureQuat}>
-                {/* barrel (slightly flared toward the mouth) */}
-                <mesh position={[0, -0.095, 0]}>
-                  <cylinderGeometry args={[0.045, 0.052, 0.19, 20]} />
-                  <meshStandardMaterial {...body} />
-                </mesh>
-                {/* front trim ring */}
-                <mesh position={[0, -0.196, 0]}>
-                  <cylinderGeometry args={[0.056, 0.056, 0.02, 20]} />
-                  <meshStandardMaterial color={0x1b1917} roughness={0.3} metalness={0.7} />
-                </mesh>
-                {/* glowing aperture */}
-                <mesh position={[0, -0.2075, 0]} rotation-x={Math.PI / 2}>
-                  <circleGeometry args={[0.04, 20]} />
-                  <meshStandardMaterial
-                    color={theme.spotColor}
-                    emissive={theme.spotColor}
-                    emissiveIntensity={2.4}
-                    toneMapped={false}
-                  />
-                </mesh>
-              </group>
-            </group>
-          )
-        })()
+        <TrackFixture at={lightPos} target={spotTarget} color={theme.spotColor} />
       )}
     </>
   )

@@ -15,6 +15,7 @@ import Dust from './Dust'
 import WalkControls from './WalkControls'
 import GhostVisitors from './GhostVisitors'
 import Effects from './Effects'
+import { CONE_LAYER } from './LightCone'
 import { VideoPlaybackManager } from './VideoArt'
 import { getListener } from '@/lib/videohub'
 
@@ -27,6 +28,9 @@ export default function GalleryScene() {
   useEffect(() => {
     const listener = getListener()
     camera.add(listener)
+    // Fake light shafts live on their own layer so the floor's reflection camera
+    // (layer 0 only) skips them — the main camera still needs to opt in.
+    camera.layers.enable(CONE_LAYER)
     // Prototype debugging
     ;(window as unknown as Record<string, unknown>).__scene = scene
     ;(window as unknown as Record<string, unknown>).__gl = gl
