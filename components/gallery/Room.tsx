@@ -201,7 +201,7 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
             bumpMap={floorTex.bumpMap}
             bumpScale={0.5}
             color={theme.floorTint}
-            resolution={512}
+            resolution={1024} // 512 sparkles/crawls when the camera moves
             blur={[320, 90]}
             mixBlur={1}
             mixStrength={0.55}

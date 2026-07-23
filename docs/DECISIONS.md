@@ -26,6 +26,13 @@
 - 決定3（白系アーティファクトの残り2件を特定・修正）: ①コンクリ色マップの「水染み」がハードエッジ矩形で、壁スケールでは黒い縦帯/大ジミに見えた→柔らかい楕円グラデに描き直し。②ダスト粒子がカメラ至近でsizeAttenuationにより巨大白玉化→`gl_PointSize`を9pxでクランプ（onBeforeCompile）。ベンチのダウンライトも60°→36°に絞り床の説明のつかない大光だまりを解消(intensity 26→22)。
 - 検証: tsc・buildクリーン。/demoで額縁影・プレート影・染み消滅・白玉消滅を実機確認。※「白い写り込み」はユーザー環境が修正前ビルドだった可能性もあり、本番/リロード後の再確認を依頼。
 
+## 2026-07-23 影消失の真因修正＋チラつき対策（MSAA）
+- 背景: ユーザーFB「読み込み直後だけ影が表示されすぐ消える」「白い写り込みがまだある」「ワイヤーや反射がチラつく」。
+- 真因1（影）: dpr自動降格→R3Fの`configure()`再実行→`shadows` prop未指定で`shadowMap.enabled=false`に上書きリセット（LESSONS 2026-07-23参照）。**`<Canvas shadows='percentage'>`（lowティアはfalse）で宣言的に指定**して恒久修正。onCreatedの手動設定は廃止（autoUpdate=falseのみ残す）。あわせてthree r185がPCFSoft廃止と判明（従来から実質PCF＋shadow-radiusで柔らかさを出していた）。
+- 決定2（チラつき）: `EffectComposer multisampling 0→4`（細いワイヤー/額縁エッジ/反射のシマー対策。SMAAだけではサブピクセルに無力）＋`MeshReflectorMaterial resolution 512→1024`。PCのみ（Effects/反射はhighティア限定のまま）。
+- 派生バグ修正: MSAAのエッジ外挿で光錐シェーダーの`pow(uv.y)`がNaN→縁が点線状に発光。`clamp`で修正（LESSONS参照）。
+- 検証: tsc/buildクリーン。ローカル実機でdpr降格後も`shadowMap.enabled=true`維持・点線消滅・chic/noirとも壁の白系アーティファクトなしを確認。
+
 ## 2026-07-23 描画品質を3ティア化＋質感ブラッシュアップ（高級感／低スペック配慮）
 - 背景: ユーザー「3Dの見え方が安っぽい。光/影/テクスチャ/モデル精度を多角的にブラッシュアップしたい。ただし低スペック端末では影や反射を無くす等の工夫も」。
 - 決定1（品質ティア）: 従来の2値`LOW_POWER`(タッチ判定のみ)を**3ティア`QUALITY`**へ拡張（`lib/controller.ts`）。high=PC(フルパイプライン)／medium=通常スマホ(実影1024・clearcoat床・ポストエフェクトなし)／low=低スペックスマホ(`deviceMemory<=4GB`または`hardwareConcurrency<=4`)。**lowは実影・反射を完全オフ**(`shadowMap.enabled=false`・DPR上限1.25)、奥行きは既存のアートディレクション疑似影で担保（ベンチにも疑似接地影プレーンを追加）。`LOW_POWER`は互換維持（`QUALITY!=='high'`、従来のタッチ判定と同値）。

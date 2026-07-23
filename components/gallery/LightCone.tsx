@@ -29,8 +29,10 @@ const fragmentShader = /* glsl */ `
   varying vec3 vViewDir;
   varying vec3 vAxisView;
   void main() {
-    // Denser toward the source and toward the center seen head-on (edges fade where the view and normal are perpendicular)
-    float axial = pow(vAxis, 1.7);
+    // Denser toward the source and toward the center seen head-on (edges fade where the view and normal are perpendicular).
+    // clamp: with MSAA the rim fragments extrapolate uv.y slightly below 0 and
+    // pow(negative) is NaN — renders as a dotted glowing ellipse along the cone rim.
+    float axial = pow(clamp(vAxis, 0.0, 1.0), 1.7);
     float edge = pow(abs(dot(normalize(vNormal), normalize(vViewDir))), 1.4);
     // A real shaft is brightest looking ALONG the beam and nearly invisible from
     // the side — without this the double-sided cone reads as a white slab when

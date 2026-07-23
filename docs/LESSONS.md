@@ -31,6 +31,9 @@
 
 - 2026-07-23 | drei `PerformanceMonitor`のDPR自動降格が、シーン安定後でなく初期化直後に発動し高解像度が一度も出ない（プレビュー実測: 起動数秒でdpr2→降格） → 初期ロード（シャドウbake・テクスチャロード）のFPS低下や、タブ/ペイン非表示中のrAFスロットリングを「性能不足」と誤判定する → **FPSベースの自動降格は (1)ロード完了後にマウント、(2)`document.visibilityState==='visible'`のときだけ降格、(3)降格は段階ラダー（2→1.5→1.25）にする。復帰昇格は画質の行き来がチラつくので付けない**（`components/gallery/GalleryApp.tsx`）
 
+- 2026-07-23 | 「読み込み直後だけ影が出てすぐ消える」（ユーザー報告）→ R3Fは`<Canvas>`のprops変更（`dpr`自動降格等）のたびに`configure()`を再実行し、**`shadows` prop未指定だと`gl.shadowMap.enabled=false`で上書きリセット**する。onCreatedで手動`enabled=true`していたのは初回のみで、数秒後のdpr降格で全実影が消えていた → **shadowMapの設定はonCreatedでなく`<Canvas shadows=...>`で宣言する（R3Fが管理するプロパティはpropで渡す）。なおthree r185は`PCFSoftShadowMap`廃止・PCFへ強制降格するので`'percentage'`を指定し、柔らかさはlightの`shadow-radius`で出す**（`components/gallery/GalleryApp.tsx`）
+- 2026-07-23 | EffectComposerのMSAA有効化（チラつき対策）直後、光錐の縁に「点線状に光る楕円」が出現 → MSAAはシルエット端でvaryingを外挿するため`uv.y`が僅かに負になり、シェーダーの`pow(vAxis,1.7)`が**NaN**→加算ブレンドで白点化 → **カスタムシェーダーで`pow(x, 非整数)`する変数は必ず`clamp(x,0.,1.)`してから。MSAA導入時は端の外挿でシェーダー入力が範囲外に出る前提で見直す**（`components/gallery/LightCone.tsx`）
+
 ### 3Dアセット
 - 2026-07-16 | 「使えるモデルを追加した」と渡された`walk.glb`/`idle.glb`が各約200MB(Web要件に3桁オーバー) → Blenderエクスポート時にKitBash3D「NeoCity」街並みキット(99%)が誤同梱され、実キャラは約2MBだった → **取得した3Dアセットは使う前に必ず中身を検分する(`gltf-transform inspect`/glbのJSONチャンク解析でメッシュ名・skin有無・テクスチャ解像度・シーン構成を見る)。巨大化の一次対処は「圧縮」ではなく「不要コンテンツの除去」。skin付き(=キャラ)とstatic(=環境)を分けて実サイズを測ると原因が即分かる。仕上げに `gltf-transform` で街シーン破棄→テクスチャWebP縮小→Draco圧縮で200MB→1.6MB**
 - 2026-07-16 | glTFキャラを多数インスタンス化したら全員T字ポーズで固まりアニメが効かない → skinメッシュを`scene.clone()`するとスケルトン(ボーン)参照が切れ、mixerが駆動できずバインドポーズのまま → **skinメッシュの複製は必ず`three/examples/jsm/utils/SkeletonUtils.js`の`clone()`を使う。`useGLTF`はurl単位でキャッシュされるので、共有シーンを各インスタンスで`SkeletonUtils.clone`し、`useAnimations(clips, instanceRef)`で個別mixerを張る**

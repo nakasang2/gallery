@@ -204,19 +204,23 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
         <Canvas
           className="stage-root"
           gl={{ antialias: true }}
+          // Shadows MUST be declared here, not set manually in onCreated: R3F
+          // re-applies this prop on every canvas reconfigure (e.g. the dpr
+          // downgrade below), and an unset prop resets shadowMap.enabled=false —
+          // which was silently killing every real shadow a few seconds after load.
+          // 'percentage' = PCFShadowMap: three r185 removed PCFSoftShadowMap (it
+          // force-downgrades to PCF with a warning); the soft penumbra comes from
+          // each light's shadow-radius instead.
+          shadows={QUALITY !== 'low' ? 'percentage' : false}
           dpr={dpr}
           camera={{ fov: 60, near: 0.1, far: 100, position: [entryRef.current.x, 1.6, entryRef.current.z] }}
           onCreated={({ gl, camera }) => {
             camera.rotation.order = 'YXZ'
             gl.toneMapping = THREE.ACESFilmicToneMapping
             gl.toneMappingExposure = 1.1
-            // The scene is static, so shadows are baked (GalleryScene sets needsUpdate).
-            // PCFSoft + per-light shadow radius gives soft, natural penumbra edges
-            // instead of the hard stair-stepped CG look (sampled at render, so it
-            // still applies to the baked maps). The low tier skips real shadows
-            // entirely — the art-directed shadow planes carry the depth cues.
-            gl.shadowMap.enabled = QUALITY !== 'low'
-            gl.shadowMap.type = THREE.PCFSoftShadowMap
+            // The scene is static, so shadows are baked (GalleryScene sets
+            // needsUpdate; enabled/type come from the `shadows` prop above).
+            // autoUpdate isn't managed by R3F, so setting it once here is safe.
             gl.shadowMap.autoUpdate = false
             gl.domElement.style.touchAction = 'none'
             canvasRef.current = gl.domElement // for the walkthrough recorder

@@ -8,7 +8,10 @@ import HeightFog from './HeightFog'
 
 export default function Effects({ theme }: { theme: ThemeDef }) {
   return (
-    <EffectComposer multisampling={0}>
+    // 4x MSAA on the composer buffer: without it, thin geometry (hanging wires,
+    // frame edges) and the floor reflection shimmer/crawl as the camera moves —
+    // SMAA alone can't fix subpixel aliasing. Desktop-only (this whole component).
+    <EffectComposer multisampling={4}>
       <N8AO aoRadius={1.5} distanceFalloff={2.5} intensity={2.6} quality="medium" />
       {/* Continuous mist (depth-based). Thicker near the floor, no stepping as you move */}
       <HeightFog
