@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { getNeutralEnvTexture } from './textures'
 import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat } from '@/lib/presets'
 import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
@@ -50,9 +50,11 @@ export default function GalleryScene() {
   // Environment map: faint room light reflects in the floor sheen and metal frame parts
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl)
-    const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    // Rotationally symmetric gradient — NOT RoomEnvironment, whose one-sided hot
+    // "window" painted a white sheen onto whichever wall/floor faced it
+    const envTex = pmrem.fromEquirectangular(getNeutralEnvTexture()).texture
     scene.environment = envTex
-    scene.environmentIntensity = 0.3
+    scene.environmentIntensity = 1.0
     pmrem.dispose()
     return () => {
       scene.environment = null

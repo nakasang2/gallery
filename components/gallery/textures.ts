@@ -667,6 +667,33 @@ export function getSoftShadowTexture(): THREE.CanvasTexture {
   return tex
 }
 
+/* ---- Neutral environment map (rotationally symmetric) ----
+   three's RoomEnvironment has a hot rectangular "window" on ONE side: any wall or
+   floor area whose normal faces that direction picks up a broad white sheen — the
+   long-hunted "white reflection on one wall only, art or not". This equirect
+   gradient is uniform around the Y axis: light from above, dark below, no window.
+   Frames/metals still get their vertical sheen; nothing in the room has a side. */
+let neutralEnv: THREE.CanvasTexture | null = null
+export function getNeutralEnvTexture(): THREE.CanvasTexture {
+  if (neutralEnv) return neutralEnv
+  const c = document.createElement('canvas')
+  c.width = 64
+  c.height = 64
+  const ctx = c.getContext('2d')!
+  // Bright enough that metals (gold/silver frames live on env light) still shine
+  const g = ctx.createLinearGradient(0, 0, 0, 64)
+  g.addColorStop(0, '#e8d9bd') // ceiling glow — warm gallery light from above
+  g.addColorStop(0.42, '#9a9184')
+  g.addColorStop(0.58, '#736a5e') // horizon band
+  g.addColorStop(1, '#25211c') // floor: dark
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 64, 64)
+  neutralEnv = new THREE.CanvasTexture(c)
+  neutralEnv.mapping = THREE.EquirectangularReflectionMapping
+  neutralEnv.colorSpace = THREE.SRGBColorSpace
+  return neutralEnv
+}
+
 /* ---- Uniform contact blob (for shadows lying ON the floor) ----
    The wall drop-shadow texture above carries a vertical density gradient, which
    is wrong for a plane rotated flat onto the floor (the gradient would point

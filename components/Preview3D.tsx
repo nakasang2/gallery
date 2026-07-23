@@ -8,7 +8,7 @@ import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { getNeutralEnvTexture } from './gallery/textures'
 import { resolveTheme, frameDefFor, HANGINGS, CAPTIONS, CEIL_H, applyMat, type SlotDef, type DesignOverrides } from '@/lib/presets'
 import { artSize } from '@/lib/exhibition'
 import Exhibit from '@/components/gallery/Exhibit'
@@ -191,9 +191,11 @@ function Env() {
   const scene = useThree((s) => s.scene)
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl)
-    const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    // Symmetric gradient env — matches GalleryScene (RoomEnvironment's one-sided
+    // window painted a directional white sheen)
+    const envTex = pmrem.fromEquirectangular(getNeutralEnvTexture()).texture
     scene.environment = envTex
-    scene.environmentIntensity = 0.3
+    scene.environmentIntensity = 1.0
     pmrem.dispose()
     return () => {
       scene.environment = null
