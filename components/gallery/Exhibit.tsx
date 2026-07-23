@@ -132,12 +132,15 @@ export default function Exhibit({
             the wall. Sits just off the wall (behind the frame), a bit larger than the
             work and shifted down, since the light comes from above. Independent of the
             per-work light mode, so it's reliable where the real shadow map is too faint. */}
+        {/* Shadow density tracks the light distance: a picture light hangs right
+            over the frame (hard, dark shadow); a ceiling track is ~3m away
+            (lighter, more diffuse) — uniform density across the room reads fake */}
         <mesh position={[0.05, -0.24, 0.006]}>
           <planeGeometry args={[halfW * 2 + 0.6, halfH * 2 + 0.85]} />
           <meshBasicMaterial
             map={getSoftShadowTexture()}
             transparent
-            opacity={0.5}
+            opacity={lightMode === 'overhead' ? 0.56 : 0.42}
             color={0x000000}
             depthWrite={false}
             polygonOffset
@@ -151,7 +154,7 @@ export default function Exhibit({
           <meshBasicMaterial
             map={getSoftShadowTexture()}
             transparent
-            opacity={0.45}
+            opacity={lightMode === 'overhead' ? 0.5 : 0.38}
             color={0x000000}
             depthWrite={false}
             polygonOffset

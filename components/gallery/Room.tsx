@@ -6,7 +6,7 @@ import type { ThreeEvent } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { walkRef, LOW_POWER, QUALITY } from '@/lib/controller'
-import { getFloorTextures, getPlasterBump, getPlasterNormal, getConcreteMaps, getSoftShadowTexture, disposeAll } from './textures'
+import { getFloorTextures, getPlasterBump, getPlasterNormal, getConcreteMaps, getBlobShadowTexture, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 
@@ -109,8 +109,10 @@ function Bench({ x, z, theme }: { x: number; z: number; theme: ThemeDef }) {
       {QUALITY === 'low' && (
         <mesh rotation-x={-Math.PI / 2} position={[0, 0.012, 0]}>
           <planeGeometry args={[2.5, 0.95]} />
+          {/* radially uniform blob — the wall-shadow texture has a vertical
+              gradient that would point along +Z when laid flat */}
           <meshBasicMaterial
-            map={getSoftShadowTexture()}
+            map={getBlobShadowTexture()}
             transparent
             opacity={0.34}
             color={0x000000}
@@ -202,11 +204,15 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
             bumpScale={0.5}
             color={theme.floorTint}
             resolution={1024} // 512 sparkles/crawls when the camera moves
-            blur={[320, 90]}
+            blur={[360, 100]}
             mixBlur={1}
-            mixStrength={0.55}
+            // Kept low: at grazing angles the planar reflection contributes near
+            // full strength, and any bright pool/artwork then blooms into a big
+            // white wash on the floor (user-reported). These bounds keep every
+            // reflection below the bloom threshold while the sheen survives.
+            mixStrength={0.32}
             mixContrast={1}
-            mirror={0.4}
+            mirror={0.22}
             depthScale={0.9}
             minDepthThreshold={0.3}
             maxDepthThreshold={1.2}

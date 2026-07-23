@@ -21,7 +21,9 @@ export default function Effects({ theme }: { theme: ThemeDef }) {
         floor={0}
         intensity={theme.mistLevel}
       />
-      <Bloom mipmapBlur intensity={0.22} luminanceThreshold={0.85} luminanceSmoothing={0.1} />
+      {/* threshold 1.0: only true emitters (strips, fixture apertures) bloom —
+          at 0.85 a bright floor reflection could blow out into a white wash */}
+      <Bloom mipmapBlur intensity={0.22} luminanceThreshold={1.0} luminanceSmoothing={0.15} />
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       {/* Darken the screen edges slightly to draw the eye to the center */}
       <Vignette eskil={false} offset={0.26} darkness={0.52} />

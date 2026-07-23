@@ -640,7 +640,14 @@ export function getSoftShadowTexture(): THREE.CanvasTexture {
   // as a faint rim that vanishes on a brightly lit wall (user-reported).
   const pad = 58
   ctx.filter = `blur(${Math.round(pad * 0.75)}px)`
-  ctx.fillStyle = 'rgba(0,0,0,0.97)'
+  // Vertical density gradient: real wall shadows are darkest at the contact area
+  // just under the piece and thin out down the wall — a uniform plate reads flat
+  // (user feedback: "every shadow is the same density").
+  const grad = ctx.createLinearGradient(0, pad, 0, s - pad)
+  grad.addColorStop(0, 'rgba(0,0,0,0.97)')
+  grad.addColorStop(0.55, 'rgba(0,0,0,0.8)')
+  grad.addColorStop(1, 'rgba(0,0,0,0.52)')
+  ctx.fillStyle = grad
   const x = pad
   const y = pad
   const w = s - pad * 2
@@ -658,6 +665,29 @@ export function getSoftShadowTexture(): THREE.CanvasTexture {
   tex.colorSpace = THREE.SRGBColorSpace
   softShadowTex = tex
   return tex
+}
+
+/* ---- Uniform contact blob (for shadows lying ON the floor) ----
+   The wall drop-shadow texture above carries a vertical density gradient, which
+   is wrong for a plane rotated flat onto the floor (the gradient would point
+   along +Z for no physical reason) — floor contact shadows use this radially
+   symmetric blob instead. */
+let blobShadowTex: THREE.CanvasTexture | null = null
+export function getBlobShadowTexture(): THREE.CanvasTexture {
+  if (blobShadowTex) return blobShadowTex
+  const s = 128
+  const c = document.createElement('canvas')
+  c.width = c.height = s
+  const ctx = c.getContext('2d')!
+  const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2)
+  g.addColorStop(0, 'rgba(0,0,0,0.9)')
+  g.addColorStop(0.55, 'rgba(0,0,0,0.55)')
+  g.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, s, s)
+  blobShadowTex = new THREE.CanvasTexture(c)
+  blobShadowTex.colorSpace = THREE.SRGBColorSpace
+  return blobShadowTex
 }
 
 /* ---- Canvas weave (procedural bump map for the paint surface) ----

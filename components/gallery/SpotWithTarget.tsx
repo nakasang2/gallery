@@ -13,7 +13,9 @@ export default function SpotWithTarget({
   decay,
   castShadow = false,
   shadowMapSize = 1024,
-  shadowRadius = 2,
+  // Wider PCF radius = softer penumbra edge (user feedback: crisp stair-stepped
+  // edges read as CG; real gallery shadows have a soft rim)
+  shadowRadius = 4,
 }: {
   position: [number, number, number]
   targetPosition: [number, number, number]
