@@ -13,6 +13,49 @@ import LightCone from './LightCone'
 import TrackFixture from './TrackFixture'
 import { useVideoArt } from './VideoArt'
 
+/* Shared exhibit geometry math — exported so WallShadowBaker positions its bake
+   light/patch EXACTLY like the visual rig (single source of truth). */
+
+export function exhibitExtents(art: ArtworkData, frameDef: FrameDef) {
+  const { width, height } = artSize(art.ratio, art)
+  const frameless = frameDef.mat === null
+  const halfW = frameless ? width / 2 : width / 2 + frameDef.gap! + frameDef.bar!
+  const halfH = frameless ? height / 2 : height / 2 + frameDef.gap! + frameDef.bar!
+  return { width, height, frameless, halfW, halfH }
+}
+
+// 'overhead' = a picture light mounted on the wall just above the frame, its arm
+// reaching this far into the room where the lamp head sits.
+export const PICTURE_ARM = 0.34
+const UP = new THREE.Vector3(0, 1, 0)
+
+export function exhibitLightRig(
+  slot: SlotDef,
+  lightMode: 'ceiling' | 'overhead',
+  halfH: number
+): { position: THREE.Vector3; target: THREE.Vector3; angle: number; penumbra: number } {
+  const normal = new THREE.Vector3(0, 0, 1).applyAxisAngle(UP, slot.rotY)
+  const target = new THREE.Vector3(slot.x, 1.62, slot.z)
+  let position: THREE.Vector3
+  if (lightMode === 'overhead') {
+    position = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(PICTURE_ARM))
+    position.y = 1.62 + halfH + 0.22 // just above the top of the frame
+  } else {
+    position = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(2.1))
+    position.y = CEIL_H - 0.15
+  }
+  // The picture light sits close above the work, so it needs a wider cone
+  const angle = lightMode === 'overhead' ? 0.85 : 0.46
+  const penumbra = lightMode === 'overhead' ? 0.7 : 0.65
+  return { position, target, angle, penumbra }
+}
+
+/** Wall region the baked shadow texture covers (local to the exhibit group).
+ *  Wide/tall enough for the frame's cast shadow AND the plaque's. */
+export function shadowPatch(halfW: number, halfH: number) {
+  return { w: halfW * 2 + 1.7, h: halfH * 2 + 1.7, offsetY: -0.3 }
+}
+
 // Beveled frame (extrude a hollowed-out border shape with a bevel)
 function makeFrameGeo(w: number, h: number, bar: number, gap: number) {
   const outerW = w / 2 + gap + bar
@@ -53,6 +96,7 @@ export default function Exhibit({
   captionDef,
   lightMode,
   castRealShadow,
+  bakedShadow = null,
 }: {
   art: ArtworkData
   index: number
@@ -65,9 +109,12 @@ export default function Exhibit({
   lightMode: 'ceiling' | 'overhead'
   /** Whether this work's spot renders a real shadow map (see GalleryScene's budget) */
   castRealShadow: boolean
+  /** Baked wall-shadow texture (WallShadowBaker). When present it replaces the
+   *  procedural drop-shadow planes with the work's real silhouette shadow. */
+  bakedShadow?: THREE.Texture | null
 }) {
   const gl = useThree((s) => s.gl)
-  const { width, height } = artSize(art.ratio, art)
+  const { width, height, frameless, halfW, halfH } = exhibitExtents(art, frameDef)
 
   // Video artworks: VideoTexture + spatial audio (image artworks are cached as before)
   const artWorldPos = useMemo(() => new THREE.Vector3(slot.x, 1.62, slot.z), [slot])
@@ -87,15 +134,11 @@ export default function Exhibit({
   }, [videoArt.texture, width, height])
   useEffect(() => () => disposeAll([weaveTex]), [weaveTex])
 
-  const frameless = frameDef.mat === null
   const frameGeo = useMemo(
     () => (frameless ? null : makeFrameGeo(width, height, frameDef.bar!, frameDef.gap!)),
     [frameless, width, height, frameDef]
   )
   useEffect(() => () => disposeAll([frameGeo]), [frameGeo])
-
-  const halfW = frameless ? width / 2 : width / 2 + frameDef.gap! + frameDef.bar!
-  const halfH = frameless ? height / 2 : height / 2 + frameDef.gap! + frameDef.bar!
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
@@ -105,65 +148,68 @@ export default function Exhibit({
   const onOver = () => (gl.domElement.style.cursor = 'pointer')
   const onOut = () => (gl.domElement.style.cursor = '')
 
-  const normal = useMemo(
-    () => new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), slot.rotY),
-    [slot.rotY]
-  )
-  // Both modes light the work itself
+  // Light rig shared with WallShadowBaker (identical positions/angles by construction)
+  const rig = useMemo(() => exhibitLightRig(slot, lightMode, halfH), [slot, lightMode, halfH])
   const spotTarget = artWorldPos
-  // 'overhead' = a picture light mounted on the wall just above the frame, its arm reaching
-  // this far into the room where the lamp head sits. 'ceiling' = a track light near the ceiling.
-  const PICTURE_ARM = 0.34
-  const lightPos = useMemo(() => {
-    if (lightMode === 'overhead') {
-      const p = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(PICTURE_ARM))
-      p.y = 1.62 + halfH + 0.22 // just above the top of the frame
-      return p
-    }
-    const p = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(2.1))
-    p.y = CEIL_H - 0.15
-    return p
-  }, [slot, normal, lightMode, halfH])
-  // The picture light sits close above the work, so it needs a wider cone to cover the frame
-  const spotAngle = lightMode === 'overhead' ? 0.85 : 0.46
-  const spotPenumbra = lightMode === 'overhead' ? 0.7 : 0.65
+  const lightPos = rig.position
+  const spotAngle = rig.angle
+  const spotPenumbra = rig.penumbra
 
   return (
     <>
       <group position={[slot.x, 1.62, slot.z]} rotation-y={slot.rotY}>
-        {/* Art-directed soft drop shadow on the wall — reads as the piece standing off
-            the wall. Sits just off the wall (behind the frame), a bit larger than the
-            work and shifted down, since the light comes from above. Independent of the
-            per-work light mode, so it's reliable where the real shadow map is too faint. */}
-        {/* Shadow density tracks the light distance: a picture light hangs right
-            over the frame (hard, dark shadow); a ceiling track is ~3m away
-            (lighter, more diffuse) — uniform density across the room reads fake */}
-        <mesh position={[0.05, -0.24, 0.006]}>
-          <planeGeometry args={[halfW * 2 + 0.6, halfH * 2 + 0.85]} />
-          <meshBasicMaterial
-            map={getSoftShadowTexture()}
-            transparent
-            opacity={lightMode === 'overhead' ? 0.56 : 0.42}
-            color={0x000000}
-            depthWrite={false}
-            polygonOffset
-            polygonOffsetFactor={-1}
-          />
-        </mesh>
-        {/* Second, tighter core just past the frame edge — the two layers together
-            approximate contact hardening (sharp near the frame, soft further out) */}
-        <mesh position={[0.025, -0.11, 0.007]}>
-          <planeGeometry args={[halfW * 2 + 0.22, halfH * 2 + 0.34]} />
-          <meshBasicMaterial
-            map={getSoftShadowTexture()}
-            transparent
-            opacity={lightMode === 'overhead' ? 0.5 : 0.38}
-            color={0x000000}
-            depthWrite={false}
-            polygonOffset
-            polygonOffsetFactor={-1}
-          />
-        </mesh>
+        {bakedShadow ? (
+          // Baked wall shadow: the work's REAL silhouette (frame, wires, plaque),
+          // rendered once from this exhibit's own light by WallShadowBaker. The
+          // texture carries occlusion in its alpha channel.
+          (() => {
+            const patch = shadowPatch(halfW, halfH)
+            return (
+              <mesh position={[0, patch.offsetY, 0.006]}>
+                <planeGeometry args={[patch.w, patch.h]} />
+                <meshBasicMaterial
+                  map={bakedShadow}
+                  transparent
+                  opacity={lightMode === 'overhead' ? 0.68 : 0.7}
+                  depthWrite={false}
+                  polygonOffset
+                  polygonOffsetFactor={-1}
+                />
+              </mesh>
+            )
+          })()
+        ) : (
+          <>
+            {/* Fallback while the bake runs (and on the low tier, which can't bake):
+                art-directed soft drop shadow, denser for the close picture light */}
+            <mesh position={[0.05, -0.24, 0.006]}>
+              <planeGeometry args={[halfW * 2 + 0.6, halfH * 2 + 0.85]} />
+              <meshBasicMaterial
+                map={getSoftShadowTexture()}
+                transparent
+                opacity={lightMode === 'overhead' ? 0.56 : 0.42}
+                color={0x000000}
+                depthWrite={false}
+                polygonOffset
+                polygonOffsetFactor={-1}
+              />
+            </mesh>
+            {/* Second, tighter core just past the frame edge — the two layers together
+                approximate contact hardening (sharp near the frame, soft further out) */}
+            <mesh position={[0.025, -0.11, 0.007]}>
+              <planeGeometry args={[halfW * 2 + 0.22, halfH * 2 + 0.34]} />
+              <meshBasicMaterial
+                map={getSoftShadowTexture()}
+                transparent
+                opacity={lightMode === 'overhead' ? 0.5 : 0.38}
+                color={0x000000}
+                depthWrite={false}
+                polygonOffset
+                polygonOffsetFactor={-1}
+              />
+            </mesh>
+          </>
+        )}
         {frameless ? (
           // Stretched canvas: no frame, just showing the thickness on the sides
           <mesh
@@ -250,18 +296,21 @@ export default function Exhibit({
                 : [halfW + 0.42, -height / 2 + 0.28, 0.042]
             }
           >
-            <mesh position={[0.01, -0.035, -0.035]}>
-              <planeGeometry args={[0.54, 0.37]} />
-              <meshBasicMaterial
-                map={getSoftShadowTexture()}
-                transparent
-                opacity={0.4}
-                color={0x000000}
-                depthWrite={false}
-                polygonOffset
-                polygonOffsetFactor={-1}
-              />
-            </mesh>
+            {/* The plaque's silhouette is part of the baked texture when present */}
+            {!bakedShadow && (
+              <mesh position={[0.01, -0.035, -0.035]}>
+                <planeGeometry args={[0.54, 0.37]} />
+                <meshBasicMaterial
+                  map={getSoftShadowTexture()}
+                  transparent
+                  opacity={0.4}
+                  color={0x000000}
+                  depthWrite={false}
+                  polygonOffset
+                  polygonOffsetFactor={-1}
+                />
+              </mesh>
+            )}
             <mesh castShadow>
               <boxGeometry args={[0.42, 0.246, 0.014]} />
               <meshStandardMaterial attach="material-0" color={0xd8d3c7} roughness={0.85} />

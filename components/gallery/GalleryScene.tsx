@@ -1,15 +1,16 @@
 'use client'
 // Assembles the whole scene (applies theme/layout/exhibit list and bakes static shadows)
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
-import { useThree, useFrame } from '@react-three/fiber'
+import { useThree } from '@react-three/fiber'
 import { getNeutralEnvTexture } from './textures'
 import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat } from '@/lib/presets'
 import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
-import { LOW_POWER, camPose } from '@/lib/controller'
+import { LOW_POWER, QUALITY } from '@/lib/controller'
 import Room from './Room'
-import Exhibit from './Exhibit'
+import Exhibit, { exhibitExtents, exhibitLightRig, shadowPatch } from './Exhibit'
+import WallShadowBaker, { type BakeSpec } from './WallShadowBaker'
 import TitleWall from './TitleWall'
 import Dust from './Dust'
 import WalkControls from './WalkControls'
@@ -47,48 +48,55 @@ export default function GalleryScene() {
   const layout = resolveLayout(settings.layout, settings.layoutParams)
   const { list, slots } = usePlacement()
 
-  // Real-shadow budget, assigned DYNAMICALLY to the works nearest the camera.
-  // Every shadow-casting light costs one texture unit in every material shader
-  // (WebGL guarantees only 16), so at most SHADOW_BUDGET exhibit spots cast at a
-  // time — but which ones follows the visitor, so every work reads as shadowed
-  // where it matters (up close). The count stays constant, so swapping members
-  // reuses the same shader programs; only the maps re-bake (cheap, one frame).
-  const SHADOW_BUDGET = 5
-  const [shadowIdxs, setShadowIdxs] = useState<number[]>(() =>
-    Array.from({ length: Math.min(SHADOW_BUDGET, list.length) }, (_, i) => i)
+  // Baked wall shadows (decision 2026-07-23 案C): each work's real silhouette
+  // shadow is baked once into a small texture by WallShadowBaker, so no exhibit
+  // spot ever needs castShadow — only the two bench downlights remain as live
+  // shadow lights, far under the WebGL 16-texture-unit ceiling at any room size.
+  const frameDefs = useMemo(
+    () => list.map((art) => applyMat(frameDefFor(frameKeyFor(settings, art)), matKeyFor(settings, art))),
+    [list, settings]
   )
-  const shadowRef = useRef(shadowIdxs)
-  const lastEval = useRef({ x: Infinity, z: Infinity })
-  useFrame(() => {
-    if (list.length <= SHADOW_BUDGET) return // everyone casts; nothing to rotate
-    const dx = camPose.x - lastEval.current.x
-    const dz = camPose.z - lastEval.current.z
-    if (Number.isFinite(lastEval.current.x) && dx * dx + dz * dz < 2.25) return // re-evaluate every ~1.5m
-    lastEval.current = { x: camPose.x, z: camPose.z }
-    const next = list
-      .map((_, i) => i)
-      .sort((a, b) => {
-        const sa = layout.slots[slots[a]]
-        const sb = layout.slots[slots[b]]
-        return (
-          Math.hypot(sa.x - camPose.x, sa.z - camPose.z) -
-          Math.hypot(sb.x - camPose.x, sb.z - camPose.z)
-        )
-      })
-      .slice(0, SHADOW_BUDGET)
-      .sort((a, b) => a - b)
-    if (next.join() !== shadowRef.current.join()) {
-      shadowRef.current = next
-      setShadowIdxs(next)
-    }
-  })
-  // Swapping which lights cast requires a re-bake (maps are static otherwise)
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      gl.shadowMap.needsUpdate = true
-    })
-    return () => cancelAnimationFrame(id)
-  }, [gl, shadowIdxs])
+  const lightMode = settings.designOverrides.lightMode ?? 'ceiling'
+  const bakeSpecs = useMemo<BakeSpec[]>(
+    () =>
+      list.map((art, i) => {
+        const slot = layout.slots[slots[i]]
+        const { halfW, halfH } = exhibitExtents(art, frameDefs[i])
+        const rig = exhibitLightRig(slot, lightMode, halfH)
+        const patch = shadowPatch(halfW, halfH)
+        return {
+          id: art.id,
+          slotX: slot.x,
+          slotZ: slot.z,
+          rotY: slot.rotY,
+          patchW: patch.w,
+          patchH: patch.h,
+          patchOffsetY: patch.offsetY,
+          lightPos: rig.position,
+          target: rig.target,
+          angle: rig.angle,
+          // The picture light hangs ~0.3m from its casters — 0.5 would near-clip them
+          near: lightMode === 'overhead' ? 0.1 : 0.5,
+          // A close light throws a much broader penumbra than a distant track
+          softPx: lightMode === 'overhead' ? 14 : 6,
+        }
+      }),
+    [list, slots, layout, frameDefs, lightMode]
+  )
+  // Fingerprint of everything that changes a baked silhouette: geometry/slot via
+  // the spec numbers, PLUS hanging (ledge shelf casts) and caption (plaque casts).
+  const bakeKey = useMemo(
+    () =>
+      bakeSpecs
+        .map((s, i) => {
+          const art = list[i]
+          return `${s.id}:${s.slotX.toFixed(2)},${s.slotZ.toFixed(2)},${s.rotY.toFixed(3)},${s.patchW.toFixed(2)},${s.patchH.toFixed(2)},${s.angle},${hangingKeyFor(settings, art)},${captionKeyFor(settings, art)}`
+        })
+        .join('|'),
+    [bakeSpecs, list, settings]
+  )
+  const [bakedShadows, setBakedShadows] = useState<Record<string, THREE.Texture>>({})
+  useEffect(() => setBakedShadows({}), [bakeKey]) // composition changed → fall back to fakes while re-baking
 
   // Environment map: faint room light reflects in the floor sheen and metal frame parts
   useEffect(() => {
@@ -139,13 +147,22 @@ export default function GalleryScene() {
           index={i}
           slot={layout.slots[slots[i]]}
           theme={theme}
-          castRealShadow={shadowIdxs.includes(i)}
-          frameDef={applyMat(frameDefFor(frameKeyFor(settings, art)), matKeyFor(settings, art))}
+          castRealShadow={false}
+          bakedShadow={bakedShadows[art.id] ?? null}
+          frameDef={frameDefs[i]}
           hangingDef={HANGINGS[hangingKeyFor(settings, art)] ?? HANGINGS.wire}
           captionDef={CAPTIONS[captionKeyFor(settings, art)] ?? CAPTIONS.side}
-          lightMode={settings.designOverrides.lightMode ?? 'ceiling'}
+          lightMode={lightMode}
         />
       ))}
+      {/* medium tier bakes too (its shadow pipeline is on); only low skips */}
+      {QUALITY !== 'low' && (
+        <WallShadowBaker
+          specs={bakeSpecs}
+          bakeKey={bakeKey}
+          onBaked={(id, tex) => setBakedShadows((prev) => ({ ...prev, [id]: tex }))}
+        />
+      )}
       <TitleWall theme={theme} layout={layout} />
       <Dust layout={layout} />
       <WalkControls layout={layout} list={list} slots={slots} />

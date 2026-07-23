@@ -38,6 +38,8 @@
 - 2026-07-23 | 「床の白い写り込み」が数回の修正後も残存。決め手はユーザーの観察**「真正面から壁を見た時だけ出る・真横からは出ない」**＝視線依存 → 正体は**スポットライト光源の鏡面ハイライト**（半ツヤ床のGGXスペキュラ。目・光源・床の角度が揃う正面視だけで発生、強度54相当×複数灯で白飛び）→ **「特定視点でだけ出る白飛び」はまず光源スペキュラを疑う（光源トグルではなく「roughness/metalnessを一時的に1/0へ」で切り分けるのが速い）。展示床はroughness≥0.9・metalness 0が安全圏**（`Room.tsx` 反射床/clearcoat床）。なお切り分け中に`MeshReflectorMaterial`のdepthフェード（16bit深度・GPU依存）も除去済み
 - 2026-07-23 | EffectComposerのMSAA有効化（チラつき対策）直後、光錐の縁に「点線状に光る楕円」が出現 → MSAAはシルエット端でvaryingを外挿するため`uv.y`が僅かに負になり、シェーダーの`pow(vAxis,1.7)`が**NaN**→加算ブレンドで白点化 → **カスタムシェーダーで`pow(x, 非整数)`する変数は必ず`clamp(x,0.,1.)`してから。MSAA導入時は端の外挿でシェーダー入力が範囲外に出る前提で見直す**（`components/gallery/LightCone.tsx`）
 
+- 2026-07-23 | シャドウマップの自前サンプリング実装が「ceilingモードでは偶然それらしく見える」状態で通りかけた（レビューで検出）→ three **r185は影の深度をRGBAパックでなく`shadow.map.depthTexture`（ネイティブ深度・compareFunction=LessEqual）に格納**しており、カラー添付は1-zのグレースケール。`unpackRGBAToDepth`は無意味な値を返す → **r185+で影を自前サンプルするなら GLSL3 + `sampler2DShadow` で depthTexture をハードウェア比較する。「片方のモードでだけ動いて見える」実装はパッキング仕様の取り違えを疑う。バージョン依存の内部仕様(WebGLShadowMap)はnode_modulesの実ソースで確認する**（`WallShadowBaker.tsx`）
+
 ### 3Dアセット
 - 2026-07-16 | 「使えるモデルを追加した」と渡された`walk.glb`/`idle.glb`が各約200MB(Web要件に3桁オーバー) → Blenderエクスポート時にKitBash3D「NeoCity」街並みキット(99%)が誤同梱され、実キャラは約2MBだった → **取得した3Dアセットは使う前に必ず中身を検分する(`gltf-transform inspect`/glbのJSONチャンク解析でメッシュ名・skin有無・テクスチャ解像度・シーン構成を見る)。巨大化の一次対処は「圧縮」ではなく「不要コンテンツの除去」。skin付き(=キャラ)とstatic(=環境)を分けて実サイズを測ると原因が即分かる。仕上げに `gltf-transform` で街シーン破棄→テクスチャWebP縮小→Draco圧縮で200MB→1.6MB**
 - 2026-07-16 | glTFキャラを多数インスタンス化したら全員T字ポーズで固まりアニメが効かない → skinメッシュを`scene.clone()`するとスケルトン(ボーン)参照が切れ、mixerが駆動できずバインドポーズのまま → **skinメッシュの複製は必ず`three/examples/jsm/utils/SkeletonUtils.js`の`clone()`を使う。`useGLTF`はurl単位でキャッシュされるので、共有シーンを各インスタンスで`SkeletonUtils.clone`し、`useAnimations(clips, instanceRef)`で個別mixerを張る**
