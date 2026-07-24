@@ -257,13 +257,14 @@ export function HudStepper() {
   const infoOpen = useGallery((s) => s.infoOpen)
   if (count === 0) return null
   const current = focusedIndex >= 0 ? String(focusedIndex + 1).padStart(2, '0') : '–'
-  // Settings/guestbook/info sheets cover the pager — hide it rather than bury it
-  const tucked = settingsOpen || guestbookOpen || infoOpen
+  // Any open sheet covers the pager — hide it rather than bury it. The artwork
+  // panel now carries its own prev/next, so a focused work hides this too (it
+  // otherwise floated over the artwork itself).
+  const tucked = focusedIndex >= 0 || settingsOpen || guestbookOpen || infoOpen
   return (
-    // 'lifted' rides above the phone bottom sheet so browsing next/prev never needs closing it
     // The guided tour toggle now lives in the bottom-right cluster (HudActions), not here.
     <div
-      className={`hud-stepper${focusedIndex >= 0 ? ' lifted' : ''}${tucked ? ' tucked' : ''}`}
+      className={`hud-stepper${tucked ? ' tucked' : ''}`}
       aria-hidden={tucked}
       inert={tucked}
     >
