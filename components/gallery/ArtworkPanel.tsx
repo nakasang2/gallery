@@ -1,12 +1,17 @@
 'use client'
 // Artwork info panel (details for the focused work, plus per-work framing / visitor likes)
 import { useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { walkRef } from '@/lib/controller'
 import { useExhibitionList, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, setOverride } from '@/lib/exhibition'
+import { frameDefFor, applyMat, resolveTheme } from '@/lib/presets'
 import { useGallery, useSettings } from '@/lib/store'
 import { addLike, hasLiked, likeCount } from '@/lib/engagement'
 import { audioGuide, useGuidePlaying, guideSourceFor, type GuideSource } from '@/lib/guide'
 import WorkDesign from '@/components/WorkDesign'
+
+// The 3D preview pulls in three.js — load it only when a visitor opens it.
+const ArtworkPreview3D = dynamic(() => import('./ArtworkPreview3D'), { ssr: false })
 
 // Play/pause control for a work's audio guide — plays an uploaded narration, or
 // reads the caption aloud (src.kind === 'tts') when there's no recording.
@@ -82,6 +87,16 @@ export default function ArtworkPanel() {
   const open = !!art
   const guide = art ? guideSourceFor(art) : null
 
+  // The framed-work look for the 3D preview: same theme + frame/mat the room hangs.
+  const theme = resolveTheme(settings.theme, settings.designOverrides)
+  const frameDef = art ? applyMat(frameDefFor(frameKeyFor(settings, art)), matKeyFor(settings, art)) : null
+
+  // Full-screen "handle it" preview. Reset when the work changes or the panel closes.
+  const [preview3d, setPreview3d] = useState(false)
+  useEffect(() => {
+    setPreview3d(false)
+  }, [art?.id, open])
+
   // During the guided tour, each work's guide auto-plays as it comes into focus
   // (the tour is started by a tap, so autoplay is allowed). Any other focus/tour
   // change stops whatever was playing — so moving to a guide-less work, ending
@@ -97,6 +112,7 @@ export default function ArtworkPanel() {
   const touchStart = useRef<{ x: number; y: number } | null>(null)
 
   return (
+    <>
     <aside
       id="panel"
       className={`panel${open ? ' open' : ''}`}
@@ -163,6 +179,10 @@ export default function ArtworkPanel() {
           })()}
           {/* The visitor's one reaction deserves a real touch target, not an afterthought */}
           {visitor && <LikeButton galleryId={visitor.galleryId} artworkId={art.id} />}
+          {/* Lift the work off the wall into a dedicated preview space to rotate/zoom it */}
+          <button className="panel-view3d" onClick={() => setPreview3d(true)}>
+            <span aria-hidden="true">⛶</span> 空間で見る
+          </button>
           <p className="panel-desc">{art.desc}</p>
           <div className="panel-tags">
             {(art.tags || []).map((t) => (
@@ -210,5 +230,9 @@ export default function ArtworkPanel() {
         </>
       )}
     </aside>
+    {preview3d && art && frameDef && (
+      <ArtworkPreview3D art={art} frameDef={frameDef} theme={theme} onClose={() => setPreview3d(false)} />
+    )}
+    </>
   )
 }

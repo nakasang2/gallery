@@ -44,6 +44,9 @@
 - 2026-07-23 | 焼き込み影が「額の周囲に全高の黒帯」として見える（ユーザー報告「焼き込みはされてるが正しくない」）→ 遮蔽(occlusion)だけを一様な黒αで重ねていたのが原因。**本物の影は「その光源の寄与分」しか暗くできない＝光だまりの外では影は見えない** → **ベイク時にスポットの相対照度（コーン減衰×入射角×距離²、ターゲットで正規化）を掛け、α = 遮蔽 × pool/(pool+ambient) にする。「影のデカール」を作るときは必ず光源寄与でマスクする**（`WallShadowBaker.tsx`）
 - 2026-07-23 | シャドウマップの自前サンプリング実装が「ceilingモードでは偶然それらしく見える」状態で通りかけた（レビューで検出）→ three **r185は影の深度をRGBAパックでなく`shadow.map.depthTexture`（ネイティブ深度・compareFunction=LessEqual）に格納**しており、カラー添付は1-zのグレースケール。`unpackRGBAToDepth`は無意味な値を返す → **r185+で影を自前サンプルするなら GLSL3 + `sampler2DShadow` で depthTexture をハードウェア比較する。「片方のモードでだけ動いて見える」実装はパッキング仕様の取り違えを疑う。バージョン依存の内部仕様(WebGLShadowMap)はnode_modulesの実ソースで確認する**（`WallShadowBaker.tsx`）
 
+### 検証・ツール
+- 2026-07-24 | JSXを複数ステップで編集中、preview(devサーバー)のconsoleに「Unexpected eof / 未閉じJSX」等の構文エラーが大量に残り、最終保存版は正常なのに壊れて見えた ×2 → dev serverは保存のたび途中状態を再コンパイルし、`read_console_messages`は**累積バッファ**を返すため、編集途中の一過性エラーが後から読んでも出てくる（存在しない行番号を指すのが目印） → **HMR中の編集後の健全性は「console error文字列」でなく①`tsc --noEmit`が通る②実画面が実際にレンダリングされる、で判断する。console errorが今のファイルに無い行番号を指していたら過去の保存の残骸と見なす**
+
 ### 3Dアセット
 - 2026-07-16 | 「使えるモデルを追加した」と渡された`walk.glb`/`idle.glb`が各約200MB(Web要件に3桁オーバー) → Blenderエクスポート時にKitBash3D「NeoCity」街並みキット(99%)が誤同梱され、実キャラは約2MBだった → **取得した3Dアセットは使う前に必ず中身を検分する(`gltf-transform inspect`/glbのJSONチャンク解析でメッシュ名・skin有無・テクスチャ解像度・シーン構成を見る)。巨大化の一次対処は「圧縮」ではなく「不要コンテンツの除去」。skin付き(=キャラ)とstatic(=環境)を分けて実サイズを測ると原因が即分かる。仕上げに `gltf-transform` で街シーン破棄→テクスチャWebP縮小→Draco圧縮で200MB→1.6MB**
 - 2026-07-16 | glTFキャラを多数インスタンス化したら全員T字ポーズで固まりアニメが効かない → skinメッシュを`scene.clone()`するとスケルトン(ボーン)参照が切れ、mixerが駆動できずバインドポーズのまま → **skinメッシュの複製は必ず`three/examples/jsm/utils/SkeletonUtils.js`の`clone()`を使う。`useGLTF`はurl単位でキャッシュされるので、共有シーンを各インスタンスで`SkeletonUtils.clone`し、`useAnimations(clips, instanceRef)`で個別mixerを張る**

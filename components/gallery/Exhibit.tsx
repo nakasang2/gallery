@@ -72,7 +72,7 @@ export function shadowPatch(halfW: number, halfH: number) {
 }
 
 // Beveled frame (extrude a hollowed-out border shape with a bevel)
-function makeFrameGeo(w: number, h: number, bar: number, gap: number) {
+export function makeFrameGeo(w: number, h: number, bar: number, gap: number) {
   const outerW = w / 2 + gap + bar
   const outerH = h / 2 + gap + bar
   const innerW = w / 2 + gap
