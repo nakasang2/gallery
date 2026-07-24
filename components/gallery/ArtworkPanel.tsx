@@ -1,7 +1,6 @@
 'use client'
 // Artwork info panel (details for the focused work, plus per-work framing / visitor likes)
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { renderArtworkCanvas } from '@/lib/artworks'
+import { useEffect, useRef, useState } from 'react'
 import { walkRef } from '@/lib/controller'
 import { useExhibitionList, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, setOverride } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
@@ -83,35 +82,6 @@ export default function ArtworkPanel() {
   const open = !!art
   const guide = art ? guideSourceFor(art) : null
 
-  // A still image for the detail figure / lightbox. Uploaded works serve their
-  // display JPEG (long edge 1600); video works use their poster; demo generative
-  // works are re-rendered at a high resolution just for close viewing (they're
-  // resolution-independent, so this is crisper than the 1024 canvas the 3D wall uses).
-  const still = useMemo(() => {
-    if (!art) return null
-    if (art.kind === 'video') return art.poster ?? null
-    if (art.src) return art.src
-    try {
-      return renderArtworkCanvas(art, 2048).toDataURL('image/png')
-    } catch {
-      return null
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [art?.id])
-
-  // Full-bleed lightbox for the focused work. Reset whenever the work changes or
-  // the panel closes, and let Esc dismiss it.
-  const [zoomed, setZoomed] = useState(false)
-  useEffect(() => {
-    setZoomed(false)
-  }, [art?.id, open])
-  useEffect(() => {
-    if (!zoomed) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setZoomed(false)
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [zoomed])
-
   // During the guided tour, each work's guide auto-plays as it comes into focus
   // (the tour is started by a tap, so autoplay is allowed). Any other focus/tour
   // change stops whatever was playing — so moving to a guide-less work, ending
@@ -127,7 +97,6 @@ export default function ArtworkPanel() {
   const touchStart = useRef<{ x: number; y: number } | null>(null)
 
   return (
-    <>
     <aside
       id="panel"
       className={`panel${open ? ' open' : ''}`}
@@ -184,13 +153,6 @@ export default function ArtworkPanel() {
               ›
             </button>
           </div>
-          {still && (
-            <button className="panel-figure" onClick={() => setZoomed(true)} aria-label="View this work larger">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={still} alt={art.title} />
-              <span className="panel-figure-zoom" aria-hidden="true">⤢</span>
-            </button>
-          )}
           <h2 className="panel-title">{art.title}</h2>
           <div className="panel-artist">{art.artist} — {art.year}</div>
           {/* Gallery label: dimensions and medium, when the artist gave them */}
@@ -248,21 +210,5 @@ export default function ArtworkPanel() {
         </>
       )}
     </aside>
-    {zoomed && still && (
-      <div
-        className="lightbox open"
-        role="dialog"
-        aria-modal="true"
-        aria-label={art?.title}
-        onClick={() => setZoomed(false)}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={still} alt={art?.title ?? ''} />
-        <button className="lightbox-close" aria-label="Close">
-          ×
-        </button>
-      </div>
-    )}
-    </>
   )
 }
