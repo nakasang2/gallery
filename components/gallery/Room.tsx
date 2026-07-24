@@ -210,13 +210,13 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
             resolution={1024} // 512 sparkles/crawls when the camera moves
             blur={[360, 100]}
             mixBlur={1}
-            // Kept low: at grazing angles the planar reflection contributes near
-            // full strength, and any bright pool/artwork then blooms into a big
-            // white wash on the floor (user-reported). These bounds keep every
-            // reflection below the bloom threshold while the sheen survives.
-            mixStrength={0.32}
+            // Raised back up (user request) now that the real white-wash culprits
+            // are gone (floor specular killed via roughness/metalness, symmetric
+            // env map, no depth-fade branch, bloom threshold 1.0) — the artworks
+            // and room should visibly mirror in the polished floor.
+            mixStrength={0.5}
             mixContrast={1}
-            mirror={0.22}
+            mirror={0.38}
             // roughness high + metalness 0: the spotlights otherwise paint a huge
             // view-dependent specular hotspot on the floor when you face a wall
             // head-on (eye/light/floor angles align) — the "white patch" that only
