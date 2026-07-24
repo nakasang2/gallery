@@ -181,7 +181,7 @@ export default function ArtworkPanel() {
           {visitor && <LikeButton galleryId={visitor.galleryId} artworkId={art.id} />}
           {/* Lift the work off the wall into a dedicated preview space to rotate/zoom it */}
           <button className="panel-view3d" onClick={() => setPreview3d(true)}>
-            <span aria-hidden="true">⛶</span> 空間で見る
+            <span aria-hidden="true">⛶</span> View in 3D
           </button>
           <p className="panel-desc">{art.desc}</p>
           <div className="panel-tags">

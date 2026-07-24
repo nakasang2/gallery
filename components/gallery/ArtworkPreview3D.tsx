@@ -165,7 +165,7 @@ export default function ArtworkPreview3D({
       <button className="artpreview-close" aria-label="Close preview" onClick={onClose}>
         ×
       </button>
-      <div className="artpreview-hint">ドラッグで回転 · ホイール/ピンチで拡大</div>
+      <div className="artpreview-hint">Drag to rotate · scroll or pinch to zoom</div>
     </div>
   )
 }
