@@ -5,7 +5,7 @@
 export const PRICE_USD_CENTS = {
   room: 0, // not sold (no UI / entitlement effect yet)
   capacity_addon: 300, // PER SLOT — capacity is sold by quantity now ($3/slot)
-  single_item: 500, // one theme OR one layout ($5)
+  single_item: 500, // one layout ($5); themes cost PRICE_THEME_CENTS (priced apart)
   theme_collection: 0, // retired (docs/DECISIONS 2026-07-24)
   design_tools: 0, // now free for everyone
   video_pass: 0, // not sold (subscription, unwired)
@@ -30,7 +30,12 @@ export function usd(cents: number): string {
 /** Per-slot price for capacity add-ons (sold by quantity via a picker, §11.5). */
 export const PRICE_PER_SLOT_CENTS = PRICE_USD_CENTS.capacity_addon
 export const PRICE_SLOT = usd(PRICE_PER_SLOT_CENTS) // '$3'
-export const PRICE_SINGLE_ITEM = usd(PRICE_USD_CENTS.single_item) // '$5'
+// Themes and layouts are both `single_item` purchases but priced apart
+// (docs/DECISIONS 2026-07-24): a theme is a bigger visual change than a layout.
+export const PRICE_THEME_CENTS = 800
+export const PRICE_LAYOUT_CENTS = PRICE_USD_CENTS.single_item // 500
+export const PRICE_THEME = usd(PRICE_THEME_CENTS) // '$8'
+export const PRICE_LAYOUT = usd(PRICE_LAYOUT_CENTS) // '$5'
 
 export interface PurchaseOption {
   key: string
@@ -46,7 +51,7 @@ export function purchaseOptionsFor(kind: 'theme' | 'layout', label: string): Pur
     {
       key: 'solo',
       label: `${label} only`,
-      price: PRICE_SINGLE_ITEM,
+      price: kind === 'theme' ? PRICE_THEME : PRICE_LAYOUT,
       description: `Unlocks just this ${kind}, once, forever.`,
     },
   ]

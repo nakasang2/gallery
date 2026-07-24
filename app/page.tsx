@@ -2,7 +2,7 @@ import Link from 'next/link'
 import LandingEffects from '@/components/landing/LandingEffects'
 import HeroCanvas from '@/components/landing/HeroCanvas'
 import { PLAN } from '@/lib/limits'
-import { PRICE_SLOT, PRICE_SINGLE_ITEM } from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_THEME, PRICE_LAYOUT } from '@/lib/pricing'
 
 export default function LandingPage() {
   return (
@@ -180,7 +180,8 @@ export default function LandingPage() {
             <div className="price"><b>À la carte</b><span>no subscription</span></div>
             <ul>
               <li>Extra work slots<span className="amt">{PRICE_SLOT} each</span></li>
-              <li>New themes &amp; layouts<span className="amt">{PRICE_SINGLE_ITEM} each</span></li>
+              <li>New themes<span className="amt">{PRICE_THEME} each</span></li>
+              <li>New layouts<span className="amt">{PRICE_LAYOUT} each</span></li>
             </ul>
             <span className="btn btn-small price-cta price-cta-soon" aria-disabled="true">Coming soon</span>
           </div>

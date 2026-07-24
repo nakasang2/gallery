@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
-import { PRICE_USD_CENTS, SKU_LABEL, type Sku } from '@/lib/pricing'
+import { PRICE_USD_CENTS, PRICE_THEME_CENTS, PRICE_LAYOUT_CENTS, SKU_LABEL, type Sku } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM, PLAN } from '@/lib/limits'
 
 export const runtime = 'nodejs'
@@ -94,7 +94,13 @@ export async function POST(req: NextRequest) {
 
   // Per-unit amount in USD cents (Stripe's unit_amount for USD is cents). The
   // capacity line uses Stripe's own quantity so amount_total = unit × quantity.
-  const unitAmount = PRICE_USD_CENTS[sku]
+  // single_item splits by kind: themes cost more than layouts.
+  const unitAmount =
+    sku === 'single_item'
+      ? itemKind === 'theme'
+        ? PRICE_THEME_CENTS
+        : PRICE_LAYOUT_CENTS
+      : PRICE_USD_CENTS[sku]
   const label =
     sku === 'capacity_addon'
       ? `${SKU_LABEL[sku]} × ${quantity}`

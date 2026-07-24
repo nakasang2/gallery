@@ -17,7 +17,7 @@ import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitl
 import { usePurchasedIds } from '@/lib/purchases'
 import PurchaseModal from '@/components/PurchaseModal'
 import { LockIcon, VideoIcon } from '@/components/icons'
-import { purchaseOptionsFor, purchaseEyebrow, PRICE_SINGLE_ITEM } from '@/lib/pricing'
+import { purchaseOptionsFor, purchaseEyebrow } from '@/lib/pricing'
 import {
   ThemeSwatch,
   LayoutPlan,

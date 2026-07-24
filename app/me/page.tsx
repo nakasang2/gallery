@@ -18,7 +18,6 @@ import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components
 import {
   purchaseOptionsFor,
   purchaseEyebrow,
-  PRICE_SINGLE_ITEM,
   PRICE_SLOT,
   PRICE_PER_SLOT_CENTS,
 } from '@/lib/pricing'

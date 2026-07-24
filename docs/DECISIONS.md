@@ -5,7 +5,7 @@
 - 決定:
   - **通貨**: 全価格USD。金額は**USDセント整数**で保持（Stripeの`unit_amount`がUSDはセント単位）。表示は`usd()`。購入台帳`amount_jpy`列はUSDセントを格納（列名は据え置き＝意味変更）。
   - **スロット**: **$3/枚**、数量ピッカーで1回決済。1部屋最大**15枚**（無料5＋有料最大10）。checkoutが残枠にクランプ、RPCも`least(...,15)`でクランプ（並行購入対策・migration 0028）。
-  - **テーマ / レイアウト**: **$5/個**（whitecube / corridor は無料）。レイアウトは既存の単品販売を継続。
+  - **テーマ $8 / レイアウト $5**（whitecube / corridor は無料）。両方 `single_item` SKUだが、checkoutが`item_kind`で単価を出し分ける（テーマ=800セント/レイアウト=500セント）。レイアウトは既存の単品販売を継続。
   - **Design Tools**: **全員無料**（`entitlements.designToolsEnabled`常時true、販売経路撤去）。
   - **全レイアウト（hall/corridor/island/portrait）を各15スロットに統一**。
 - 却下: テーマ価格は「premiumに仕上げてから」で$5は暫定（後で調整可）。Design Toolsの有料維持・ロゴのみ有料化は見送り、まるごと無料に。
