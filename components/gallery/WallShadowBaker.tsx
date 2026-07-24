@@ -124,8 +124,11 @@ const bakeFrag = /* glsl */ `
     float ndl = max(dot(-Ldir, uWallNormal), 0.0);
     float pool = cone * ndl * (uRefDist * uRefDist) / (d * d);
     float ratio = pool / (pool + uAmbient);
-    // Distant shadow also reads lighter (ambient bounce fills it in)
-    float density = mix(1.0, 0.62, farFrac);
+    // Only a WHISPER of distance-lightening. Anything stronger inverts the
+    // shadow (edges darker than the umbra core behind the work) and reads as a
+    // hollowed-out silhouette — the umbra of a large blocker must stay darkest;
+    // the widened penumbra above already carries the "soft with distance" cue.
+    float density = mix(1.0, 0.92, farFrac);
     // rgb = debug channels (occlusion / ratio / farFrac) — the display material is
     // black so they are invisible; readable via __bakedRTs pixel readback
     outColor = vec4(occ, ratio, farFrac, occ * ratio * density);
