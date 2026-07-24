@@ -380,7 +380,7 @@ export default function Exhibit({
         position={[lightPos.x, lightPos.y, lightPos.z]}
         targetPosition={[spotTarget.x, spotTarget.y, spotTarget.z]}
         color={theme.spotColor}
-        intensity={theme.spotIntensity * (lightMode === 'overhead' ? 0.62 : 2.6)}
+        intensity={theme.spotIntensity * (lightMode === 'overhead' ? 0.45 : 2.6)}
         angle={spotAngle}
         penumbra={spotPenumbra}
         decay={2}
@@ -388,16 +388,20 @@ export default function Exhibit({
         shadowMapSize={QUALITY === 'high' ? 2048 : 1024}
       />
 
-      {/* Light shaft (fake volumetric) */}
-      <LightCone
-        // The visible shaft starts at the fixture's glowing APERTURE — starting at
-        // the light position itself makes it leak from the fixture's neck
-        from={lightMode === 'overhead' ? lightPos : fixtureAperture(lightPos, spotTarget)}
-        to={spotTarget}
-        angle={spotAngle}
-        color={theme.spotColor}
-        opacity={theme.coneOpacity}
-      />
+      {/* Fake volumetric shaft — ceiling tracks only. A picture light sits ~0.5m
+          from the work: no visible air shaft in reality, and a cone radiating from
+          the centre of a WIDE tube reads wrong (user-reported). The shaft starts
+          at the fixture's glowing APERTURE, not the light position (which would
+          leak it out of the fixture's neck). */}
+      {lightMode !== 'overhead' && (
+        <LightCone
+          from={fixtureAperture(lightPos, spotTarget)}
+          to={spotTarget}
+          angle={spotAngle}
+          color={theme.spotColor}
+          opacity={theme.coneOpacity}
+        />
+      )}
 
       {/* Light fixture (visual only) */}
       {lightMode === 'overhead' ? (

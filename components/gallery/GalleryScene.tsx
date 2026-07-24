@@ -80,6 +80,9 @@ export default function GalleryScene() {
           near: lightMode === 'overhead' ? 0.1 : 0.5,
           // A close light throws a much broader penumbra than a distant track
           softPx: lightMode === 'overhead' ? 18 : 9,
+          // …and its pool falls off steeply, so the ambient floor must be lower
+          // or the shadow below the frame vanishes entirely
+          ambient: lightMode === 'overhead' ? 0.12 : 0.35,
         }
       }),
     [list, slots, layout, frameDefs, lightMode]

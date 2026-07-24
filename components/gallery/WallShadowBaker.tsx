@@ -36,6 +36,10 @@ export interface BakeSpec {
   near: number
   /** PCF blur radius in shadow-map pixels (close light = broad real penumbra) */
   softPx: number
+  /** Non-spot light floor in pool-peak-relative units. A close picture light's
+   *  pool falls off steeply away from the art, so the same absolute ambient
+   *  would drown its shadow entirely — it needs a lower setting. */
+  ambient: number
 }
 
 const BAKE_SIZE = 256
@@ -260,6 +264,7 @@ export default function WallShadowBaker({
     u.uShadowMap.value = light.shadow.map.depthTexture
     u.uShadowMatrix.value.copy(light.shadow.matrix)
     u.uRadius.value = spec.softPx / SHADOW_MAP_SIZE
+    u.uAmbient.value = spec.ambient
     // Patch corners in world space (mirrors the display plane in Exhibit local space)
     const tangent = new THREE.Vector3(Math.cos(spec.rotY), 0, -Math.sin(spec.rotY))
     const normal = new THREE.Vector3(Math.sin(spec.rotY), 0, Math.cos(spec.rotY))
