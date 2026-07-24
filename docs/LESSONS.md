@@ -44,6 +44,9 @@
 - 2026-07-23 | 焼き込み影が「額の周囲に全高の黒帯」として見える（ユーザー報告「焼き込みはされてるが正しくない」）→ 遮蔽(occlusion)だけを一様な黒αで重ねていたのが原因。**本物の影は「その光源の寄与分」しか暗くできない＝光だまりの外では影は見えない** → **ベイク時にスポットの相対照度（コーン減衰×入射角×距離²、ターゲットで正規化）を掛け、α = 遮蔽 × pool/(pool+ambient) にする。「影のデカール」を作るときは必ず光源寄与でマスクする**（`WallShadowBaker.tsx`）
 - 2026-07-23 | シャドウマップの自前サンプリング実装が「ceilingモードでは偶然それらしく見える」状態で通りかけた（レビューで検出）→ three **r185は影の深度をRGBAパックでなく`shadow.map.depthTexture`（ネイティブ深度・compareFunction=LessEqual）に格納**しており、カラー添付は1-zのグレースケール。`unpackRGBAToDepth`は無意味な値を返す → **r185+で影を自前サンプルするなら GLSL3 + `sampler2DShadow` で depthTexture をハードウェア比較する。「片方のモードでだけ動いて見える」実装はパッキング仕様の取り違えを疑う。バージョン依存の内部仕様(WebGLShadowMap)はnode_modulesの実ソースで確認する**（`WallShadowBaker.tsx`）
 
+### 品質・レビュー（3D/R3F）
+- 2026-07-24 | 3Dプレビュー実装をship前レビューで検出3件 → ①`new THREE.TextureLoader().load()`で作った動画ポスターtextureに破棄処理が無くリーク（開閉ごとにGPU texture残留）②動画作品でposter無しだと`getArtTexture`が`.webm`を`TextureLoader`で読んで空テクスチャ③`useMemo`のdepsに`applyMat`が毎回返す新規`frameDef`オブジェクトを入れており、オーバーレイ表示中の親再描画のたびExtrudeGeometryを再生成 → **①自前でnewしたthreeリソースは必ずunmountで`.dispose()`（共有キャッシュ由来=`getArtTexture`は破棄しない、を`useRef`で区別）②画像を要求するAPIには画像URLだけ渡す（動画srcを渡さない・poster無しはmap無し＋暗色fallback）③useMemoのdepsは毎回新規生成されるオブジェクトでなくプリミティブ値（`frameDef.bar`/`.gap`）にする**（`components/gallery/ArtworkPreview3D.tsx`）
+
 ### 品質・レビュー（UI文言）
 - 2026-07-24 | 3Dプレビュー追加時、ボタン「空間で見る」とヒント「ドラッグで回転…」を日本語で書きユーザーが「急に日本語UI」と指摘 → このアプリのUIは**全面英語**（Read aloud / Available for purchase / Tour 等）なのに、対ユーザー応答が日本語というルールに引きずられUI文言まで日本語にした → **プロダクトのUI文言は既存の言語慣習に合わせる（このリポジトリは英語UI）。応答＝日本語 と UI文言＝英語 は別物。新規の可視テキストを足したら、周囲の既存文言と言語が揃っているか必ず確認する（`grep -rn '[ぁ-んァ-ヶ一-龠]' 変更ファイル` で混入検出）**（"View in 3D" / "Drag to rotate · scroll or pinch to zoom" に修正）
 

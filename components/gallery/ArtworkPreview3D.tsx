@@ -37,16 +37,30 @@ function FramedWork({ art, frameDef }: { art: ArtworkData; frameDef: FrameDef })
   const { width, height, frameless } = exhibitExtents(art, frameDef)
 
   // Video works have no still image texture (the wall uses a VideoTexture); show
-  // their poster here. Everything else uses the same texture the wall does.
+  // their poster here. A video WITHOUT a poster falls back to a bare dark plane
+  // rather than loading its .webm through TextureLoader (which yields a blank
+  // texture). Everything else uses the same cached texture the wall does.
+  const createdTex = useRef<THREE.Texture | null>(null)
   const artTex = useMemo(() => {
-    if (art.kind === 'video' && art.poster) {
+    if (art.kind === 'video') {
+      if (!art.poster) return null
       const t = new THREE.TextureLoader().load(art.poster)
       t.colorSpace = THREE.SRGBColorSpace
       t.anisotropy = 16
+      createdTex.current = t
       return t
     }
     return getArtTexture(art)
   }, [art])
+  // Dispose ONLY the poster texture we created here — getArtTexture returns a
+  // shared cached texture that must not be disposed.
+  useEffect(
+    () => () => {
+      createdTex.current?.dispose()
+      createdTex.current = null
+    },
+    []
+  )
 
   const weaveTex = useMemo(() => {
     if (art.kind === 'video') return null
@@ -56,9 +70,12 @@ function FramedWork({ art, frameDef }: { art: ArtworkData; frameDef: FrameDef })
   }, [art.kind, width, height])
   useEffect(() => () => disposeAll([weaveTex]), [weaveTex])
 
+  // Key on primitive frame fields, not the frameDef object — applyMat returns a
+  // fresh object each parent render, so keying on identity would re-extrude the
+  // geometry on every unrelated re-render while the overlay is open.
   const frameGeo = useMemo(
     () => (frameless ? null : makeFrameGeo(width, height, frameDef.bar!, frameDef.gap!)),
-    [frameless, width, height, frameDef]
+    [frameless, width, height, frameDef.bar, frameDef.gap]
   )
   useEffect(() => () => disposeAll([frameGeo]), [frameGeo])
 
@@ -76,6 +93,7 @@ function FramedWork({ art, frameDef }: { art: ArtworkData; frameDef: FrameDef })
           <meshStandardMaterial
             attach="material-4"
             map={artTex}
+            color={artTex ? 0xffffff : 0x1a1713}
             roughness={0.75}
             envMapIntensity={0.35}
             bumpMap={weaveTex}
@@ -105,6 +123,7 @@ function FramedWork({ art, frameDef }: { art: ArtworkData; frameDef: FrameDef })
             <planeGeometry args={[width, height]} />
             <meshStandardMaterial
               map={artTex}
+              color={artTex ? 0xffffff : 0x1a1713}
               roughness={0.7}
               envMapIntensity={0.4}
               bumpMap={weaveTex}
