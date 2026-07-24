@@ -32,21 +32,36 @@ const UP = new THREE.Vector3(0, 1, 0)
 export function exhibitLightRig(
   slot: SlotDef,
   lightMode: 'ceiling' | 'overhead',
-  halfH: number
+  halfH: number,
+  halfW: number
 ): { position: THREE.Vector3; target: THREE.Vector3; angle: number; penumbra: number } {
   const normal = new THREE.Vector3(0, 0, 1).applyAxisAngle(UP, slot.rotY)
   const target = new THREE.Vector3(slot.x, 1.62, slot.z)
   let position: THREE.Vector3
+  let angle: number
+  let penumbra: number
   if (lightMode === 'overhead') {
-    position = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(PICTURE_ARM))
-    position.y = 1.62 + halfH + 0.22 // just above the top of the frame
+    // The VIRTUAL emitter sits well behind the visible lamp head. A real picture
+    // light is a linear tube whose wash spans the frame width with a gentle
+    // top-to-bottom gradient; a point spot AT the head (~0.4m from the top edge,
+    // decay²) instead blasts the top ~15x harder than the centre and pools in a
+    // narrow centred blob (user-reported). Pulling the origin back to ~1.5m
+    // flattens the falloff (top ≈ 1.5x centre) and lets the cone width be
+    // matched to the frame below. Only the emitter moves — the fixture mesh
+    // stays on the wall, and no light shaft is drawn in this mode.
+    position = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(PICTURE_ARM + 0.8))
+    position.y = 1.62 + halfH + 0.55
+    const dist = position.distanceTo(target)
+    // Cone sized so the pool's half-intensity edge lands at the frame/fixture
+    // width (the 1.4 compensates for the penumbra pulling the visible edge in)
+    angle = THREE.MathUtils.clamp(Math.atan((halfW + 0.05) / dist) * 1.4, 0.35, 1.0)
+    penumbra = 0.6
   } else {
     position = new THREE.Vector3(slot.x, 0, slot.z).add(normal.clone().multiplyScalar(2.1))
     position.y = CEIL_H - 0.15
+    angle = 0.46
+    penumbra = 0.65
   }
-  // The picture light sits close above the work, so it needs a wider cone
-  const angle = lightMode === 'overhead' ? 0.85 : 0.46
-  const penumbra = lightMode === 'overhead' ? 0.7 : 0.65
   return { position, target, angle, penumbra }
 }
 
@@ -149,7 +164,7 @@ export default function Exhibit({
   const onOut = () => (gl.domElement.style.cursor = '')
 
   // Light rig shared with WallShadowBaker (identical positions/angles by construction)
-  const rig = useMemo(() => exhibitLightRig(slot, lightMode, halfH), [slot, lightMode, halfH])
+  const rig = useMemo(() => exhibitLightRig(slot, lightMode, halfH, halfW), [slot, lightMode, halfH, halfW])
   const spotTarget = artWorldPos
   const lightPos = rig.position
   const spotAngle = rig.angle
@@ -374,13 +389,14 @@ export default function Exhibit({
       {/* Spotlight (also bakes the shadow the frame casts on the wall).
           decay 2 = physical inverse-square falloff: the pool of light is bright at
           its centre and dies off quickly, like a real gallery spot. The per-mode
-          factor rebalances theme.spotIntensity for each mounting distance
-          (ceiling track ~2.9m vs picture light ~0.5m) so overall exposure holds. */}
+          factor rebalances theme.spotIntensity for each throw distance
+          (ceiling track ~4m vs picture light's virtual emitter ~1.5m) so the
+          exposure at the artwork's centre matches between the two modes. */}
       <SpotWithTarget
         position={[lightPos.x, lightPos.y, lightPos.z]}
         targetPosition={[spotTarget.x, spotTarget.y, spotTarget.z]}
         color={theme.spotColor}
-        intensity={theme.spotIntensity * (lightMode === 'overhead' ? 0.45 : 2.6)}
+        intensity={theme.spotIntensity * (lightMode === 'overhead' ? 0.5 : 2.6)}
         angle={spotAngle}
         penumbra={spotPenumbra}
         decay={2}

@@ -62,7 +62,7 @@ export default function GalleryScene() {
       list.map((art, i) => {
         const slot = layout.slots[slots[i]]
         const { halfW, halfH } = exhibitExtents(art, frameDefs[i])
-        const rig = exhibitLightRig(slot, lightMode, halfH)
+        const rig = exhibitLightRig(slot, lightMode, halfH, halfW)
         const patch = shadowPatch(halfW, halfH)
         return {
           id: art.id,
@@ -76,13 +76,14 @@ export default function GalleryScene() {
           target: rig.target,
           angle: rig.angle,
           penumbra: rig.penumbra,
-          // The picture light hangs ~0.3m from its casters — 0.5 would near-clip them
+          // The picture light's virtual emitter sits ~1.2m from its casters
+          // (rig pulls it back off the lamp head) — still closer than the track
           near: lightMode === 'overhead' ? 0.1 : 0.5,
-          // A close light throws a much broader penumbra than a distant track
-          softPx: lightMode === 'overhead' ? 18 : 9,
-          // …and its pool falls off steeply, so the ambient floor must be lower
-          // or the shadow below the frame vanishes entirely
-          ambient: lightMode === 'overhead' ? 0.12 : 0.35,
+          // A close light throws a broader penumbra than a distant track
+          softPx: lightMode === 'overhead' ? 12 : 9,
+          // …and its pool still falls off faster, so the ambient floor sits a
+          // bit lower or the shadow below the frame washes out
+          ambient: lightMode === 'overhead' ? 0.22 : 0.35,
         }
       }),
     [list, slots, layout, frameDefs, lightMode]
