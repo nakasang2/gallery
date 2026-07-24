@@ -1,19 +1,21 @@
 'use client'
-// The tap-through from anything locked — a theme/layout chip, a full room, or
-// Design Tools (REQUIREMENTS.md §11.5/§11.8's "tapping lets you choose a
-// single purchase or the Collection"). With an `intent`, the CTA starts a real
-// Stripe Checkout via /api/checkout; while billing isn't configured (or no
-// intent is given) it falls back to the same honest "not live yet" note as
-// before rather than faking a purchase.
+// The tap-through from anything locked — a theme/layout chip, or extra room
+// capacity. With an `intent`, the CTA starts a real Stripe Checkout via
+// /api/checkout; while billing isn't configured (or no intent is given) it
+// falls back to the same honest "not live yet" note rather than faking a buy.
+//
+// Two shapes: a radio list of `options` (themes/layouts), or a `quantity`
+// stepper (capacity — buy N slots in one checkout, docs/DECISIONS 2026-07-24).
 import { useEffect, useState } from 'react'
-import type { PurchaseOption } from '@/lib/pricing'
+import { usd, type PurchaseOption } from '@/lib/pricing'
 import { startCheckout, type PurchaseIntent } from '@/lib/checkout'
 
 export default function PurchaseModal({
   itemLabel,
   eyebrow,
   preview,
-  options,
+  options = [],
+  quantity,
   intent,
   previewNote = 'This is a preview of how buying a theme or layout will work.',
   onClose,
@@ -22,7 +24,10 @@ export default function PurchaseModal({
   /** Small label above the title — gives the price context at a glance, e.g. "New theme" */
   eyebrow?: string
   preview?: React.ReactNode
-  options: PurchaseOption[]
+  /** Radio options (themes/layouts). Omit when using `quantity`. */
+  options?: PurchaseOption[]
+  /** Quantity-picker mode (capacity): pay for N units in one checkout. */
+  quantity?: { unitCents: number; max: number; unitLabel: string }
   /** What checkout should buy — omit to keep the modal preview-only */
   intent?: PurchaseIntent
   /** Footer copy while the CTA is untried — override for non-theme/layout purchases */
@@ -30,6 +35,7 @@ export default function PurchaseModal({
   onClose: () => void
 }) {
   const [selected, setSelected] = useState(options[0]?.key ?? '')
+  const [qty, setQty] = useState(1)
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,6 +48,9 @@ export default function PurchaseModal({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const qtyMax = quantity ? Math.max(1, quantity.max) : 1
+  const clampedQty = Math.min(qty, qtyMax)
+
   async function onCta() {
     if (!intent) {
       setTried(true)
@@ -50,7 +59,7 @@ export default function PurchaseModal({
     setBusy(true)
     setError(null)
     try {
-      const start = await startCheckout(intent)
+      const start = await startCheckout(intent, clampedQty)
       if (start.kind === 'redirect') {
         window.location.assign(start.url)
         return // keep the button disabled while the browser navigates
@@ -76,25 +85,62 @@ export default function PurchaseModal({
         {preview && <div className="purchase-preview">{preview}</div>}
         {eyebrow && <p className="purchase-eyebrow">{eyebrow}</p>}
         <h3 className="purchase-title">{itemLabel}</h3>
-        <div className="purchase-options">
-          {options.map((opt) => (
-            <label key={opt.key} className={`purchase-option${selected === opt.key ? ' selected' : ''}`}>
-              <input
-                type="radio"
-                name="purchase-option"
-                checked={selected === opt.key}
-                onChange={() => setSelected(opt.key)}
-              />
-              <div>
-                <div className="purchase-option-label">
-                  <span>{opt.label}</span>
-                  <span className="purchase-price">{opt.price}</span>
-                </div>
-                <div className="purchase-option-desc">{opt.description}</div>
+
+        {quantity ? (
+          <div className="purchase-qty">
+            <div className="purchase-qty-row">
+              <span className="purchase-qty-label">How many {quantity.unitLabel}s?</span>
+              <div className="purchase-stepper">
+                <button
+                  type="button"
+                  aria-label={`Fewer ${quantity.unitLabel}s`}
+                  disabled={clampedQty <= 1}
+                  onClick={() => setQty((n) => Math.max(1, n - 1))}
+                >
+                  −
+                </button>
+                <span className="purchase-qty-value">{clampedQty}</span>
+                <button
+                  type="button"
+                  aria-label={`More ${quantity.unitLabel}s`}
+                  disabled={clampedQty >= qtyMax}
+                  onClick={() => setQty((n) => Math.min(qtyMax, n + 1))}
+                >
+                  +
+                </button>
               </div>
-            </label>
-          ))}
-        </div>
+            </div>
+            <div className="purchase-qty-total">
+              <span>{usd(quantity.unitCents)} × {clampedQty}</span>
+              <span className="purchase-price">{usd(quantity.unitCents * clampedQty)}</span>
+            </div>
+            <p className="purchase-option-desc">
+              Adds {clampedQty} more {quantity.unitLabel}
+              {clampedQty > 1 ? 's' : ''} to this room, once, forever. {qtyMax} available.
+            </p>
+          </div>
+        ) : (
+          <div className="purchase-options">
+            {options.map((opt) => (
+              <label key={opt.key} className={`purchase-option${selected === opt.key ? ' selected' : ''}`}>
+                <input
+                  type="radio"
+                  name="purchase-option"
+                  checked={selected === opt.key}
+                  onChange={() => setSelected(opt.key)}
+                />
+                <div>
+                  <div className="purchase-option-label">
+                    <span>{opt.label}</span>
+                    <span className="purchase-price">{opt.price}</span>
+                  </div>
+                  <div className="purchase-option-desc">{opt.description}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
+
         {tried ? (
           <p className="purchase-note purchase-note-active">
             Checkout isn&apos;t live yet — you&apos;ll be able to buy this the moment it ships.

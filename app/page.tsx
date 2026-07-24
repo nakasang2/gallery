@@ -2,13 +2,7 @@ import Link from 'next/link'
 import LandingEffects from '@/components/landing/LandingEffects'
 import HeroCanvas from '@/components/landing/HeroCanvas'
 import { PLAN } from '@/lib/limits'
-import {
-  PRICE_ROOM,
-  PRICE_CAPACITY_ADDON,
-  PRICE_SINGLE_ITEM,
-  PRICE_DESIGN_TOOLS,
-  PRICE_VIDEO_PASS,
-} from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_SINGLE_ITEM } from '@/lib/pricing'
 
 export default function LandingPage() {
   return (
@@ -168,11 +162,12 @@ export default function LandingPage() {
         <div className="pricing-grid">
           <div className="price-card reveal">
             <h3>Free</h3>
-            <div className="price"><b>¥0</b><span>forever</span></div>
+            <div className="price"><b>$0</b><span>forever</span></div>
             <ul>
               <li>One gallery room</li>
               <li>Up to {PLAN.worksPerGallery} works</li>
-              <li>3 themes · 5 layouts · every frame</li>
+              <li>Custom colours, light &amp; logo</li>
+              <li>A starter theme &amp; layout · every frame</li>
               <li>Public URL &amp; share card</li>
               <li>Guestbook &amp; basic analytics</li>
               <li>Mobile-ready viewer</li>
@@ -184,11 +179,8 @@ export default function LandingPage() {
             <h3>Pay once, keep forever</h3>
             <div className="price"><b>À la carte</b><span>no subscription</span></div>
             <ul>
-              <li>Add a gallery room<span className="amt">{PRICE_ROOM.replace(' / room', '')}</span></li>
-              <li>+5 work slots for a room<span className="amt">{PRICE_CAPACITY_ADDON}</span></li>
+              <li>Extra work slots<span className="amt">{PRICE_SLOT} each</span></li>
               <li>New themes &amp; layouts<span className="amt">{PRICE_SINGLE_ITEM} each</span></li>
-              <li>Design Tools — colour, light, logo<span className="amt">{PRICE_DESIGN_TOOLS}</span></li>
-              <li>Video Pass — show video works<span className="amt">{PRICE_VIDEO_PASS}</span></li>
             </ul>
             <span className="btn btn-small price-cta price-cta-soon" aria-disabled="true">Coming soon</span>
           </div>

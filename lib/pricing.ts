@@ -1,44 +1,36 @@
-// Display-only price points transcribed from REQUIREMENTS.md §11.5 — the
-// markdown table is the source of truth for amounts. No billing logic lives
-// here; wiring Stripe later means swapping these strings for real Price IDs
-// at the same two call sites (PurchaseModal usages), not a redesign.
-export const PRICE_SINGLE_ITEM = '¥400'
-export const PRICE_THEME_COLLECTION = '¥2,480'
-export const PRICE_DESIGN_TOOLS = '¥1,480'
-export const PRICE_ROOM = '¥1,480 / room'
-export const PRICE_VIDEO_PASS = '¥980 / year'
-
-// Numeric amounts (JPY) keyed by SKU — the single source of truth a future Stripe
-// webhook writes into purchases.amount_jpy, and what the admin revenue view sums.
-// Kept in step with the display strings above.
-export const PRICE_JPY = {
-  room: 1480,
-  capacity_addon: 580,
-  single_item: 400,
-  theme_collection: 2480,
-  design_tools: 1480,
-  video_pass: 980,
+// Prices in USD cents. Stripe's unit_amount for USD is cents, so these values
+// are passed straight to Checkout, written by the webhook into
+// purchases.amount_jpy (legacy column name — it now stores USD cents; see
+// docs/DECISIONS 2026-07-24), and summed by the admin revenue view.
+export const PRICE_USD_CENTS = {
+  room: 0, // not sold (no UI / entitlement effect yet)
+  capacity_addon: 300, // PER SLOT — capacity is sold by quantity now ($3/slot)
+  single_item: 500, // one theme OR one layout ($5)
+  theme_collection: 0, // retired (docs/DECISIONS 2026-07-24)
+  design_tools: 0, // now free for everyone
+  video_pass: 0, // not sold (subscription, unwired)
 } as const
-export type Sku = keyof typeof PRICE_JPY
+export type Sku = keyof typeof PRICE_USD_CENTS
 
 export const SKU_LABEL: Record<Sku, string> = {
   room: 'Extra room',
-  capacity_addon: '+5 work slots',
+  capacity_addon: 'Work slot',
   single_item: 'Theme / layout',
   theme_collection: 'Theme Collection Vol.1',
   design_tools: 'Design Tools',
   video_pass: 'Video Pass',
 }
 
-/** Format a JPY integer the way the rest of the UI shows prices (¥1,480). */
-export function yen(n: number): string {
-  return `¥${n.toLocaleString('en-US')}`
+/** Format USD cents the way the UI shows prices ($5, $3, $12.34). */
+export function usd(cents: number): string {
+  const d = cents / 100
+  return `$${d % 1 === 0 ? d.toFixed(0) : d.toFixed(2)}`
 }
-/** §11.5 axis ② — an add-on for an EXISTING room, distinct from "展示室を追加"
- *  (a whole new room). Cheaper than a new room since there's no new URL/theme
- *  bundled in, just more slots in the room you already have. */
-export const PRICE_CAPACITY_ADDON = '¥580'
-export const CAPACITY_ADDON_SIZE = 5
+
+/** Per-slot price for capacity add-ons (sold by quantity via a picker, §11.5). */
+export const PRICE_PER_SLOT_CENTS = PRICE_USD_CENTS.capacity_addon
+export const PRICE_SLOT = usd(PRICE_PER_SLOT_CENTS) // '$3'
+export const PRICE_SINGLE_ITEM = usd(PRICE_USD_CENTS.single_item) // '$5'
 
 export interface PurchaseOption {
   key: string
@@ -47,9 +39,8 @@ export interface PurchaseOption {
   description: string
 }
 
-/** Themes and layouts are sold only as a single, solo purchase. The
- *  "Theme Collection Vol.1" bundle was retired — it was hard to manage as the
- *  paid catalog grows (docs/DECISIONS 2026-07-24). */
+/** Themes and layouts are sold only as a single, solo purchase ($5). The
+ *  "Theme Collection Vol.1" bundle was retired (docs/DECISIONS 2026-07-24). */
 export function purchaseOptionsFor(kind: 'theme' | 'layout', label: string): PurchaseOption[] {
   return [
     {
@@ -61,33 +52,8 @@ export function purchaseOptionsFor(kind: 'theme' | 'layout', label: string): Pur
   ]
 }
 
-/** Capacity add-on for the room you're already in — a single option, not a
- *  catalog (there's nothing to bundle into a "collection" here) */
-export function capacityPurchaseOptions(): PurchaseOption[] {
-  return [
-    {
-      key: 'addon',
-      label: `+${CAPACITY_ADDON_SIZE} works`,
-      price: PRICE_CAPACITY_ADDON,
-      description: `Raises this room's cap by ${CAPACITY_ADDON_SIZE}, once, forever — stacks with future purchases.`,
-    },
-  ]
-}
-
-/** Design Tools — a single capability unlock, not sold per item */
-export function designToolsPurchaseOptions(): PurchaseOption[] {
-  return [
-    {
-      key: 'unlock',
-      label: 'Design Tools',
-      price: PRICE_DESIGN_TOOLS,
-      description: 'Every wall/floor colour, light mood and logo placement — once, forever, in every room you own.',
-    },
-  ]
-}
-
 /** Small eyebrow label above the modal title — gives the price context at a glance */
-export function purchaseEyebrow(kind: 'theme' | 'layout' | 'capacity' | 'design-tools'): string {
+export function purchaseEyebrow(kind: 'theme' | 'layout' | 'capacity'): string {
   switch (kind) {
     case 'theme':
       return 'New theme'
@@ -95,7 +61,5 @@ export function purchaseEyebrow(kind: 'theme' | 'layout' | 'capacity' | 'design-
       return 'New layout'
     case 'capacity':
       return 'Room capacity'
-    case 'design-tools':
-      return 'Design Tools'
   }
 }

@@ -3,7 +3,7 @@
 // or fixtures (verification). `onReload` (optional) lets the entitlement
 // grant/revoke controls refresh after a change.
 import { useMemo, useState } from 'react'
-import { yen } from '@/lib/pricing'
+import { usd } from '@/lib/pricing'
 import { THEMES, LAYOUTS } from '@/lib/presets'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import { grantEntitlement, revokeEntitlement, type AdminOverview } from '@/lib/admin'
@@ -103,7 +103,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
         <div className="stat"><b>{data.totals.galleries}</b><span>Galleries</span></div>
         <div className="stat"><b>{data.totals.publicGalleries}</b><span>Public</span></div>
         <div className="stat"><b>{data.totals.works}</b><span>Works</span></div>
-        <div className="stat"><b>{yen(data.totals.revenueJpy)}</b><span>Revenue</span></div>
+        <div className="stat"><b>{usd(data.totals.revenueJpy)}</b><span>Revenue</span></div>
         <div className="stat"><b>{data.totals.reports}</b><span>Reports</span></div>
       </div>
 
@@ -112,14 +112,13 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
         <h2>Revenue</h2>
         <div className="me-card">
           <p className="me-note" style={{ marginTop: 0 }}>
-            Total charged: <b style={{ color: 'var(--ink)' }}>{yen(data.totals.revenueJpy)}</b>{' '}
+            Total charged: <b style={{ color: 'var(--ink)' }}>{usd(data.totals.revenueJpy)}</b>{' '}
             across {data.purchases.length} purchase{data.purchases.length === 1 ? '' : 's'}.
           </p>
           {data.purchases.length === 0 ? (
             <p className="me-note">
-              No purchases recorded yet. Checkout isn&apos;t connected, so this stays ¥0 until a
-              payment integration writes to the <code>purchases</code> ledger (0017 added
-              <code> amount_jpy</code> so totals add up the moment it does).
+              No purchases recorded yet. Amounts are stored in USD cents in the
+              <code> amount_jpy</code> column (legacy name) and summed here.
             </p>
           ) : (
             <Table
@@ -135,7 +134,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                 <tr key={r.key}>
                   <td style={cell}>{r.key}</td>
                   <td style={cell}>{r.count}</td>
-                  <td style={cell}>{yen(r.sumJpy)}</td>
+                  <td style={cell}>{usd(r.sumJpy)}</td>
                 </tr>
               ))}
             </Table>
@@ -276,7 +275,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
           {err && <p className="me-error">{err}</p>}
           <p className="me-note">
             “Packages” shows what each user owns — bought via checkout or granted here. Use the × to
-            revoke. Grants write the <code>purchases</code> ledger (as <code>admin_grant</code>, ¥0, so
+            revoke. Grants write the <code>purchases</code> ledger (as <code>admin_grant</code>, $0, so
             they don&apos;t count as revenue) and unlock instantly. New paid themes/layouts appear in the
             list automatically. Email addresses live in Supabase Auth (not exposed to the anon key).
           </p>

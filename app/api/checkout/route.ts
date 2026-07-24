@@ -6,22 +6,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
-import { PRICE_JPY, SKU_LABEL, CAPACITY_ADDON_SIZE, type Sku } from '@/lib/pricing'
+import { PRICE_USD_CENTS, SKU_LABEL, type Sku } from '@/lib/pricing'
+import { MAX_WORKS_PER_ROOM, PLAN } from '@/lib/limits'
 
 export const runtime = 'nodejs'
 
-// video_pass is a subscription (§11.5's only recurring SKU) and 'room' has no
-// UI nor entitlement effect yet — selling either here would charge money for
-// nothing. theme_collection (the "Theme Collection Vol.1" bundle) was retired
-// as too hard to manage (docs/DECISIONS 2026-07-24) — single themes still sell.
-// So only these wired one-time SKUs are purchasable.
-const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item', 'design_tools']
+// Only these one-time SKUs are purchasable. Retired/unwired: theme_collection
+// (bundle, retired), design_tools (now free), video_pass (subscription, unwired),
+// room (no UI/entitlement). See docs/DECISIONS 2026-07-24.
+const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item']
 
 interface CheckoutBody {
   sku?: string
   itemKey?: string
   itemKind?: string
   galleryId?: string
+  /** capacity_addon: how many slots to add (sold by quantity) */
+  quantity?: number
 }
 
 export async function POST(req: NextRequest) {
@@ -58,25 +59,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'This purchase needs a theme or layout id.' }, { status: 400 })
   }
 
-  // Capacity add-ons target one specific room — make sure it's the buyer's
-  // before charging (the webhook re-verifies via the owner-scoped RPC)
+  // Capacity add-ons target one specific room — make sure it's the buyer's, and
+  // clamp the quantity so work_cap can never exceed the room's physical max
+  // (the webhook re-verifies ownership via the owner-scoped RPC).
   const galleryId = (body.galleryId ?? '').trim()
+  let quantity = 1
   if (sku === 'capacity_addon') {
     if (!galleryId) return NextResponse.json({ error: 'This purchase needs a gallery id.' }, { status: 400 })
     const asUser = createClient(supabaseUrl, anonKey, {
       auth: { persistSession: false },
       global: { headers: { Authorization: `Bearer ${token}` } },
     })
-    const { data: g } = await asUser.from('galleries').select('id, owner_id').eq('id', galleryId).maybeSingle()
-    if (!g || (g as { owner_id?: string }).owner_id !== user.id) {
+    const { data: g } = await asUser
+      .from('galleries')
+      .select('id, owner_id, work_cap')
+      .eq('id', galleryId)
+      .maybeSingle()
+    const row = g as { owner_id?: string; work_cap?: number } | null
+    if (!row || row.owner_id !== user.id) {
       return NextResponse.json({ error: 'That room is not yours to upgrade.' }, { status: 403 })
     }
+    const currentCap = typeof row.work_cap === 'number' ? row.work_cap : PLAN.worksPerGallery
+    const remaining = MAX_WORKS_PER_ROOM - currentCap
+    if (remaining <= 0) {
+      return NextResponse.json({ error: 'This room is already at the maximum number of works.' }, { status: 409 })
+    }
+    // Whole number of slots, at least 1, never more than the room can still hold
+    const want = Math.floor(Number(body.quantity ?? 1))
+    if (!Number.isFinite(want) || want < 1) {
+      return NextResponse.json({ error: 'Choose how many slots to add.' }, { status: 400 })
+    }
+    quantity = Math.min(want, remaining)
   }
 
-  const amount = PRICE_JPY[sku]
+  // Per-unit amount in USD cents (Stripe's unit_amount for USD is cents). The
+  // capacity line uses Stripe's own quantity so amount_total = unit × quantity.
+  const unitAmount = PRICE_USD_CENTS[sku]
   const label =
     sku === 'capacity_addon'
-      ? `${SKU_LABEL[sku]} (+${CAPACITY_ADDON_SIZE})`
+      ? `${SKU_LABEL[sku]} × ${quantity}`
       : sku === 'single_item' && itemKey
         ? `${SKU_LABEL[sku]}: ${itemKey}`
         : SKU_LABEL[sku]
@@ -88,16 +109,23 @@ export async function POST(req: NextRequest) {
       mode: 'payment',
       line_items: [
         {
-          quantity: 1,
+          quantity: sku === 'capacity_addon' ? quantity : 1,
           price_data: {
-            currency: 'jpy', // zero-decimal: unit_amount IS the yen amount
-            unit_amount: amount,
+            currency: 'usd', // two-decimal: unit_amount is in cents
+            unit_amount: unitAmount,
             product_data: { name: `Xibit360 — ${label}` },
           },
         },
       ],
       client_reference_id: user.id,
-      metadata: { user_id: user.id, sku, item_kind: itemKind, item_key: itemKey, gallery_id: galleryId },
+      metadata: {
+        user_id: user.id,
+        sku,
+        item_kind: itemKind,
+        item_key: itemKey,
+        gallery_id: galleryId,
+        slot_count: sku === 'capacity_addon' ? String(quantity) : '',
+      },
       success_url: `${origin}/me?purchase=success`,
       cancel_url: `${origin}/me?purchase=cancelled`,
     })

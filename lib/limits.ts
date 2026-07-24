@@ -20,6 +20,12 @@ export const PLAN: PlanLimits = {
   videoBytes: 40 * 1024 * 1024,
 }
 
+/** Physical ceiling on works per room. Every layout offers exactly this many
+ *  slots (docs/DECISIONS 2026-07-24), so capacity is layout-independent: the
+ *  free tier shows `worksPerGallery`, and slots are bought (by quantity) up to
+ *  this max. The checkout clamps purchases so work_cap never exceeds it. */
+export const MAX_WORKS_PER_ROOM = 15
+
 /** Effective number of usable slots for a layout. `cap` is the OWNING gallery's own
  *  work_cap (REQUIREMENTS.md §11.5/§11.7 — capacity is fixed per room at purchase
  *  time, not one account-wide constant); omit it where no gallery row is in scope

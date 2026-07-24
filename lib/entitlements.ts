@@ -8,17 +8,19 @@ import { THEMES, LAYOUTS } from './presets'
 export interface Entitlements {
   /** ① Video Pass (subscription) — video exhibits enabled */
   videoEnabled: boolean
-  /** ③ Design Tools (buy-once) — custom colour/lighting/branding controls */
+  /** Design Tools (custom colour/lighting/branding) — now FREE for everyone
+   *  (docs/DECISIONS 2026-07-24); kept as a flag so callers don't change. */
   designToolsEnabled: boolean
   /** ③ Themes/layouts owned as individual purchases (ids into THEMES/LAYOUTS) */
   ownedThemeIds: string[]
   ownedLayoutIds: string[]
 }
 
-/** The free tier: paid axes locked, nothing owned. What a signed-out / unpurchased user gets. */
+/** The free tier: Video Pass + paid themes/layouts locked; Design Tools is free
+ *  for everyone. What a signed-out / unpurchased user gets. */
 export const FREE_TIER_ENTITLEMENTS: Entitlements = {
   videoEnabled: false,
-  designToolsEnabled: false,
+  designToolsEnabled: true,
   ownedThemeIds: [],
   ownedLayoutIds: [],
 }
@@ -40,7 +42,7 @@ export function getEntitlements(
 ): Entitlements {
   return {
     videoEnabled: owned.videoPass,
-    designToolsEnabled: owned.designTools,
+    designToolsEnabled: true, // free for everyone (docs/DECISIONS 2026-07-24)
     ownedThemeIds: owned.themeIds,
     ownedLayoutIds: owned.layoutIds,
   }

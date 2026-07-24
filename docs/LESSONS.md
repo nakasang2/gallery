@@ -44,6 +44,9 @@
 - 2026-07-23 | 焼き込み影が「額の周囲に全高の黒帯」として見える（ユーザー報告「焼き込みはされてるが正しくない」）→ 遮蔽(occlusion)だけを一様な黒αで重ねていたのが原因。**本物の影は「その光源の寄与分」しか暗くできない＝光だまりの外では影は見えない** → **ベイク時にスポットの相対照度（コーン減衰×入射角×距離²、ターゲットで正規化）を掛け、α = 遮蔽 × pool/(pool+ambient) にする。「影のデカール」を作るときは必ず光源寄与でマスクする**（`WallShadowBaker.tsx`）
 - 2026-07-23 | シャドウマップの自前サンプリング実装が「ceilingモードでは偶然それらしく見える」状態で通りかけた（レビューで検出）→ three **r185は影の深度をRGBAパックでなく`shadow.map.depthTexture`（ネイティブ深度・compareFunction=LessEqual）に格納**しており、カラー添付は1-zのグレースケール。`unpackRGBAToDepth`は無意味な値を返す → **r185+で影を自前サンプルするなら GLSL3 + `sampler2DShadow` で depthTexture をハードウェア比較する。「片方のモードでだけ動いて見える」実装はパッキング仕様の取り違えを疑う。バージョン依存の内部仕様(WebGLShadowMap)はnode_modulesの実ソースで確認する**（`WallShadowBaker.tsx`）
 
+### 品質・レビュー（課金）
+- 2026-07-24 | スロット従量課金の導入で、checkoutは「セッション作成時のwork_cap」で残枠をクランプするが、加算RPC(`record_capacity_purchase`)が上限を持たず加算のみ → **同一部屋への並行チェックアウトが両方通ると work_cap が最大(15)を超え得る**（別視点レビューで検出）。超過分は「飾れないのに課金」＋作品がどこにも表示されない不整合 → **原子的な上限クランプは"最終の書き込み地点"(RPC/SQL)に置く。アプリ側の読み取り時クランプは並行実行で破れる**。`update ... set work_cap = least(work_cap + n, MAX)`（migration 0028）。金額はサーバー計算・数量はクライアント値を`min(want, remaining)`で必ず絞る。
+
 ### 品質・レビュー（3D/R3F）
 - 2026-07-24 | 3Dプレビュー実装をship前レビューで検出3件 → ①`new THREE.TextureLoader().load()`で作った動画ポスターtextureに破棄処理が無くリーク（開閉ごとにGPU texture残留）②動画作品でposter無しだと`getArtTexture`が`.webm`を`TextureLoader`で読んで空テクスチャ③`useMemo`のdepsに`applyMat`が毎回返す新規`frameDef`オブジェクトを入れており、オーバーレイ表示中の親再描画のたびExtrudeGeometryを再生成 → **①自前でnewしたthreeリソースは必ずunmountで`.dispose()`（共有キャッシュ由来=`getArtTexture`は破棄しない、を`useRef`で区別）②画像を要求するAPIには画像URLだけ渡す（動画srcを渡さない・poster無しはmap無し＋暗色fallback）③useMemoのdepsは毎回新規生成されるオブジェクトでなくプリミティブ値（`frameDef.bar`/`.gap`）にする**（`components/gallery/ArtworkPreview3D.tsx`）
 

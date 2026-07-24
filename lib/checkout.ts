@@ -8,8 +8,8 @@ import { supabase } from './supabase'
 import type { Sku } from './pricing'
 
 export interface PurchaseIntent {
-  kind: 'theme' | 'layout' | 'capacity' | 'design-tools'
-  /** theme/layout id being bought; '' for capacity and design-tools */
+  kind: 'theme' | 'layout' | 'capacity'
+  /** theme/layout id being bought; '' for capacity */
   itemKey: string
   /** the room receiving a capacity add-on (required for kind 'capacity') */
   galleryId?: string
@@ -17,16 +17,16 @@ export interface PurchaseIntent {
 
 export type CheckoutStart = { kind: 'redirect'; url: string } | { kind: 'unavailable' }
 
-/** Map the modal's selection to the server's SKU vocabulary (lib/pricing PRICE_JPY). */
+/** Map the modal's selection to the server's SKU vocabulary (lib/pricing). */
 export function resolveSku(intent: PurchaseIntent): { sku: Sku; itemKey: string } {
   if (intent.kind === 'capacity') return { sku: 'capacity_addon', itemKey: '' }
-  if (intent.kind === 'design-tools') return { sku: 'design_tools', itemKey: '' }
-  // Themes and layouts are sold only as single items now (the Theme Collection
-  // bundle was retired — docs/DECISIONS 2026-07-24).
+  // Themes and layouts are sold only as single items ($5 each); Design Tools is
+  // free and the Theme Collection bundle was retired (docs/DECISIONS 2026-07-24).
   return { sku: 'single_item', itemKey: intent.itemKey }
 }
 
-export async function startCheckout(intent: PurchaseIntent): Promise<CheckoutStart> {
+/** @param quantity capacity only — how many slots to add (default 1) */
+export async function startCheckout(intent: PurchaseIntent, quantity = 1): Promise<CheckoutStart> {
   if (!supabase) return { kind: 'unavailable' }
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
@@ -41,6 +41,7 @@ export async function startCheckout(intent: PurchaseIntent): Promise<CheckoutSta
       itemKey,
       itemKind: intent.kind === 'theme' || intent.kind === 'layout' ? intent.kind : undefined,
       galleryId: intent.galleryId,
+      quantity: intent.kind === 'capacity' ? quantity : undefined,
     }),
   })
   if (res.status === 501) return { kind: 'unavailable' }

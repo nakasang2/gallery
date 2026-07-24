@@ -239,11 +239,11 @@ export const LAYOUTS: Record<string, LayoutDef> = {
     label: 'Single Hall',
     hw: 13,
     hd: 8,
+    // 15 slots total (docs/DECISIONS 2026-07-24 — every layout holds the same max)
     slots: [
-      ...wallSlots(4, 9.4, -8 + 0.05, 0, 'x'), // North wall
-      ...wallSlots(4, 9.4, 8 - 0.05, Math.PI, 'x'), // South wall
-      { x: 13 - 0.05, z: -4, rotY: -Math.PI / 2 }, // East wall
-      { x: 13 - 0.05, z: 4, rotY: -Math.PI / 2 },
+      ...wallSlots(6, 11, -8 + 0.05, 0, 'x'), // North wall
+      ...wallSlots(6, 11, 8 - 0.05, Math.PI, 'x'), // South wall
+      ...wallSlots(3, 5.5, 13 - 0.05, -Math.PI / 2, 'z'), // East wall
     ],
     benches: [
       { x: -6.5, z: 0 },
@@ -256,9 +256,11 @@ export const LAYOUTS: Record<string, LayoutDef> = {
     label: 'Corridor',
     hw: 17,
     hd: 4.5,
+    // 15 slots total (docs/DECISIONS 2026-07-24)
     slots: [
-      ...wallSlots(5, 13.5, -4.5 + 0.05, 0, 'x'), // North wall
-      ...wallSlots(5, 13.5, 4.5 - 0.05, Math.PI, 'x'), // South wall
+      ...wallSlots(7, 15, -4.5 + 0.05, 0, 'x'), // North wall
+      ...wallSlots(7, 15, 4.5 - 0.05, Math.PI, 'x'), // South wall
+      { x: 17 - 0.05, z: 0, rotY: -Math.PI / 2 }, // East end wall
     ],
     benches: [
       { x: -8, z: 0 },
@@ -271,9 +273,11 @@ export const LAYOUTS: Record<string, LayoutDef> = {
     label: 'Center Wall',
     hw: 11,
     hd: 7,
+    // 15 slots total (docs/DECISIONS 2026-07-24)
     slots: [
-      ...wallSlots(3, 7, -7 + 0.05, 0, 'x'), // North wall
-      ...wallSlots(3, 7, 7 - 0.05, Math.PI, 'x'), // South wall
+      ...wallSlots(4, 8, -7 + 0.05, 0, 'x'), // North wall
+      ...wallSlots(4, 8, 7 - 0.05, Math.PI, 'x'), // South wall
+      ...wallSlots(3, 5, 11 - 0.05, -Math.PI / 2, 'z'), // East wall
       // Both faces of the center wall.
       { x: -1.9, z: -0.26, rotY: Math.PI, noWire: true },
       { x: 1.9, z: -0.26, rotY: Math.PI, noWire: true },
@@ -293,10 +297,11 @@ export const LAYOUTS: Record<string, LayoutDef> = {
     label: 'Portrait Hall',
     hw: 4.5,
     hd: 11,
+    // 15 slots total (docs/DECISIONS 2026-07-24)
     slots: [
-      ...wallSlots(5, 8.5, 4.5 - 0.05, -Math.PI / 2, 'z'), // East long wall
-      ...wallSlots(2, 2.4, -11 + 0.05, 0, 'x'), // North end wall
-      ...wallSlots(2, 2.4, 11 - 0.05, Math.PI, 'x'), // South end wall
+      ...wallSlots(9, 9.5, 4.5 - 0.05, -Math.PI / 2, 'z'), // East long wall
+      ...wallSlots(3, 2.6, -11 + 0.05, 0, 'x'), // North end wall
+      ...wallSlots(3, 2.6, 11 - 0.05, Math.PI, 'x'), // South end wall
     ],
     benches: [
       { x: -1.4, z: -3 },

@@ -17,17 +17,15 @@ import PlacementEditor from '@/components/PlacementEditor'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import {
   purchaseOptionsFor,
-  capacityPurchaseOptions,
-  designToolsPurchaseOptions,
   purchaseEyebrow,
-  CAPACITY_ADDON_SIZE,
   PRICE_SINGLE_ITEM,
-  PRICE_DESIGN_TOOLS,
+  PRICE_SLOT,
+  PRICE_PER_SLOT_CENTS,
 } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
-import { PLAN } from '@/lib/limits'
+import { PLAN, MAX_WORKS_PER_ROOM } from '@/lib/limits'
 import {
   listMyGalleries,
   createGallery,
@@ -472,7 +470,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const [workState, setWorkState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const workTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [purchaseItem, setPurchaseItem] = useState<
-    { kind: 'theme' | 'layout' | 'capacity' | 'design-tools'; key: string; label: string } | null
+    { kind: 'theme' | 'layout' | 'capacity'; key: string; label: string } | null
   >(null)
   const owned = usePurchasedIds(user.id)
   const entitlements = getEntitlements(user.id, owned)
@@ -1092,11 +1090,18 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         <button
           type="button"
           className="me-subnav-cap"
-          onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: `+${CAPACITY_ADDON_SIZE} works` })}
-          title={`Add ${CAPACITY_ADDON_SIZE} more work slots`}
+          disabled={row.work_cap >= MAX_WORKS_PER_ROOM}
+          onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: 'Add work slots' })}
+          title={
+            row.work_cap >= MAX_WORKS_PER_ROOM
+              ? 'This room is already at the maximum'
+              : `Add more work slots (${PRICE_SLOT} each)`
+          }
         >
           <span className="me-subnav-ic" aria-hidden="true"><LockIcon /></span>
-          <span className="me-subnav-tx">+{CAPACITY_ADDON_SIZE} slots</span>
+          <span className="me-subnav-tx">
+            {row.work_cap >= MAX_WORKS_PER_ROOM ? 'Room full' : 'Add slots'}
+          </span>
         </button>
       </nav>
 
@@ -1297,8 +1302,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               Hidden for now via DESIGN_TOOLS_VISIBLE. */}
           <div className="wd-group">
             <div className="wd-title"><span>Design Tools</span></div>
-            {entitlements.designToolsEnabled ? (
-              <>
+            {/* Design Tools is free for everyone now (docs/DECISIONS 2026-07-24) */}
+            <>
                 <div className="wd-row">
                   <span className="wd-label">Wall colour</span>
                   <div className="design-controls">
@@ -1384,25 +1389,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   These sit on top of your theme — switching themes later keeps every override here.
                 </p>
               </>
-            ) : (
-              <div className="dt-teaser">
-                <div className="swatch-strip" aria-hidden="true">
-                  <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).wall) }} />
-                  <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).floorTint) }} />
-                  <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).spotColor) }} />
-                </div>
-                <div className="dt-teaser-copy">
-                  <p className="dt-teaser-title">Recolour the room, tune the light, add your logo</p>
-                  <p className="dt-teaser-sub">One-time unlock — works in this room and every room after</p>
-                </div>
-                <button
-                  className="dt-teaser-cta"
-                  onClick={() => setPurchaseItem({ kind: 'design-tools', key: 'design-tools', label: 'Design Tools' })}
-                >
-                  Unlock — {PRICE_DESIGN_TOOLS}
-                </button>
-              </div>
-            )}
           </div>
           </>
           )}
@@ -1464,10 +1450,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <FieldLabel hint="Shown to visitors as you type it — include the currency (e.g. ¥50,000). Leave blank to hide.">Price</FieldLabel>
+                  <FieldLabel hint="Shown to visitors as you type it — include the currency (e.g. $500). Leave blank to hide.">Price</FieldLabel>
                   <input
                     type="text"
-                    placeholder="e.g. ¥50,000 (leave blank to hide)"
+                    placeholder="e.g. $500 (leave blank to hide)"
                     value={priceInput}
                     onChange={(e) => editWork({ price: e.target.value })}
                   />
@@ -1606,27 +1592,24 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               />
             ) : purchaseItem.kind === 'layout' ? (
               <LayoutPlan layoutKey={purchaseItem.key} className="purchase-plan-preview" />
-            ) : purchaseItem.kind === 'design-tools' ? (
-              <div className="swatch-strip" aria-hidden="true">
-                <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).wall) }} />
-                <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).floorTint) }} />
-                <span style={{ background: hex((THEMES[row.theme] ?? THEMES.chic).spotColor) }} />
-              </div>
             ) : undefined
           }
           options={
+            purchaseItem.kind === 'capacity' ? [] : purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)
+          }
+          quantity={
             purchaseItem.kind === 'capacity'
-              ? capacityPurchaseOptions()
-              : purchaseItem.kind === 'design-tools'
-                ? designToolsPurchaseOptions()
-                : purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)
+              ? {
+                  unitCents: PRICE_PER_SLOT_CENTS,
+                  max: MAX_WORKS_PER_ROOM - row.work_cap,
+                  unitLabel: 'slot',
+                }
+              : undefined
           }
           previewNote={
             purchaseItem.kind === 'capacity'
-              ? 'This is a preview of how buying more room capacity will work.'
-              : purchaseItem.kind === 'design-tools'
-                ? 'This is a preview of how unlocking Design Tools will work.'
-                : undefined
+              ? 'This is a preview of how buying more work slots will work.'
+              : undefined
           }
           intent={{
             kind: purchaseItem.kind,

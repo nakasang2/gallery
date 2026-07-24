@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { CAPACITY_ADDON_SIZE, type Sku } from '@/lib/pricing'
+import { type Sku } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked } from '@/lib/entitlements'
 import { THEMES } from '@/lib/presets'
 
@@ -110,6 +110,9 @@ export async function POST(req: NextRequest) {
           console.error('webhook: capacity_addon without gallery_id', session.id)
           break
         }
+        // How many slots were bought (set by the checkout route, clamped there so
+        // the cap can't exceed the room max). Fall back to 1 for safety.
+        const slots = Math.max(1, Math.floor(Number(meta.slot_count ?? '1')) || 1)
         // One atomic call records the charge (keyed on session.id, so redelivery
         // is a no-op) AND bumps the cap in the same transaction. It NEVER deletes
         // the record: a genuinely-charged purchase is always reconcilable even if
@@ -118,8 +121,8 @@ export async function POST(req: NextRequest) {
           p_session: session.id,
           p_user: userId,
           p_gallery: galleryId,
-          p_amount: CAPACITY_ADDON_SIZE,
-          p_amount_jpy: amount,
+          p_amount: slots,
+          p_amount_jpy: amount, // legacy column name — stores USD cents now
         })
         if (rpcErr) {
           // A transient DB error — return 500 so Stripe retries; nothing was

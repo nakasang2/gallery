@@ -1,5 +1,16 @@
 # DECISIONS
 
+## 2026-07-24 価格モデルをUSD化・スロット従量制・Design Tools無料化・全レイアウト15枠
+- 背景: 海外視野でUSD化。基本5枚無料。売り物は**テーマ / スロット / レイアウト**の3つに整理。Design Toolsは「設定を売る」違和感からユーザー判断で無料化。スロットは+1従量（数量ピッカーでまとめて1決済）。どのレイアウトでも最大収容枚数を揃える。
+- 決定:
+  - **通貨**: 全価格USD。金額は**USDセント整数**で保持（Stripeの`unit_amount`がUSDはセント単位）。表示は`usd()`。購入台帳`amount_jpy`列はUSDセントを格納（列名は据え置き＝意味変更）。
+  - **スロット**: **$3/枚**、数量ピッカーで1回決済。1部屋最大**15枚**（無料5＋有料最大10）。checkoutが残枠にクランプ、RPCも`least(...,15)`でクランプ（並行購入対策・migration 0028）。
+  - **テーマ / レイアウト**: **$5/個**（whitecube / corridor は無料）。レイアウトは既存の単品販売を継続。
+  - **Design Tools**: **全員無料**（`entitlements.designToolsEnabled`常時true、販売経路撤去）。
+  - **全レイアウト（hall/corridor/island/portrait）を各15スロットに統一**。
+- 却下: テーマ価格は「premiumに仕上げてから」で$5は暫定（後で調整可）。Design Toolsの有料維持・ロゴのみ有料化は見送り、まるごと無料に。
+- 対象: `lib/pricing.ts`, `lib/limits.ts`(MAX_WORKS_PER_ROOM=15), `lib/entitlements.ts`, `lib/checkout.ts`, `app/api/checkout`, `app/api/stripe/webhook`, `components/PurchaseModal.tsx`, `app/me/page.tsx`, `app/page.tsx`(LP料金), `components/AdminDashboard.tsx`, `lib/presets.ts`(15枠), `supabase/migrations/0028_capacity_clamp.sql`。tsc・next build・別視点レビュー通過。
+
 ## 2026-07-24 Theme Collection Vol.1 を販売対象から撤去
 - 背景: 販売SKUの棚卸し中、ユーザーが「Theme Collection Vol.1（¥2,480・全有料テーマのバンドル）は管理が難しい」として一旦廃止を決定。有料テーマが増えるとバンドルの中身が動的に変わり把握しづらい。
 - 決定: **販売経路からtheme_collectionを撤去**。単品テーマ/レイアウト（¥400）・キャパ+5（¥580）・Design Tools（¥1,480）は継続販売。
