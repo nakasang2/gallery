@@ -1,5 +1,11 @@
 # DECISIONS
 
+## 2026-07-24 Stripe決済を本番モードで有効化（テストを挟まず直接live）
+- 背景: 決済コードは実装済み・未接続（`/api/checkout`・`/api/stripe/webhook`）。有効化にあたりテストモード先行 vs いきなり本番を提示。
+- 決定（ユーザー選択）: **いきなり本番モード**。live鍵（`sk_live_…`）＋live Webhookで有効化し、実カードで少額（キャパ+5=¥580）を購入→返金して検証する。
+- 前提/注意: (1)本番決済にはStripeアカウントの本番有効化（事業情報・入金先口座）が必要。(2)Webhookエンドポイントは**canonicalな`https://www.xibit360.art/api/stripe/webhook`**（apexは308でwwwへ、Webhookのリダイレクトは避ける）。(3)`SUPABASE_SERVICE_ROLE_KEY`は設定済み。`NEXT_PUBLIC_SITE_URL=https://www.xibit360.art`はClaudeが設定済み。残る秘密鍵`STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`はユーザーがVercelに設定。DB移行`0019_checkout.sql`はユーザーがSupabase SQL Editor（project ncffdcvsksiutsjerpeb）で適用。
+- 役割分担: 秘密鍵の設定・本番SQL適用・実カード購入はユーザー（Claudeは秘密値・決済を扱わない）。Claudeは非秘密ENV設定・エンドポイント疎通検証（未設定=501 / 設定後は checkout=401・webhook=400 で確認）・再デプロイ。
+
 ## 2026-07-24 作品の3Dプレビューモード（拡大・回転できる鑑賞ビュー）
 - 背景: 前項で2D図版を撤去。鑑賞は「3Dビューの作品を拡大・回転できる空間ビュー（ギャラリーではなくプレビューモード）」で提供する方針。実現可否＋見せ方をユーザーに提示。
 - 決定（ユーザー選択で確定）: 操作モデル=**「額縁ごと立体で手に取る感覚」**（作品を無地スタジオ背景に浮かべ、ドラッグで自由回転して額の厚み・キャンバスの質感・光の当たりを確認、ホイール/ピンチで拡大）。起動=**詳細パネルの「空間で見る」ボタン**（クリックで全画面）。

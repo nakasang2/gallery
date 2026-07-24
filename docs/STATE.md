@@ -5,7 +5,8 @@
 - **最終更新**: 2026-07-24（作品鑑賞UI一式＋ピクチャーライト修正をship・本番反映確認済み）
 
 ## 進行中
-- なし
+- **Stripe決済の本番有効化**（DECISIONS 2026-07-24参照、本番モード確定）。Claude済: `NEXT_PUBLIC_SITE_URL=https://www.xibit360.art`設定。ユーザー待ち: ①`0019_checkout.sql`をSupabase SQL Editor適用 ②`STRIPE_SECRET_KEY`(sk_live_)をVercelに ③Webhook作成(`https://www.xibit360.art/api/stripe/webhook`・`checkout.session.completed`)→`STRIPE_WEBHOOK_SECRET`(whsec_)をVercelに。完了後Claudeが再デプロイ＋疎通検証(checkout=401/webhook=400)、実カード¥580購入→返金でE2E確認。
+- ゴースト円形接地影の削除はローカルコミット済み(4027e8b)・未push。
 
 ## 次にやること（再開ポイント）
 - **描画品質ティアの実機QA**: low/mediumティア（スマホ）はローカルでポインタエミュ不可のため未検証。本番反映後、実スマホで①普通のスマホ=影あり(1024)・反射なし ②古い/安いスマホ=影なし＋疑似影のみ、のフレームレートと見た目を確認（DECISIONS 2026-07-23参照）
