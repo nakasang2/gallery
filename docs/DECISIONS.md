@@ -3,6 +3,7 @@
 ## 2026-07-24 Stripe決済を本番モードで有効化（テストを挟まず直接live）
 - 背景: 決済コードは実装済み・未接続（`/api/checkout`・`/api/stripe/webhook`）。有効化にあたりテストモード先行 vs いきなり本番を提示。
 - 決定（ユーザー選択）: **いきなり本番モード**。live鍵（`sk_live_…`）＋live Webhookで有効化し、実カードで少額（キャパ+5=¥580）を購入→返金して検証する。
+- アカウント構成（ユーザー選択）: 既存アカウント（アート事業・ツール販売で使用中）に相乗りせず、**同じStripeログインの下にXibit360専用の新規アカウントを作成**して受ける（売上/入金/手数料/レポート/APIキー/Webhookを他事業と完全分離）。新規アカウントも本番有効化が別途必要。※作家への送金（Connect）は現状の運営収益課金には不要。
 - 前提/注意: (1)本番決済にはStripeアカウントの本番有効化（事業情報・入金先口座）が必要。(2)Webhookエンドポイントは**canonicalな`https://www.xibit360.art/api/stripe/webhook`**（apexは308でwwwへ、Webhookのリダイレクトは避ける）。(3)`SUPABASE_SERVICE_ROLE_KEY`は設定済み。`NEXT_PUBLIC_SITE_URL=https://www.xibit360.art`はClaudeが設定済み。残る秘密鍵`STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`はユーザーがVercelに設定。DB移行`0019_checkout.sql`はユーザーがSupabase SQL Editor（project ncffdcvsksiutsjerpeb）で適用。
 - 役割分担: 秘密鍵の設定・本番SQL適用・実カード購入はユーザー（Claudeは秘密値・決済を扱わない）。Claudeは非秘密ENV設定・エンドポイント疎通検証（未設定=501 / 設定後は checkout=401・webhook=400 で確認）・再デプロイ。
 
