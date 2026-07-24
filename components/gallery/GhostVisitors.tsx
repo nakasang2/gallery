@@ -25,10 +25,6 @@ import { fetchGhostConfig, DEFAULT_GHOST, type GhostConfig } from '@/lib/siteCon
 const MODELS = ['/models/visitor.glb', '/models/visitor2.glb']
 useGLTF.setDecoderPath('/draco/')
 
-// One shared, faint contact shadow so the figures read as grounded (the room's baked
-// shadows don't cover moving objects, and per-frame shadow maps would be too costly).
-const SHADOW_MAT = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.16, depthWrite: false })
-
 function luminance(hex: number): number {
   const r = ((hex >> 16) & 255) / 255
   const g = ((hex >> 8) & 255) / 255
@@ -375,10 +371,6 @@ function Ghost({
 
   return (
     <group ref={root}>
-      {/* contact shadow */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]} material={SHADOW_MAT}>
-        <circleGeometry args={[0.34, 16]} />
-      </mesh>
       <primitive object={model} />
     </group>
   )
