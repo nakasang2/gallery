@@ -3,9 +3,9 @@
 // like the room hangs it, floating on a neutral studio backdrop. Drag to orbit,
 // wheel/pinch to zoom. This is a SEPARATE on-demand canvas from the gallery — a
 // preview space, not the gallery room (decision 2026-07-24).
-import { Suspense, useEffect, useMemo } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { getArtTexture, getCanvasWeave, getFrameFinish, getNeutralEnvTexture, disposeAll } from './textures'
 import { exhibitExtents, makeFrameGeo } from './Exhibit'
@@ -117,6 +117,36 @@ function FramedWork({ art, frameDef }: { art: ArtworkData; frameDef: FrameDef })
   )
 }
 
+// Opening "grab": glide in from a pulled-back, slightly off-axis pose to the
+// straight-on fit, easing out. Runs BEFORE OrbitControls mounts so nothing fights
+// it for the camera; calls onDone at the end, which hands control to the orbiter.
+function IntroDolly({
+  start,
+  end,
+  onDone,
+}: {
+  start: THREE.Vector3
+  end: THREE.Vector3
+  onDone: () => void
+}) {
+  const camera = useThree((s) => s.camera)
+  const t = useRef(0)
+  const DURATION = 1.15
+  useEffect(() => {
+    camera.position.copy(start)
+    camera.lookAt(0, 0, 0)
+  }, [camera, start])
+  useFrame((_, dt) => {
+    if (t.current >= 1) return
+    t.current = Math.min(1, t.current + dt / DURATION)
+    const e = 1 - Math.pow(1 - t.current, 3) // easeOutCubic
+    camera.position.lerpVectors(start, end, e)
+    camera.lookAt(0, 0, 0)
+    if (t.current >= 1) onDone()
+  })
+  return null
+}
+
 export default function ArtworkPreview3D({
   art,
   frameDef,
@@ -133,6 +163,25 @@ export default function ArtworkPreview3D({
   // Frame the object with a little air; zoom range keeps it from clipping or flying off.
   const fitDist = maxDim / (2 * Math.tan((40 * Math.PI) / 360)) + maxDim * 0.35
 
+  // Intro dolly poses: a pulled-back, slightly high + off-axis start easing into
+  // the straight-on fit. Respect reduced-motion by starting already settled.
+  const reduce = useMemo(
+    () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+    []
+  )
+  const end = useMemo(() => new THREE.Vector3(0, 0, fitDist), [fitDist])
+  const start = useMemo(() => {
+    const d = fitDist * 1.9
+    const az = 0.32 // radians off to the side
+    const el = 0.14 // radians above
+    return new THREE.Vector3(
+      d * Math.cos(el) * Math.sin(az),
+      d * Math.sin(el),
+      d * Math.cos(el) * Math.cos(az)
+    )
+  }, [fitDist])
+  const [intro, setIntro] = useState(!reduce)
+
   // Esc closes, and the body must not scroll behind the overlay.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -140,9 +189,14 @@ export default function ArtworkPreview3D({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const initialPos = intro ? start : end
   return (
     <div className="artpreview" role="dialog" aria-modal="true" aria-label={`${art.title} — 3D preview`}>
-      <Canvas camera={{ position: [0, 0, fitDist], fov: 40 }} dpr={[1, 2]} gl={{ antialias: true }}>
+      <Canvas
+        camera={{ position: [initialPos.x, initialPos.y, initialPos.z], fov: 40 }}
+        dpr={[1, 2]}
+        gl={{ antialias: true }}
+      >
         <color attach="background" args={[new THREE.Color(theme.fog).multiplyScalar(0.5).getHex()]} />
         <Env />
         <ambientLight intensity={0.55} />
@@ -152,15 +206,21 @@ export default function ArtworkPreview3D({
         <Suspense fallback={null}>
           <FramedWork art={art} frameDef={frameDef} />
         </Suspense>
-        <OrbitControls
-          enablePan={false}
-          enableDamping
-          dampingFactor={0.08}
-          rotateSpeed={0.8}
-          minDistance={maxDim * 0.6}
-          maxDistance={fitDist * 2.2}
-          target={[0, 0, 0]}
-        />
+        {intro ? (
+          <IntroDolly start={start} end={end} onDone={() => setIntro(false)} />
+        ) : (
+          // Mounted only after the dolly finishes, so it inherits the settled pose
+          // cleanly instead of fighting the animation for the camera.
+          <OrbitControls
+            enablePan={false}
+            enableDamping
+            dampingFactor={0.08}
+            rotateSpeed={0.8}
+            minDistance={maxDim * 0.6}
+            maxDistance={fitDist * 2.2}
+            target={[0, 0, 0]}
+          />
+        )}
       </Canvas>
       <button className="artpreview-close" aria-label="Close preview" onClick={onClose}>
         ×

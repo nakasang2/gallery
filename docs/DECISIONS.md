@@ -3,7 +3,8 @@
 ## 2026-07-24 作品の3Dプレビューモード（拡大・回転できる鑑賞ビュー）
 - 背景: 前項で2D図版を撤去。鑑賞は「3Dビューの作品を拡大・回転できる空間ビュー（ギャラリーではなくプレビューモード）」で提供する方針。実現可否＋見せ方をユーザーに提示。
 - 決定（ユーザー選択で確定）: 操作モデル=**「額縁ごと立体で手に取る感覚」**（作品を無地スタジオ背景に浮かべ、ドラッグで自由回転して額の厚み・キャンバスの質感・光の当たりを確認、ホイール/ピンチで拡大）。起動=**詳細パネルの「空間で見る」ボタン**（クリックで全画面）。
-- 実装: 新規`components/gallery/ArtworkPreview3D.tsx`（`next/dynamic`遅延ロードの専用Canvas。drei `OrbitControls`=回転+ズーム・パン無効・damping。額縁+マット+アート面は`Exhibit`の`makeFrameGeo`/`exhibitExtents`を再利用しギャラリーと同一の見た目。動画作品はposterを静止テクスチャに。ニュートラル環境マップ+キー/フィルライトのスタジオ照明、背景はテーマfogを暗くした無地）。`ArtworkPanel`に「空間で見る」ボタン＋オーバーレイ発火を追加。`makeFrameGeo`を`Exhibit`からexport。
+- 実装: 新規`components/gallery/ArtworkPreview3D.tsx`（`next/dynamic`遅延ロードの専用Canvas。drei `OrbitControls`=回転+ズーム・パン無効・damping。額縁+マット+アート面は`Exhibit`の`makeFrameGeo`/`exhibitExtents`を再利用しギャラリーと同一の見た目。動画作品はposterを静止テクスチャに。ニュートラル環境マップ+キー/フィルライトのスタジオ照明、背景はテーマfogを暗くした無地）。`ArtworkPanel`に「View in 3D」ボタン＋オーバーレイ発火を追加。`makeFrameGeo`を`Exhibit`からexport。UI文言は英語統一（LESSONS 2026-07-24参照）。
+- 追補（つかみのアニメ・ユーザー要望）: 開いた瞬間に出さず、**引いた斜め上の視点から正面へ寄る導入ドリーイン**（1.15秒・easeOutCubic）を追加。`IntroDolly`が`useFrame`でカメラをlerpし、完了(`onDone`)後に初めて`OrbitControls`をマウント＝アニメと操作がカメラを奪い合わない。`prefers-reduced-motion`時はドリーインを飛ばして初めから正面。
 - 却下: 「正対拡大＋軽い首振り」=空間で回す面白さが薄い/「ターンテーブル自動回転」=好きな角度に止められない、ため却下。
 - 対象: `components/gallery/ArtworkPreview3D.tsx`(新規)、`components/gallery/ArtworkPanel.tsx`、`components/gallery/Exhibit.tsx`(makeFrameGeo export)、`app/gallery.css`(`.panel-view3d`/`.artpreview*`)。/demoで起動・回転・ズーム・クローズを実機確認、tscクリーン。
 
