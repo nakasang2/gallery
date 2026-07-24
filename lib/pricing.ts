@@ -47,23 +47,16 @@ export interface PurchaseOption {
   description: string
 }
 
-/** A single item always offers the solo purchase; themes (not layouts, per
- *  §11.5/§11.8 — no "Layout Collection" is documented) also offer the bundle */
+/** Themes and layouts are sold only as a single, solo purchase. The
+ *  "Theme Collection Vol.1" bundle was retired — it was hard to manage as the
+ *  paid catalog grows (docs/DECISIONS 2026-07-24). */
 export function purchaseOptionsFor(kind: 'theme' | 'layout', label: string): PurchaseOption[] {
-  const solo: PurchaseOption = {
-    key: 'solo',
-    label: `${label} only`,
-    price: PRICE_SINGLE_ITEM,
-    description: `Unlocks just this ${kind}, once, forever.`,
-  }
-  if (kind !== 'theme') return [solo]
   return [
-    solo,
     {
-      key: 'collection',
-      label: 'Theme Collection Vol.1',
-      price: PRICE_THEME_COLLECTION,
-      description: 'Every theme released up to now, in one purchase. Future volumes are separate.',
+      key: 'solo',
+      label: `${label} only`,
+      price: PRICE_SINGLE_ITEM,
+      description: `Unlocks just this ${kind}, once, forever.`,
     },
   ]
 }

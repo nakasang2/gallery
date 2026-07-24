@@ -50,7 +50,7 @@ export default function PurchaseModal({
     setBusy(true)
     setError(null)
     try {
-      const start = await startCheckout(intent, selected)
+      const start = await startCheckout(intent)
       if (start.kind === 'redirect') {
         window.location.assign(start.url)
         return // keep the button disabled while the browser navigates
@@ -79,7 +79,6 @@ export default function PurchaseModal({
         <div className="purchase-options">
           {options.map((opt) => (
             <label key={opt.key} className={`purchase-option${selected === opt.key ? ' selected' : ''}`}>
-              {opt.key === 'collection' && <span className="purchase-badge">Best value</span>}
               <input
                 type="radio"
                 name="purchase-option"

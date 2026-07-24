@@ -1,5 +1,12 @@
 # DECISIONS
 
+## 2026-07-24 Theme Collection Vol.1 を販売対象から撤去
+- 背景: 販売SKUの棚卸し中、ユーザーが「Theme Collection Vol.1（¥2,480・全有料テーマのバンドル）は管理が難しい」として一旦廃止を決定。有料テーマが増えるとバンドルの中身が動的に変わり把握しづらい。
+- 決定: **販売経路からtheme_collectionを撤去**。単品テーマ/レイアウト（¥400）・キャパ+5（¥580）・Design Tools（¥1,480）は継続販売。
+- 実装: (1)`lib/pricing.ts` `purchaseOptionsFor` はテーマでも solo のみ返す（collectionオプション削除）(2)`app/api/checkout/route.ts` の `ONE_TIME_SKUS` から `theme_collection` を除外（サーバ側で拒否）(3)`lib/checkout.ts` `resolveSku`/`startCheckout` から optionKey 引数と collection 分岐を撤去、`PurchaseModal` の呼び出しと "Best value" バッジも削除。
+- 残置（意図的）: webhookの `case 'theme_collection'` と `PRICE_JPY`/`SKU_LABEL` の定義は防御的に残す（新規購入は発生し得ないが、Sku型・管理画面ラベルが参照）。将来Vol.1を作り込むなら販売経路を戻すだけで復活可能。
+- 対象: `lib/pricing.ts`, `lib/checkout.ts`, `components/PurchaseModal.tsx`, `app/api/checkout/route.ts`。tsc・next build クリーン。
+
 ## 2026-07-24 Stripe決済を本番モードで有効化（テストを挟まず直接live）
 - 背景: 決済コードは実装済み・未接続（`/api/checkout`・`/api/stripe/webhook`）。有効化にあたりテストモード先行 vs いきなり本番を提示。
 - 決定（ユーザー選択）: **いきなり本番モード**。live鍵（`sk_live_…`）＋live Webhookで有効化し、実カードで少額（キャパ+5=¥580）を購入→返金して検証する。

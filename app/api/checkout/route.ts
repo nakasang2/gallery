@@ -12,8 +12,10 @@ export const runtime = 'nodejs'
 
 // video_pass is a subscription (§11.5's only recurring SKU) and 'room' has no
 // UI nor entitlement effect yet — selling either here would charge money for
-// nothing, so only the wired one-time SKUs are purchasable.
-const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item', 'theme_collection', 'design_tools']
+// nothing. theme_collection (the "Theme Collection Vol.1" bundle) was retired
+// as too hard to manage (docs/DECISIONS 2026-07-24) — single themes still sell.
+// So only these wired one-time SKUs are purchasable.
+const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item', 'design_tools']
 
 interface CheckoutBody {
   sku?: string

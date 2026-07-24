@@ -18,20 +18,21 @@ export interface PurchaseIntent {
 export type CheckoutStart = { kind: 'redirect'; url: string } | { kind: 'unavailable' }
 
 /** Map the modal's selection to the server's SKU vocabulary (lib/pricing PRICE_JPY). */
-export function resolveSku(intent: PurchaseIntent, optionKey: string): { sku: Sku; itemKey: string } {
+export function resolveSku(intent: PurchaseIntent): { sku: Sku; itemKey: string } {
   if (intent.kind === 'capacity') return { sku: 'capacity_addon', itemKey: '' }
   if (intent.kind === 'design-tools') return { sku: 'design_tools', itemKey: '' }
-  if (optionKey === 'collection') return { sku: 'theme_collection', itemKey: '' }
+  // Themes and layouts are sold only as single items now (the Theme Collection
+  // bundle was retired — docs/DECISIONS 2026-07-24).
   return { sku: 'single_item', itemKey: intent.itemKey }
 }
 
-export async function startCheckout(intent: PurchaseIntent, optionKey: string): Promise<CheckoutStart> {
+export async function startCheckout(intent: PurchaseIntent): Promise<CheckoutStart> {
   if (!supabase) return { kind: 'unavailable' }
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   if (!token) return { kind: 'unavailable' }
 
-  const { sku, itemKey } = resolveSku(intent, optionKey)
+  const { sku, itemKey } = resolveSku(intent)
   const res = await fetch('/api/checkout', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
