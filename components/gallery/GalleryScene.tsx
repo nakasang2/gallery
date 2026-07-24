@@ -79,7 +79,7 @@ export default function GalleryScene() {
           // The picture light hangs ~0.3m from its casters — 0.5 would near-clip them
           near: lightMode === 'overhead' ? 0.1 : 0.5,
           // A close light throws a much broader penumbra than a distant track
-          softPx: lightMode === 'overhead' ? 14 : 6,
+          softPx: lightMode === 'overhead' ? 18 : 9,
         }
       }),
     [list, slots, layout, frameDefs, lightMode]

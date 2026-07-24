@@ -10,7 +10,7 @@ import { walkRef, QUALITY } from '@/lib/controller'
 import { getArtTexture, makePlaqueTexture, getFrameFinish, getSoftShadowTexture, getCanvasWeave, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
-import TrackFixture from './TrackFixture'
+import TrackFixture, { fixtureAperture } from './TrackFixture'
 import { useVideoArt } from './VideoArt'
 
 /* Shared exhibit geometry math — exported so WallShadowBaker positions its bake
@@ -390,7 +390,9 @@ export default function Exhibit({
 
       {/* Light shaft (fake volumetric) */}
       <LightCone
-        from={lightPos}
+        // The visible shaft starts at the fixture's glowing APERTURE — starting at
+        // the light position itself makes it leak from the fixture's neck
+        from={lightMode === 'overhead' ? lightPos : fixtureAperture(lightPos, spotTarget)}
         to={spotTarget}
         angle={spotAngle}
         color={theme.spotColor}

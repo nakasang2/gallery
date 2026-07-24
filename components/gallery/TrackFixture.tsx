@@ -8,6 +8,16 @@ import { CEIL_H } from '@/lib/presets'
 
 const BODY = { color: 0x111010, roughness: 0.42, metalness: 0.55 }
 
+/** World position of the fixture's glowing aperture — where the visible light
+ *  shaft must START. The barrel pivots at (at.x, CEIL_H−0.1, at.z) and its mouth
+ *  sits 0.21 along the beam; a cone drawn from the light's own position instead
+ *  appears to leak out of the fixture's neck (user-reported). */
+export function fixtureAperture(at: THREE.Vector3, target: THREE.Vector3): THREE.Vector3 {
+  const pivot = new THREE.Vector3(at.x, CEIL_H - 0.1, at.z)
+  const dir = target.clone().sub(at).normalize()
+  return pivot.addScaledVector(dir, 0.21)
+}
+
 export default function TrackFixture({
   at,
   target,

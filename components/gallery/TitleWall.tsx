@@ -14,7 +14,7 @@ import { walkRef } from '@/lib/controller'
 import { loadImage } from '@/lib/upload'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
-import TrackFixture from './TrackFixture'
+import TrackFixture, { fixtureAperture } from './TrackFixture'
 
 // The artist's board, grouped into two blocks: the EXHIBITION (title +
 // statement) and the ARTIST (avatar + name + handle + bio). With no real title
@@ -154,7 +154,10 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
         decay={2}
       />
       <LightCone
-        from={new THREE.Vector3(-layout.hw + 3.4, CEIL_H - 0.2, 0)}
+        from={fixtureAperture(
+          new THREE.Vector3(-layout.hw + 3.4, CEIL_H - 0.2, 0),
+          new THREE.Vector3(-layout.hw, 2.5, 0)
+        )}
         to={new THREE.Vector3(-layout.hw, 2.5, 0)}
         angle={0.75}
         color={theme.spotColor}

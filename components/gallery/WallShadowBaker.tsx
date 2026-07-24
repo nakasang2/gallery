@@ -67,6 +67,7 @@ const bakeFrag = /* glsl */ `
   uniform vec3 uAxisU;
   uniform vec3 uAxisV;
   uniform float uBias;
+  uniform float uGap;      // blocker-distance threshold (contact hardening)
   uniform float uRadius;   // PCF radius in shadow-map UV units
   uniform vec3 uLightPos;  // spot rig (world)
   uniform vec3 uSpotDir;   // normalized light→target
@@ -78,27 +79,40 @@ const bakeFrag = /* glsl */ `
   in vec2 vUv;
   out vec4 outColor;
 
+  const vec2 TAPS[16] = vec2[16](
+    vec2(-0.94201624, -0.39906216), vec2(0.94558609, -0.76890725),
+    vec2(-0.094184101, -0.92938870), vec2(0.34495938, 0.29387760),
+    vec2(-0.91588581, 0.45771432), vec2(-0.81544232, -0.87912464),
+    vec2(-0.38277543, 0.27676845), vec2(0.97484398, 0.75648379),
+    vec2(0.44323325, -0.97511554), vec2(0.53742981, -0.47373420),
+    vec2(-0.26496911, -0.41893023), vec2(0.79197514, 0.19090188),
+    vec2(-0.24188840, 0.99706507), vec2(-0.81409955, 0.91437590),
+    vec2(0.19984126, 0.78641367), vec2(0.14383161, -0.14100790)
+  );
+
+  // 16-tap Poisson PCF occlusion (texture() on a compare sampler = hardware LessEqual)
+  float occAt(vec2 uv, float z, float radius) {
+    float sum = 0.0;
+    for (int i = 0; i < 16; i++) sum += texture(uShadowMap, vec3(uv + TAPS[i] * radius, z));
+    return 1.0 - sum / 16.0;
+  }
+
   void main() {
     vec3 world = uOrigin + uAxisU * vUv.x + uAxisV * vUv.y;
     vec4 sc = uShadowMatrix * vec4(world, 1.0);
     vec3 p = sc.xyz / sc.w;
-    float vis = 1.0;
+    float occ = 0.0;
+    float farFrac = 0.0;
     if (p.x > 0.0 && p.x < 1.0 && p.y > 0.0 && p.y < 1.0 && p.z < 1.0) {
       float z = p.z - uBias;
-      vec2 taps[16] = vec2[16](
-        vec2(-0.94201624, -0.39906216), vec2(0.94558609, -0.76890725),
-        vec2(-0.094184101, -0.92938870), vec2(0.34495938, 0.29387760),
-        vec2(-0.91588581, 0.45771432), vec2(-0.81544232, -0.87912464),
-        vec2(-0.38277543, 0.27676845), vec2(0.97484398, 0.75648379),
-        vec2(0.44323325, -0.97511554), vec2(0.53742981, -0.47373420),
-        vec2(-0.26496911, -0.41893023), vec2(0.79197514, 0.19090188),
-        vec2(-0.24188840, 0.99706507), vec2(-0.81409955, 0.91437590),
-        vec2(0.19984126, 0.78641367), vec2(0.14383161, -0.14100790)
-      );
-      float sum = 0.0;
-      // texture() on a compare sampler returns the (hardware-PCF) LessEqual result
-      for (int i = 0; i < 16; i++) sum += texture(uShadowMap, vec3(p.xy + taps[i] * uRadius, z));
-      vis = sum / 16.0;
+      // Contact hardening (PCSS-lite): classify how far the blockers sit from the
+      // wall by re-testing at z - uGap (only blockers ≥ gap in front still occlude).
+      // Far blockers → wide, light penumbra; near-flush ones → tight, dark contact.
+      float occSharp = occAt(p.xy, z, uRadius * 0.6);
+      float occGapT = occAt(p.xy, z - uGap, uRadius * 0.6);
+      farFrac = occSharp > 0.02 ? clamp(occGapT / occSharp, 0.0, 1.0) : 0.0;
+      float occSoft = occAt(p.xy, z, uRadius * 2.4);
+      occ = mix(occSharp, occSoft, farFrac);
     }
     // How much spot light would have hit this texel (cone falloff × incidence ×
     // inverse-square, normalized so ~1 at the artwork). The shadow can only be
@@ -110,9 +124,11 @@ const bakeFrag = /* glsl */ `
     float ndl = max(dot(-Ldir, uWallNormal), 0.0);
     float pool = cone * ndl * (uRefDist * uRefDist) / (d * d);
     float ratio = pool / (pool + uAmbient);
-    // rgb = debug channels (occlusion / ratio) — display multiplies by black, so
-    // they are invisible in the scene but readable via __bakedRTs pixel readback
-    outColor = vec4(1.0 - vis, ratio, 0.0, (1.0 - vis) * ratio);
+    // Distant shadow also reads lighter (ambient bounce fills it in)
+    float density = mix(1.0, 0.62, farFrac);
+    // rgb = debug channels (occlusion / ratio / farFrac) — the display material is
+    // black so they are invisible; readable via __bakedRTs pixel readback
+    outColor = vec4(occ, ratio, farFrac, occ * ratio * density);
   }
 `
 
@@ -159,6 +175,8 @@ export default function WallShadowBaker({
         // separation of near-flush casters (canvas backs, plaques) and turns
         // their occlusion into 50/50 sampling noise ("hollowed-out" shadows).
         uBias: { value: 0.0008 },
+        // Blocker-distance threshold for contact hardening (~6cm at room scale)
+        uGap: { value: 0.004 },
         uRadius: { value: 5.5 / SHADOW_MAP_SIZE },
         uLightPos: { value: new THREE.Vector3() },
         uSpotDir: { value: new THREE.Vector3() },
