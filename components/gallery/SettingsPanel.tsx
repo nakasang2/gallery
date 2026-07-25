@@ -235,6 +235,11 @@ export default function SettingsPanel() {
   const ownArtworks = useOwnArtworks()
   // Signed-in owners edit their real room — the demo collection isn't part of it
   const ownerEditing = useIsOwnerEditing()
+  // On the demo everyone is a guest, signed in or not: it's a sandbox, so works
+  // added there stay in this browser instead of being filed into the user's real
+  // cloud library (which the demo doesn't even display — see useOwnArtworks).
+  const demoMode = useGallery((s) => s.demoMode)
+  const cloudBacked = !!user && !demoMode
   const owned = usePurchasedIds(user?.id ?? null)
   const entitlements = getEntitlements(user?.id ?? null, owned)
 
@@ -252,7 +257,7 @@ export default function SettingsPanel() {
   const slots = slotCount(settings)
   function revealNew(prevIds: Set<string>) {
     const st = useGallery.getState()
-    const own = st.user ? st.cloudArtworks : st.artworks
+    const own = st.user && !st.demoMode ? st.cloudArtworks : st.artworks
     const eff = ownerEditing && settings.showDemo ? { ...settings, showDemo: false } : settings
     const idx = buildPlacement(eff, own).list.findIndex((a) => !prevIds.has(a.id))
     if (idx < 0) return // it landed beyond the visible slots
@@ -262,7 +267,7 @@ export default function SettingsPanel() {
 
   async function addEntries(entries: { title: string; dataUrl: string; w: number; h: number }[]) {
     const prevIds = new Set(ownArtworks.map((a) => a.id))
-    if (user) {
+    if (cloudBacked && user) {
       // Cloud exhibit (Storage + DB)
       setUploading(true)
       try {
@@ -292,6 +297,11 @@ export default function SettingsPanel() {
     // Videos are too large for localStorage, so cloud exhibit only
     if (!user) {
       showToast('Exhibiting video works requires an account — see the Account section.')
+      return
+    }
+    // ...and the demo is browser-only, so there's nowhere to put one here
+    if (demoMode) {
+      showToast('Video works belong to your own room — open it from the dashboard to add one.')
       return
     }
     // ① Video Pass gate (REQUIREMENTS §11.5) — video exhibits are a paid axis
@@ -354,7 +364,7 @@ export default function SettingsPanel() {
       // WebGL textures require CORS permission, so load here to validate at the same time
       const img = await loadImage(url, true)
       const title = titleRef.current.value.trim() || 'Untitled'
-      if (user) {
+      if (cloudBacked) {
         // Store our own copy in the cloud (to avoid broken references)
         const c = document.createElement('canvas')
         c.width = img.width
@@ -385,7 +395,7 @@ export default function SettingsPanel() {
   }
 
   async function removeArtwork(art: ArtworkData) {
-    if (user) {
+    if (cloudBacked && user) {
       try {
         await deleteArtwork(user.id, art.id)
         await refreshCloud()
@@ -445,7 +455,7 @@ export default function SettingsPanel() {
       <h2 className="settings-title">
         Edit space
         {/* Cloud write-through status — edits to a public gallery must never fail silently */}
-        {user && myGallery && syncState !== 'idle' && (
+        {cloudBacked && myGallery && syncState !== 'idle' && (
           syncState === 'error' ? (
             <button className="sync-chip error" onClick={retrySync}>Sync failed — retry</button>
           ) : (
@@ -466,8 +476,9 @@ export default function SettingsPanel() {
         )}
         <div className="field-row">
           <input ref={titleRef} type="text" placeholder="Title (optional, single upload)" />
-          {/* Signed-in users' artist name comes from their profile */}
-          {!user && <input ref={artistRef} type="text" placeholder="Artist (optional)" />}
+          {/* Signed-in users' artist name comes from their profile — but demo works
+              are stored locally like a guest's, so they need the field too */}
+          {!cloudBacked && <input ref={artistRef} type="text" placeholder="Artist (optional)" />}
         </div>
         <label className="btn-line file-btn" aria-disabled={uploading}>
           {uploading ? 'Uploading…' : 'Upload image / video'}
@@ -799,7 +810,8 @@ export default function SettingsPanel() {
         <AccountSection />
       </section>
 
-      {user && (
+      {/* Publishing acts on the user's real room, which the demo isn't */}
+      {cloudBacked && (
         <section className="settings-section">
           <h3>Publish</h3>
           <PublishSection />
@@ -807,7 +819,7 @@ export default function SettingsPanel() {
       )}
 
       <p className="settings-note">
-        Space settings are saved in this browser. Exhibited works are stored {user ? 'in the cloud' : 'in this browser'}.
+        Space settings are saved in this browser. Exhibited works are stored {cloudBacked ? 'in the cloud' : 'in this browser'}.
       </p>
     </aside>
   )

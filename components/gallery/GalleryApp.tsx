@@ -183,20 +183,22 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   // Admin-set demo theme (/admin → Demo look): apply AFTER hydration settles
   // (loadingDone is set past both hydrate passes) so loadSettings can't clobber it.
   // Guest showcase only — never a signed-in owner's room or a real visitor page.
+  //  The `demo` flag (not `!user`) decides: on the showcase the house look applies
+  //  to everyone, and off it a signed-in owner's room is never restyled.
   useEffect(() => {
-    if (loadingDone && demoTheme && !user && !visitor && THEMES[demoTheme]) {
+    if (loadingDone && demoTheme && (demo || !user) && !visitor && THEMES[demoTheme]) {
       useGallery.getState().updateSettings({ theme: demoTheme })
     }
-  }, [loadingDone, demoTheme, user, visitor])
+  }, [loadingDone, demoTheme, demo, user, visitor])
 
   // /demo "sampler": seed a curated per-work look (varied frames/mats/hangings/
   // captions) so walking the showcase shows the range. In-memory only (setState, not
   // updateSettings) so it never persists into a guest's own localStorage settings.
   useEffect(() => {
-    if (demo && loadingDone && !user && !visitor) {
+    if (demo && loadingDone && !visitor) {
       useGallery.setState(demoDesignOverrides())
     }
-  }, [demo, loadingDone, user, visitor])
+  }, [demo, loadingDone, visitor])
 
   return (
     <>

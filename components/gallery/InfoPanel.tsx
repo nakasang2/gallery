@@ -2,6 +2,7 @@
 // Exhibition-info panel — the "detail UI" for the title wall (opened by clicking it),
 // the board's counterpart to the per-work ArtworkPanel. Reuses the .panel drawer.
 import { useGallery } from '@/lib/store'
+import { useIsOwnerEditing } from '@/lib/exhibition'
 import { isPlaceholderTitle } from '@/lib/publish'
 import { DEFAULT_TITLE_TEXT } from './textures'
 
@@ -9,10 +10,12 @@ export default function InfoPanel() {
   const infoOpen = useGallery((s) => s.infoOpen)
   const setInfoOpen = useGallery((s) => s.setInfoOpen)
   const visitor = useGallery((s) => s.visitor)
-  const user = useGallery((s) => s.user)
   const myGallery = useGallery((s) => s.myGallery)
   const displayName = useGallery((s) => s.profileDisplayName)
   const bio = useGallery((s) => s.profileBio)
+  // Matches the title wall this panel belongs to: house copy on the demo, even
+  // for a signed-in visitor.
+  const ownerBoard = useIsOwnerEditing()
 
   const eyebrow = 'Exhibition'
   // Defaults are the /demo board copy; visitor / owner override with their own
@@ -26,7 +29,7 @@ export default function InfoPanel() {
     exhibitor = visitor.ownerName
     statement = visitor.statement
     artistBio = visitor.ownerBio
-  } else if (user && myGallery) {
+  } else if (ownerBoard && myGallery) {
     title = isPlaceholderTitle(myGallery.title) ? displayName || 'Your exhibition' : myGallery.title
     exhibitor = displayName || ''
     statement = myGallery.statement

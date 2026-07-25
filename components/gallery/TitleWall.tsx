@@ -8,6 +8,7 @@ import * as THREE from 'three'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { useGallery, useSettings } from '@/lib/store'
+import { useIsOwnerEditing } from '@/lib/exhibition'
 import { isPlaceholderTitle } from '@/lib/publish'
 import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll, type TitleWallText } from './textures'
 import { walkRef } from '@/lib/controller'
@@ -49,6 +50,9 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
   const profileDisplayName = useGallery((s) => s.profileDisplayName)
   const profileAvatarUrl = useGallery((s) => s.profileAvatarUrl)
   const profileBio = useGallery((s) => s.profileBio)
+  // Owner board only in the owner's own room — the demo keeps the house copy for
+  // everyone, signed in or not (it used to show the visitor's own name and title).
+  const ownerBoard = useIsOwnerEditing()
 
   // Whose board is this?
   const { text, avatarUrl } = useMemo((): { text: TitleWallText; avatarUrl: string | null } => {
@@ -64,7 +68,7 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
         avatarUrl: visitor.ownerAvatar,
       }
     }
-    if (user && myGallery) {
+    if (ownerBoard && user && myGallery) {
       const text = boardText({
         title: myGallery.title,
         name: profileDisplayName || user.displayName,
@@ -79,7 +83,7 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
       return { text, avatarUrl: profileAvatarUrl }
     }
     return { text: DEFAULT_TITLE_TEXT, avatarUrl: null }
-  }, [visitor, user, myGallery, profileUsername, profileDisplayName, profileAvatarUrl, profileBio])
+  }, [visitor, ownerBoard, user, myGallery, profileUsername, profileDisplayName, profileAvatarUrl, profileBio])
 
   // Avatar loads async; the texture bakes once it's ready (or immediately without one)
   const [avatarImg, setAvatarImg] = useState<HTMLImageElement | null>(null)

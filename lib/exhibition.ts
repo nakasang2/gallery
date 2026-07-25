@@ -47,12 +47,16 @@ export function overflowCount(s: Settings, ownCount: number): number {
   return Math.max(0, total - slotCount(s, ownCount))
 }
 
-/** Your own exhibited works (visitor mode = public data, signed in = cloud, guest = localStorage) */
+/** Your own exhibited works (visitor mode = public data, signed in = cloud, guest = localStorage).
+ *  The demo is the house showcase: it stays on the local/guest list for everyone,
+ *  so a signed-in visitor sees the sample collection rather than their own room. */
 export function useOwnArtworks(): ArtworkData[] {
   const visitorArts = useGallery((s) => s.visitor?.artworks)
   const user = useGallery((s) => s.user)
   const cloud = useGallery((s) => s.cloudArtworks)
   const local = useGallery((s) => s.artworks)
+  const demoMode = useGallery((s) => s.demoMode)
+  if (demoMode) return local
   return visitorArts ?? (user ? cloud : local)
 }
 
@@ -69,7 +73,11 @@ export function useIsOwnerEditing(): boolean {
   const user = useGallery((s) => s.user)
   const myGallery = useGallery((s) => s.myGallery)
   const visitor = useGallery((s) => s.visitor)
-  return !!user && !!myGallery && !visitor
+  const demoMode = useGallery((s) => s.demoMode)
+  // Never on the demo, whoever is signed in: this flag drops the demo collection
+  // (a room shows only its own works), which is exactly what emptied the sample
+  // show for signed-in visitors.
+  return !!user && !!myGallery && !visitor && !demoMode
 }
 
 /** Effective settings for display: an owner's room drops the demo collection */

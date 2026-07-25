@@ -258,9 +258,12 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   hydrate() {
     set({ ...loadSettings(), ready: true })
     // Client-side navigation hydrates AFTER auth resolved (e.g. dashboard → editor):
-    // don't let localStorage clobber the signed-in user's gallery row
+    // don't let localStorage clobber the signed-in user's gallery row. The demo is
+    // the house showcase and must look the same to everyone, so a signed-in
+    // visitor's own room never applies there (it used to, turning /demo into
+    // "your gallery" for anyone with a session).
     const g = get().myGallery
-    if (get().user && g) set(rowSpace(g))
+    if (get().user && g && !get().demoMode) set(rowSpace(g))
   },
 
   initAuth() {
@@ -326,7 +329,11 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         return
       }
       // The gallery row is the source of truth for a signed-in user's space settings
-      set({ myGallery: row, ...rowSpace(row) })
+      // — except on the demo, where it must not touch what's on screen (this
+      // resolves after hydrate(), so without the guard it re-applies the owner's
+      // room a beat later even when hydrate correctly skipped it).
+      set(get().demoMode ? { myGallery: row } : { myGallery: row, ...rowSpace(row) })
+      if (get().demoMode) return // no placement-override merge either: not this room
       // Per-work design (frame/hanging/caption) may have been set on another device —
       // the placements table is the shared record; merge it under any local (newer) overrides
       try {
@@ -362,8 +369,11 @@ export const useGallery = create<GalleryStore>((set, get) => ({
     if (!saveSettings(get())) {
       showToast('Browser storage is full. Remove some works or try smaller images.')
     }
-    // Signed-in edits write through to the gallery row (and its public page)
-    if (get().user && get().myGallery) scheduleGallerySync(get)
+    // Signed-in edits write through to the gallery row (and its public page).
+    // Never from the demo: it's a sandbox anyone can fiddle with, so syncing from
+    // there would let playing with the sample show silently overwrite (and, when
+    // the room is public, republish) the user's real gallery.
+    if (get().user && get().myGallery && !get().demoMode) scheduleGallerySync(get)
   },
 
   async reorderOwnArtworks(from, to) {

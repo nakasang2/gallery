@@ -1,7 +1,7 @@
 'use client'
 // 2D list fallback (non-functional requirement: WebGL-unsupported environments and
 // screen readers). Shows the same exhibition list as the 3D room, as plain scrollable articles.
-import { useExhibitionList } from '@/lib/exhibition'
+import { useExhibitionList, useIsOwnerEditing } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
 
@@ -11,10 +11,12 @@ export default function FlatGallery() {
   const user = useGallery((s) => s.user)
   const myGallery = useGallery((s) => s.myGallery)
   const ownerName = useGallery((s) => s.profileDisplayName)
+  const ownerEditing = useIsOwnerEditing()
 
   // Header identity mirrors the 3D HUD: a visitor sees the artist, a signed-in
-  // owner sees their own room, and only the anonymous demo shows the house title.
-  const owner = !visitor && user && myGallery
+  // owner sees their own room, and the demo always shows the house title —
+  // including for signed-in visitors, who used to get their own name here.
+  const owner = ownerEditing && user && myGallery
   const heading = visitor
     ? isPlaceholderTitle(visitor.title)
       ? visitor.ownerName

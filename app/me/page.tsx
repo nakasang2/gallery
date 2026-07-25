@@ -341,7 +341,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
         })
       }
       onCreated()
-      router.push('/demo') // straight into the room — the result is the feedback
+      router.push('/room') // straight into the room — the result is the feedback
     } catch (e) {
       alert(`Could not create the gallery: ${e instanceof Error ? e.message : e}`)
       setBusy(false)
@@ -883,6 +883,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     <>
     <div className="me-section-head">
       <h2>My gallery</h2>
+      {/* The only standing way into your own room in 3D. Before this existed the
+          walk lived on /demo, which is the public sample show — see app/room. */}
+      <Link className="btn-line me-section-head-action" href="/room">Walk your room</Link>
     </div>
     <div className="me-card">
       {/* The room's own colours, as a ribbon — this card IS that room */}

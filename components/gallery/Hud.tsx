@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
-import { useExhibitionList } from '@/lib/exhibition'
+import { useExhibitionList, useIsOwnerEditing } from '@/lib/exhibition'
 import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
@@ -18,6 +18,7 @@ export function HudTop() {
   const myGallery = useGallery((s) => s.myGallery)
   const ownerName = useGallery((s) => s.profileDisplayName)
   const embed = useGallery((s) => s.embed)
+  const ownerEditing = useIsOwnerEditing()
 
   // Embedded on a third-party site: the surrounding page already gives context,
   // so trim to the room title + one back-link to the full show (a new tab —
@@ -63,9 +64,10 @@ export function HudTop() {
   }
 
   // Signed-in owner previewing/editing their OWN room (not the public visitor view,
-  // not the anonymous demo): lead with THEIR exhibition and a way back to the
-  // dashboard — never the house "permanent collection" chrome.
-  if (user && myGallery) {
+  // not the demo): lead with THEIR exhibition and a way back to the dashboard —
+  // never the house "permanent collection" chrome. `ownerEditing` (not `user`) is
+  // what keeps this off the demo, which is the house show for everyone.
+  if (ownerEditing && user && myGallery) {
     const untitled = isPlaceholderTitle(myGallery.title)
     return (
       <header className="hud-top">

@@ -2,9 +2,12 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-25（購入ボタンが購入動線に繋がらない件を調査。原因は決済ENV未設定＝`/api/checkout`が501。フォールバック文言の原因別化＋設定確認用のhealthエンドポイントを追加）
+- **最終更新**: 2026-07-25（①購入ボタンの件＝決済ENV未設定を調査・診断可能化 ②`/demo`がログイン済み訪問者に本人の展示室を見せていた件を修正し、オーナー用に`/room`を新設）
 
 ## 進行中
+- **`/demo`と`/room`の分離（2026-07-25・未デプロイ）**: `/demo`はログイン状態を一切見ないハウス展示に固定。オーナーの3Dウォークは新ルート`/room`（`/me`の「Walk your room」＋作成直後のpush先）。未公開の部屋は`/@user/slug`が`is_public`で弾くため、`/room`が唯一の導線。**本番QA**: ①ログイン状態でLP→Walk the demo→デモ10点・XIBIT360 COLLECTION表示になるか ②`/room`で自分の部屋が出るか ③デモで設定を触っても`/me`の部屋が変わらないか（旧実装では書き戻っていた）。
+
+## 進行中（決済）
 - **Stripe決済の本番有効化**（DECISIONS 2026-07-24参照、本番モード＋Xibit360専用の新規アカウントで確定）。Claude済: `NEXT_PUBLIC_SITE_URL=https://www.xibit360.art`設定。ユーザー待ち: ⓪同じログイン下にXibit360専用アカウントを新規作成し本番有効化 ①`0019_checkout.sql`をSupabase SQL Editor適用 ②新アカウント(live)の`STRIPE_SECRET_KEY`(sk_live_)をVercelに ③新アカウントでWebhook作成(`https://www.xibit360.art/api/stripe/webhook`・`checkout.session.completed`)→`STRIPE_WEBHOOK_SECRET`(whsec_)をVercelに ④価格USD化に伴い`0028_capacity_clamp.sql`もSQL Editorで適用。完了後Claudeが再デプロイ＋疎通検証(checkout=401/webhook=400)、実カードで**スロット追加($3〜)購入→返金**でE2E確認（USD化で¥580→$3/枚に変更済み）。
   - **2026-07-25の調査結果**: 「押しても購入動線に繋がらない」＝上記②が未完了（または設定後に再デプロイしていない）ことの正常な表示。コード・配線・main反映は正常。確認方法は `https://www.xibit360.art/api/checkout` をブラウザで開き `checkoutConfigured` を見る（false＝ENV未設定/未再デプロイ）。**VercelのENVはビルド時に焼き込まれるため、追加後は必ず再デプロイが要る。**
 - 価格USD化一式・ゴースト円形接地影の削除(4027e8b)はpush済み（origin/mainに反映済み）。
