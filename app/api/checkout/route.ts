@@ -10,11 +10,49 @@ import { PRICE_USD_CENTS, PRICE_THEME_CENTS, PRICE_LAYOUT_CENTS, SKU_LABEL, type
 import { MAX_WORKS_PER_ROOM, PLAN } from '@/lib/limits'
 
 export const runtime = 'nodejs'
+// The GET health check reads process.env with no other dynamic signal, so Next
+// would otherwise static-render it at build and serve a frozen snapshot — the
+// exact staleness this check exists to catch.
+export const dynamic = 'force-dynamic'
 
 // Only these one-time SKUs are purchasable. Retired/unwired: theme_collection
 // (bundle, retired), design_tools (now free), video_pass (subscription, unwired),
 // room (no UI/entitlement). See docs/DECISIONS 2026-07-24.
 const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item']
+
+// GET /api/checkout — config health. Booleans only, never a key or a fragment of
+// one. This leaks nothing a POST didn't already reveal (an unconfigured server
+// answers 501, a configured one 401), but it makes "is billing actually live on
+// THIS deployment?" answerable from a browser address bar — the check that was
+// missing when a configured Stripe still looked like a dead button, because
+// Vercel bakes env vars per build and a var added after the last deploy isn't
+// in the running one.
+export function GET() {
+  const has = (v: string | undefined) => Boolean(v && v.trim())
+  const stripeSecret = has(process.env.STRIPE_SECRET_KEY)
+  const supabaseUrl = has(process.env.NEXT_PUBLIC_SUPABASE_URL)
+  const supabaseAnonKey = has(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  // Checkout itself only needs the three above; the webhook needs these two, and
+  // without them a payment succeeds while the entitlement never lands.
+  const webhookSecret = has(process.env.STRIPE_WEBHOOK_SECRET)
+  const supabaseServiceRoleKey = has(process.env.SUPABASE_SERVICE_ROLE_KEY)
+  const siteUrl = has(process.env.NEXT_PUBLIC_SITE_URL)
+  return NextResponse.json({
+    checkoutConfigured: stripeSecret && supabaseUrl && supabaseAnonKey,
+    fulfilmentConfigured: webhookSecret && supabaseServiceRoleKey,
+    env: {
+      STRIPE_SECRET_KEY: stripeSecret,
+      NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: supabaseAnonKey,
+      STRIPE_WEBHOOK_SECRET: webhookSecret,
+      SUPABASE_SERVICE_ROLE_KEY: supabaseServiceRoleKey,
+      NEXT_PUBLIC_SITE_URL: siteUrl,
+    },
+    // Which Stripe mode the key selects, so a live site running a test key (the
+    // other way a "working" checkout produces no real orders) is visible here.
+    stripeMode: stripeSecret ? (process.env.STRIPE_SECRET_KEY!.startsWith('sk_live_') ? 'live' : 'test') : null,
+  })
+}
 
 interface CheckoutBody {
   sku?: string

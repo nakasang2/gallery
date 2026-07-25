@@ -118,13 +118,23 @@ select id, 'founder' from auth.users where email = 'あなたのメール@exampl
 4. Supabase の **service_role キー**を `SUPABASE_SERVICE_ROLE_KEY` に設定(webhookが台帳へ書くため。
    サーバー環境変数のみ・`NEXT_PUBLIC_` を付けないこと)
 5. (推奨)`NEXT_PUBLIC_SITE_URL` に本番URLを設定(決済完了後のリダイレクト先の明示)
+6. **再デプロイする**。Vercelの環境変数は**ビルド時に焼き込まれる**ので、変数を足しただけでは
+   走っているデプロイには入らず、購入ボタンは「Checkout isn't live yet」のままになる。
+
+### 設定できたかの確認(本番でそのまま使える)
+
+- `https://本番ドメイン/api/checkout` をブラウザで開く → `checkoutConfigured` が `true` なら決済可、
+  `fulfilmentConfigured` が `true` ならwebhook側も可。どのENVが欠けているかは `env` の各booleanで分かる
+  (値そのものは返さない)。`stripeMode` が `test` なら本番キーになっていない。
+- `curl -X POST https://本番ドメイン/api/checkout` → **501なら未設定・401なら設定済み**(認証を求めている)。
+- webhook: `curl -X POST https://本番ドメイン/api/stripe/webhook` → **400**(署名なし)なら到達OK。
 
 ローカル検証: `stripe listen --forward-to localhost:3000/api/stripe/webhook`(Stripe CLI)で
 テストモードのイベントを転送し、テストカード `4242 4242 4242 4242` で購入する。
 
-現在購入可能なSKU: キャパ+5(¥580)・テーマ/レイアウト単品(¥400)・Theme Collection(¥2,480)・
-Design Tools(¥1,480)。Video Pass(サブスク)と「展示室を追加」は未配線のため意図的に販売対象外
-(`app/api/checkout/route.ts` の `ONE_TIME_SKUS`)。
+現在購入可能なSKU: 作品スロット追加($3/枚・数量指定)・テーマ単品($8)・レイアウト単品($5)。
+Design Toolsは全員無料・Theme Collectionは撤去(docs/DECISIONS 2026-07-24)。Video Pass(サブスク)と
+「展示室を追加」は未配線のため意図的に販売対象外(`app/api/checkout/route.ts` の `ONE_TIME_SKUS`)。
 
 ## 補足
 

@@ -8,7 +8,7 @@
 // stepper (capacity — buy N slots in one checkout, docs/DECISIONS 2026-07-24).
 import { useEffect, useState } from 'react'
 import { usd, type PurchaseOption } from '@/lib/pricing'
-import { startCheckout, type PurchaseIntent } from '@/lib/checkout'
+import { startCheckout, type CheckoutUnavailableReason, type PurchaseIntent } from '@/lib/checkout'
 
 export default function PurchaseModal({
   itemLabel,
@@ -36,7 +36,8 @@ export default function PurchaseModal({
 }) {
   const [selected, setSelected] = useState(options[0]?.key ?? '')
   const [qty, setQty] = useState(1)
-  const [tried, setTried] = useState(false)
+  /** null = not tried yet; otherwise why checkout couldn't start */
+  const [blocked, setBlocked] = useState<CheckoutUnavailableReason | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -53,7 +54,7 @@ export default function PurchaseModal({
 
   async function onCta() {
     if (!intent) {
-      setTried(true)
+      setBlocked('not-configured') // preview-only modal: nothing to buy yet
       return
     }
     setBusy(true)
@@ -64,7 +65,7 @@ export default function PurchaseModal({
         window.location.assign(start.url)
         return // keep the button disabled while the browser navigates
       }
-      setTried(true) // billing not configured / signed out — honest note, not a fake buy
+      setBlocked(start.reason) // honest note per cause, not a fake buy
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Checkout failed — please try again.')
     } finally {
@@ -141,9 +142,11 @@ export default function PurchaseModal({
           </div>
         )}
 
-        {tried ? (
+        {blocked ? (
           <p className="purchase-note purchase-note-active">
-            Checkout isn&apos;t live yet — you&apos;ll be able to buy this the moment it ships.
+            {blocked === 'signed-out'
+              ? 'Sign in to buy this — a purchase is tied to your account.'
+              : "Checkout isn't live yet — you'll be able to buy this the moment it ships."}
           </p>
         ) : (
           <>
