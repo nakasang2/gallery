@@ -48,6 +48,12 @@
 - 却下: B案（台帳テーブル＋定期掃除）= cron必須で台帳とR2の実態がズレ得るため。C案（音声/BGMの記録＋`bytes`のトリガ保護＋作品行数上限）= 変更は小さいが**穴1（行を作らずに上げ続ける）が塞がらない**ため。D案（今は入れない）= データが無い今が一番安いため。
 - 対象: `supabase/migrations/0030_storage_reservations.sql`(新規), `app/api/upload-url/route.ts`, `app/api/storage/usage/route.ts`(新規), `lib/r2.ts`(`prefixBytes`), `lib/cloud.ts`(`getStorageUsage`), `app/me/page.tsx`。tsc・next buildクリーン。**SQLはローカルにPostgresが無く未実行**だったが、ユーザーが本番のSupabaseへ適用し、`pg_proc`に`reserve_storage`が期待どおりのシグネチャで存在することを確認済み（＝構文とDDLは通った）。実際の判定挙動の検証はデプロイ後。
 
+## 2026-07-27 「CSSが書いてあるのに効いていない」を ship の必須ステップにする（3回ルール昇格）
+- 背景: UX/UI/法務レビューで、**構文は正しく、tscもビルドも通り、しかし効果はゼロ**というCSSが1セッションで3件見つかった。①LPナビの「Sign in と CTA は残す(導線を消さない)」というコメント付きブロックで、主要CTAが画面外に21〜36pxクリップ ②`viewport-fit=cover`が未設定でiOSが`env(safe-area-inset-*)`を全て0に解決し、`app/gallery.css`のノッチ/ホームバー回避14箇所が丸ごと無効 ③`.hud-actions`/`.hud-record`という**マークアップに存在しないクラス名**へのモバイル配置ルール（実体は`.hud-cluster`。リネーム時にCSS側が取り残された）。CSSは効かなくてもエラーを出さないので、既存の検証（tsc / build / code-review）を全て素通りする。AGENTS.md の3回ルールに到達。
+- 決定（ユーザー選択 = A案）: **ship スキルに「2.6 UI変更の実測検証」を追加して必須化する**。(1)previewで`getBoundingClientRect()`による実測（`overflow-x:hidden`があると`document.scrollWidth`は正常値を返すので、要素ごとに`rect.right > innerWidth`を見る。モバイルは320/360/375/390の最狭幅、タブレットは別途）(2)クラス名をリネーム/削除したら旧名を`grep -rn`してCSS側の取り残しを確認 (3)`env()`等は有効化の前提が揃っているか確認 (4)検証できなかったものは報告で明示する。
+- 却下: B案（DECISIONS.mdに「UI変更は実測で確認する」と明文化するだけ）＝軽いが、忘れたときに止める仕組みが無い。C案（未使用セレクタ検出＋オーバーフロー検出の専用スキル化）＝最も強力だが作成コストが高く、今回の3件はA案で全て捕まるため過剰。
+- 補足: 対象は `~/.claude/skills/ship/SKILL.md`（全プロジェクト共通）。今回の3件はこのステップを実施して修正済み（`e28fd19` `a04a3d7` `fa0c8b0`）。安全域の実挙動だけはノッチ実機でしか確認できないため、本番QAに残している。
+
 ## 2026-07-27 削除した作品のCDNキャッシュを、削除時にCloudflareへパージさせる
 - 背景: R2移行後、**DBとR2からは即座に消えるのに、CloudflareのCDNキャッシュには最大4時間残る**穴が判明（移行中に、削除済みオブジェクトが片方のcoloから200/`cf-cache-status: HIT`で返るのを実観測）。URLを知っている人はその間ダウンロードできる。`app/privacy`の「Deleting a work removes its files from storage」と`app/terms`のテイクダウン対応の記述に対して、実態が追いついていない状態だった。
 - 実測で確定した前提: 本番の`cdn.xibit360.art`は**200応答にも404応答にも`cache-control: max-age=14400`（4時間）**を付けて返す（R2の既定。アップロード時に`CacheControl`を指定していないため）。`s-maxage`ではなく`max-age`なので、**エッジだけでなく閲覧者のブラウザにも4時間残る**。
