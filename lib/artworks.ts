@@ -1,6 +1,7 @@
 // Sample artwork data and the generative-art renderer.
 // A seeded PRNG means the same work always renders to the same image.
 
+import { assetUrl } from './publicUrl'
 export type Rnd = () => number
 type StyleFn = (ctx: CanvasRenderingContext2D, w: number, h: number, pal: string[], rnd: Rnd) => void
 
@@ -121,7 +122,7 @@ export const ARTWORKS: ArtworkData[] = [
     // style/palette are kept for generating the landing-page thumbnail.
     id: 'a10', title: 'Distant Thunder', artist: 'Rui Tsukishima', year: 2025,
     ratio: [9, 16], style: 'rain', palette: 'shinkai', seed: 33,
-    kind: 'video', src: '/demo-works/enrai.webm', poster: '/demo-works/enrai-poster.jpg',
+    kind: 'video', src: assetUrl('demo-works/enrai.webm'), poster: assetUrl('demo-works/enrai-poster.jpg'),
     desc: 'Just before a downpour, the air begins to move vertically. I wanted to isolate only those few seconds of tension. As you come closer, you hear the rain.',
     tags: ['Video', 'Sound'],
   },

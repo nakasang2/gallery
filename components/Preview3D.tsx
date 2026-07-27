@@ -5,6 +5,7 @@
 // Loaded lazily (next/dynamic) so three.js never weighs down the dashboard itself.
 import { Suspense, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
+import { assetUrl } from '@/lib/publicUrl'
 import { Canvas, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
@@ -21,7 +22,7 @@ const SLOT: SlotDef = { x: 0, z: 0, rotY: 0 }
 // so a 30 cm study reads tiny beside it and a 1.6 m canvas nearly its height. It stands
 // idle to the art's left; the art centres at 1.62 m (eye level) whatever its size, so the
 // relative scale always shows honestly.
-const PERSON_URL = '/models/visitor.glb'
+const PERSON_URL = assetUrl('models/visitor.glb')
 useGLTF.setDecoderPath('/draco/')
 
 const ART_CY = 1.62

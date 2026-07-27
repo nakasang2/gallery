@@ -1,6 +1,7 @@
 // Canvas-generated textures and shared cache (ported from the gallery.js prototype)
 import * as THREE from 'three'
 import { renderArtworkCanvas, type ArtworkData } from '@/lib/artworks'
+import { assetUrl } from '@/lib/publicUrl'
 
 /* ---- Plaster grain (procedural bump map — no external assets needed) ---- */
 
@@ -541,9 +542,9 @@ export function getFloorTextures() {
     return t
   }
   floorBase = {
-    map: load('/textures/hardwood2_diffuse.jpg', true),
-    bumpMap: load('/textures/hardwood2_bump.jpg'),
-    roughnessMap: load('/textures/hardwood2_roughness.jpg'),
+    map: load(assetUrl('textures/hardwood2_diffuse.jpg'), true),
+    bumpMap: load(assetUrl('textures/hardwood2_bump.jpg')),
+    roughnessMap: load(assetUrl('textures/hardwood2_roughness.jpg')),
   }
   return floorBase
 }

@@ -18,11 +18,16 @@ import { getSolids, usePlacement, type Solid } from '@/lib/exhibition'
 import { LOW_POWER } from '@/lib/controller'
 import { ghostCountForVisits } from '@/lib/ghosts'
 import { fetchGhostConfig, DEFAULT_GHOST, type GhostConfig } from '@/lib/siteConfig'
+import { assetUrl } from '@/lib/publicUrl'
 
 // Character models (Draco-compressed; decoded with the vendored local decoder, no CDN).
 // Each figure picks one at random for variety; both carry exactly a walk + an idle clip,
 // selected by duration below so the differing clip order between models doesn't matter.
-const MODELS = ['/models/visitor.glb', '/models/visitor2.glb']
+//
+// Served from R2 (assetUrl): the preload below pulls BOTH models — 2.6MB — for every
+// visitor that mounts a gallery, which made them the single heaviest thing on Vercel's
+// bandwidth. R2 egress is free (docs/DECISIONS.md 2026-07-27). The decoder stays local.
+const MODELS = [assetUrl('models/visitor.glb'), assetUrl('models/visitor2.glb')]
 useGLTF.setDecoderPath('/draco/')
 
 function luminance(hex: number): number {
