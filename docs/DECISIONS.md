@@ -1,5 +1,11 @@
 # DECISIONS
 
+## 2026-07-27 オーナーは自分の非公開ギャラリーを公開URLで下見できる
+- 背景: `/@name`は公開時しか開けず、非公開だと本人でも見られない（リスティング/404止まり）。オーナーは公開前に「本番の見え方そのもの」を自分のURLで確認したい、とユーザー提起。賛成。
+- 決定: 公開ページのサーバー取得（`fetchPublicExhibitionInner`）は**一切変更せず**、**クライアント側でオーナー本人のときだけ**非公開ギャラリーを取得して全画面プレビュー（「Private preview」バナー付き）。匿名・他人・公開中は完全に無影響（回帰リスク回避）。
+- 実装: `lib/publish.ts` `fetchOwnExhibition()`＝ブラウザセッションのユーザーが「当該ハンドルの所有者」かつ`is_public=false`のときだけ取得（RLSで自分の行を読む・自己完結／公開経路を非共有）。`components/gallery/OwnerPreview.tsx`＝本人時のみ`VisitorGallery`でテイクオーバー、他は`null`。`VisitorGallery`に`ownerPreview`（訪問カウント除外＋バナー）。`/@name`ルートに差し込み。認証はcookie/SSRでなく**ブラウザセッション**のためクライアント判定にした（この構成にSSR認証・middlewareは無い）。
+- 対象: `lib/publish.ts`, `components/gallery/OwnerPreview.tsx`(新規), `components/gallery/VisitorGallery.tsx`, `app/[handle]/page.tsx`, `app/gallery.css`。tsc・next buildクリーン。**オーナー実機E2E（サインインして非公開を歩く）は本番QA**。`/@name/slug`側は今回未対応（プラン1ギャラリー＝主URLは`/@name`のため。必要なら追対応）。※R2並行作業と同一作業ツリーだったため自分の5ファイルのみ先行コミット(4549dd0)→R2作業がその上にFFで統合済み。
+
 ## 2026-07-27 CDN配信のCORSを「相手によって変えない」形にする（読み取り`*`＋Transform Rule）
 - 背景: R2移行後、3D展示だけ作品が空の額縁になる不具合が**2回**起きた。1回目はブラウザキャッシュのCORS汚染で、`<img>`全16箇所に`crossOrigin="anonymous"`を付けて解決した（LESSONS 2026-07-27）。**同日、同じ症状が再発**。今度はシークレットウィンドウでも直らず、かつ**Claude側の環境では再現しなかった**。
 - 真因: 汚染されていたのは**CloudflareのCDNキャッシュ**。CDNは1つのURLに実質1つの応答しか持たない（`Vary`は`Accept-Encoding`以外あてにならない）のに、R2の応答は**リクエスト次第で中身が変わる**ため噛み合っていなかった:
