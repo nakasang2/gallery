@@ -18,9 +18,13 @@ const GalleryApp = dynamic(() => import('@/components/gallery/GalleryApp'), {
 export default function VisitorGallery({
   exhibition,
   embed = false,
+  ownerPreview = false,
 }: {
   exhibition: PublicExhibition
   embed?: boolean
+  /** The owner previewing their OWN (possibly private) gallery — skip the visit
+   *  tally and show a "private preview" banner instead of a real visit. */
+  ownerPreview?: boolean
 }) {
   const [armed, setArmed] = useState(false)
   const [shellUp, setShellUp] = useState(false)
@@ -28,18 +32,24 @@ export default function VisitorGallery({
   useEffect(() => {
     document.body.classList.add('gallery-mode')
     useGallery.setState({ visitor: exhibition, embed })
-    recordVisit(exhibition.galleryId) // analytics: one count per tab session
+    if (!ownerPreview) recordVisit(exhibition.galleryId) // analytics: one count per tab session
     setArmed(true)
     return () => {
       document.body.classList.remove('gallery-mode')
       useGallery.setState({ visitor: null, embed: false })
     }
-  }, [exhibition, embed])
+  }, [exhibition, embed, ownerPreview])
 
   return (
     <>
       {armed && <GalleryApp onShellReady={() => setShellUp(true)} />}
       {!shellUp && <LoadingScreen exhibition={exhibition} />}
+      {ownerPreview && shellUp && (
+        <div className="owner-preview-banner" role="status">
+          <span className="owner-preview-dot" aria-hidden="true" />
+          Private preview — only you can see this. Publish it to share.
+        </div>
+      )}
     </>
   )
 }

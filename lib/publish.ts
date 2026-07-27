@@ -383,6 +383,109 @@ async function fetchPublicExhibitionInner(
   }
 }
 
+/** Owner-only private preview (client-side). Returns the SIGNED-IN viewer's OWN
+ *  gallery at exactly their own handle, even when is_public = false — so an owner
+ *  can walk their draft at its real public URL before publishing. Returns null
+ *  for anyone who isn't the owner of a PRIVATE gallery at this username (public
+ *  ones are already rendered by the server page, so we only surface private
+ *  drafts here). Relies on the browser session + RLS (an owner can read their own
+ *  rows). Self-contained on purpose: it never touches the public fetch path, and
+ *  the prod DB is current so no legacy-migration fallbacks are needed. */
+export async function fetchOwnExhibition(expectedUsername: string): Promise<PublicExhibition | null> {
+  if (!supabase) return null
+  try {
+    const { data: auth } = await supabase.auth.getUser()
+    const uid = auth.user?.id
+    if (!uid) return null
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url, bio, sns')
+      .eq('id', uid)
+      .maybeSingle()
+    // Only ever surface the viewer's OWN handle — never someone else's private room
+    if (!profile || profile.username !== expectedUsername) return null
+
+    const { data: gallery, error: gErr } = await supabase
+      .from('galleries')
+      .select(
+        'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides, bgm_url'
+      )
+      .eq('owner_id', uid)
+      .eq('is_public', false) // public galleries are already shown by the server page
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (gErr || !gallery) return null
+
+    const { data: placements, error: pErr } = await supabase
+      .from('placements')
+      .select('slot_index, frame_override, mat_override, hanging_override, caption_override, artworks (*)')
+      .eq('gallery_id', gallery.id)
+      .order('slot_index', { ascending: true })
+    if (pErr) return null
+
+    const ownerName = profile.display_name || profile.username || ''
+    const frameOverrides: Record<string, string> = {}
+    const matOverrides: Record<string, string> = {}
+    const hangingOverrides: Record<string, string> = {}
+    const captionOverrides: Record<string, string> = {}
+    const artworks: ArtworkData[] = []
+    const arrangement: (string | null)[] = []
+    for (const p of (placements ?? []) as Array<{
+      slot_index?: number | null
+      frame_override?: string | null
+      mat_override?: string | null
+      hanging_override?: string | null
+      caption_override?: string | null
+      artworks: unknown
+    }>) {
+      const row = p.artworks as Parameters<typeof rowToArtwork>[0] | null
+      if (!row) continue
+      artworks.push(rowToArtwork(row, ownerName))
+      if (typeof p.slot_index === 'number' && p.slot_index >= 0) arrangement[p.slot_index] = row.id
+      if (p.frame_override) frameOverrides[row.id] = p.frame_override
+      if (p.mat_override) matOverrides[row.id] = p.mat_override
+      if (p.hanging_override) hangingOverrides[row.id] = p.hanging_override
+      if (p.caption_override) captionOverrides[row.id] = p.caption_override
+    }
+    for (let i = 0; i < arrangement.length; i++) if (arrangement[i] == null) arrangement[i] = null
+
+    return {
+      galleryId: gallery.id,
+      title: gallery.title,
+      statement: gallery.statement,
+      ownerName,
+      ownerAvatar: profile.avatar_url ?? null,
+      ownerBio: profile.bio ?? '',
+      ownerSns: readSns(profile.sns),
+      username: profile.username!,
+      slug: gallery.slug,
+      theme: gallery.theme,
+      layout: gallery.layout,
+      layoutParams: normalizeLayoutParams(gallery.layout_params),
+      frame: gallery.frame_default,
+      mat: gallery.mat_default ?? 'auto',
+      hanging: gallery.hanging_default ?? 'wire',
+      caption: gallery.caption_default ?? 'side',
+      coverArtworkId: gallery.cover_artwork_id ?? null,
+      bgmUrl: gallery.bgm_url ?? null,
+      workCap: gallery.work_cap ?? PLAN.worksPerGallery,
+      designOverrides: normalizeDesignOverrides(gallery.design_overrides),
+      arrangement,
+      visitCount: 0, // a private draft has no public visits to show
+      frameOverrides,
+      matOverrides,
+      hangingOverrides,
+      captionOverrides,
+      artworks,
+    }
+  } catch (e) {
+    console.error('fetchOwnExhibition failed:', e)
+    return null
+  }
+}
+
 /* ---- Explore feed (/explore) — every public galleries across the platform ---- */
 
 export interface FeedItem {

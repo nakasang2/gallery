@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { fetchPublicProfile, fetchPublicExhibition, isPlaceholderTitle } from '@/lib/publish'
 import VisitorGallery from '@/components/gallery/VisitorGallery'
+import OwnerPreview from '@/components/gallery/OwnerPreview'
 import SnsLinks from '@/components/SnsLinks'
 
 export const dynamic = 'force-dynamic'
@@ -81,6 +82,11 @@ export default async function ArtistPage({
   }
 
   return (
+    <>
+    {/* Owner-only: if the signed-in viewer owns a PRIVATE gallery at this handle,
+        this takes over full-screen so they can walk their draft. Renders nothing
+        for everyone else, so the public listing below is unaffected. */}
+    <OwnerPreview handle={username} />
     <main className="artist-page">
       <div className="me-inner">
         <div className="me-top">
@@ -135,5 +141,6 @@ export default async function ArtistPage({
         </footer>
       </div>
     </main>
+    </>
   )
 }
