@@ -45,7 +45,7 @@ export default async function ArticlesPage() {
               <Link key={a.slug} className="article-card" href={`/articles/${a.slug}`}>
                 {a.coverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={a.coverUrl} alt="" className="article-card-cover" />
+                  <img crossOrigin="anonymous" src={a.coverUrl} alt="" className="article-card-cover" />
                 ) : (
                   <div className="article-card-cover article-card-cover-empty" />
                 )}

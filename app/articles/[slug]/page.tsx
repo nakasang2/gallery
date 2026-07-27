@@ -62,7 +62,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
           {a.coverUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={a.coverUrl} alt="" className="article-hero" />
+            <img crossOrigin="anonymous" src={a.coverUrl} alt="" className="article-hero" />
           )}
 
           <div className="article-body">{renderMarkdown(a.bodyMd)}</div>

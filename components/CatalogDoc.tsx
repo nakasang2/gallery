@@ -25,7 +25,7 @@ export default function CatalogDoc({ exhibition: ex }: { exhibition: PublicExhib
             <div className="catalog-plate-img">
               {img ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={img} alt={art.title || `Work ${i + 1}`} />
+                <img crossOrigin="anonymous" src={img} alt={art.title || `Work ${i + 1}`} />
               ) : (
                 <div className="catalog-plate-noimg" aria-hidden="true" />
               )}

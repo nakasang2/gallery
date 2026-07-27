@@ -88,7 +88,7 @@ export default function LpHeroEditor() {
                 <div style={{ aspectRatio: '4 / 3', background: '#0d0c0b', border: '1px solid var(--hairline)', borderRadius: 4, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {s ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={s.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img crossOrigin="anonymous" src={s.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Demo default</span>
                   )}

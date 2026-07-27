@@ -97,7 +97,7 @@ export default async function ArtistPage({
         <div className="artist-head">
           {p.avatarUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img className="artist-avatar" src={p.avatarUrl} alt="" />
+            <img crossOrigin="anonymous" className="artist-avatar" src={p.avatarUrl} alt="" />
           )}
           <div>
             <h1 className="artist-name">{p.displayName}</h1>
@@ -117,7 +117,7 @@ export default async function ArtistPage({
               <Link key={g.slug} className="artist-gallery-card" href={`/@${p.username}/${g.slug}`}>
                 {g.cover ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={g.cover} alt="" className="artist-cover" />
+                  <img crossOrigin="anonymous" src={g.cover} alt="" className="artist-cover" />
                 ) : (
                   <div className="artist-cover artist-cover-empty" />
                 )}

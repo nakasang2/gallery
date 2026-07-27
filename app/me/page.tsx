@@ -189,7 +189,7 @@ function Hero() {
     <div className="me-hero">
       {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="me-hero-avatar" src={avatarUrl} alt="" />
+        <img crossOrigin="anonymous" className="me-hero-avatar" src={avatarUrl} alt="" />
       ) : (
         <div className="me-hero-avatar empty">{name.slice(0, 1).toUpperCase()}</div>
       )}
@@ -1062,7 +1062,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             onClick={() => setNav(art.id)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="me-subnav-thumb" src={art.poster ?? art.src} alt="" loading="lazy" />
+            <img crossOrigin="anonymous" className="me-subnav-thumb" src={art.poster ?? art.src} alt="" loading="lazy" />
             <span className="me-subnav-tx">
               {art.kind === 'video' ? <><VideoIcon className="works-title-icon" /> {art.title}</> : art.title}
             </span>
@@ -1364,7 +1364,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   <div className="design-controls">
                     {design.logoUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={design.logoUrl} alt="" className="design-logo-preview" />
+                      <img crossOrigin="anonymous" src={design.logoUrl} alt="" className="design-logo-preview" />
                     )}
                     <label className="btn-line file-btn" aria-disabled={logoUploading} style={{ marginTop: 0 }}>
                       {logoUploading ? 'Uploading…' : design.logoUrl ? 'Change logo' : 'Upload logo'}
@@ -1852,7 +1852,7 @@ function ProfileCard() {
       <div className="avatar-row">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img className="avatar-img" src={avatarUrl} alt="Avatar" />
+          <img crossOrigin="anonymous" className="avatar-img" src={avatarUrl} alt="Avatar" />
         ) : (
           <div className="avatar-img avatar-empty">{(displayName || 'A').slice(0, 1).toUpperCase()}</div>
         )}

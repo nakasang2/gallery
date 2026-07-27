@@ -25,7 +25,7 @@ export default function LoadingScreen({
         <div className="loading-inner">
           {exhibition.ownerAvatar ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img className="loading-avatar" src={exhibition.ownerAvatar} alt="" />
+            <img crossOrigin="anonymous" className="loading-avatar" src={exhibition.ownerAvatar} alt="" />
           ) : (
             <div className="loading-avatar empty">{(exhibition.ownerName || '•').slice(0, 1).toUpperCase()}</div>
           )}

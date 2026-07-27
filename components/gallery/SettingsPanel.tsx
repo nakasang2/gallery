@@ -499,7 +499,7 @@ export default function SettingsPanel() {
                 <li key={art.id}>
                   <span className="works-no">{i + 1}</span>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={art.poster ?? art.src} alt="" />
+                  <img crossOrigin="anonymous" src={art.poster ?? art.src} alt="" />
                   <span className="works-title">
                     {art.kind === 'video' ? (
                       <>

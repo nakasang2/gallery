@@ -155,7 +155,7 @@ export default function PlacementEditor({
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {src ? (
-                    <img src={src} alt={art.title} loading="lazy" />
+                    <img crossOrigin="anonymous" src={src} alt={art.title} loading="lazy" />
                   ) : (
                     <span style={{ fontSize: '1.4rem', color: 'var(--muted)' }}>
                       <VideoIcon />

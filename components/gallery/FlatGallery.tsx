@@ -42,7 +42,7 @@ export default function FlatGallery() {
       {list.map((art, i) => (
         <article className="flat-work" key={art.id}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={art.poster ?? art.src} alt={`${art.title} — ${art.artist}`} loading="lazy" />
+          <img crossOrigin="anonymous" src={art.poster ?? art.src} alt={`${art.title} — ${art.artist}`} loading="lazy" />
           <h2>
             <span className="flat-no">No. {String(i + 1).padStart(2, '0')}</span>
             {art.title}

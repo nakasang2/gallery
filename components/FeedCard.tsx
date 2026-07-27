@@ -8,14 +8,14 @@ export default function FeedCard({ g }: { g: FeedItem }) {
     <Link className="artist-gallery-card" href={`/@${g.username}/${g.slug}`}>
       {g.cover ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={g.cover} alt="" className="artist-cover" />
+        <img crossOrigin="anonymous" src={g.cover} alt="" className="artist-cover" />
       ) : (
         <div className="artist-cover artist-cover-empty" />
       )}
       <div className="feed-card-artist">
         {g.ownerAvatar ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img className="feed-card-avatar" src={g.ownerAvatar} alt="" />
+          <img crossOrigin="anonymous" className="feed-card-avatar" src={g.ownerAvatar} alt="" />
         ) : (
           <div className="feed-card-avatar empty">{(g.ownerName || '•').slice(0, 1).toUpperCase()}</div>
         )}
