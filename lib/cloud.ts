@@ -1,8 +1,15 @@
-// Cloud exhibition (when signed in): images go to Storage, metadata to the artworks table
+// Cloud exhibition (when signed in): files go to Cloudflare R2, metadata to the
+// artworks table. Nothing here talks to a storage API directly any more — the
+// browser asks /api/upload-url for a presigned URL and PUTs the bytes straight to
+// R2, and deletions go through /api/storage/delete. That server hop is what
+// enforces "you may only write into your own folder" and the plan's storage
+// quota, which used to be a Supabase RLS policy plus an advisory client check.
+// See docs/DECISIONS.md 2026-07-27.
 import { supabase } from './supabase'
 import type { ArtworkData } from './artworks'
 import { loadImage, fileToDataUrl } from './upload'
-import { PLAN } from './limits'
+import { publicUrl } from './publicUrl'
+import { AUDIO_GUIDE_MAX_BYTES, GALLERY_BGM_MAX_BYTES } from './limits'
 
 interface ArtworkRow {
   id: string
@@ -24,8 +31,92 @@ interface ArtworkRow {
   medium?: string | null
 }
 
-function publicUrl(path: string): string {
-  return supabase!.storage.from('artworks').getPublicUrl(path).data.publicUrl
+/** Upload purposes the server will sign for (app/api/upload-url/route.ts owns the
+ *  matching key layout — a client cannot name its own path). */
+type UploadPurpose =
+  | 'artwork-display'
+  | 'artwork-thumb'
+  | 'artwork-video'
+  | 'artwork-audio'
+  | 'avatar'
+  | 'gallery-bgm'
+  | 'gallery-logo'
+  | 'lp-image'
+
+interface UploadSpec {
+  purpose: UploadPurpose
+  /** Artwork or gallery id, for the purposes keyed by one. */
+  id?: string
+  /** LP hero slot, for 'lp-image'. */
+  slot?: number
+  body: Blob
+  contentType: string
+}
+
+/**
+ * Presign, then PUT. Returns the object keys in the order requested.
+ *
+ * All files in one call are signed together, so a batch that would breach the
+ * quota is rejected before any of it uploads. The uid comes from the session
+ * token server-side, which is why no ownerId is passed here.
+ */
+async function putFiles(specs: UploadSpec[]): Promise<string[]> {
+  const { data } = await supabase!.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Please sign in again.')
+
+  const res = await fetch('/api/upload-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      files: specs.map((s) => ({
+        purpose: s.purpose,
+        id: s.id,
+        slot: s.slot,
+        contentType: s.contentType,
+        size: s.body.size,
+      })),
+    }),
+  })
+  if (!res.ok) {
+    // The route sends a human-readable `error` for the cases a user can act on
+    // (quota reached, file too large, wrong type).
+    const detail = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(detail?.error ?? `Upload could not start (${res.status}).`)
+  }
+  const { uploads } = (await res.json()) as { uploads: { key: string; url: string }[] }
+
+  await Promise.all(
+    uploads.map(async ({ url }, i) => {
+      // Content-Length is set by the browser from the Blob and was signed into
+      // the URL, so a mismatch here would be rejected by R2.
+      const put = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': specs[i].contentType },
+        body: specs[i].body,
+      })
+      if (!put.ok) throw new Error(`Upload failed (${put.status}).`)
+    })
+  )
+
+  return uploads.map((u) => u.key)
+}
+
+/** Remove one work's files. Best-effort: the DB row is already gone by the time
+ *  this runs, so a failure only orphans files and must not surface as an error. */
+async function deleteArtworkFiles(artworkId: string): Promise<void> {
+  try {
+    const { data } = await supabase!.auth.getSession()
+    const token = data.session?.access_token
+    if (!token) return
+    await fetch('/api/storage/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ artworkId }),
+    })
+  } catch (e) {
+    console.warn('storage cleanup failed (files orphaned):', e)
+  }
 }
 
 export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
@@ -67,21 +158,10 @@ export async function getStorageUsage(ownerId: string): Promise<number> {
   return (data ?? []).reduce((sum, r) => sum + ((r as { bytes?: number }).bytes ?? 0), 0)
 }
 
-// Plan quota gate (REQUIREMENTS 10.10). Throws a readable error when the upload wouldn't fit
-async function assertQuota(ownerId: string, addedBytes: number): Promise<void> {
-  let used = 0
-  try {
-    used = await getStorageUsage(ownerId)
-  } catch {
-    return // bytes column missing (0006 not applied) — don't block uploads
-  }
-  if (used + addedBytes > PLAN.storageBytes) {
-    const mb = (n: number) => Math.round(n / 1024 / 1024)
-    throw new Error(
-      `Storage limit reached: ${mb(used)}MB of ${mb(PLAN.storageBytes)}MB used, this upload needs ${Math.max(1, mb(addedBytes))}MB. Remove some works first.`
-    )
-  }
-}
+// The plan quota gate (REQUIREMENTS 10.10) now lives in /api/upload-url, which
+// refuses to sign an upload that wouldn't fit and returns the same message this
+// used to throw. Checking it in the browser was advisory only — a crafted request
+// could skip it — so it moved rather than being duplicated here.
 
 // Insert an artworks row; if the bytes column doesn't exist yet (0006 not applied), retry without it
 async function insertArtworkRow(row: Record<string, unknown>): Promise<void> {
@@ -118,23 +198,17 @@ export async function uploadArtwork(params: {
   w: number
   h: number
 }): Promise<void> {
-  const sb = supabase!
   const id = crypto.randomUUID()
   const basePath = `${params.ownerId}/${id}`
 
   // Two sizes: a display image (long edge 1600) and a thumbnail (long edge 400) (docs/ARCHITECTURE.md ch. 5)
   const display = await dataUrlToJpegBlob(params.dataUrl, 1600)
   const thumb = await dataUrlToJpegBlob(params.dataUrl, 400)
-  await assertQuota(params.ownerId, display.size + thumb.size)
 
-  const up1 = await sb.storage.from('artworks').upload(`${basePath}/display.jpg`, display, {
-    contentType: 'image/jpeg',
-  })
-  if (up1.error) throw up1.error
-  const up2 = await sb.storage.from('artworks').upload(`${basePath}/thumb.jpg`, thumb, {
-    contentType: 'image/jpeg',
-  })
-  if (up2.error) throw up2.error
+  await putFiles([
+    { purpose: 'artwork-display', id, body: display, contentType: 'image/jpeg' },
+    { purpose: 'artwork-thumb', id, body: thumb, contentType: 'image/jpeg' },
+  ])
 
   try {
     await insertArtworkRow({
@@ -148,7 +222,7 @@ export async function uploadArtwork(params: {
     })
   } catch (error) {
     // If metadata insertion fails, don't leave the images behind
-    await sb.storage.from('artworks').remove([`${basePath}/display.jpg`, `${basePath}/thumb.jpg`])
+    await deleteArtworkFiles(id)
     throw error
   }
 }
@@ -162,20 +236,16 @@ export async function uploadVideoArtwork(params: {
   w: number
   h: number
 }): Promise<void> {
-  const sb = supabase!
   const id = crypto.randomUUID()
   const basePath = `${params.ownerId}/${id}`
 
   const thumb = await dataUrlToJpegBlob(params.posterDataUrl, 400)
-  await assertQuota(params.ownerId, params.file.size + thumb.size)
-
   const contentType = params.file.type || 'video/mp4'
-  const upV = await sb.storage.from('artworks').upload(`${basePath}/video`, params.file, { contentType })
-  if (upV.error) throw upV.error
-  const upT = await sb.storage.from('artworks').upload(`${basePath}/thumb.jpg`, thumb, {
-    contentType: 'image/jpeg',
-  })
-  if (upT.error) throw upT.error
+
+  await putFiles([
+    { purpose: 'artwork-video', id, body: params.file, contentType },
+    { purpose: 'artwork-thumb', id, body: thumb, contentType: 'image/jpeg' },
+  ])
 
   try {
     await insertArtworkRow({
@@ -189,7 +259,7 @@ export async function uploadVideoArtwork(params: {
       bytes: params.file.size + thumb.size,
     })
   } catch (error) {
-    await sb.storage.from('artworks').remove([`${basePath}/video`, `${basePath}/thumb.jpg`])
+    await deleteArtworkFiles(id)
     throw error
   }
 }
@@ -255,44 +325,29 @@ export async function reorderArtworks(orderedIds: string[]): Promise<void> {
 
 /** Upload/replace the profile avatar (512px JPEG at {uid}/avatar.jpg) and save its URL */
 export async function uploadAvatar(ownerId: string, file: File): Promise<string> {
-  const sb = supabase!
   const { dataUrl } = await fileToDataUrl(file, 512)
   const blob = await dataUrlToJpegBlob(dataUrl, 512)
-  const path = `${ownerId}/avatar.jpg`
-  const up = await sb.storage.from('artworks').upload(path, blob, {
-    contentType: 'image/jpeg',
-    upsert: true,
-  })
-  if (up.error) throw up.error
-  const url = `${publicUrl(path)}?v=${Date.now()}` // cache-bust so the new face shows immediately
-  const { error } = await sb.from('profiles').update({ avatar_url: url }).eq('id', ownerId)
+  const [key] = await putFiles([{ purpose: 'avatar', body: blob, contentType: 'image/jpeg' }])
+  const url = `${publicUrl(key)}?v=${Date.now()}` // cache-bust so the new face shows immediately
+  const { error } = await supabase!.from('profiles').update({ avatar_url: url }).eq('id', ownerId)
   if (error) throw error
   return url
 }
 
-/** Cap on an audio-guide file. Guides are short narration, not music. */
-export const AUDIO_GUIDE_MAX_BYTES = 15 * 1024 * 1024
-
 /** Upload a per-work audio guide ({uid}/{artworkId}/guide) and return its URL.
  *  Like uploadLogo it only touches storage; the caller saves the URL onto the
- *  artwork via updateArtworkDetails. The raw file is stored as-is (no re-encode). */
+ *  artwork via updateArtworkDetails. The raw file is stored as-is (no re-encode).
+ *  The size cap is re-checked server-side before signing; checking it here too
+ *  just fails fast without a round-trip. */
 export async function uploadArtworkAudio(ownerId: string, artworkId: string, file: File): Promise<string> {
   if (file.size > AUDIO_GUIDE_MAX_BYTES) {
     throw new Error(`Audio guides are limited to ${Math.floor(AUDIO_GUIDE_MAX_BYTES / 1024 / 1024)}MB.`)
   }
-  await assertQuota(ownerId, file.size)
-  const sb = supabase!
-  const path = `${ownerId}/${artworkId}/guide`
-  const up = await sb.storage.from('artworks').upload(path, file, {
-    contentType: file.type || 'audio/mpeg',
-    upsert: true,
-  })
-  if (up.error) throw up.error
-  return `${publicUrl(path)}?v=${Date.now()}` // cache-bust so a replaced guide plays immediately
+  const [key] = await putFiles([
+    { purpose: 'artwork-audio', id: artworkId, body: file, contentType: file.type || 'audio/mpeg' },
+  ])
+  return `${publicUrl(key)}?v=${Date.now()}` // cache-bust so a replaced guide plays immediately
 }
-
-/** Cap on a gallery BGM track. A looping ambient track, so a little larger than a guide. */
-export const GALLERY_BGM_MAX_BYTES = 15 * 1024 * 1024
 
 /** Upload a gallery's looping ambient BGM ({uid}/{galleryId}/bgm) and return its URL.
  *  Like uploadArtworkAudio it only touches storage; the caller saves the URL onto the
@@ -301,48 +356,37 @@ export async function uploadGalleryBgm(ownerId: string, galleryId: string, file:
   if (file.size > GALLERY_BGM_MAX_BYTES) {
     throw new Error(`BGM tracks are limited to ${Math.floor(GALLERY_BGM_MAX_BYTES / 1024 / 1024)}MB.`)
   }
-  await assertQuota(ownerId, file.size)
-  const sb = supabase!
-  const path = `${ownerId}/${galleryId}/bgm`
-  const up = await sb.storage.from('artworks').upload(path, file, {
-    contentType: file.type || 'audio/mpeg',
-    upsert: true,
-  })
-  if (up.error) throw up.error
-  return `${publicUrl(path)}?v=${Date.now()}` // cache-bust so a replaced track plays immediately
+  const [key] = await putFiles([
+    { purpose: 'gallery-bgm', id: galleryId, body: file, contentType: file.type || 'audio/mpeg' },
+  ])
+  return `${publicUrl(key)}?v=${Date.now()}` // cache-bust so a replaced track plays immediately
 }
 
 /** Upload a Design Tools logo/branding mark ({uid}/{galleryId}-logo.jpg) and
  *  return its URL — the caller saves it into that gallery's design_overrides
  *  (this does not write to any table itself, unlike uploadAvatar) */
 export async function uploadLogo(ownerId: string, galleryId: string, file: File): Promise<string> {
-  const sb = supabase!
   const { dataUrl } = await fileToDataUrl(file, 400)
   const blob = await dataUrlToJpegBlob(dataUrl, 400)
-  const path = `${ownerId}/${galleryId}-logo.jpg`
-  const up = await sb.storage.from('artworks').upload(path, blob, {
-    contentType: 'image/jpeg',
-    upsert: true,
-  })
-  if (up.error) throw up.error
-  return `${publicUrl(path)}?v=${Date.now()}` // cache-bust so a replaced logo shows immediately
+  const [key] = await putFiles([
+    { purpose: 'gallery-logo', id: galleryId, body: blob, contentType: 'image/jpeg' },
+  ])
+  return `${publicUrl(key)}?v=${Date.now()}` // cache-bust so a replaced logo shows immediately
 }
 
 /** Upload a landing-page hero image and return its URL + resized dimensions. Like
  *  uploadLogo it only touches storage; the admin LP editor saves the URL into
- *  site_config. Only admins reach this UI, and the folder is the admin's own uid, so
- *  the existing "insert into your own folder" storage policy already allows it.
- *  The path is FIXED per slot ({uid}/lp/{slot}.jpg, upsert) so replacing a slot
- *  overwrites the old file instead of orphaning it; the URL is cache-busted so the
- *  new image shows immediately despite the stable path. */
+ *  site_config. Only admins reach this UI, and the signed key is the caller's own
+ *  folder, so a non-admin gains nothing from reaching the route — writing the URL
+ *  into site_config is what needs admin rights, and RLS still guards that.
+ *  The path is FIXED per slot ({uid}/lp/{slot}.jpg) so replacing a slot overwrites
+ *  the old file instead of orphaning it; the URL is cache-busted so the new image
+ *  shows immediately despite the stable path. */
 export async function uploadLpImage(ownerId: string, slot: number, file: File): Promise<{ url: string; w: number; h: number }> {
-  const sb = supabase!
   const { dataUrl, w, h } = await fileToDataUrl(file, 1280)
   const blob = await dataUrlToJpegBlob(dataUrl, 1280)
-  const path = `${ownerId}/lp/${slot}.jpg`
-  const up = await sb.storage.from('artworks').upload(path, blob, { contentType: 'image/jpeg', upsert: true })
-  if (up.error) throw up.error
-  return { url: `${publicUrl(path)}?v=${Date.now()}`, w, h }
+  const [key] = await putFiles([{ purpose: 'lp-image', slot, body: blob, contentType: 'image/jpeg' }])
+  return { url: `${publicUrl(key)}?v=${Date.now()}`, w, h }
 }
 
 /** How many placements (public walls) an artwork hangs on — used for delete warnings */
@@ -358,47 +402,35 @@ export async function artworkPlacementCount(artworkId: string): Promise<number> 
 /**
  * Delete the account and everything in it (REQUIREMENTS 10.1).
  *
- * Order matters: the delete_my_account RPC (0007) goes FIRST so that a failure
- * (unapplied migration, network) leaves the account fully intact and retryable.
- * Storage cleanup runs after, best-effort with the still-valid JWT — a failure
- * there only orphans files (a cost concern), never harms the user.
+ * Both halves now happen inside /api/account/delete: deleting the row invalidates
+ * the user, so a follow-up request from here could no longer be authenticated to
+ * clean up R2. The route keeps the original ordering — the delete_my_account RPC
+ * (0007) first, so a failure leaves the account intact and retryable — and wipes
+ * the whole `{uid}/` prefix afterwards, which also catches the logos, LP images,
+ * guides and BGM that the old per-path list here never removed.
  */
-export async function deleteMyAccount(ownerId: string): Promise<void> {
+export async function deleteMyAccount(_ownerId: string): Promise<void> {
   const sb = supabase!
-  // Collect the file paths up front — the DB rows are gone after the RPC cascades
-  const { data } = await sb.from('artworks').select('storage_path').eq('owner_id', ownerId)
-  const paths = (data ?? []).flatMap((r) => [
-    `${r.storage_path}/display.jpg`,
-    `${r.storage_path}/thumb.jpg`,
-    `${r.storage_path}/video`,
-  ])
-  paths.push(`${ownerId}/avatar.jpg`)
+  const { data } = await sb.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Please sign in again.')
 
-  const { error } = await sb.rpc('delete_my_account')
-  if (error) throw error
-
-  // Point of no return passed — clean the bucket, but never surface a failure as one
-  try {
-    for (let i = 0; i < paths.length; i += 100) {
-      await sb.storage.from('artworks').remove(paths.slice(i, i + 100))
-    }
-  } catch (e) {
-    console.warn('storage cleanup after account deletion failed (files orphaned):', e)
+  const res = await fetch('/api/account/delete', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(detail?.error ?? `Could not delete the account (${res.status}).`)
   }
+
   await sb.auth.signOut().catch(() => {}) // session is already invalid — best effort
 }
 
-export async function deleteArtwork(ownerId: string, artworkId: string): Promise<void> {
-  const sb = supabase!
-  const basePath = `${ownerId}/${artworkId}`
-  const { error } = await sb.from('artworks').delete().eq('id', artworkId)
+export async function deleteArtwork(_ownerId: string, artworkId: string): Promise<void> {
+  const { error } = await supabase!.from('artworks').delete().eq('id', artworkId)
   if (error) throw error
-  // Pass every candidate path so we clean up both image and video layouts (nonexistent keys are ignored)
-  await sb.storage
-    .from('artworks')
-    .remove([
-      `${basePath}/display.jpg`,
-      `${basePath}/thumb.jpg`,
-      `${basePath}/video`,
-    ])
+  // Removes the work's whole folder, so image and video layouts both get cleaned
+  // up (as does an audio guide) without listing candidate paths.
+  await deleteArtworkFiles(artworkId)
 }

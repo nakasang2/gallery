@@ -59,6 +59,10 @@
 ### 検証・ツール
 - 2026-07-24 | JSXを複数ステップで編集中、preview(devサーバー)のconsoleに「Unexpected eof / 未閉じJSX」等の構文エラーが大量に残り、最終保存版は正常なのに壊れて見えた ×2 → dev serverは保存のたび途中状態を再コンパイルし、`read_console_messages`は**累積バッファ**を返すため、編集途中の一過性エラーが後から読んでも出てくる（存在しない行番号を指すのが目印） → **HMR中の編集後の健全性は「console error文字列」でなく①`tsc --noEmit`が通る②実画面が実際にレンダリングされる、で判断する。console errorが今のファイルに無い行番号を指していたら過去の保存の残骸と見なす**
 
+### ストレージ・インフラ移行
+- 2026-07-27 | Supabase Storage→R2移行で、レビューが「これを出したら作品が1枚も表示されない」級の抜けを3件検出（実害はレビューで止めたので本番未到達） → ①**CORS**: 3D展示は画像を`crossOrigin="anonymous"`で読む（three.jsの既定）ため`Access-Control-Allow-Origin`が必須。Supabase Storageは黙って返していたがR2はバケットCORSを入れるまで返さない ②**署名URLに空ボディのCRC32が混入**: `@aws-sdk/client-s3`の既定`requestChecksumCalculation:'WHEN_SUPPORTED'`が、ボディ未確定の署名時に`x-amz-checksum-crc32=AAAAAA==`（0バイトのCRC）を署名済みクエリに埋め込む。クライアントは除去できないので実データPUTが全部落ちる ③**移行SQLがトリガを起こす**: `galleries`の`updated_at`自動更新トリガが発火し、URL書き換えだけで全ギャラリーが/exploreの「最近更新」先頭に浮上 → **ストレージ提供元を替えるときは「今の提供元が暗黙に返していたヘッダ」を洗い出す（CORS/Content-Type/Cache-Control）。presignerは`requestChecksumCalculation:'WHEN_REQUIRED'`にし、生成した署名URLのクエリを実際に出力して目視する。一括UPDATEの前に対象テーブルのトリガを`\d+`相当で確認し、必要なら`disable trigger`で囲む**
+- 2026-07-27 | 同移行で、`NEXT_PUBLIC_`系の設定漏れが「壊れた相対URLをDBに永続化する」経路になっていた（レビュー検出） → `NEXT_PUBLIC_*`はビルド時埋め込みなので「Vercelに変数を足したが再デプロイしていない」だけで空になる。空ベースURLでも処理が続行し、`avatar_url`等に`/uid/avatar.jpg`が保存され、後で変数を直しても復旧しない → **外部URLを組んでDBに保存する経路は、ベースURL未設定を「設定不備」として書き込み自体を拒否する（501）。読み取り専用の劣化なら許容できても、永続化する値の生成は必ずfail-closedにする**
+
 ### 3Dアセット
 - 2026-07-16 | 「使えるモデルを追加した」と渡された`walk.glb`/`idle.glb`が各約200MB(Web要件に3桁オーバー) → Blenderエクスポート時にKitBash3D「NeoCity」街並みキット(99%)が誤同梱され、実キャラは約2MBだった → **取得した3Dアセットは使う前に必ず中身を検分する(`gltf-transform inspect`/glbのJSONチャンク解析でメッシュ名・skin有無・テクスチャ解像度・シーン構成を見る)。巨大化の一次対処は「圧縮」ではなく「不要コンテンツの除去」。skin付き(=キャラ)とstatic(=環境)を分けて実サイズを測ると原因が即分かる。仕上げに `gltf-transform` で街シーン破棄→テクスチャWebP縮小→Draco圧縮で200MB→1.6MB**
 - 2026-07-16 | glTFキャラを多数インスタンス化したら全員T字ポーズで固まりアニメが効かない → skinメッシュを`scene.clone()`するとスケルトン(ボーン)参照が切れ、mixerが駆動できずバインドポーズのまま → **skinメッシュの複製は必ず`three/examples/jsm/utils/SkeletonUtils.js`の`clone()`を使う。`useGLTF`はurl単位でキャッシュされるので、共有シーンを各インスタンスで`SkeletonUtils.clone`し、`useAnimations(clips, instanceRef)`で個別mixerを張る**

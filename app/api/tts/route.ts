@@ -8,7 +8,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
+import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { ARTWORKS } from '@/lib/artworks'
+import { r2, r2Configured, R2_BUCKET } from '@/lib/r2'
+import { publicUrl } from '@/lib/publicUrl'
 
 export const runtime = 'nodejs'
 
@@ -24,7 +27,7 @@ export async function POST(req: NextRequest) {
   const openaiKey = process.env.OPENAI_API_KEY
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!openaiKey || !supabaseUrl || !serviceKey) {
+  if (!openaiKey || !supabaseUrl || !serviceKey || !r2Configured) {
     // Not configured — the client falls back to browser speech synthesis.
     return NextResponse.json({ error: 'TTS is not configured.' }, { status: 501 })
   }
@@ -63,12 +66,12 @@ export async function POST(req: NextRequest) {
 
   // Cache key covers model + voice + text, so a caption edit or voice change misses.
   const hash = createHash('sha256').update(`${MODEL}\n${voice}\n${text}`).digest('hex').slice(0, 32)
-  const path = `tts/${hash}.mp3`
-  const publicUrl = db.storage.from('artworks').getPublicUrl(path).data.publicUrl
+  const key = `tts/${hash}.mp3`
+  const url = publicUrl(key)
 
   // Cache hit: the object already exists, no OpenAI call.
-  const head = await fetch(publicUrl, { method: 'HEAD' }).catch(() => null)
-  if (head && head.ok) return NextResponse.json({ url: publicUrl, cached: true })
+  const head = await fetch(url, { method: 'HEAD' }).catch(() => null)
+  if (head && head.ok) return NextResponse.json({ url, cached: true })
 
   // Generate with OpenAI.
   let audio: ArrayBuffer
@@ -89,14 +92,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Generation failed.' }, { status: 502 })
   }
 
-  const up = await db.storage.from('artworks').upload(path, Buffer.from(audio), {
-    contentType: 'audio/mpeg',
-    upsert: true,
-    cacheControl: '31536000',
-  })
-  if (up.error) {
-    console.error('tts: cache upload failed', up.error.message)
+  // Cached under the `tts/` prefix, which no user folder can collide with (user
+  // keys always start with a uuid).
+  try {
+    await r2!.send(
+      new PutObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: key,
+        Body: Buffer.from(audio),
+        ContentType: 'audio/mpeg',
+        CacheControl: 'public, max-age=31536000, immutable',
+      })
+    )
+  } catch (e) {
+    console.error('tts: cache upload failed', e)
     return NextResponse.json({ error: 'Storage failed.' }, { status: 500 })
   }
-  return NextResponse.json({ url: publicUrl, cached: false })
+  return NextResponse.json({ url, cached: false })
 }

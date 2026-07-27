@@ -12,6 +12,7 @@
 - **描画品質ティアの実機QA**: low/mediumティア（スマホ）はローカルでポインタエミュ不可のため未検証。本番反映後、実スマホで①普通のスマホ=影あり(1024)・反射なし ②古い/安いスマホ=影なし＋疑似影のみ、のフレームレートと見た目を確認（DECISIONS 2026-07-23参照）
 - **読み上げTTS**: 本番ENV(`OPENAI_API_KEY`/`SUPABASE_SERVICE_ROLE_KEY`)設定済み。`/api/tts`は本番で200・mp3公開再生可・キャッシュ動作を確認済み。ボイスは**shimmer確定**。残: アプリ実画面での再生体験（ツアー▶/作品ガイド）＆日本語キャプションでの発音は本番QAで最終確認。
 - **Stripe本番接続の運用作業**（コードは完成・未接続）: `0019_checkout.sql`適用 → `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`SUPABASE_SERVICE_ROLE_KEY`/`NEXT_PUBLIC_SITE_URL` 設定 → Stripe CLIで実カード確認（手順は supabase/README §5）
+- **画像/動画ストレージのR2移行**（DECISIONS 2026-07-27・方針A）: **コードは実装完了・未push／Cloudflare側は未着手**。tsc・next build・別視点レビュー2本（セキュリティ／退行）通過。手順書は **docs/R2_SETUP.md**。ユーザー作業が先: ①Cloudflareアカウント作成 ②xibit360.artのDNSをムームードメイン→Cloudflareへ移管 ③R2バケット`xibit360-artworks`作成 ④`cdn.xibit360.art`接続 ⑤**CORSポリシー設定（必須。無いと画像が1枚も出ない）** ⑥R2の環境変数5つをVercelへ。その後Claudeが移送スクリプト実行→`0029_r2_urls.sql`適用→デプロイ→検証。**R2バケットが無い状態で実機検証は不可のため、現時点の検証は型・ビルド・レビューのみ**。
 - docs/STRATEGY.md **§7** の残タスク:
   - P1-5 有料テーマ/レイアウト第1弾。前提(FOREVER_FREE固定化)は**解消済**。残るは実際の有料テーマ/レイアウトの制作という事業/制作判断
   - P2-8 ウォークスルー動画は**実装済**。フォローアップ: MP4/GIF変換(X/IG直投稿用。要ffmpeg.wasm/サーバ)・録画に音声を載せる

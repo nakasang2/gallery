@@ -20,6 +20,19 @@ export const PLAN: PlanLimits = {
   videoBytes: 40 * 1024 * 1024,
 }
 
+/** Cap on an audio-guide file. Guides are short narration, not music.
+ *  Lives here (not in cloud.ts) so the upload-url route can enforce it
+ *  server-side without importing browser-only code. */
+export const AUDIO_GUIDE_MAX_BYTES = 15 * 1024 * 1024
+
+/** Cap on a gallery BGM track. A looping ambient track, so a little larger than a guide. */
+export const GALLERY_BGM_MAX_BYTES = 15 * 1024 * 1024
+
+/** Cap on any single still image we accept (avatar, logo, LP hero, artwork
+ *  display/thumb). Everything is re-encoded to JPEG in the browser first, so a
+ *  legitimate upload lands far under this — it only bounds a hostile caller. */
+export const IMAGE_MAX_BYTES = 20 * 1024 * 1024
+
 /** Physical ceiling on works per room. Every layout offers exactly this many
  *  slots (docs/DECISIONS 2026-07-24), so capacity is layout-independent: the
  *  free tier shows `worksPerGallery`, and slots are bought (by quantity) up to

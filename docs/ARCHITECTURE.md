@@ -9,9 +9,9 @@
 | フレームワーク | **Next.js (App Router) + TypeScript** — ただし「SPA風運用」(後述) |
 | 3D | **React Three Fiber + drei**(Three.js継続) + `@react-three/postprocessing` |
 | 状態管理 | **zustand** |
-| バックエンド | **Supabase**(Auth / PostgreSQL / Storage) |
+| バックエンド | **Supabase**(Auth / PostgreSQL) + **Cloudflare R2**(ファイル) |
 | 認証 | フェーズ1: **メール + Google** → フェーズ2: **Instagram / Facebook**(Meta審査後) |
-| 画像 | クライアント側リサイズ → Supabase Storage に2サイズ保存(CDN変換は後付け) |
+| 画像 | クライアント側リサイズ → **R2に2サイズ保存**。アップロードは`/api/upload-url`が署名した一時URLへブラウザから直PUT、読みは`cdn.xibit360.art`から直配信(egress無料) |
 | ホスティング | **Vercel** |
 | リポジトリ | モノレポにしない。Next.js単一アプリ + `supabase/` マイグレーション |
 

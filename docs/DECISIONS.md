@@ -1,5 +1,21 @@
 # DECISIONS
 
+## 2026-07-27 画像/動画のストレージをSupabase Storage → Cloudflare R2へ移行（方針確定・着手はStripe本番化の後）
+- 背景: 無料5枚のユーザーが増え続けたときのインフラコスト懸念をユーザーが提起。整理すると膨らむのは(1)保存量＝人数に比例・直線的で小さい (2)**egress（外向き通信量）＝作品が見られた回数に比例し、バズると跳ねる**の2種で、怖いのは(2)。STRATEGY §2.3のCara事例（無料急成長でホスティング費が週$100k）・§11.3のegress対策が裏付け。R2はegressが完全無料、保存単価もSupabaseより安い。
+- 決定（ユーザー選択 = A案）: **画像・動画・サムネ・ロゴ・音声のファイル置き場だけをR2へ移す。認証(Auth)とDB(artworksテーブル等のメタデータ)、TTS用service roleはSupabaseに残す**（フルリプレースはしない）。
+- 着手時期: 当初「Stripe本番化の後」としたが、**同日ユーザー判断で先行着手に変更**（Stripeはユーザー側の運用作業待ちでブロックされているため、並行して進める）。
+- 設計決定（同日・調査の上で確定）:
+  - **配信URLは独自ドメイン`cdn.xibit360.art`**。R2の独自ドメインは「そのドメインがCloudflareのゾーンである」ことが必須で、DNS移管を避ける部分(CNAME)設定・サブドメイン委任はどちらもBusinessプラン(月$200超)必要、`r2.dev`は公式に開発用途のみ・レート制限あり。よって**xibit360.artのDNSをムームードメイン→Cloudflareへ移管**（ユーザー選択）。現行レコードはA(@)→76.76.21.21とCNAME(www)→cname.vercel-dns.comの2本のみ、**MX/TXTなし＝メール影響なし**で移管リスクは低い。
+  - **既存ファイルは一括移送してR2単独に切替**（ユーザー選択）。ハイブリッド（新規のみR2）は2系統の永久維持とSupabase側egressが残るため却下。
+  - **アップロードは署名付きURL方式**（サーバーが一時URLを発行→ブラウザが直接R2へPUT）。APIルートでファイル本体を中継する案は**Vercelのリクエストボディ上限4.5MBに引っかかり40MB動画が通らない**ため不可。
+  - 署名時にサーバーが (1)Supabase JWTからuidを取得し**パスを`{uid}/…`で組み立てる（クライアントの言い値を使わない）** (2)用途を名前付きで限定（artwork/video/avatar/audio/bgm/logo/lp） (3)`ContentLength`を署名に含めて申告サイズ超過を防止 (4)**容量クォータをサーバー側で検証**。※現状の`assertQuota`はブラウザ側＝迂回可能なので、これはセキュリティ改善を兼ねる。
+  - R2はS3互換APIのため `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` を追加。
+  - 読み取りは`publicUrl()`をR2ベースURLに差し替えるだけ（`artworks.storage_path`は相対パス保持なので自動追従）。ただし**`profiles.avatar_url`/`artworks.audio_url`/`galleries.bgm_url`/`galleries.design_overrides`のlogo/`site_config`のLP画像/`articles.cover_url`はDBに絶対URLで入っており、移送時にSQLで文字列置換が必要**。
+  - TTSキャッシュ`tts/{hash}.mp3`もR2へ（サーバー側なのでS3 APIで直接put）。
+- 却下: B案（Supabaseのまま前段にCloudflare CDNを挟む）= 工数は最小だがegressがゼロにならず応急処置に留まるため。C案（何もせず監視のみ）= 先回りする価値がSTRATEGYで既に確認済みのため。
+- 移行時の想定難所（設計は着手時に別途詰める）: 現状はブラウザ→Supabase Storageへ**直接アップロードし、RLSの「自分のフォルダにしか書けない」ポリシーで防御**している（`lib/cloud.ts`）。R2に同等機構がないため ①アップロードをサーバー経由（署名付きURL or APIルート）にして所有者チェックを自前実装 ②公開URLをR2カスタムドメインへ張り替え ③既存ファイルの移送 が必要。壊れると「アップロード不可／画像が表示されない」に直結するため要テスト。
+- 対象（着手時）: `lib/cloud.ts`, `lib/supabase.ts`, 新規アップロードAPIルート, `app/privacy/page.tsx`（Supabase Storageへの言及の更新）, `docs/ARCHITECTURE.md`。
+
 ## 2026-07-24 価格モデルをUSD化・スロット従量制・Design Tools無料化・全レイアウト15枠
 - 背景: 海外視野でUSD化。基本5枚無料。売り物は**テーマ / スロット / レイアウト**の3つに整理。Design Toolsは「設定を売る」違和感からユーザー判断で無料化。スロットは+1従量（数量ピッカーでまとめて1決済）。どのレイアウトでも最大収容枚数を揃える。
 - 決定:
