@@ -44,6 +44,9 @@
 - 2026-07-23 | 焼き込み影が「額の周囲に全高の黒帯」として見える（ユーザー報告「焼き込みはされてるが正しくない」）→ 遮蔽(occlusion)だけを一様な黒αで重ねていたのが原因。**本物の影は「その光源の寄与分」しか暗くできない＝光だまりの外では影は見えない** → **ベイク時にスポットの相対照度（コーン減衰×入射角×距離²、ターゲットで正規化）を掛け、α = 遮蔽 × pool/(pool+ambient) にする。「影のデカール」を作るときは必ず光源寄与でマスクする**（`WallShadowBaker.tsx`）
 - 2026-07-23 | シャドウマップの自前サンプリング実装が「ceilingモードでは偶然それらしく見える」状態で通りかけた（レビューで検出）→ three **r185は影の深度をRGBAパックでなく`shadow.map.depthTexture`（ネイティブ深度・compareFunction=LessEqual）に格納**しており、カラー添付は1-zのグレースケール。`unpackRGBAToDepth`は無意味な値を返す → **r185+で影を自前サンプルするなら GLSL3 + `sampler2DShadow` で depthTexture をハードウェア比較する。「片方のモードでだけ動いて見える」実装はパッキング仕様の取り違えを疑う。バージョン依存の内部仕様(WebGLShadowMap)はnode_modulesの実ソースで確認する**（`WallShadowBaker.tsx`）
 
+### 決済（Stripe）
+- 2026-07-27 | 本番でcheckoutが502（実カード投入前・セッション作成で失敗）→ Stripeログにエラー: 「the product tax code is missing. **Managed Payments**, which is enabled by default on your account, requires an eligible tax code」→ 新しめのStripeアカウントは**Managed Payments（Stripeが販売者=MoRとして世界の税を代行）が既定でオン**で、`price_data.product_data`に`tax_code`が無いと400 → **`product_data.tax_code`を付与**（デジタルサービスは`txcd_10000000`）。回避策は`managed_payments[enabled]=false`でも可。**502の切り分けはStripeダッシュボードのDevelopers→Logsのレスポンス本文が最短**（うちのcatchは詳細を握り潰し502に丸めるため）。
+
 ### 品質・レビュー（課金）
 - 2026-07-24 | スロット従量課金の導入で、checkoutは「セッション作成時のwork_cap」で残枠をクランプするが、加算RPC(`record_capacity_purchase`)が上限を持たず加算のみ → **同一部屋への並行チェックアウトが両方通ると work_cap が最大(15)を超え得る**（別視点レビューで検出）。超過分は「飾れないのに課金」＋作品がどこにも表示されない不整合 → **原子的な上限クランプは"最終の書き込み地点"(RPC/SQL)に置く。アプリ側の読み取り時クランプは並行実行で破れる**。`update ... set work_cap = least(work_cap + n, MAX)`（migration 0028）。金額はサーバー計算・数量はクライアント値を`min(want, remaining)`で必ず絞る。
 

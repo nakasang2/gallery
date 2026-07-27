@@ -16,6 +16,14 @@ export const runtime = 'nodejs'
 // room (no UI/entitlement). See docs/DECISIONS 2026-07-24.
 const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item']
 
+// Managed Payments (enabled on the account — Stripe acts as merchant of record
+// and remits tax globally) requires an eligible tax code on every line item.
+// Our SKUs (extra slots, themes, layouts) are electronically-supplied digital
+// services; txcd_10000000 = "General - Electronically Supplied Services", a safe
+// general fit. Refine in Stripe's tax-code list if a more specific category
+// applies (docs/DECISIONS 2026-07-27).
+const STRIPE_TAX_CODE = 'txcd_10000000'
+
 interface CheckoutBody {
   sku?: string
   itemKey?: string
@@ -119,7 +127,7 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: 'usd', // two-decimal: unit_amount is in cents
             unit_amount: unitAmount,
-            product_data: { name: `Xibit360 — ${label}` },
+            product_data: { name: `Xibit360 — ${label}`, tax_code: STRIPE_TAX_CODE },
           },
         },
       ],
