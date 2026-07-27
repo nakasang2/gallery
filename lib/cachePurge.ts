@@ -31,7 +31,13 @@ const token = process.env.CLOUDFLARE_PURGE_TOKEN
 export const cachePurgeConfigured = Boolean(zoneId && token && publicUrlConfigured)
 
 /** Cloudflare answers in well under a second; anything slower is not worth
- *  holding a delete request open for. */
+ *  holding a delete request open for.
+ *
+ *  The delete routes await this rather than deferring it (Next's `after()`),
+ *  which is safe on the function budget: even the worst case — account deletion,
+ *  i.e. one RPC plus a list+delete round trip plus this timeout — lands around
+ *  6s against Vercel's 10s default. Awaiting keeps the failure visible in the
+ *  response and in the logs instead of vanishing into background work. */
 const TIMEOUT_MS = 5000
 
 /**
