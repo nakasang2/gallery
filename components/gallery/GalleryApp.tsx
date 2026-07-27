@@ -2,8 +2,8 @@
 // 3D gallery core: R3F Canvas + HUD/panels + guided tour
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { Canvas } from '@react-three/fiber'
-import { PerformanceMonitor } from '@react-three/drei'
+import { Canvas, useThree } from '@react-three/fiber'
+import { PerformanceMonitor, useProgress } from '@react-three/drei'
 import { resolveLayout, THEMES } from '@/lib/presets'
 import { useExhibitionList } from '@/lib/exhibition'
 import { demoDesignOverrides } from '@/lib/artworks'
@@ -22,6 +22,40 @@ import InfoPanel from './InfoPanel'
 import SettingsPanel from './SettingsPanel'
 import GuestbookPanel from './GuestbookPanel'
 import LoadingScreen from './LoadingScreen'
+
+// three's `fov` is the VERTICAL angle, so a portrait phone keeps the 60° height
+// and pays for it in width: 390×844 sees only 29.9° horizontally where a laptop
+// sees 85.5°. A visitor arriving from a shared link got a third of the room and
+// a wall of floor. Below REF_ASPECT we solve for the vertical angle that holds
+// the horizontal view steady, capped at MAX_FOV so a tall phone doesn't fish-eye
+// the space. At and above REF_ASPECT nothing changes — desktop framing is tuned
+// (docs/DECISIONS 2026-07-23) and must stay exactly as it is.
+const BASE_FOV = 60
+const REF_ASPECT = 1.3
+const MAX_FOV = 78
+const REF_HALF_TAN = Math.tan((BASE_FOV * Math.PI) / 360) * REF_ASPECT
+
+function portraitFov(aspect: number): number {
+  if (!Number.isFinite(aspect) || aspect >= REF_ASPECT) return BASE_FOV
+  const v = (2 * Math.atan(REF_HALF_TAN / aspect) * 180) / Math.PI
+  return Math.min(MAX_FOV, v)
+}
+
+/** Keeps the camera's field of view honest across rotation and resize. */
+function AdaptiveFov() {
+  const camera = useThree((s) => s.camera)
+  const width = useThree((s) => s.size.width)
+  const height = useThree((s) => s.size.height)
+  useEffect(() => {
+    const cam = camera as THREE.PerspectiveCamera
+    if (!cam.isPerspectiveCamera) return
+    const fov = portraitFov(width / Math.max(1, height))
+    if (Math.abs(cam.fov - fov) < 0.01) return
+    cam.fov = fov
+    cam.updateProjectionMatrix()
+  }, [camera, width, height])
+  return null
+}
 
 // Non-blocking notice for errors/limits hit while walking the room (see lib/toast)
 function Toast() {
@@ -111,6 +145,17 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
     return () => useGallery.getState().setDemoMode(false)
   }, [demo])
   const [loadingDone, setLoadingDone] = useState(false)
+  // Settings hydrated + canvas fonts ready. Used to be the whole story, which is
+  // why the door opened on a timer while the room was still empty.
+  const [hydrated, setHydrated] = useState(false)
+  const [waitedOut, setWaitedOut] = useState(false)
+  // Every file-backed asset in the room goes through three's default loading
+  // manager — artwork images (components/gallery/textures.ts `texLoader`), video
+  // posters, the floor/wall maps and the ghost GLBs (useGLTF) — so this is a real
+  // measure of "is the room actually there yet".
+  const { active: assetsLoading, loaded: assetsLoaded, total: assetsTotal } = useProgress()
+  const assetsIdle = !assetsLoading && assetsLoaded >= assetsTotal
+  const loadPct = assetsTotal > 0 ? Math.round((Math.min(assetsLoaded, assetsTotal) / assetsTotal) * 100) : 0
   // null = still detecting; false = no WebGL → 2D list fallback
   const [webgl, setWebgl] = useState<boolean | null>(null)
   // Render resolution per quality tier. The high tier starts at native retina and
@@ -166,19 +211,38 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
     }
   }, [])
 
-  // Restore settings only after the canvas text fonts have loaded (up to 1.5s)
+  // Restore settings only after the canvas text fonts have loaded (up to 1.5s).
+  // The extra 500ms is the minimum dwell — it also gives the scene a beat to
+  // register its first loads, so `assetsIdle` below can't read the empty gap
+  // between mount and the first request as "finished".
   useEffect(() => {
     let alive = true
     Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(() => {
       if (!alive) return
       useGallery.getState().hydrate()
       entryRef.current = resolveLayout(useGallery.getState().layout, useGallery.getState().layoutParams).entry
-      setTimeout(() => alive && setLoadingDone(true), 500)
+      setTimeout(() => alive && setHydrated(true), 500)
     })
     return () => {
       alive = false
     }
   }, [])
+
+  // A stalled or missing asset must never trap a visitor behind the door.
+  useEffect(() => {
+    const t = setTimeout(() => setWaitedOut(true), 12_000)
+    return () => clearTimeout(t)
+  }, [])
+
+  // Open the doors once the room is really there. The 400ms is a debounce as much
+  // as a beat: assets register in waves (GLBs, then artwork textures), and if a
+  // new wave starts this effect re-runs and clears the timer.
+  useEffect(() => {
+    if (loadingDone || !hydrated) return
+    if (!assetsIdle && !waitedOut) return
+    const t = setTimeout(() => setLoadingDone(true), 400)
+    return () => clearTimeout(t)
+  }, [loadingDone, hydrated, assetsIdle, waitedOut])
 
   // Admin-set demo theme (/admin → Demo look): apply AFTER hydration settles
   // (loadingDone is set past both hydrate passes) so loadSettings can't clobber it.
@@ -240,6 +304,7 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
               }}
             />
           )}
+          <AdaptiveFov />
           <GalleryScene />
         </Canvas>
       )}
@@ -260,7 +325,7 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
       <GuestbookPanel />
       <Toast />
       {/* Personalised for a public gallery (visitor mode), house-branded on /demo */}
-      <LoadingScreen exhibition={visitor} done={loadingDone} />
+      <LoadingScreen exhibition={visitor} done={loadingDone} progress={assetsTotal > 0 ? loadPct : undefined} />
     </>
   )
 }

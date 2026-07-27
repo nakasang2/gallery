@@ -76,6 +76,12 @@ body.gallery-mode {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(450%); }
 }
+/* Once three's loading manager has a real count, stop the shuttle and fill. */
+.loading-bar.determinate span {
+  animation: none;
+  transform: none;
+  transition: width 0.3s ease-out;
+}
 .loading-text {
   font-size: 0.72rem;
   letter-spacing: 0.2em;
