@@ -9,7 +9,7 @@ import { supabase } from './supabase'
 import type { ArtworkData } from './artworks'
 import { loadImage, fileToDataUrl } from './upload'
 import { publicUrl } from './publicUrl'
-import { AUDIO_GUIDE_MAX_BYTES, GALLERY_BGM_MAX_BYTES } from './limits'
+import { GALLERY_BGM_MAX_BYTES } from './limits'
 
 interface ArtworkRow {
   id: string
@@ -37,7 +37,6 @@ type UploadPurpose =
   | 'artwork-display'
   | 'artwork-thumb'
   | 'artwork-video'
-  | 'artwork-audio'
   | 'avatar'
   | 'gallery-bgm'
   | 'gallery-logo'
@@ -274,7 +273,6 @@ export async function updateArtworkDetails(
     description: string
     purchaseUrl?: string
     price?: string | null
-    audioUrl?: string | null
     widthCm?: number | null
     heightCm?: number | null
     medium?: string | null
@@ -286,15 +284,14 @@ export async function updateArtworkDetails(
   }
   if (fields.purchaseUrl !== undefined) update.purchase_url = fields.purchaseUrl.trim() || null
   if (fields.price !== undefined) update.price = (fields.price ?? '').trim() || null
-  if (fields.audioUrl !== undefined) update.audio_url = fields.audioUrl || null
   if (fields.widthCm !== undefined) update.width_cm = fields.widthCm ?? null
   if (fields.heightCm !== undefined) update.height_cm = fields.heightCm ?? null
   if (fields.medium !== undefined) update.medium = (fields.medium ?? '').trim() || null
 
-  // Columns from later migrations (0015/0021/0025/0026). If a target DB is behind, the write
+  // Columns from later migrations (0015/0025/0026). If a target DB is behind, the write
   // fails naming a missing column — drop whichever it names (or all optionals on a generic
   // schema-cache miss) and retry, so title/caption always save.
-  const OPTIONAL = ['purchase_url', 'price', 'audio_url', 'width_cm', 'height_cm', 'medium']
+  const OPTIONAL = ['purchase_url', 'price', 'width_cm', 'height_cm', 'medium']
   let { error } = await supabase!.from('artworks').update(update).eq('id', artworkId)
   while (
     error &&
@@ -334,23 +331,8 @@ export async function uploadAvatar(ownerId: string, file: File): Promise<string>
   return url
 }
 
-/** Upload a per-work audio guide ({uid}/{artworkId}/guide) and return its URL.
- *  Like uploadLogo it only touches storage; the caller saves the URL onto the
- *  artwork via updateArtworkDetails. The raw file is stored as-is (no re-encode).
- *  The size cap is re-checked server-side before signing; checking it here too
- *  just fails fast without a round-trip. */
-export async function uploadArtworkAudio(ownerId: string, artworkId: string, file: File): Promise<string> {
-  if (file.size > AUDIO_GUIDE_MAX_BYTES) {
-    throw new Error(`Audio guides are limited to ${Math.floor(AUDIO_GUIDE_MAX_BYTES / 1024 / 1024)}MB.`)
-  }
-  const [key] = await putFiles([
-    { purpose: 'artwork-audio', id: artworkId, body: file, contentType: file.type || 'audio/mpeg' },
-  ])
-  return `${publicUrl(key)}?v=${Date.now()}` // cache-bust so a replaced guide plays immediately
-}
-
 /** Upload a gallery's looping ambient BGM ({uid}/{galleryId}/bgm) and return its URL.
- *  Like uploadArtworkAudio it only touches storage; the caller saves the URL onto the
+ *  Like uploadLogo it only touches storage; the caller saves the URL onto the
  *  gallery row via saveGalleryBgm. The raw file is stored as-is (no re-encode). */
 export async function uploadGalleryBgm(ownerId: string, galleryId: string, file: File): Promise<string> {
   if (file.size > GALLERY_BGM_MAX_BYTES) {

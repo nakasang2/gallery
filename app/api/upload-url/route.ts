@@ -19,7 +19,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { r2, r2Configured, R2_BUCKET } from '@/lib/r2'
 import { authenticate } from '@/lib/apiAuth'
-import { PLAN, AUDIO_GUIDE_MAX_BYTES, GALLERY_BGM_MAX_BYTES, IMAGE_MAX_BYTES } from '@/lib/limits'
+import { PLAN, GALLERY_BGM_MAX_BYTES, IMAGE_MAX_BYTES } from '@/lib/limits'
 
 export const runtime = 'nodejs'
 
@@ -36,7 +36,6 @@ type Purpose =
   | 'artwork-display'
   | 'artwork-thumb'
   | 'artwork-video'
-  | 'artwork-audio'
   | 'avatar'
   | 'gallery-bgm'
   | 'gallery-logo'
@@ -75,7 +74,6 @@ const RULES: Record<Purpose, Rule> = {
   'artwork-display': { key: (u, id) => `${u}/${uuid(id)}/display.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg, quota: true },
   'artwork-thumb': { key: (u, id) => `${u}/${uuid(id)}/thumb.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg, quota: true },
   'artwork-video': { key: (u, id) => `${u}/${uuid(id)}/video`, maxBytes: PLAN.videoBytes, accepts: video, quota: true },
-  'artwork-audio': { key: (u, id) => `${u}/${uuid(id)}/guide`, maxBytes: AUDIO_GUIDE_MAX_BYTES, accepts: audio, quota: true, owns: 'artworks' },
   avatar: { key: (u) => `${u}/avatar.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg, quota: false },
   'gallery-bgm': { key: (u, id) => `${u}/${uuid(id)}/bgm`, maxBytes: GALLERY_BGM_MAX_BYTES, accepts: audio, quota: true, owns: 'galleries' },
   'gallery-logo': { key: (u, id) => `${u}/${uuid(id)}-logo.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg, quota: false, owns: 'galleries' },

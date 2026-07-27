@@ -20,12 +20,9 @@ export const PLAN: PlanLimits = {
   videoBytes: 40 * 1024 * 1024,
 }
 
-/** Cap on an audio-guide file. Guides are short narration, not music.
+/** Cap on a gallery BGM track. A looping ambient track.
  *  Lives here (not in cloud.ts) so the upload-url route can enforce it
  *  server-side without importing browser-only code. */
-export const AUDIO_GUIDE_MAX_BYTES = 15 * 1024 * 1024
-
-/** Cap on a gallery BGM track. A looping ambient track, so a little larger than a guide. */
 export const GALLERY_BGM_MAX_BYTES = 15 * 1024 * 1024
 
 /** Cap on any single still image we accept (avatar, logo, LP hero, artwork
