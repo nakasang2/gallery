@@ -2,9 +2,10 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-27（削除時のCDNキャッシュパージをship・本番反映確認済み。実効のE2E確認だけ残り）
+- **最終更新**: 2026-07-27（容量制限の実測化をship。削除時のCDNキャッシュパージもship済で、どちらも実効のE2E確認だけ残り）
 
 ## 進行中
+- **容量制限の実測化の実機確認**（DECISIONS 2026-07-27「容量制限の実測化」参照）。コードは本番反映済み、migration **0030 も適用済み**（`reserve_storage`の存在をユーザーが`pg_proc`で確認）。**残るは実機での挙動確認** — ①作品をアップロードして`/me`の「Storage: N MB of 300 MB used」が増えるか ②作品を削除して減るか ③BGMを上げてもメーターが増えるか（旧実装では増えなかった）。※SQLはローカルにPostgresが無く未実行で、本番適用でDDLが通ったことが唯一の実行証跡。判定ロジックが実際に動くのを見るのはこれが初めてになる。
 - **削除時のCDNキャッシュパージの実効確認**（DECISIONS 2026-07-27参照）。コードは本番反映済み、Cloudflareトークン(`CLOUDFLARE_ZONE_ID`/`CLOUDFLARE_PURGE_TOKEN`)もVercel設定済み。**残るは実際に効いているかのE2E確認だけ** — R2_SETUP §7.5の手順で、捨ててよいテスト作品を1枚上げる→URLをエッジに載せる(`cf-cache-status: HIT`)→削除→同じURLが404になるか。効いていなければVercelログに `cache purge rejected` が出るので、§7.5の切り分け（トークン権限 / プレフィックス指定が拒否されるならURL指定へ切替）に従う。
 - **Stripe決済の本番有効化**（DECISIONS 2026-07-24参照、本番モード＋Xibit360専用の新規アカウントで確定）。Claude済: `NEXT_PUBLIC_SITE_URL=https://www.xibit360.art`設定。ユーザー待ち: ⓪同じログイン下にXibit360専用アカウントを新規作成し本番有効化 ①`0019_checkout.sql`をSupabase SQL Editor適用 ②新アカウント(live)の`STRIPE_SECRET_KEY`(sk_live_)をVercelに ③新アカウントでWebhook作成(`https://www.xibit360.art/api/stripe/webhook`・`checkout.session.completed`)→`STRIPE_WEBHOOK_SECRET`(whsec_)をVercelに ④価格USD化に伴い`0028_capacity_clamp.sql`もSQL Editorで適用。完了後Claudeが再デプロイ＋疎通検証(checkout=401/webhook=400)、実カードで**スロット追加($3〜)購入→返金**でE2E確認（USD化で¥580→$3/枚に変更済み）。
 

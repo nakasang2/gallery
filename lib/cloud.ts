@@ -150,11 +150,24 @@ export async function listMyArtworks(artistName: string): Promise<ArtworkData[]>
   return (data as ArtworkRow[]).map((r) => rowToArtwork(r, artistName))
 }
 
-/** Total bytes this user has stored (sum of artworks.bytes; rows predating 0006 count as 0) */
-export async function getStorageUsage(ownerId: string): Promise<number> {
-  const { data, error } = await supabase!.from('artworks').select('bytes').eq('owner_id', ownerId)
-  if (error) throw error
-  return (data ?? []).reduce((sum, r) => sum + ((r as { bytes?: number }).bytes ?? 0), 0)
+/** Total bytes this user has stored, measured in R2 by the server.
+ *
+ *  This used to sum `artworks.bytes` here in the browser, which undercounted
+ *  everything that column never sees — audio guides, BGM, avatars, logos, and the
+ *  files of any work whose row was never written. Since migration 0030 the upload
+ *  gate measures the bucket instead, so the meter has to read the same number or
+ *  it will cheerfully show "12MB of 300MB" while uploads are being refused.
+ *
+ *  Throws when storage is unconfigured (501) or unreadable; /me hides the meter. */
+export async function getStorageUsage(_ownerId: string): Promise<number> {
+  const { data } = await supabase!.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Please sign in again.')
+
+  const res = await fetch('/api/storage/usage', { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`Could not read storage usage (${res.status}).`)
+  const { used } = (await res.json()) as { used: number }
+  return used
 }
 
 // The plan quota gate (REQUIREMENTS 10.10) now lives in /api/upload-url, which
@@ -162,7 +175,11 @@ export async function getStorageUsage(ownerId: string): Promise<number> {
 // used to throw. Checking it in the browser was advisory only — a crafted request
 // could skip it — so it moved rather than being duplicated here.
 
-// Insert an artworks row; if the bytes column doesn't exist yet (0006 not applied), retry without it
+// Insert an artworks row; if the bytes column doesn't exist yet (0006 not applied), retry without it.
+//
+// `bytes` is INFORMATIONAL since migration 0030 — the quota is measured in R2, not
+// summed from this column. It is still written because it is a cheap per-work size
+// hint, but nothing enforces it and nothing should start trusting it again.
 async function insertArtworkRow(row: Record<string, unknown>): Promise<void> {
   const { error } = await supabase!.from('artworks').insert(row)
   if (!error) return

@@ -44,6 +44,43 @@ export const r2 = r2Configured
     })
   : null
 
+/** Pages of 1000, so this bounds `prefixBytes` at 20k objects. A user held to the
+ *  300MB plan quota cannot get near it (they would need 20k files averaging 15KB),
+ *  so hitting the cap means something is wrong — the caller fails closed. */
+const MAX_USAGE_PAGES = 20
+
+/**
+ * Total bytes stored under a key prefix — the authoritative answer to "how much
+ * is this user storing", because it measures what is actually in the bucket
+ * rather than what a client told us it uploaded.
+ *
+ * Callers MUST pass a prefix tied to the authenticated uid (`{uid}/`); this does
+ * no authorization of its own.
+ *
+ * Throws if the listing is longer than MAX_USAGE_PAGES rather than returning a
+ * number that is too small — an undercount here would hand out an upload URL
+ * that should have been refused.
+ */
+export async function prefixBytes(prefix: string): Promise<number> {
+  if (!r2 || !prefix) return 0
+  let total = 0
+  let token: string | undefined
+  let pages = 0
+
+  do {
+    const listed = await r2.send(
+      new ListObjectsV2Command({ Bucket: R2_BUCKET, Prefix: prefix, ContinuationToken: token })
+    )
+    for (const o of listed.Contents ?? []) total += o.Size ?? 0
+    token = listed.IsTruncated ? listed.NextContinuationToken : undefined
+    if (token && ++pages >= MAX_USAGE_PAGES) {
+      throw new Error(`Refusing to measure ${prefix}: more than ${MAX_USAGE_PAGES * 1000} objects.`)
+    }
+  } while (token)
+
+  return total
+}
+
 /**
  * Delete every object under a key prefix, in pages of 1000.
  *

@@ -14,10 +14,21 @@
 //     plan's storage quota, then signed into the URL as Content-Length so the
 //     actual upload cannot exceed what we approved. The old quota check ran in
 //     the browser (lib/cloud.ts assertQuota), where it was advisory at best.
+//
+// The quota's INPUT is measured, not declared (docs/DECISIONS.md 2026-07-27,
+// "容量制限の実測化"). It used to be the sum of `artworks.bytes`, which a client
+// both supplies and can skip writing entirely — an artwork's files are uploaded
+// BEFORE its row exists, so never inserting the row left those bytes unrecorded,
+// and gallery BGM was never recorded at all. Now we list the caller's own
+// R2 prefix and add up what is really there, so nothing a client says can move the
+// number. Uploads that are signed but not yet landed are held in
+// storage_reservations until the URL covering them can no longer be used
+// (migration 0030) — that hold is what stops a burst of concurrent requests from
+// all being told there is room for the same last 40MB.
 import { NextRequest, NextResponse } from 'next/server'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { r2, r2Configured, R2_BUCKET } from '@/lib/r2'
+import { r2, r2Configured, R2_BUCKET, prefixBytes } from '@/lib/r2'
 import { authenticate } from '@/lib/apiAuth'
 import { PLAN, GALLERY_BGM_MAX_BYTES, IMAGE_MAX_BYTES } from '@/lib/limits'
 
@@ -26,6 +37,18 @@ export const runtime = 'nodejs'
 /** Presigned URLs are used immediately by the very next fetch; 10 min is plenty
  *  and keeps a leaked URL near-useless. */
 const EXPIRES_SECONDS = 600
+
+/** How long a reservation holds quota. Deliberately LONGER than the URL it covers:
+ *  R2 checks expiry when the PUT starts, so an upload begun at 09:59 can still be
+ *  writing at 10:02. If the hold lapsed at exactly 10:00 those bytes would be
+ *  covered by neither the reservation nor the R2 listing (which cannot see a PUT
+ *  until it completes) — a small window, but the whole point here is that there
+ *  isn't one. The cost of the margin is only that the quota reads high for two
+ *  extra minutes after an upload finishes. */
+const RESERVATION_TTL_SECONDS = EXPIRES_SECONDS + 120
+
+/** Matches the `v_n > 4` guard inside reserve_storage (migration 0030). */
+const MAX_FILES_PER_REQUEST = 4
 
 // Lowercase only: crypto.randomUUID() and Postgres both render uuids in lower
 // case, and R2 keys are case-sensitive — accepting `A1B2…` as well would let the
@@ -56,12 +79,11 @@ interface Rule {
   key: (uid: string, id: string, slot: number) => string
   maxBytes: number
   accepts: (contentType: string) => boolean
-  /** Whether these bytes count against the plan's storage quota. Avatars, logos
-   *  and LP images don't — matching the pre-migration behaviour. */
-  quota: boolean
   /** Table the `id` must already exist in, owned by the caller. Only set where
    *  the row predates the upload: an artwork's own images are uploaded BEFORE its
-   *  row is inserted, so those cannot be checked this way. */
+   *  row is inserted, so those cannot be checked this way. Signing for a row that
+   *  never materialises is no longer a way to store bytes for free — the quota
+   *  measures R2, not the table (see reserveQuota). */
   owns?: 'galleries' | 'artworks'
 }
 
@@ -70,13 +92,20 @@ function uuid(id: string): string {
   return id
 }
 
+// EVERY purpose counts against the quota now. There is no `quota: false` escape
+// hatch any more, because the quota is measured by listing `{uid}/` — excluding a
+// purpose would mean excluding its key from that listing, which is a pattern-match
+// against key shapes that quietly breaks the day a key layout changes. One rule
+// instead: nobody stores more than PLAN.storageBytes under their own prefix, full
+// stop. Avatars (~50KB), logos (~30KB) and LP images (~150KB) are rounding errors
+// against 300MB, so this costs a real user nothing.
 const RULES: Record<Purpose, Rule> = {
-  'artwork-display': { key: (u, id) => `${u}/${uuid(id)}/display.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg, quota: true },
-  'artwork-thumb': { key: (u, id) => `${u}/${uuid(id)}/thumb.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg, quota: true },
-  'artwork-video': { key: (u, id) => `${u}/${uuid(id)}/video`, maxBytes: PLAN.videoBytes, accepts: video, quota: true },
-  avatar: { key: (u) => `${u}/avatar.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg, quota: false },
-  'gallery-bgm': { key: (u, id) => `${u}/${uuid(id)}/bgm`, maxBytes: GALLERY_BGM_MAX_BYTES, accepts: audio, quota: true, owns: 'galleries' },
-  'gallery-logo': { key: (u, id) => `${u}/${uuid(id)}-logo.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg, quota: false, owns: 'galleries' },
+  'artwork-display': { key: (u, id) => `${u}/${uuid(id)}/display.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg },
+  'artwork-thumb': { key: (u, id) => `${u}/${uuid(id)}/thumb.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg },
+  'artwork-video': { key: (u, id) => `${u}/${uuid(id)}/video`, maxBytes: PLAN.videoBytes, accepts: video },
+  avatar: { key: (u) => `${u}/avatar.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg },
+  'gallery-bgm': { key: (u, id) => `${u}/${uuid(id)}/bgm`, maxBytes: GALLERY_BGM_MAX_BYTES, accepts: audio, owns: 'galleries' },
+  'gallery-logo': { key: (u, id) => `${u}/${uuid(id)}-logo.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg, owns: 'galleries' },
   // The LP hero is admin-only UI, but a presigned URL into the caller's own
   // folder is harmless on its own — writing the resulting URL into site_config
   // is what needs admin rights, and RLS still guards that. The slot is bounded,
@@ -88,7 +117,6 @@ const RULES: Record<Purpose, Rule> = {
     },
     maxBytes: IMAGE_MAX_BYTES,
     accepts: jpeg,
-    quota: false,
   },
 }
 
@@ -102,20 +130,52 @@ interface FileRequest {
 
 type Db = NonNullable<Awaited<ReturnType<typeof authenticate>>>['db']
 
-/** Bytes this user already stores (sum of artworks.bytes). Rows predating
- *  migration 0006 have no bytes and count as 0.
+/**
+ * Hold quota for the files we are about to sign, and report whether they fit.
  *
- *  Returns null ONLY when the `bytes` column itself is absent (0006 unapplied) —
- *  in that one case the caller skips the gate rather than blocking every upload.
- *  Any other DB error throws, so a transient failure cannot silently disable the
- *  quota. */
-async function storageUsed(db: Db, uid: string): Promise<number | null> {
-  const { data, error } = await db.from('artworks').select('bytes').eq('owner_id', uid)
+ * `listedBytes` is what the caller ACTUALLY stores, measured straight from R2 —
+ * the client has no say in it. The RPC (migration 0030) adds the caller's live
+ * reservations, compares against the limit, and only writes new reservation rows
+ * if the batch fits, all under a per-uid advisory lock so two concurrent requests
+ * cannot both be told there is room for the last 40MB.
+ *
+ * Reservations simply expire; nothing has to confirm the upload afterwards. Once
+ * the bytes land in R2 they are in `listedBytes` for good, so the window where a
+ * finished upload is counted twice is at most RESERVATION_TTL_SECONDS — it errs
+ * toward refusing, never toward letting someone over. That is the trade for not
+ * having a commit callback (which a client could simply decline to make) or a
+ * sweeper job (which would need a cron we do not have on this plan).
+ */
+async function reserveQuota(
+  db: Db,
+  files: { key: string; size: number }[],
+  listedBytes: number
+): Promise<{ ok: boolean; used: number }> {
+  const { data, error } = await db.rpc('reserve_storage', {
+    p_keys: files.map((f) => f.key),
+    p_bytes: files.map((f) => f.size),
+    p_listed_bytes: listedBytes,
+    p_limit_bytes: PLAN.storageBytes,
+    p_ttl_seconds: RESERVATION_TTL_SECONDS,
+  })
+
   if (error) {
-    if (/bytes/i.test(error.message) || error.code === '42703') return null
-    throw new Error(error.message)
+    // 0030 not applied yet. Refusing every upload would be a worse failure than
+    // the one thing reservations add — protection against a burst of concurrent
+    // requests each seeing the same "before" figure. The measured quota below
+    // still holds, so the three ways a client could previously write unlimited
+    // bytes stay closed. Both codes are unambiguous: PGRST202 is PostgREST's
+    // "no such function", 42883 is Postgres's.
+    if (error.code !== 'PGRST202' && error.code !== '42883') throw new Error(error.message)
+    console.warn('upload-url: reserve_storage is missing — apply migration 0030. Quota enforced without reservations.')
+    const wanted = files.reduce((sum, f) => sum + f.size, 0)
+    return { ok: listedBytes + wanted <= PLAN.storageBytes, used: listedBytes }
   }
-  return (data ?? []).reduce((sum, r) => sum + ((r as { bytes?: number }).bytes ?? 0), 0)
+
+  const verdict = data as { ok?: boolean; used?: number } | null
+  // A null/malformed payload means the function returned something unexpected;
+  // treat that as "does not fit" rather than signing on the strength of a bad answer.
+  return { ok: verdict?.ok === true, used: verdict?.used ?? listedBytes }
 }
 
 /** True when the caller owns a row with this id.
@@ -148,13 +208,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Bad request.' }, { status: 400 })
   }
   const files = Array.isArray(body.files) ? (body.files as FileRequest[]) : []
-  if (!files.length || files.length > 4) {
+  if (!files.length || files.length > MAX_FILES_PER_REQUEST) {
     return NextResponse.json({ error: 'Bad request.' }, { status: 400 })
   }
 
   // Validate every entry before signing anything, so a partly-bad batch signs nothing.
   const planned: { key: string; contentType: string; size: number }[] = []
-  let quotaBytes = 0
   try {
     for (const f of files) {
       // `files` is only cast, never parsed, so guard the shape here — a null entry
@@ -190,25 +249,37 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Not found.' }, { status: 404 })
       }
 
+      // Two entries writing the same key would reserve it twice for one object.
+      // The RPC de-duplicates defensively, but a batch like this is a client bug
+      // (or a probe) either way, so say so.
+      if (planned.some((p) => p.key === key)) {
+        return NextResponse.json({ error: 'Bad request.' }, { status: 400 })
+      }
+
       planned.push({ key, contentType, size })
-      if (rule.quota) quotaBytes += size
     }
 
-    if (quotaBytes > 0) {
-      const used = await storageUsed(auth.db, auth.uid)
-      if (used !== null && used + quotaBytes > PLAN.storageBytes) {
-        const mb = (n: number) => Math.round(n / 1024 / 1024)
-        return NextResponse.json(
-          {
-            error: `Storage limit reached: ${mb(used)}MB of ${mb(PLAN.storageBytes)}MB used, this upload needs ${Math.max(1, mb(quotaBytes))}MB. Remove some works first.`,
-          },
-          { status: 507 }
-        )
-      }
+    // Measure, then reserve. `prefixBytes` is the honest figure — it is whatever
+    // is really sitting in the bucket, including files whose DB row was never
+    // written, so the "upload and never insert the row" loop now costs the caller
+    // quota on the very next request.
+    const listedBytes = await prefixBytes(`${auth.uid}/`)
+    const { ok, used } = await reserveQuota(auth.db, planned, listedBytes)
+    if (!ok) {
+      const wanted = planned.reduce((sum, p) => sum + p.size, 0)
+      const mb = (n: number) => Math.round(n / 1024 / 1024)
+      return NextResponse.json(
+        {
+          error: `Storage limit reached: ${mb(used)}MB of ${mb(PLAN.storageBytes)}MB used, this upload needs ${Math.max(1, mb(wanted))}MB. Remove some works first.`,
+        },
+        { status: 507 }
+      )
     }
   } catch (e) {
-    // A DB failure while checking ownership or quota must not fall through to
-    // signing — refuse instead of letting an unchecked upload proceed.
+    // A failure while checking ownership, measuring R2 or reserving must not fall
+    // through to signing — refuse instead of letting an unchecked upload proceed.
+    // (This is also where an over-long listing lands: prefixBytes throws rather
+    // than returning a total it knows is short.)
     console.error('upload-url: pre-flight check failed', e)
     return NextResponse.json({ error: 'Could not verify the upload. Try again.' }, { status: 503 })
   }

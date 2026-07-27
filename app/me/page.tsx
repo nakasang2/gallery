@@ -1997,7 +1997,7 @@ export default function MePage() {
     try {
       setUsage(await getStorageUsage(user.id))
     } catch {
-      setUsage(null) // bytes column missing (0006 not applied) — hide the meter
+      setUsage(null) // storage unconfigured or unreachable — hide the meter
     }
   }, [user])
 
