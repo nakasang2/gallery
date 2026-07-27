@@ -1,5 +1,24 @@
 # DECISIONS
 
+## 2026-07-27 3Dモデル・床テクスチャ・デモ動画もR2配信に移す（egress無料化の残りピース）
+- 背景: 「動画をアップした作品に10万人が訪れたらコストは増えるか」というユーザーの問いを試算する過程で判明。**作品ファイルはR2（egress無料）に移したが、アプリの部品である3Dモデル等は`public/`＝Vercel配信のまま**で、そこが訪問者1人あたり最大の転送源だった。特に`GhostVisitors`は**モジュールスコープで`useGLTF.preload()`を両モデルに対して実行**し、`GalleryScene`が無条件に`<GhostVisitors />`を描画するため、**ギャラリーを開いた全員が2.6MBを取得**していた。
+- 決定: **`public/models` `public/textures` `public/demo-works`（計約4.1MB）をR2の`static/{STATIC_VERSION}/`配下へ移し、`assetUrl()`経由で配信する**。10万人訪問時の試算で、Vercelから流れる量が約510GB→約100GB（Pro枠1TBに余裕）。
+- **`public/draco/`（752KB）は意図的に移さない**。glTFデコーダを別オリジンに依存させない判断を既に下しているため（LESSONS 2026-07-16「デコーダをCDNに取りに行くと自己完結性/オフライン/CSPで壊れる」）。デコーダは移す価値（約75GB相当）より、その判断を覆すデメリットが大きいと評価。
+- 設計:
+  - **ファイルは`public/`に残す**。`assetUrl()`は`NEXT_PUBLIC_R2_PUBLIC_BASE`未設定時にローカルパスへフォールバックするので、ローカル開発と未設定環境が壊れない。
+  - **バージョン付きプレフィックス`static/v1/`**。CDNが1ヶ月キャッシュするため、差し替え時は`lib/publicUrl.ts`の`STATIC_VERSION`を上げて新URLにする。`scripts/upload-static-assets.mjs`は**同じ定数をTSからregexで読む**ので、コードとアップロード先がズレない。
+  - アップロード時に`Content-Type`を明示（`.glb`→`model/gltf-binary`等）し、`Cache-Control: max-age=31536000, immutable`を付ける（バージョン付きURLなので中身は不変）。
+- 却下: デプロイ時に自動同期（`postbuild`でR2へ）＝ビルドに外部依存が入り、失敗時の扱いが面倒。アセットは滅多に変わらないので手動実行で足りる。将来頻繁に変わるようになったら再検討。
+- 検証: tsc/build通過。環境変数を与えたビルドでクライアントチャンクにベースURLが埋め込まれ`concat(l,"/static/")`で組み立てられることを確認。7ファイルをアップロード後、CDN側でバイト数一致・Content-Type・CORSヘッダを実測。本番`/demo`を実ブラウザで開き、`performance.getEntriesByType('resource')`で**7件すべてcdn.xibit360.art経由・Dracoのみwww（意図どおり）**を確認、コンソールエラー0、スクリーンショットで床/壁/ゴースト/作品/照明の描画も確認。
+- 対象: `lib/publicUrl.ts`(`assetUrl`/`STATIC_VERSION`追加), `components/gallery/GhostVisitors.tsx`, `components/Preview3D.tsx`, `components/gallery/textures.ts`, `lib/artworks.ts`, `scripts/upload-static-assets.mjs`(新規)。
+
+## 2026-07-27 Instagram連携（過去ポストから作品を選んで投稿）— まず技術検証だけ先行
+- 背景: アーティスト向けサービスとして「Instagramログイン → 過去の自分の投稿からギャラリーに載せる作品を選ぶ」体験を提案。ユーザーは「過去ポストから選ぶのが難しいのでは」と懸念していたが、`GET /me/media`（Instagram Graph API / Instagram Login）で過去投稿一覧が画像URL・キャプション付きで取得でき、そこはむしろ標準機能と整理。真の難所は①Metaのアプリ審査（本番公開に必須・待ち時間と要件が読めない最大の壁）②APIが返す画像URLは期限切れ→選択時にR2へコピー保存が必須 ③アカウント種別の制約（要最新確認）。
+- 決定（ユーザー選択 = A案）: **本番・審査には踏み込まず、技術検証（PoC）だけ先に行う**。Meta開発者アカウントの**開発モード（審査前でも自分のアカウント限定でAPIが叩ける）**で、実際に自分の過去ポスト一覧が取得できるか・欲しい体験になるかを小さく確かめる。ここで「思ったのと違う」なら損失ほぼゼロで撤退できる。
+- 却下: B案（通常アップロードを先に固め連携は後回し）＝アイデアの価値検証を先にしたいため今回は見送り。C案（最初から本番前提でMeta審査要件まで設計）＝審査で詰まると全体が止まるリスクが高いため。
+- 次のアクション: Meta for Developersでアプリ作成・Instagram Login権限設定 → 開発モードで`/me/media`を叩くPoC。実装着手前にInstagram APIの最新仕様（2024/12にBasic Display API廃止済み）を公式で裏取りする。
+- 補足: 本人の投稿を本人が載せるので著作権は問題なし。ただしInstagram経由データの再配信は規約確認が必要。外部wiki(Gallery_*)は相談時マウントされておらず未確認。
+
 ## 2026-07-27 オーナーは自分の非公開ギャラリーを公開URLで下見できる
 - 背景: `/@name`は公開時しか開けず、非公開だと本人でも見られない（リスティング/404止まり）。オーナーは公開前に「本番の見え方そのもの」を自分のURLで確認したい、とユーザー提起。賛成。
 - 決定: 公開ページのサーバー取得（`fetchPublicExhibitionInner`）は**一切変更せず**、**クライアント側でオーナー本人のときだけ**非公開ギャラリーを取得して全画面プレビュー（「Private preview」バナー付き）。匿名・他人・公開中は完全に無影響（回帰リスク回避）。
