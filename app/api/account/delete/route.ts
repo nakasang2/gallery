@@ -17,6 +17,7 @@
 // missed — logos, LP images, audio guides and BGM were never in its path list.
 import { NextRequest, NextResponse } from 'next/server'
 import { deletePrefix, r2Configured } from '@/lib/r2'
+import { purgeCachePrefix } from '@/lib/cachePurge'
 import { authenticate } from '@/lib/apiAuth'
 
 export const runtime = 'nodejs'
@@ -35,6 +36,12 @@ export async function POST(req: NextRequest) {
   if (!r2Configured) return NextResponse.json({ deleted: true, filesRemoved: 0 })
   try {
     const filesRemoved = await deletePrefix(`${auth.uid}/`)
+    // One prefix covers the whole account, including the `?v=…` variants that
+    // avatars, logos and BGM are served under — purge by URL could not reach
+    // those without knowing every timestamp ever issued. Deleted rows are gone by
+    // now, so those URLs are unreachable from the app either way; this is for
+    // whoever kept the direct link.
+    if (filesRemoved > 0) await purgeCachePrefix(`${auth.uid}/`)
     return NextResponse.json({ deleted: true, filesRemoved })
   } catch (e) {
     console.warn('storage cleanup after account deletion failed (files orphaned):', e)

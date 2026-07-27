@@ -2,9 +2,10 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-07-27（R2移行に続き、作品音声ガイドのアップロード経路の死んだコードを削除してship・本番反映確認済み。Stripe鍵/SQL適用はユーザー待ち）
+- **最終更新**: 2026-07-27（削除時のCDNキャッシュパージを実装・未push。作品音声ガイドのアップロード経路の削除はship済。Stripe鍵/SQL適用はユーザー待ち）
 
 ## 進行中
+- **削除時のCDNキャッシュパージ**（DECISIONS 2026-07-27参照、A案で確定）。Claude済: `lib/cachePurge.ts`新設＋2つの削除ルートに配線、tsc/build通過、手順書 docs/R2_SETUP.md §7.5 を追記。**ユーザー待ち**: ①Cloudflareでゾーン権限(`Zone`/`Cache Purge`/`Purge`、対象zoneは`xibit360.art`)のAPIトークンを1本発行 ②`CLOUDFLARE_ZONE_ID`と`CLOUDFLARE_PURGE_TOKEN`をVercelに設定。設定後、R2_SETUP §7.5の4ステップ（URLを控える→数回開く→削除→シークレットウィンドウで404を確認）で実効を検証する。**未設定でもアプリは正常に動く**（従来どおり最大4時間の窓が残るだけ）。
 - **Stripe決済の本番有効化**（DECISIONS 2026-07-24参照、本番モード＋Xibit360専用の新規アカウントで確定）。Claude済: `NEXT_PUBLIC_SITE_URL=https://www.xibit360.art`設定。ユーザー待ち: ⓪同じログイン下にXibit360専用アカウントを新規作成し本番有効化 ①`0019_checkout.sql`をSupabase SQL Editor適用 ②新アカウント(live)の`STRIPE_SECRET_KEY`(sk_live_)をVercelに ③新アカウントでWebhook作成(`https://www.xibit360.art/api/stripe/webhook`・`checkout.session.completed`)→`STRIPE_WEBHOOK_SECRET`(whsec_)をVercelに ④価格USD化に伴い`0028_capacity_clamp.sql`もSQL Editorで適用。完了後Claudeが再デプロイ＋疎通検証(checkout=401/webhook=400)、実カードで**スロット追加($3〜)購入→返金**でE2E確認（USD化で¥580→$3/枚に変更済み）。
 - ゴースト円形接地影の削除はローカルコミット済み(4027e8b)・未push。価格USD化一式も未push。
 

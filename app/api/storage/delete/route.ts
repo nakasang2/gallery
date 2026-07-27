@@ -7,8 +7,13 @@
 // The caller has already deleted the DB row (lib/cloud.ts deleteArtwork). Failing
 // here only orphans files — a cost concern, never data loss — so the client
 // treats a failure as non-fatal.
+//
+// Removing the objects is not enough on its own: Cloudflare keeps serving them
+// from the edge for up to four hours, so the same folder is purged from the CDN
+// straight afterwards (lib/cachePurge.ts).
 import { NextRequest, NextResponse } from 'next/server'
 import { deletePrefix, r2Configured } from '@/lib/r2'
+import { purgeCachePrefix } from '@/lib/cachePurge'
 import { authenticate } from '@/lib/apiAuth'
 
 export const runtime = 'nodejs'
@@ -34,8 +39,14 @@ export async function POST(req: NextRequest) {
   try {
     // Trailing slash: this work's folder only (display.jpg / thumb.jpg / video /
     // guide), never the sibling `{uid}/{galleryId}-logo.jpg`.
-    const removed = await deletePrefix(`${auth.uid}/${artworkId}/`)
-    return NextResponse.json({ removed })
+    const prefix = `${auth.uid}/${artworkId}/`
+    const removed = await deletePrefix(prefix)
+    // Purge only when something was actually deleted. An id that matched nothing
+    // has nothing cached under it either, and skipping keeps a caller replaying
+    // made-up ids from burning the account-wide purge rate limit (5/min on the
+    // free plan) that a real deletion needs.
+    const purged = removed > 0 ? await purgeCachePrefix(prefix) : false
+    return NextResponse.json({ removed, purged })
   } catch (e) {
     console.error('storage delete failed', e)
     return NextResponse.json({ error: 'Delete failed.' }, { status: 500 })
