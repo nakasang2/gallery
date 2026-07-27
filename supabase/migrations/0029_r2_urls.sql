@@ -36,12 +36,21 @@ where audio_url like 'https://%.supabase.co/storage/v1/object/public/artworks/%'
 
 -- Gallery BGM (0027) and the Design Tools logo inside design_overrides (0014).
 --
--- galleries has a BEFORE UPDATE trigger that bumps updated_at (0005), and the
--- public feed orders by updated_at (lib/publish.ts). Rewriting a URL is not an
--- edit by the artist, so suspend the trigger for these two statements — every
--- gallery with a BGM or logo would otherwise jump to the top of /explore.
-alter table public.galleries disable trigger galleries_touch;
-
+-- ⚠️ 注意: galleries には updated_at を自動更新する BEFORE UPDATE トリガ
+-- (galleries_touch, 0005) があり、/explore は updated_at の降順で並ぶ
+-- (lib/publish.ts)。下の2文が1行でも書き換えると、そのギャラリーが「最近更新」の
+-- 先頭に浮上する。URL書き換えは作家による編集ではないので望ましくないが、
+-- **これを避ける手段は ALTER TABLE か DDL しかない**:
+--   - `set updated_at = updated_at` は効かない（BEFOREトリガが後から上書きする）
+--   - 後から別UPDATEで戻すのも効かない（そのUPDATE自体がトリガを発火させる）
+--   - `alter table ... disable trigger` は**テーブル所有者権限が必要**で、権限が
+--     足りないと Supabase SQL Editor は貼り付けた全体を1トランザクションで
+--     実行するため**スクリプト全体がロールバックし「1行も変わらない」**。
+--     実際にこのプロジェクトではそれが起きたため、その方式は採らない
+--     (docs/LESSONS.md 2026-07-27)。
+-- Xibit360本番では BGM もロゴも0件だったため下の2文は空振りで、並び順への影響は
+-- なかった。他環境で該当行がある場合は、実行前に updated_at を控えておき、
+-- 必要なら手で戻すこと。
 update public.galleries
 set bgm_url = regexp_replace(
   bgm_url,
@@ -58,8 +67,6 @@ set design_overrides = regexp_replace(
   'g'
 )::jsonb
 where design_overrides::text like '%.supabase.co/storage/v1/object/public/artworks/%';
-
-alter table public.galleries enable trigger galleries_touch;
 
 -- Article cover images (0020)
 update public.articles

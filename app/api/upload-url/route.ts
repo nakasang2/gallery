@@ -44,11 +44,13 @@ type Purpose =
 
 const jpeg = (ct: string) => ct === 'image/jpeg'
 const video = (ct: string) => ct.startsWith('video/')
-// Browsers disagree about .m4a — depending on the OS it arrives as audio/mp4,
-// audio/x-m4a, video/mp4, or with no type at all. The UI advertises "MP3 or M4A"
-// (app/me/page.tsx), and Supabase Storage accepted whatever was sent, so keep
-// that door open rather than turning a working upload into a 415.
-const audio = (ct: string) => ct === '' || ct.startsWith('audio/') || ct === 'video/mp4'
+// Browsers disagree about .m4a and .mp3 — depending on the OS a file arrives as
+// audio/mp4, audio/x-m4a, video/mp4, or application/octet-stream when the OS has
+// no mapping for the extension. The UI advertises "MP3 or M4A" (app/me/page.tsx)
+// behind an accept="audio/*" picker, and Supabase Storage accepted whatever was
+// sent, so keep that door open rather than turning a working upload into a 415.
+const audio = (ct: string) =>
+  ct === '' || ct.startsWith('audio/') || ct === 'video/mp4' || ct === 'application/octet-stream'
 
 interface Rule {
   /** Build the object key from the authenticated uid. Throws for a bad id/slot. */
@@ -118,10 +120,15 @@ async function storageUsed(db: Db, uid: string): Promise<number | null> {
   return (data ?? []).reduce((sum, r) => sum + ((r as { bytes?: number }).bytes ?? 0), 0)
 }
 
-/** True when the caller owns a row with this id. RLS already limits what the
- *  caller's own client can see, so "visible" means "theirs". */
-async function ownsRow(db: Db, table: 'galleries' | 'artworks', id: string): Promise<boolean> {
-  const { data, error } = await db.from(table).select('id').eq('id', id).maybeSingle()
+/** True when the caller owns a row with this id.
+ *
+ *  `owner_id` is matched explicitly — RLS visibility is NOT ownership here. Both
+ *  tables also grant public reads (`galleries_select_public` uses `is_public`,
+ *  and `artworks_select_in_public_gallery`, both in migration 0001), so a
+ *  visibility-only check would accept any published gallery or work id lifted
+ *  from /explore. */
+async function ownsRow(db: Db, table: 'galleries' | 'artworks', id: string, uid: string): Promise<boolean> {
+  const { data, error } = await db.from(table).select('id').eq('id', id).eq('owner_id', uid).maybeSingle()
   if (error) throw new Error(error.message)
   return Boolean(data)
 }
@@ -152,7 +159,13 @@ export async function POST(req: NextRequest) {
   let quotaBytes = 0
   try {
     for (const f of files) {
-      const rule = RULES[f.purpose]
+      // `files` is only cast, never parsed, so guard the shape here — a null entry
+      // or an inherited key like "constructor" would otherwise throw and surface as
+      // a 503 "server trouble" instead of the 400 it is.
+      if (!f || typeof f !== 'object') {
+        return NextResponse.json({ error: 'Bad request.' }, { status: 400 })
+      }
+      const rule = Object.prototype.hasOwnProperty.call(RULES, f.purpose) ? RULES[f.purpose] : undefined
       if (!rule) return NextResponse.json({ error: 'Unknown upload purpose.' }, { status: 400 })
 
       const size = typeof f.size === 'number' && Number.isFinite(f.size) ? Math.floor(f.size) : -1
@@ -175,7 +188,7 @@ export async function POST(req: NextRequest) {
 
       // Where the target row already exists, require it — otherwise a caller could
       // mint an endless series of made-up ids and write an object per id.
-      if (rule.owns && !(await ownsRow(auth.db, rule.owns, f.id ?? ''))) {
+      if (rule.owns && !(await ownsRow(auth.db, rule.owns, f.id ?? '', auth.uid))) {
         return NextResponse.json({ error: 'Not found.' }, { status: 404 })
       }
 
