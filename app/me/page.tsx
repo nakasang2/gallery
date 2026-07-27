@@ -61,7 +61,7 @@ import {
   type EngagementSummary,
   type GuestbookEntry,
 } from '@/lib/engagement'
-import { fileToDataUrl, loadImage } from '@/lib/upload'
+import { loadImage } from '@/lib/upload'
 import type { ArtworkData } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
 
@@ -802,8 +802,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           continue
         }
         const title = f.name.replace(/\.[^.]+$/, '') || 'Untitled'
-        const { dataUrl, w, h } = await fileToDataUrl(f, 1600)
-        await uploadArtwork({ ownerId: user.id, dataUrl, title, w, h })
+        // Straight from the original file — no data-URL round-trip to re-encode
+        await uploadArtwork({ ownerId: user.id, file: f, title })
       }
       await refreshCloud()
     } catch (e) {

@@ -7,7 +7,7 @@ import { THEMES, LAYOUTS, FRAMES, MATS, HANGINGS, CAPTIONS, TEMPLATES } from '@/
 import { buildPlacement, overflowCount, slotCount, useOwnArtworks, useIsOwnerEditing } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { showToast } from '@/lib/toast'
-import { fileToDataUrl, loadImage, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
+import { fileToDataUrl, loadImage, loadImageFile, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
 import { supabase } from '@/lib/supabase'
 import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
 import { getProfile, saveProfile } from '@/lib/publish'
@@ -260,14 +260,25 @@ export default function SettingsPanel() {
     walkRef.current?.focusExhibit(idx)
   }
 
-  async function addEntries(entries: { title: string; dataUrl: string; w: number; h: number }[]) {
+  // `file` is set when we still have the artist's original (signed-in uploads);
+  // `dataUrl` is the guest-mode / add-by-URL form. Cloud uploads prefer the file.
+  async function addEntries(
+    entries: { title: string; dataUrl?: string; file?: File; w: number; h: number }[]
+  ) {
     const prevIds = new Set(ownArtworks.map((a) => a.id))
     if (user) {
       // Cloud exhibit (Storage + DB)
       setUploading(true)
       try {
         for (const e of entries) {
-          await uploadArtwork({ ownerId: user.id, dataUrl: e.dataUrl, title: e.title, w: e.w, h: e.h })
+          await uploadArtwork({
+            ownerId: user.id,
+            file: e.file,
+            dataUrl: e.dataUrl,
+            title: e.title,
+            w: e.w,
+            h: e.h,
+          })
         }
         await refreshCloud()
         revealNew(prevIds)
@@ -278,11 +289,11 @@ export default function SettingsPanel() {
         setUploading(false)
       }
     } else {
-      // Guest exhibit (localStorage)
+      // Guest exhibit (localStorage) — this branch only ever gets data URLs
       const artist = artistRef.current?.value.trim() ?? ''
-      const items: ArtworkData[] = entries.map((e) =>
-        newArtworkEntry({ title: e.title, artist, src: e.dataUrl, w: e.w, h: e.h })
-      )
+      const items: ArtworkData[] = entries
+        .filter((e) => !!e.dataUrl)
+        .map((e) => newArtworkEntry({ title: e.title, artist, src: e.dataUrl!, w: e.w, h: e.h }))
       updateSettings({ artworks: [...settings.artworks, ...items] })
       revealNew(prevIds)
     }
@@ -337,8 +348,15 @@ export default function SettingsPanel() {
         continue
       }
       try {
-        const { dataUrl, w, h } = await fileToDataUrl(file, 1600)
-        entries.push({ title, dataUrl, w, h })
+        if (user) {
+          // Hand the original over untouched — the upload encodes it once
+          const img = await loadImageFile(file)
+          entries.push({ title, file, w: img.naturalWidth || img.width, h: img.naturalHeight || img.height })
+        } else {
+          // Guest mode lives in localStorage, which needs the data URL
+          const { dataUrl, w, h } = await fileToDataUrl(file, 1600)
+          entries.push({ title, dataUrl, w, h })
+        }
       } catch {
         showToast(`Could not read “${file.name}”.`)
       }

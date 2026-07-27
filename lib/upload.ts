@@ -12,7 +12,21 @@ export function loadImage(src: string, crossOrigin = false): Promise<HTMLImageEl
   })
 }
 
-// Cap the long edge and encode as JPEG so it fits in localStorage
+/** Decode a file into an <img> without encoding anything on the way.
+ *  Prefer this over fileToDataUrl when the result is headed for upload: a data URL
+ *  is already a lossy JPEG, so encoding from one stacks a second generation of
+ *  artefacts onto the artist's work for no benefit. */
+export async function loadImageFile(file: Blob): Promise<HTMLImageElement> {
+  const url = URL.createObjectURL(file)
+  try {
+    return await loadImage(url)
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+// Cap the long edge and encode as JPEG so it fits in localStorage. Guest mode only —
+// signed-in uploads go straight from the original file (see lib/cloud encodeJpeg).
 export async function fileToDataUrl(
   file: File,
   maxSide = 1280

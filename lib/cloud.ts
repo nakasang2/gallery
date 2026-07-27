@@ -7,7 +7,7 @@
 // See docs/DECISIONS.md 2026-07-27.
 import { supabase } from './supabase'
 import type { ArtworkData } from './artworks'
-import { loadImage, fileToDataUrl } from './upload'
+import { loadImage, loadImageFile } from './upload'
 import { publicUrl } from './publicUrl'
 import { GALLERY_BGM_MAX_BYTES } from './limits'
 
@@ -192,38 +192,80 @@ async function insertArtworkRow(row: Record<string, unknown>): Promise<void> {
   throw error
 }
 
-async function dataUrlToJpegBlob(dataUrl: string, maxSide: number): Promise<Blob> {
-  const img = await loadImage(dataUrl)
-  const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+// Every upload used to run fileToDataUrl (JPEG q0.85) and then re-encode that data
+// URL to JPEG q0.85 again at the SAME size — a second lossy generation that bought
+// nothing. Decode once, encode once, and start from the artist's original file
+// wherever we still have it.
+const DISPLAY_MAX_SIDE = 1600
+const DISPLAY_QUALITY = 0.92
+const THUMB_MAX_SIDE = 400
+const THUMB_QUALITY = 0.8
+
+/** Decode whatever we were handed: the original file, or a data URL for works that
+ *  only ever existed as one (guest import, add-by-URL). */
+function decodeSource(src: Blob | string): Promise<HTMLImageElement> {
+  return typeof src === 'string' ? loadImage(src) : loadImageFile(src)
+}
+
+/** One JPEG pass from an already-decoded image, capping the long edge. */
+async function encodeJpeg(
+  img: HTMLImageElement,
+  maxSide: number,
+  quality: number
+): Promise<{ blob: Blob; w: number; h: number }> {
+  const sw = img.naturalWidth || img.width
+  const sh = img.naturalHeight || img.height
+  const scale = Math.min(1, maxSide / Math.max(sw, sh))
+  const w = Math.max(1, Math.round(sw * scale))
+  const h = Math.max(1, Math.round(sh * scale))
   const c = document.createElement('canvas')
-  c.width = Math.round(img.width * scale)
-  c.height = Math.round(img.height * scale)
+  c.width = w
+  c.height = h
   const ctx = c.getContext('2d')!
-  ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, c.width, c.height)
-  ctx.drawImage(img, 0, 0, c.width, c.height)
-  return new Promise((resolve, reject) =>
-    c.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/jpeg', 0.85)
+  ctx.fillStyle = '#fff' // transparent PNGs get the white the frame would show anyway
+  ctx.fillRect(0, 0, w, h)
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, 0, 0, w, h)
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    c.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/jpeg', quality)
   )
+  return { blob, w, h }
+}
+
+/** Single-size convenience wrapper (avatar, logo, LP hero, video poster). */
+async function encodeUpload(
+  src: Blob | string,
+  maxSide: number,
+  quality = DISPLAY_QUALITY
+): Promise<{ blob: Blob; w: number; h: number }> {
+  return encodeJpeg(await decodeSource(src), maxSide, quality)
 }
 
 export async function uploadArtwork(params: {
   ownerId: string
-  dataUrl: string
+  /** The artist's original file. Preferred — it is the only lossless source we get. */
+  file?: Blob
+  /** Fallback for works that only exist as a data URL (guest import, add-by-URL). */
+  dataUrl?: string
   title: string
-  w: number
-  h: number
+  /** Stored as the work's aspect ratio; defaults to the encoded display size. */
+  w?: number
+  h?: number
 }): Promise<void> {
+  const source = params.file ?? params.dataUrl
+  if (!source) throw new Error('Nothing to upload.')
   const id = crypto.randomUUID()
   const basePath = `${params.ownerId}/${id}`
 
-  // Two sizes: a display image (long edge 1600) and a thumbnail (long edge 400) (docs/ARCHITECTURE.md ch. 5)
-  const display = await dataUrlToJpegBlob(params.dataUrl, 1600)
-  const thumb = await dataUrlToJpegBlob(params.dataUrl, 400)
+  // Two sizes: a display image (long edge 1600) and a thumbnail (long edge 400)
+  // (docs/ARCHITECTURE.md ch. 5) — both encoded from a single decode of the source.
+  const img = await decodeSource(source)
+  const display = await encodeJpeg(img, DISPLAY_MAX_SIDE, DISPLAY_QUALITY)
+  const thumb = await encodeJpeg(img, THUMB_MAX_SIDE, THUMB_QUALITY)
 
   await putFiles([
-    { purpose: 'artwork-display', id, body: display, contentType: 'image/jpeg' },
-    { purpose: 'artwork-thumb', id, body: thumb, contentType: 'image/jpeg' },
+    { purpose: 'artwork-display', id, body: display.blob, contentType: 'image/jpeg' },
+    { purpose: 'artwork-thumb', id, body: thumb.blob, contentType: 'image/jpeg' },
   ])
 
   try {
@@ -231,10 +273,10 @@ export async function uploadArtwork(params: {
       id,
       owner_id: params.ownerId,
       storage_path: basePath,
-      width: params.w,
-      height: params.h,
+      width: params.w ?? display.w,
+      height: params.h ?? display.h,
       title: params.title,
-      bytes: display.size + thumb.size,
+      bytes: display.blob.size + thumb.blob.size,
     })
   } catch (error) {
     // If metadata insertion fails, don't leave the images behind
@@ -255,12 +297,12 @@ export async function uploadVideoArtwork(params: {
   const id = crypto.randomUUID()
   const basePath = `${params.ownerId}/${id}`
 
-  const thumb = await dataUrlToJpegBlob(params.posterDataUrl, 400)
+  const thumb = await encodeUpload(params.posterDataUrl, THUMB_MAX_SIDE, THUMB_QUALITY)
   const contentType = params.file.type || 'video/mp4'
 
   await putFiles([
     { purpose: 'artwork-video', id, body: params.file, contentType },
-    { purpose: 'artwork-thumb', id, body: thumb, contentType: 'image/jpeg' },
+    { purpose: 'artwork-thumb', id, body: thumb.blob, contentType: 'image/jpeg' },
   ])
 
   try {
@@ -272,7 +314,7 @@ export async function uploadVideoArtwork(params: {
       height: params.h,
       title: params.title,
       kind: 'video',
-      bytes: params.file.size + thumb.size,
+      bytes: params.file.size + thumb.blob.size,
     })
   } catch (error) {
     await deleteArtworkFiles(id)
@@ -339,8 +381,7 @@ export async function reorderArtworks(orderedIds: string[]): Promise<void> {
 
 /** Upload/replace the profile avatar (512px JPEG at {uid}/avatar.jpg) and save its URL */
 export async function uploadAvatar(ownerId: string, file: File): Promise<string> {
-  const { dataUrl } = await fileToDataUrl(file, 512)
-  const blob = await dataUrlToJpegBlob(dataUrl, 512)
+  const { blob } = await encodeUpload(file, 512)
   const [key] = await putFiles([{ purpose: 'avatar', body: blob, contentType: 'image/jpeg' }])
   const url = `${publicUrl(key)}?v=${Date.now()}` // cache-bust so the new face shows immediately
   const { error } = await supabase!.from('profiles').update({ avatar_url: url }).eq('id', ownerId)
@@ -365,8 +406,7 @@ export async function uploadGalleryBgm(ownerId: string, galleryId: string, file:
  *  return its URL — the caller saves it into that gallery's design_overrides
  *  (this does not write to any table itself, unlike uploadAvatar) */
 export async function uploadLogo(ownerId: string, galleryId: string, file: File): Promise<string> {
-  const { dataUrl } = await fileToDataUrl(file, 400)
-  const blob = await dataUrlToJpegBlob(dataUrl, 400)
+  const { blob } = await encodeUpload(file, 400)
   const [key] = await putFiles([
     { purpose: 'gallery-logo', id: galleryId, body: blob, contentType: 'image/jpeg' },
   ])
@@ -382,8 +422,7 @@ export async function uploadLogo(ownerId: string, galleryId: string, file: File)
  *  the old file instead of orphaning it; the URL is cache-busted so the new image
  *  shows immediately despite the stable path. */
 export async function uploadLpImage(ownerId: string, slot: number, file: File): Promise<{ url: string; w: number; h: number }> {
-  const { dataUrl, w, h } = await fileToDataUrl(file, 1280)
-  const blob = await dataUrlToJpegBlob(dataUrl, 1280)
+  const { blob, w, h } = await encodeUpload(file, 1280)
   const [key] = await putFiles([{ purpose: 'lp-image', slot, body: blob, contentType: 'image/jpeg' }])
   return { url: `${publicUrl(key)}?v=${Date.now()}`, w, h }
 }
