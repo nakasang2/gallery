@@ -20,6 +20,17 @@ body.gallery-mode {
   -webkit-font-smoothing: antialiased;
 }
 
+/* viewport-fit=cover (app/layout.tsx) is what makes the env(safe-area-inset-*)
+   rules below resolve to anything on iOS — but it also lets the page paint into
+   the notch and home-bar areas. The gallery handles its insets per element (its
+   whole UI is position:fixed); every other page is ordinary document flow, so
+   give those a baseline here rather than auditing each one. */
+body:not(.gallery-mode) {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* R3F の Canvas ラッパー */
 .stage-root {
   position: fixed !important;
@@ -1727,9 +1738,14 @@ body.gallery-mode {
   .panel.open { transform: translateY(0); }
   .panel-close { top: 0.8rem; right: 0.9rem; }
   .panel-title { font-size: 1.45rem; }
-  .hud-actions { bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px)); }
-  /* Match the mobile minimap (bottom 4.4rem, ~86px tall) — stay stacked above it */
-  .hud-record { left: 1rem; bottom: calc(4.4rem + 96px + env(safe-area-inset-bottom, 0px)); }
+  /* Was written as `.hud-actions`, a class no element has ever carried — the
+     bottom-right group is `.hud-cluster` (components/gallery/Hud.tsx). The rule
+     therefore never applied and the cluster stayed at 1.2rem, sharing the bottom
+     row with the centred pager. Sit on the minimap's row instead, as intended. */
+  .hud-cluster { bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px)); }
+  /* (The old `.hud-record` rule that lived here is gone: the walkthrough Record
+     button is no longer positioned on its own — it is an item inside
+     `.hud-others-menu`, which the cluster carries.) */
   /* Settings become a bottom sheet too, so theme/framing chips are judged with the room visible */
   .settings {
     top: auto;

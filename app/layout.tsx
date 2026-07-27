@@ -22,6 +22,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // Without this, iOS resolves every env(safe-area-inset-*) to 0 — which silently
+  // disabled all fourteen notch/home-bar rules in app/gallery.css. Paying for it:
+  // the page now paints into those areas, so app/gallery.css gives non-gallery
+  // pages a baseline inset and the fixed chrome opts in with max().
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

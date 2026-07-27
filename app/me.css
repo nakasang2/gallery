@@ -118,7 +118,8 @@
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 1.25rem;
+  /* Fixed, so it sits outside the body-level safe-area inset — clear the home bar */
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
   z-index: 50;
 }
 .me-sticky-save .wd-save-cta {
@@ -837,7 +838,7 @@
 .me-toast {
   position: fixed;
   left: 50%;
-  bottom: 1.5rem;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 100;
   display: inline-flex;
