@@ -58,6 +58,14 @@
 ### 品質・レビュー（3D/R3F）
 - 2026-07-24 | 3Dプレビュー実装をship前レビューで検出3件 → ①`new THREE.TextureLoader().load()`で作った動画ポスターtextureに破棄処理が無くリーク（開閉ごとにGPU texture残留）②動画作品でposter無しだと`getArtTexture`が`.webm`を`TextureLoader`で読んで空テクスチャ③`useMemo`のdepsに`applyMat`が毎回返す新規`frameDef`オブジェクトを入れており、オーバーレイ表示中の親再描画のたびExtrudeGeometryを再生成 → **①自前でnewしたthreeリソースは必ずunmountで`.dispose()`（共有キャッシュ由来=`getArtTexture`は破棄しない、を`useRef`で区別）②画像を要求するAPIには画像URLだけ渡す（動画srcを渡さない・poster無しはmap無し＋暗色fallback）③useMemoのdepsは毎回新規生成されるオブジェクトでなくプリミティブ値（`frameDef.bar`/`.gap`）にする**（`components/gallery/ArtworkPreview3D.tsx`）
 
+### 品質・レビュー（モバイル/縦画面）
+- 2026-07-27 | UX/UI/法務レビューで、電話幅のLPナビから主要CTA「Start free」が画面外に21〜36pxはみ出して押せないのを実測検出。CSSには「Sign in と CTA は残す(導線を消さない)」という**意図のコメントが書いてあるのに結果が逆**だった（900pxのブロックでアンカーだけ隠し、ロゴ+Explore/Guides+ボタン2つが横に収まるかは未検証） → **「消さない」と書いた導線こそ、一番狭い実幅（320/360/375/390）で `getBoundingClientRect().right > innerWidth` を実測する。`overflow-x:hidden` があると document.scrollWidth は正常値を返すので、ページ幅では検出できない**
+- 2026-07-27 | 同レビューで、3Dギャラリーの `fov: 60` が固定のため縦持ちの横視野が iPhone 29.9° / iPad 46.8°（ノートPCは85.5°）まで潰れ、来場者の大半が部屋の1/3しか見ていなかった。**LPヒーローだけは `PORTRAIT ? 66 : 48` と対応済み**で、本体に反映されていなかった → **three の `fov` は縦方向の角度。縦画面のことは「横視野 = 2·atan(tan(fov/2)·aspect)」で必ず数値化して確認する。既にプロダクト内に縦対応の前例があるなら、同じ考え方が本体に入っているか横展開を確認する**（`components/gallery/GalleryApp.tsx` の `AdaptiveFov`）
+- 2026-07-27 | 同レビューで、ローディング画面が `document.fonts.ready`＋タイマーだけで約2秒後に必ず閉じており、テクスチャ/GLB/作品画像を待っていなかった（本番の実機で「真っ黒な部屋＋HUD」を観測。SNS流入の初見が見る画面） → **「読み込み中」の表示を閉じる条件に、実際に読み込んでいる対象を入れる。タイマーは最低尺と上限（スタック対策）に使うもので、完了判定に使わない**（drei `useProgress` は three の default loading manager を見るので `TextureLoader`/`useGLTF` 経由のアセットを拾える）
+
+### 品質・レビュー（画像パイプライン）
+- 2026-07-27 | 同レビューで、全アップロードが `fileToDataUrl`(JPEG q0.85) → `dataUrlToJpegBlob`(**同じ1600pxのまま** q0.85) と二重にJPEG化していたのを発見。2回目は縮小もしないので世代劣化を足すだけ。作品/アバター/ロゴ/LP画像/動画ポスターの全経路が同じ形だった。原因は「localStorage用にデータURL化する関数」を、クラウドアップロードの前処理としても流用したこと → **中間表現に非可逆形式（データURL=JPEG）を挟むと、後段のエンコードが必ず二重になる。アップロード経路では原本の File/Blob を最後まで持ち回り、デコード1回・エンコード1回にする。`fileToDataUrl` のような "保存先の都合で作った変換" を別用途に流用しない**（`lib/cloud.ts` の `decodeSource`/`encodeJpeg`。合成イラストで実測: 原画との平均誤差 0.673→0.457、サイズ 75KB→84KB）
+
 ### 品質・レビュー（UI文言）
 - 2026-07-24 | 3Dプレビュー追加時、ボタン「空間で見る」とヒント「ドラッグで回転…」を日本語で書きユーザーが「急に日本語UI」と指摘 → このアプリのUIは**全面英語**（Read aloud / Available for purchase / Tour 等）なのに、対ユーザー応答が日本語というルールに引きずられUI文言まで日本語にした → **プロダクトのUI文言は既存の言語慣習に合わせる（このリポジトリは英語UI）。応答＝日本語 と UI文言＝英語 は別物。新規の可視テキストを足したら、周囲の既存文言と言語が揃っているか必ず確認する（`grep -rn '[ぁ-んァ-ヶ一-龠]' 変更ファイル` で混入検出）**（"View in 3D" / "Drag to rotate · scroll or pinch to zoom" に修正）
 
