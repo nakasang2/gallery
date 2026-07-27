@@ -82,23 +82,68 @@ Supabase Storageは黙って返していたが、**R2はバケットにCORSポ�
 ```json
 [
   {
+    "AllowedOrigins": ["*"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  },
+  {
     "AllowedOrigins": [
       "https://www.xibit360.art",
       "https://xibit360.art",
       "http://localhost:3000"
     ],
-    "AllowedMethods": ["GET", "HEAD", "PUT"],
+    "AllowedMethods": ["PUT"],
     "AllowedHeaders": ["content-type"],
-    "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600
   }
 ]
 ```
 
-- `GET`/`HEAD` は表示用、`PUT` はアップロード用
+- 読み取り（`GET`/`HEAD` = 表示）は **`*` で全オリジンに許可する**。理由は次項の
+  「必ず読んでほしい落とし穴」を参照 — オリジンごとに違う返事をすると、CDNの
+  キャッシュと噛み合わずに**特定の地域の人だけ作品が真っ黒になる**
+- バケットは元々公開なので、`*` にしてもセキュリティは下がらない。おまけに
+  **埋め込み（`?embed=1`）が設定追加なしでどのサイトからでも動く**
+- 書き込み（`PUT` = アップロード）は自分のサイトだけに限定したまま。なお
+  アップロードの宛先は `cdn.xibit360.art` ではなく S3 API エンドポイントなので、
+  読み取り側を `*` にしてもアップロードの防御には影響しない
 - `localhost:3000` はローカル開発用。不要なら消してよい
-- **埋め込み（`?embed=1`）を他サイトで使う場合**は、そのサイトのオリジンも
-  `AllowedOrigins` に追加する必要がある
+
+### 5.1 レスポンスヘッダのTransform Rule（**必須** — これが無いと再発する）
+
+上のポリシーだけでは穴が残る。R2は**`Origin`ヘッダが付いたリクエストにしか**
+`Access-Control-Allow-Origin` を返さない。検索エンジンのクローラー、SNSのOGP取得、
+`curl` などは `Origin` を送らないので、**許可ヘッダが1つも無い返事**が返る。それが先に
+CDNへキャッシュされると、以降そのURLは全員に許可ヘッダなしで配られ、2Dの `<img>` は
+見えるのに**3Dのテクスチャだけ真っ黒**になる。
+
+キャッシュの中身に関係なくヘッダを付けさせて塞ぐ:
+
+1. Cloudflareダッシュボード → **Websites** → **`xibit360.art`** を選ぶ
+   （R2の画面ではなく、**ドメインの画面**に入る）
+2. 左メニュー **Rules** → **Overview**（または Transform Rules）
+3. **Modify Response Header** の **Create rule**
+   — **Request** ではなく **Response**。見出しが「You can modify up to 30 *response*
+   headers」になっているか必ず確認する
+4. 設定:
+   - Rule name: `cdn always CORS`
+   - **Custom filter expression** → Hostname **equals** `cdn.xibit360.art`
+     （Expression Preview が `(http.host eq "cdn.xibit360.art")` になればOK）
+   - **Set static** / Header name `Access-Control-Allow-Origin` / Value `*`
+     — **`Add` ではなく `Set`**。`Add` だとR2が返すヘッダと二重になり、
+     ブラウザは重複を理由に**全部拒否**する
+5. **Deploy**
+
+確認（`Origin` を付けずに叩いても `*` が返れば成功）:
+
+```bash
+curl -sI https://cdn.xibit360.art/<任意の作品キー>/display.jpg | grep -i access-control
+```
+
+> Transform Rule は配信の出口で適用されるので、**すでに汚染されたキャッシュにも
+> 効く**（`cf-cache-status: HIT` でもヘッダが付く）。
 
 ## 6. キャッシュルールを設定する（任意・推奨）
 
@@ -290,6 +335,32 @@ R2は `Origin` ヘッダが付いたリクエストにしか `Access-Control-All
 
 すでに汚染されたキャッシュはコード修正では直らない。**シークレットウィンドウ**か
 DevTools → Application → Storage → **Clear site data** で消す。
+
+**×2（2026-07-27・真因はもう一段深かった）**: 上の対策後も再発した。汚染されるのは
+ブラウザキャッシュだけでなく **CloudflareのCDNキャッシュ**も同じで、しかもこちらの方が
+たちが悪い。CDNは1つのURLに実質1つの返事しかキャッシュしないため、
+
+- `Origin` なしのリクエスト（クローラー／OGP取得／`curl`）が先に来ると、
+  **許可ヘッダ無しの返事**がキャッシュされ、以降**全員**が3Dで真っ黒になる
+- 旧ポリシーのようにオリジンごとに違う許可（`www…` 宛 / apex 宛）を返していると、
+  **www で入ったキャッシュが apex の人に配られて**やはり失敗する
+- **キャッシュは配信拠点ごとに別**なので、**特定の地域の人だけ見えない**という
+  極めて気づきにくい壊れ方をする（開発者の環境では正常に見えるので再現しない）
+
+→ 恒久対策は **§5 の CORS を読み取り `*` にする**（返事を相手によって変えない）＋
+**§5.1 の Transform Rule で許可ヘッダを無条件に付ける**（キャッシュに何が入っていても
+出口で正しくなる）。切り分けは `Origin` の有無で叩き分けるのが速い:
+
+```bash
+U=https://cdn.xibit360.art/<キー>
+curl -sI "$U" | grep -i access-control                                  # Originなし
+curl -sI -H "Origin: https://www.xibit360.art" "$U" | grep -i access-control
+```
+
+**両方で `access-control-allow-origin: *` が返れば正常。** 片方でも欠けていたら、
+そのURLはいつか誰かの画面で真っ黒になる。なお切り分け用の `curl` 自体が
+`Origin` なしのリクエストなので、**素の `curl` は汚染側のキャッシュを作る**。
+調査するときは `Origin` を付けて叩く。
 
 ### 移行の検証で「配信できている」と誤判定しやすい
 
