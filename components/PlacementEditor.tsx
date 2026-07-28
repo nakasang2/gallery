@@ -131,7 +131,9 @@ export default function PlacementEditor({
               </clipPath>
               {(() => {
                 const hs = hitSide.get(slotIdx) ?? S
-                return <rect className="pe-slot-hit" x={-hs / 2} y={-hs / 2} width={hs} height={hs} />
+                // fill は属性でも切る: SVGの既定は黒なので、CSSが載る前や印刷経路で
+                // 4m四方の黒い正方形が出ないようにする。
+                return <rect className="pe-slot-hit" fill="none" x={-hs / 2} y={-hs / 2} width={hs} height={hs} />
               })()}
               <rect className="pe-slot-bg" x={-S / 2} y={-S / 2} width={S} height={S} rx={0.16} />
               {src && (
