@@ -1,4 +1,4 @@
-// CSSのクラスセレクタが、実際にマークアップに存在するかを照合する番人。
+// CSSのクラス／IDセレクタが、実際にマークアップに存在するかを照合する番人。
 // 「宣言は正しく、構文も通り、しかし効果はゼロ」というCSS特有の失敗を機械で止める
 // （LESSONS「品質・レビュー（CSSが書いてあるのに効いていない）」×4 → DECISIONS 2026-07-28 で機械化）。
 //
@@ -6,10 +6,16 @@
 // リネーム時にCSS側が取り残される／存在しないクラス名に最初から書いてしまう、の
 // 両方をここで捕まえる。
 //
-// 判定は「そのクラス名がTSX/TS内のどこかに語として現れるか」。className への
+// クラスの判定は「そのクラス名がTSX/TS内のどこかに語として現れるか」。className への
 // 直書きだけでなく、テンプレート文字列での連結や状態クラス（' open' など）も
 // 拾えるよう、あえて緩く見る。緩い側に倒すのは、誤検知でpushが止まる方が
 // 見逃しより高コストだから。
+//
+// IDの判定は「id を渡しうる書き方の中に現れるか」。クラスと同じ“語としてどこかに
+// 現れるか”では緩すぎて役に立たない: 実際に死んでいた `#stage` は、無関係な
+// `.stage-root` や英文の "stage"、JSの状態フィールド `s.stage` に当たって
+// 生き残ってしまう。IDは className と違って id 属性・aria の参照・#フラグメント
+// といった限られた形でしか付かないので、そこだけを見れば緩さを保ったまま効く。
 //
 // 例外の付け方: そのCSS行か直前の行に `css-ok` とコメントを書く（理由も添える）。
 import { readFileSync, existsSync } from 'node:fs'
@@ -34,6 +40,31 @@ const code = codeFiles.map((f) => readFileSync(f, 'utf8')).join('\n')
 
 // 疑似要素・疑似クラス・属性セレクタを外したうえでクラス名を拾う
 const CLASS_RE = /\.(-?[_a-zA-Z][\w-]*)/g
+const ID_RE = /#(-?[_a-zA-Z][\w-]*)/g
+
+// マークアップが付けうる id を集める。id 属性そのものに加え、id を指す
+// aria/label 系の属性と getElementById、それに `#foo`（querySelector や
+// href="#foo"）も生存の証拠として数える。属性値は aria-labelledby="a b" の
+// ように空白区切りの列挙がありうるのでトークンに割る。
+const ID_ATTR = 'id|htmlFor|for|list|form|popovertarget|aria-(?:labelledby|controls|describedby|details|owns|errormessage|activedescendant)'
+const ID_SOURCE_RE = new RegExp(
+  `(?:\\b(?:${ID_ATTR})\\s*=\\s*\\{?\\s*|getElementById\\(\\s*)(['"\`])([^'"\`]*)\\1`,
+  'g',
+)
+const idLiterals = new Set()
+// `id={`w-${i}`}` のように動的に組む場合は、`${` より前を前方一致の
+// ワイルドカードとして扱う（生きているものを死んだと言わない側に倒す）。
+const idPrefixes = []
+for (const m of code.matchAll(ID_SOURCE_RE)) {
+  for (const tok of m[2].split(/\s+/).filter(Boolean)) {
+    const dyn = tok.indexOf('${')
+    if (dyn < 0) idLiterals.add(tok)
+    else if (dyn > 0) idPrefixes.push(tok.slice(0, dyn))
+  }
+}
+for (const m of code.matchAll(ID_RE)) idLiterals.add(m[1])
+
+const idIsUsed = (id) => idLiterals.has(id) || idPrefixes.some((p) => id.startsWith(p))
 
 const annotatedCss = (lines, i) => {
   if ((lines[i] ?? '').includes('css-ok')) return true
@@ -73,26 +104,37 @@ for (const file of cssFiles) {
     for (const m of sel.matchAll(CLASS_RE)) {
       const cls = m[1]
       if (new RegExp(`\\b${cls.replace(/-/g, '\\-')}\\b`).test(code)) continue
-      findings.push({ file, line: i + 1, cls, sel: sel.trim() })
+      findings.push({ file, line: i + 1, kind: 'class', cls, sel: sel.trim() })
+    }
+    // a[href^='#'] のような属性セレクタの中身をIDと読み違えないよう外しておく
+    for (const m of sel.replace(/\[[^\]]*\]/g, ' ').matchAll(ID_RE)) {
+      if (idIsUsed(m[1])) continue
+      findings.push({ file, line: i + 1, kind: 'id', cls: m[1], sel: sel.trim() })
     }
   })
 }
 
 const baseline = new Set(existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : [])
-const key = (f) => `${f.file}|${f.cls}`
+// クラスの基準線キーは既存の `file|name` のまま。IDは `file|#name` として
+// 名前空間を分ける（同名のクラスとIDが衝突しないように）。
+const show = (kind, name) => (kind === 'id' ? `#${name}` : `.${name}`)
+const key = (f) => `${f.file}|${show(f.kind, f.cls).replace(/^\./, '')}`
 const fresh = findings.filter((f) => !baseline.has(key(f)))
 const seen = new Set(findings.map(key))
 const stale = [...baseline].filter((k) => !seen.has(k))
 
 if (fresh.length) {
-  console.error(`マークアップに存在しないクラスへのCSS ${fresh.length} 件（基準線に無い＝今回入ったもの）:\n`)
-  for (const f of fresh) console.error(`  ${f.file}:${f.line}  .${f.cls}   ← ${f.sel.slice(0, 80)}`)
+  console.error(`マークアップに存在しないクラス／IDへのCSS ${fresh.length} 件（基準線に無い＝今回入ったもの）:\n`)
+  for (const f of fresh) console.error(`  ${f.file}:${f.line}  ${show(f.kind, f.cls)}   ← ${f.sel.slice(0, 80)}`)
   console.error(`\nリネームの取り残しなら実体に合わせ、意図的なら css-ok とコメントを書いてください。`)
   process.exit(1)
 }
-console.log(`新規に効いていないCSSクラス: 0 件（${cssFiles.length} CSS / ${codeFiles.length} コードと照合）`)
+console.log(`新規に効いていないCSSクラス／ID: 0 件（${cssFiles.length} CSS / ${codeFiles.length} コードと照合）`)
 console.log(`既知の死んだCSS（基準線）: ${findings.length} 件 — 掃除は別タスク`)
 if (stale.length) {
   console.log(`\n基準線から外せるもの ${stale.length} 件（掃除済み。${BASELINE_PATH} から消してください）:`)
-  for (const k of stale) console.log('  ', k.replace('|', ' → .'))
+  for (const k of stale) {
+    const [f, name] = k.split('|')
+    console.log('  ', `${f} → ${name.startsWith('#') ? name : `.${name}`}`)
+  }
 }
