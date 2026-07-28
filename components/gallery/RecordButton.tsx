@@ -9,6 +9,7 @@ import { useExhibitionList } from '@/lib/exhibition'
 import { walkRef, canvasRef } from '@/lib/controller'
 import { startRecording, downloadClip, canRecord, pickWebmMime, type WalkRecorder } from '@/lib/recorder'
 import { showToast } from '@/lib/toast'
+import { useT } from '@/components/I18nProvider'
 
 // Per-work dwell is 6.2s (see useTour); add lead-in/out and a hard ceiling so a
 // stuck tour can never record forever.
@@ -17,6 +18,7 @@ const TAIL_MS = 1200
 const MAX_MS = 90_000
 
 export function useWalkRecorder() {
+  const t = useT()
   const count = useExhibitionList().length
   const [recording, setRecording] = useState(false)
   const [supported, setSupported] = useState(true)
@@ -52,16 +54,16 @@ export function useWalkRecorder() {
   function start() {
     const canvas = canvasRef.current
     if (!canvas || !canRecord(canvas)) {
-      showToast('Recording isn’t supported in this browser — try Chrome or Edge.')
+      showToast(t('artwork.recordUnsupported'))
       setSupported(false)
       return
     }
     const rec = startRecording(canvas, (blob) => {
       if (blob.size > 0) downloadClip(blob)
-      else showToast('The recording came out empty — please try again.')
+      else showToast(t('artwork.recordEmpty'))
     })
     if (!rec) {
-      showToast('Recording isn’t supported in this browser — try Chrome or Edge.')
+      showToast(t('artwork.recordUnsupported'))
       setSupported(false)
       return
     }

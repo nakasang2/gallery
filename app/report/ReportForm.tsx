@@ -30,7 +30,7 @@ export default function ReportForm({ about }: { about: string }) {
           <Link href="/terms" style={{ color: 'var(--gold)' }}>terms</Link>.
         </p>
         <p className="auth-links">
-          <Link href="/">Back to XIBIT360</Link>
+          <Link href="/">{t('me.backHome')}</Link>
         </p>
       </AuthShell>
     )
@@ -45,7 +45,7 @@ export default function ReportForm({ about }: { about: string }) {
       setDone(true)
     } catch (err) {
       console.error('report submit failed (is 0010_reports.sql applied?):', err)
-      alert(`Could not send the report — please try again later. ${err instanceof Error ? err.message : err}`)
+      alert(t('report.failed'))
     } finally {
       setBusy(false)
     }

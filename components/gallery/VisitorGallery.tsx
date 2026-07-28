@@ -6,6 +6,7 @@ import { useGallery } from '@/lib/store'
 import { recordVisit } from '@/lib/engagement'
 import LoadingScreen from '@/components/gallery/LoadingScreen'
 import type { PublicExhibition } from '@/lib/publish'
+import { useT } from '@/components/I18nProvider'
 
 // No dynamic() fallback here — the personalised LoadingScreen below covers the
 // chunk load, and GalleryApp renders the IDENTICAL screen the moment it mounts
@@ -26,6 +27,7 @@ export default function VisitorGallery({
    *  tally and show a "private preview" banner instead of a real visit. */
   ownerPreview?: boolean
 }) {
+  const t = useT()
   const [armed, setArmed] = useState(false)
   const [shellUp, setShellUp] = useState(false)
 
@@ -47,7 +49,7 @@ export default function VisitorGallery({
       {ownerPreview && shellUp && (
         <div className="owner-preview-banner" role="status">
           <span className="owner-preview-dot" aria-hidden="true" />
-          Private preview — only you can see this. Publish it to share.
+          {t('artwork.privatePreview')}
         </div>
       )}
     </>

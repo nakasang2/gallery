@@ -54,7 +54,7 @@ export default function GuestbookPanel() {
       setTimeout(() => setThanks(false), 2400)
       setEntries(await listGuestbook(galleryId))
     } catch (e) {
-      showToast(`Could not sign the guestbook: ${e instanceof Error ? e.message : e}`)
+      showToast(t('artwork.guestbookFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setBusy(false)
     }
@@ -105,7 +105,7 @@ export default function GuestbookPanel() {
               </li>
             ))}
           </ul>
-          {entries.length === 0 && <p className="gb-sub" style={{ marginTop: '1.4rem' }}>Be the first to sign.</p>}
+          {entries.length === 0 && <p className="gb-sub" style={{ marginTop: '1.4rem' }}>{t('guestbook.empty')}</p>}
         </>
       )}
     </aside>

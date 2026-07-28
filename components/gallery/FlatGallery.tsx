@@ -4,8 +4,10 @@
 import { useExhibitionList } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
+import { useT } from '@/components/I18nProvider'
 
 export default function FlatGallery() {
+  const t = useT()
   const list = useExhibitionList()
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
@@ -36,7 +38,7 @@ export default function FlatGallery() {
         <h1>{heading}</h1>
         <p>{subhead}</p>
         <p className="flat-note">
-          This browser cannot show the 3D room (WebGL unavailable), so the works are listed below.
+          {t('artwork.noWebgl')}
         </p>
       </header>
       {list.map((art, i) => (
@@ -53,7 +55,7 @@ export default function FlatGallery() {
           {art.desc && <p className="flat-desc">{art.desc}</p>}
         </article>
       ))}
-      {list.length === 0 && <p className="flat-note">No works are exhibited yet.</p>}
+      {list.length === 0 && <p className="flat-note">{t('artwork.noWorks')}</p>}
     </div>
   )
 }

@@ -28,9 +28,11 @@ import {
   WallPreview,
 } from '@/components/SpacePreviews'
 import type { ArtworkData } from '@/lib/artworks'
+import { useT } from '@/components/I18nProvider'
 
 // Profile editor (display name + bio). The display name is also used as the artist name on labels
 function ProfileEditor() {
+  const t = useT()
   const user = useGallery((s) => s.user)!
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const [displayName, setDisplayName] = useState('')
@@ -60,7 +62,7 @@ function ProfileEditor() {
       setSaved(true)
       setTimeout(() => setSaved(false), 1600)
     } catch (e) {
-      showToast(`Could not save your profile: ${e instanceof Error ? e.message : e}`)
+      showToast(t('panel.profileSaveFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setBusy(false)
     }
@@ -71,7 +73,7 @@ function ProfileEditor() {
       <div className="field-row">
         <input
           type="text"
-          placeholder="Display name (artist name)"
+          placeholder={t('panel.displayName')}
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
         />
@@ -79,7 +81,7 @@ function ProfileEditor() {
       <div className="field-row">
         <textarea
           className="bio-input"
-          placeholder="Bio / statement (optional)"
+          placeholder={t('panel.bio')}
           rows={2}
           value={bio}
           onChange={(e) => setBio(e.target.value)}
@@ -93,24 +95,24 @@ function ProfileEditor() {
 }
 
 function AccountSection() {
+  const t = useT()
   const user = useGallery((s) => s.user)
   const signOut = useGallery((s) => s.signOut)
 
   if (!supabase) {
-    return <p className="settings-note">Cloud storage is not configured (Supabase keys required in .env.local).</p>
+    return <p className="settings-note">{t('panel.notConfigured')}</p>
   }
 
   if (user) {
     return (
       <>
         <p className="settings-note">
-          Signed in as <b>{user.email ?? user.displayName}</b>. Exhibited works are stored in the cloud,
-          so your show looks the same on every device.
+          {t('panel.signedInNote', { email: user.email ?? user.displayName })}
         </p>
         <ProfileEditor />
         <div className="field-row">
-          <Link className="btn-line" href="/me">Dashboard</Link>
-          <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
+          <Link className="btn-line" href="/me">{t('common.dashboard')}</Link>
+          <button className="btn-line" onClick={() => void signOut()}>{t('me.signOut')}</button>
         </div>
       </>
     )
@@ -120,12 +122,11 @@ function AccountSection() {
   return (
     <>
       <p className="settings-note">
-        Sign in to store your works in the cloud and publish your gallery at a public URL.
-        Without an account, you can still exhibit inside this browser.
+        {t('panel.signedOutNote')}
       </p>
       <div className="field-row">
-        <Link className="btn-line" href="/signin">Sign in</Link>
-        <Link className="btn-line" href="/signup">Create account</Link>
+        <Link className="btn-line" href="/signin">{t('common.signIn')}</Link>
+        <Link className="btn-line" href="/signup">{t('me.createAccount')}</Link>
       </div>
     </>
   )
@@ -133,6 +134,7 @@ function AccountSection() {
 
 // Publish: thin status + toggle. Title/URL/username management lives in the dashboard
 function PublishSection() {
+  const t = useT()
   const username = useGallery((s) => s.profileUsername)
   const myGallery = useGallery((s) => s.myGallery)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
@@ -147,8 +149,8 @@ function PublishSection() {
   if (!myGallery) {
     return (
       <p className="settings-note">
-        Create your gallery from the <Link href="/me" style={{ color: 'var(--gold)' }}>dashboard</Link> first
-        — then you can publish it from here.
+        {t('panel.createFromDashboard')}{' '}
+        <Link href="/me" style={{ color: 'var(--gold)' }}>{t('common.dashboard')}</Link>
       </p>
     )
   }
@@ -164,7 +166,7 @@ function PublishSection() {
       await setGalleryPublic(myGallery!, nextPublic, settings, ownArtworks)
       await refreshMyGallery()
     } catch (e) {
-      showToast(`Publishing failed: ${e instanceof Error ? e.message : e}`)
+      showToast(t('panel.publishFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setBusy(false)
     }
@@ -175,7 +177,7 @@ function PublishSection() {
       <div className="field-row">
         {myGallery.is_public ? (
           <button className="btn-line" disabled={busy} onClick={() => void toggle(false)}>
-            Make private
+            {t('panel.makePrivate')}
           </button>
         ) : (
           <button
@@ -183,18 +185,18 @@ function PublishSection() {
             disabled={busy || ownArtworks.length === 0 || !username}
             onClick={() => void toggle(true)}
           >
-            Open to the public
+            {t('panel.openToPublic')}
           </button>
         )}
       </div>
       {!username && (
         <p className="settings-note">
-          Set a username in the <Link href="/me" style={{ color: 'var(--gold)' }}>dashboard</Link> first —
-          it becomes part of your public URL.
+          {t('panel.needUsername')}{' '}
+          <Link href="/me" style={{ color: 'var(--gold)' }}>{t('common.dashboard')}</Link>
         </p>
       )}
       {username && ownArtworks.length === 0 && !myGallery.is_public && (
-        <p className="settings-note">Exhibit at least one work before publishing.</p>
+        <p className="settings-note">{t('panel.needWork')}</p>
       )}
       {myGallery.is_public && publicUrl && (
         <p className="settings-note">
@@ -223,6 +225,7 @@ function PublishSection() {
 }
 
 export default function SettingsPanel() {
+  const t = useT()
   const open = useGallery((s) => s.settingsOpen)
   const setOpen = useGallery((s) => s.setSettingsOpen)
   const updateSettings = useGallery((s) => s.updateSettings)
@@ -284,7 +287,7 @@ export default function SettingsPanel() {
         revealNew(prevIds)
       } catch (e) {
         console.error('upload failed (are supabase/migrations applied?):', e)
-        showToast(`Upload failed: ${e instanceof Error ? e.message : e}`)
+        showToast(t('panel.uploadFailed', { msg: String(e instanceof Error ? e.message : e) }))
       } finally {
         setUploading(false)
       }
@@ -302,16 +305,16 @@ export default function SettingsPanel() {
   async function onVideoFile(file: File, title: string) {
     // Videos are too large for localStorage, so cloud exhibit only
     if (!user) {
-      showToast('Exhibiting video works requires an account — see the Account section.')
+      showToast(t('panel.videoNeedsAccount'))
       return
     }
     // ① Video Pass gate (REQUIREMENTS §11.5) — video exhibits are a paid axis
     if (!entitlements.videoEnabled) {
-      showToast('Video exhibits need Video Pass. Images are always free — Video Pass unlocks moving works.')
+      showToast(t('panel.videoNeedsPass'))
       return
     }
     if (file.size > VIDEO_MAX_BYTES) {
-      showToast(`Videos are limited to ${Math.floor(VIDEO_MAX_BYTES / 1024 / 1024)}MB (“${file.name}” is ${Math.ceil(file.size / 1024 / 1024)}MB).`)
+      showToast(t('panel.videoTooLarge', { max: Math.floor(VIDEO_MAX_BYTES / 1024 / 1024), name: file.name, size: Math.ceil(file.size / 1024 / 1024) }))
       return
     }
     const prevIds = new Set(ownArtworks.map((a) => a.id))
@@ -330,7 +333,7 @@ export default function SettingsPanel() {
       revealNew(prevIds)
     } catch (e) {
       console.error('video upload failed (is 0002_video.sql applied?):', e)
-      showToast(`Video upload failed: ${e instanceof Error ? e.message : e}`)
+      showToast(t('panel.videoUploadFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setUploading(false)
     }
@@ -358,7 +361,7 @@ export default function SettingsPanel() {
           entries.push({ title, dataUrl, w, h })
         }
       } catch {
-        showToast(`Could not read “${file.name}”.`)
+        showToast(t('panel.couldNotRead', { name: file.name }))
       }
     }
     titleRef.current.value = ''
@@ -398,7 +401,7 @@ export default function SettingsPanel() {
       titleRef.current.value = ''
       urlRef.current.value = ''
     } catch {
-      showToast('Could not load the image. The host may not allow CORS — try uploading the file instead.')
+      showToast(t('panel.corsFailed'))
     }
   }
 
@@ -408,7 +411,7 @@ export default function SettingsPanel() {
         await deleteArtwork(user.id, art.id)
         await refreshCloud()
       } catch (e) {
-        showToast(`Could not remove the work: ${e instanceof Error ? e.message : e}`)
+        showToast(t('panel.removeFailed', { msg: String(e instanceof Error ? e.message : e) }))
       }
     } else {
       const drop = (m: Record<string, string>) => {
@@ -459,13 +462,13 @@ export default function SettingsPanel() {
 
   return (
     <aside id="settings" className={`settings${open ? ' open' : ''}`} aria-hidden={!open} inert={!open}>
-      <button className="panel-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
+      <button className="panel-close" aria-label={t('panel.close')} onClick={() => setOpen(false)}>×</button>
       <h2 className="settings-title">
         Edit space
         {/* Cloud write-through status — edits to a public gallery must never fail silently */}
         {user && myGallery && syncState !== 'idle' && (
           syncState === 'error' ? (
-            <button className="sync-chip error" onClick={retrySync}>Sync failed — retry</button>
+            <button className="sync-chip error" onClick={retrySync}>{t('panel.syncFailed')}</button>
           ) : (
             <span className={`sync-chip ${syncState}`}>{syncState === 'saving' ? 'Saving…' : 'Saved'}</span>
           )
@@ -474,8 +477,8 @@ export default function SettingsPanel() {
 
       {/* Hanging your own work is the point of the product — it comes first */}
       <section className="settings-section">
-        <h3>Exhibit your work</h3>
-        <button className="btn-line" onClick={() => setIgNote(!igNote)}>Pick from Instagram</button>
+        <h3>{t('panel.exhibitYourWork')}</h3>
+        <button className="btn-line" onClick={() => setIgNote(!igNote)}>{t('panel.fromInstagram')}</button>
         {igNote && (
           <p className="settings-note">
             Official integration requires the Instagram Graph API (business/creator accounts), so this is a mock
@@ -483,9 +486,9 @@ export default function SettingsPanel() {
           </p>
         )}
         <div className="field-row">
-          <input ref={titleRef} type="text" placeholder="Title (optional, single upload)" />
+          <input ref={titleRef} type="text" placeholder={t('panel.titleOptional')} />
           {/* Signed-in users' artist name comes from their profile */}
-          {!user && <input ref={artistRef} type="text" placeholder="Artist (optional)" />}
+          {!user && <input ref={artistRef} type="text" placeholder={t('panel.artistOptional')} />}
         </div>
         <label className="btn-line file-btn" aria-disabled={uploading}>
           {uploading ? 'Uploading…' : 'Upload image / video'}
@@ -506,12 +509,12 @@ export default function SettingsPanel() {
           they loop in the room and become audible as you approach.
         </p>
         <div className="field-row">
-          <input ref={urlRef} type="url" placeholder="Paste an image URL" />
+          <input ref={urlRef} type="url" placeholder={t('panel.pasteUrl')} />
           <button className="btn-line" onClick={() => void onAddUrl()}>Add</button>
         </div>
         {ownArtworks.length > 0 && (
           <>
-            <p className="settings-note">Use ▲▼ to reorder your exhibited works (slots).</p>
+            <p className="settings-note">{t('panel.reorderHint')}</p>
             <ul className="my-works">
               {ownArtworks.map((art, i) => (
                 <li key={art.id}>
@@ -564,13 +567,13 @@ export default function SettingsPanel() {
               checked={settings.showDemo}
               onChange={(e) => updateSettings({ showDemo: e.target.checked })}
             />
-            Show the demo collection
+            {t('panel.showDemo')}
           </label>
         )}
       </section>
 
       <section className="settings-section">
-        <h3>Template</h3>
+        <h3>{t('panel.template')}</h3>
         {/* A template sets every axis below in one go — shown as pictures, not names */}
         <div className="tpl-grid">
           {Object.keys(TEMPLATES).map((key) => (
@@ -601,7 +604,7 @@ export default function SettingsPanel() {
       </section>
 
       <section className="settings-section">
-        <h3>Theme</h3>
+        <h3>{t('panel.theme')}</h3>
         {/* Wall / floor / light colours shown right on the chip */}
         <div className="chips">
           {Object.entries(THEMES).map(([key, def]) => {
@@ -631,11 +634,11 @@ export default function SettingsPanel() {
             )
           })}
         </div>
-        <p className="settings-note">Switching theme applies its recommended framing; adjust below to taste.</p>
+        <p className="settings-note">{t('panel.themeNote')}</p>
       </section>
 
       <section className="settings-section">
-        <h3>Layout</h3>
+        <h3>{t('panel.layout')}</h3>
         {/* Floor plans generated from the real layout data: room, hanging spots, benches */}
         <div className="chips">
           {Object.entries(LAYOUTS).map(([key, def]) => {
@@ -660,7 +663,7 @@ export default function SettingsPanel() {
             onClick={() => updateSettings({ layout: 'custom' })}
           >
             <LayoutPlan layoutKey="custom" params={settings.layoutParams} className="chip-plan" />
-            Custom
+            {t('panel.custom')}
           </button>
         </div>
         {purchaseItem && (
@@ -723,14 +726,14 @@ export default function SettingsPanel() {
                   updateSettings({ layoutParams: { ...settings.layoutParams, island: e.target.checked } })
                 }
               />
-              Centre wall (4 extra slots)
+              {t('panel.centreWall')}
             </label>
           </div>
         )}
       </section>
 
       <section className="settings-section">
-        <h3>Framing — all works</h3>
+        <h3>{t('panel.framingAll')}</h3>
         {/* Each chip shows the art IN that frame (bar, mat, colour from the real preset) */}
         <div className="chips">
           {Object.entries(FRAMES).map(([key, def]) => (
@@ -747,11 +750,11 @@ export default function SettingsPanel() {
             </button>
           ))}
         </div>
-        <p className="settings-note">To change a single work, open it and use the panel.</p>
+        <p className="settings-note">{t('panel.perWorkNote')}</p>
       </section>
 
       <section className="settings-section">
-        <h3>Mat — all works</h3>
+        <h3>{t('panel.matAll')}</h3>
         {/* The paper border inside the frame: none / colours, shown on the current frame */}
         <div className="chips">
           {Object.entries(MATS).map(([key, def]) => (
@@ -774,7 +777,7 @@ export default function SettingsPanel() {
       </section>
 
       <section className="settings-section">
-        <h3>Hanging — all works</h3>
+        <h3>{t('panel.hangingAll')}</h3>
         <div className="chips">
           {Object.entries(HANGINGS).map(([key, def]) => (
             <button
@@ -793,7 +796,7 @@ export default function SettingsPanel() {
       </section>
 
       <section className="settings-section">
-        <h3>Caption — all works</h3>
+        <h3>{t('panel.captionAll')}</h3>
         <div className="chips">
           {Object.entries(CAPTIONS).map(([key, def]) => (
             <button
@@ -809,17 +812,17 @@ export default function SettingsPanel() {
             </button>
           ))}
         </div>
-        <p className="settings-note">To change a single work, open it and use the panel.</p>
+        <p className="settings-note">{t('panel.perWorkNote')}</p>
       </section>
 
       <section className="settings-section">
-        <h3>Account</h3>
+        <h3>{t('panel.account')}</h3>
         <AccountSection />
       </section>
 
       {user && (
         <section className="settings-section">
-          <h3>Publish</h3>
+          <h3>{t('panel.publish')}</h3>
           <PublishSection />
         </section>
       )}

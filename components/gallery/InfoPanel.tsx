@@ -4,8 +4,10 @@
 import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
 import { DEFAULT_TITLE_TEXT } from './textures'
+import { useT } from '@/components/I18nProvider'
 
 export default function InfoPanel() {
+  const t = useT()
   const infoOpen = useGallery((s) => s.infoOpen)
   const setInfoOpen = useGallery((s) => s.setInfoOpen)
   const visitor = useGallery((s) => s.visitor)
@@ -35,7 +37,7 @@ export default function InfoPanel() {
 
   return (
     <aside id="info-panel" className={`panel${infoOpen ? ' open' : ''}`} aria-hidden={!infoOpen} inert={!infoOpen}>
-      <button className="panel-close" aria-label="Close" onClick={() => setInfoOpen(false)}>
+      <button className="panel-close" aria-label={t('common.close')} onClick={() => setInfoOpen(false)}>
         ×
       </button>
       <div className="panel-no">{eyebrow}</div>
@@ -45,7 +47,7 @@ export default function InfoPanel() {
       {artistBio && (
         <>
           <div className="panel-frame-label" style={{ marginTop: '1.3rem' }}>
-            About the artist
+            {t('artwork.aboutArtist')}
           </div>
           <p className="panel-desc">{artistBio}</p>
         </>

@@ -11,6 +11,7 @@ import { getArtTexture, getCanvasWeave, getFrameFinish, getNeutralEnvTexture, di
 import { exhibitExtents, makeFrameGeo } from './Exhibit'
 import type { ArtworkData } from '@/lib/artworks'
 import type { FrameDef, ThemeDef } from '@/lib/presets'
+import { useT } from '@/components/I18nProvider'
 
 // Faint symmetric environment (metal frame catches it) — same source the room uses,
 // so gold/steel frames read the way they do on the wall.
@@ -177,6 +178,7 @@ export default function ArtworkPreview3D({
   theme: ThemeDef
   onClose: () => void
 }) {
+  const t = useT()
   const { width, height } = exhibitExtents(art, frameDef)
   const maxDim = Math.max(width, height)
   // Frame the object with a little air; zoom range keeps it from clipping or flying off.
@@ -241,10 +243,10 @@ export default function ArtworkPreview3D({
           />
         )}
       </Canvas>
-      <button className="artpreview-close" aria-label="Close preview" onClick={onClose}>
+      <button className="artpreview-close" aria-label={t('artwork.closePreview')} onClick={onClose}>
         ×
       </button>
-      <div className="artpreview-hint">Drag to rotate · scroll or pinch to zoom</div>
+      <div className="artpreview-hint">{t('artwork.previewHint')}</div>
     </div>
   )
 }

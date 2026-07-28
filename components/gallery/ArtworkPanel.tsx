@@ -139,7 +139,7 @@ export default function ArtworkPanel() {
     >
       <button
         className="panel-close"
-        aria-label="Close"
+        aria-label={t('common.close')}
         onClick={() => {
           setTourActive(false)
           setFocused(-1)
@@ -154,7 +154,7 @@ export default function ArtworkPanel() {
           <div className="panel-nav">
             <button
               className="panel-nav-btn"
-              aria-label="Previous work"
+              aria-label={t('artwork.previous')}
               onClick={() => walkRef.current?.focusStep(-1)}
             >
               ‹
@@ -166,7 +166,7 @@ export default function ArtworkPanel() {
             </span>
             <button
               className="panel-nav-btn"
-              aria-label="Next work"
+              aria-label={t('artwork.next')}
               onClick={() => walkRef.current?.focusStep(1)}
             >
               ›
@@ -184,7 +184,7 @@ export default function ArtworkPanel() {
           {visitor && <LikeButton galleryId={visitor.galleryId} artworkId={art.id} />}
           {/* Lift the work off the wall into a dedicated preview space to rotate/zoom it */}
           <button className="panel-view3d" onClick={() => setPreview3d(true)}>
-            <span aria-hidden="true">⛶</span> View in 3D
+            <span aria-hidden="true">⛶</span> {t('artwork.viewIn3D')}
           </button>
           <p className="panel-desc">{art.desc}</p>
           <div className="panel-tags">
@@ -205,7 +205,7 @@ export default function ArtworkPanel() {
               varied looks are set in code, not tweaked by casual visitors). */}
           {!visitor && !demoMode && (
             <div className="panel-frame">
-              <div className="panel-frame-label">Design — this work</div>
+              <div className="panel-frame-label">{t('artwork.designThisWork')}</div>
               <WorkDesign
                 frameKey={frameKeyFor(settings, art)}
                 matKey={matKeyFor(settings, art)}

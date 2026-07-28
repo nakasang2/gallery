@@ -81,7 +81,7 @@ export default function SignUpPage() {
     return (
       <AuthShell title={t('auth.checkInbox')}>
         <p className="auth-note">
-          We sent a confirmation link to <b>{email.trim()}</b>. Open it and you&apos;ll land in your
+          {t('artwork.confirmSentTo')} <b>{email.trim()}</b>. Open it and you&apos;ll land in your
           dashboard, signed in.
         </p>
         <div className="auth-alt">

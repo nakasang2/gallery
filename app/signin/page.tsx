@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
+import { useT } from '@/components/I18nProvider'
 
 export default function SignInPage() {
+  const t = useT()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,8 +20,8 @@ export default function SignInPage() {
 
   if (!supabase) {
     return (
-      <AuthShell title="Sign in">
-        <p className="auth-note">Cloud features are not configured (Supabase keys required in .env.local).</p>
+      <AuthShell title={t('auth.signIn')}>
+        <p className="auth-note">{t('auth.notConfigured')}</p>
       </AuthShell>
     )
   }
@@ -51,7 +53,7 @@ export default function SignInPage() {
 
   async function magicLink() {
     if (!email.trim()) {
-      setError('Enter your email address first, then request the link.')
+      setError(t('auth.magicNeedsEmail'))
       return
     }
     setBusy(true)
@@ -75,10 +77,10 @@ export default function SignInPage() {
   }
 
   return (
-    <AuthShell title="Sign in">
+    <AuthShell title={t('auth.signIn')}>
       <form onSubmit={(e) => void signIn(e)}>
         <label className="auth-field">
-          <span>Email</span>
+          <span>{t('auth.email')}</span>
           <input
             type="email"
             autoComplete="email"
@@ -88,7 +90,7 @@ export default function SignInPage() {
           />
         </label>
         <label className="auth-field">
-          <span>Password</span>
+          <span>{t('auth.password2')}</span>
           <input
             type="password"
             autoComplete="current-password"
@@ -100,26 +102,26 @@ export default function SignInPage() {
         {error && <p className="auth-error">{error}</p>}
         {needsConfirm && !confirmSent && (
           <button type="button" className="btn-line" disabled={busy} onClick={() => void resendConfirmation()}>
-            Resend confirmation email
+            {t('auth.resendConfirm')}
           </button>
         )}
-        {confirmSent && <p className="auth-note">Confirmation email resent — check your inbox.</p>}
+        {confirmSent && <p className="auth-note">{t('auth.confirmResent')}</p>}
         <button className="auth-submit" disabled={busy} type="submit">
           Sign in
         </button>
       </form>
       <div className="auth-alt">
         <button className="btn-line" disabled={busy} onClick={() => void magicLink()}>
-          Email me a sign-in link instead
+          {t('auth.magicLink')}
         </button>
         <button className="btn-line" onClick={() => void google()}>
-          Continue with Google
+          {t('auth.continueWithGoogle')}
         </button>
-        {linkSent && <p className="auth-note">Sign-in link sent — check your inbox.</p>}
+        {linkSent && <p className="auth-note">{t('auth.magicSent')}</p>}
       </div>
       <p className="auth-links">
-        <Link href="/reset">Forgot password?</Link>
-        <Link href="/signup">Create an account</Link>
+        <Link href="/reset">{t('auth.forgotPassword')}</Link>
+        <Link href="/signup">{t('auth.createAnAccount')}</Link>
       </p>
     </AuthShell>
   )

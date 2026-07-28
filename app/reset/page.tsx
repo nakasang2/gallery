@@ -6,10 +6,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
+import { useT } from '@/components/I18nProvider'
 
 const MIN_PASSWORD = 8
 
 export default function ResetPage() {
+  const t = useT()
   const [mode, setMode] = useState<'request' | 'update'>('request')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -32,8 +34,8 @@ export default function ResetPage() {
 
   if (!supabase) {
     return (
-      <AuthShell title="Reset password">
-        <p className="auth-note">Cloud features are not configured (Supabase keys required in .env.local).</p>
+      <AuthShell title={t('auth.resetTitle')}>
+        <p className="auth-note">{t('auth.notConfigured')}</p>
       </AuthShell>
     )
   }
@@ -68,10 +70,10 @@ export default function ResetPage() {
 
   if (updated) {
     return (
-      <AuthShell title="Password updated">
-        <p className="auth-note">Your new password is set. You are signed in.</p>
+      <AuthShell title={t('auth.updatedTitle')}>
+        <p className="auth-note">{t('auth.updatedBody')}</p>
         <p className="auth-links">
-          <Link href="/me">Go to your dashboard</Link>
+          <Link href="/me">{t('auth.goToDashboard')}</Link>
         </p>
       </AuthShell>
     )
@@ -79,7 +81,7 @@ export default function ResetPage() {
 
   if (mode === 'update') {
     return (
-      <AuthShell title="Set a new password">
+      <AuthShell title={t('auth.setNewTitle')}>
         <form onSubmit={(e) => void updatePassword(e)}>
           <label className="auth-field">
             <span>New password (min {MIN_PASSWORD} characters)</span>
@@ -94,7 +96,7 @@ export default function ResetPage() {
           </label>
           {error && <p className="auth-error">{error}</p>}
           <button className="auth-submit" disabled={busy} type="submit">
-            Update password
+            {t('auth.updatePassword')}
           </button>
         </form>
       </AuthShell>
@@ -102,16 +104,16 @@ export default function ResetPage() {
   }
 
   return (
-    <AuthShell title="Reset password">
+    <AuthShell title={t('auth.resetTitle')}>
       {sent ? (
         <p className="auth-note">
-          If an account exists for <b>{email.trim()}</b>, a reset link is on its way. Open it and
+          {t('auth.resetSentIfExists')} <b>{email.trim()}</b>, a reset link is on its way. Open it and
           you will land back here to set a new password.
         </p>
       ) : (
         <form onSubmit={(e) => void requestLink(e)}>
           <label className="auth-field">
-            <span>Email</span>
+            <span>{t('auth.email')}</span>
             <input
               type="email"
               autoComplete="email"
@@ -122,12 +124,12 @@ export default function ResetPage() {
           </label>
           {error && <p className="auth-error">{error}</p>}
           <button className="auth-submit" disabled={busy} type="submit">
-            Send reset link
+            {t('auth.resetSend')}
           </button>
         </form>
       )}
       <p className="auth-links">
-        <Link href="/signin">Back to sign in</Link>
+        <Link href="/signin">{t('auth.backToSignIn')}</Link>
       </p>
     </AuthShell>
   )
