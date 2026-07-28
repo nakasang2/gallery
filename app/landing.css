@@ -1152,3 +1152,40 @@ html { scroll-padding-top: 72px; }
   .nav-actions { gap: 0.4rem; flex: 0 0 auto; }
   .nav-actions .btn-small { padding: 0.55em 0.9em; font-size: 0.62rem; white-space: nowrap; }
 }
+
+/* ---- 日本語の組版 ----
+   日本語は単語の途中どこでも改行できるため、放っておくと見出しの最後の
+   1〜2文字だけが次行に落ちる（「自分の光の中 / へ。」）。本文も「リンクひと /
+   つ」のように文節の途中で切れる。英語には影響させたくないので lang で絞る。
+   balance は見出しの行長を揃え、auto-phrase は文節を見て改行位置を選ぶ
+   （Chrome/Edge。非対応ブラウザは従来どおりに折り返すだけで壊れない）。 */
+html[lang='ja'] .hero-title,
+html[lang='ja'] .concept-statement,
+html[lang='ja'] .section-title,
+html[lang='ja'] .closing-title,
+html[lang='ja'] .cfeat h3,
+html[lang='ja'] .flow-steps h3 {
+  text-wrap: balance;
+  word-break: auto-phrase;
+}
+html[lang='ja'] .hero-sub,
+html[lang='ja'] .closing-sub,
+html[lang='ja'] .concept-cols p,
+html[lang='ja'] .cfeat p,
+html[lang='ja'] .flow-steps p,
+html[lang='ja'] .demo-body p,
+html[lang='ja'] .pricing-note {
+  word-break: auto-phrase;
+}
+
+/* .closing は縦方向のflexなので、.closing-inner の幅は「内容の最小幅」で
+   決まり、それが親より広いとそのまま溢れる。英語は単語単位で最小幅が小さく
+   露見しなかったが、日本語は1文節が長いため 390px の画面で446pxになっていた。
+   親の内容幅で頭打ちにする（min-widthだけでは交差軸なので効かない）。 */
+.closing-inner { min-width: 0; max-width: min(820px, 100%); }
+
+/* 和文は同じ級数でも欧文より大きく見え、字数あたりの幅も広い。表示用の
+   大見出しだけ少し詰めて、1行あたりの字数を稼ぐ（本文は変えない）。 */
+html[lang='ja'] .hero-title { font-size: clamp(2.1rem, 8.2vw, 5.2rem); }
+html[lang='ja'] .closing-title { font-size: clamp(2rem, 7.6vw, 4.6rem); }
+html[lang='ja'] .concept-statement { font-size: clamp(1.9rem, 7.4vw, 4rem); }
