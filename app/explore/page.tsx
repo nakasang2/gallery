@@ -31,7 +31,7 @@ export default async function ExplorePage() {
       <div className="me-inner">
         <div className="me-top">
           <Link href="/" className="auth-logo">XIBIT360</Link>
-          <Link href="/signup" className="btn-line">Start free</Link>
+          <Link href="/signup" className="btn-line">{t('common.startFree')}</Link>
         </div>
 
         <h1 className="artist-name">{t('explore.title')}</h1>
@@ -50,7 +50,7 @@ export default async function ExplorePage() {
                 <FeedCard key={`sp-${g.username}/${g.slug}`} g={g} />
               ))}
             </div>
-            <p className="spotlight-divider" aria-hidden="true">All exhibitions</p>
+            <p className="spotlight-divider" aria-hidden="true">{t('artwork.allExhibitions')}</p>
           </section>
         )}
 

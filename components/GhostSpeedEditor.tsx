@@ -10,6 +10,7 @@ import {
   GHOST_WALK_MIN,
   GHOST_WALK_MAX,
 } from '@/lib/siteConfig'
+import { useT } from '@/components/I18nProvider'
 
 function label(v: number): string {
   if (v < 1.0) return 'a gentle drift'
@@ -19,6 +20,7 @@ function label(v: number): string {
 }
 
 export default function GhostSpeedEditor() {
+  const t = useT()
   const [male, setMale] = useState(GHOST_WALK_DEFAULT)
   const [female, setFemale] = useState(GHOST_WALK_DEFAULT)
   const [savedMale, setSavedMale] = useState(GHOST_WALK_DEFAULT)
@@ -93,10 +95,10 @@ export default function GhostSpeedEditor() {
 
   return (
     <section className="me-section">
-      <h2>Ghost walk speed</h2>
+      <h2>{t('adminUi.ghostSpeed')}</h2>
       <p className="me-note" style={{ marginTop: 0 }}>
         How fast the ambient past-visitor figures walk (m/s), per model. Their step animation
-        locks to this, so any speed still looks natural. {saved && <b style={{ color: 'var(--gold)' }}>Saved</b>}
+        locks to this, so any speed still looks natural. {saved && <b style={{ color: 'var(--gold)' }}>{t('common.saved')}</b>}
       </p>
       {row('Male', male, setMale)}
       {row('Female', female, setFemale)}
@@ -113,7 +115,7 @@ export default function GhostSpeedEditor() {
               setFemale(GHOST_WALK_DEFAULT)
             }}
           >
-            Reset to default
+            {t('adminUi.resetDefault')}
           </button>
         )}
       </div>

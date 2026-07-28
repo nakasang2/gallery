@@ -595,6 +595,56 @@ export const en = {
     noExhibitions: 'No public exhibitions yet.',
     reportProblem: 'Report a problem',
   },
+
+  adminUi: {
+    console: 'Admin console',
+    intro: 'Platform-wide view — revenue, packages, and every exhibition.',
+    noAccess: 'This account doesn’t have admin access.',
+    signInPrompt: 'Sign in with an admin account to continue.',
+    loading: 'Loading…',
+
+    guides: 'Guides',
+    shownAt: 'Articles shown at',
+    edit: 'Edit',
+    delete: 'Delete',
+    noArticles: 'No articles yet.',
+    articleTitle: 'Title',
+    articleTitlePlaceholder: 'How to open a web solo show',
+    slug: 'URL slug — /articles/…',
+    excerpt: 'Excerpt (list + SEO description)',
+    excerptPlaceholder: 'One or two sentences shown on the list and in search results.',
+    coverUrl: 'Cover image URL (optional)',
+    body: 'Body (Markdown)',
+    published: 'Published (visible at /articles)',
+    preview: 'Preview',
+    deleteArticle: 'Delete “{name}”? This cannot be undone.',
+
+    spotlight: 'Explore spotlight',
+    heading: 'Heading',
+    subtitle: 'Subtitle',
+    subtitleHint: 'One line under the heading (optional)',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    remove: 'Remove',
+
+    lpHero: 'Landing page hero',
+    demoDefault: 'Demo default',
+    clear: 'Clear',
+    uploadFailed: 'Upload failed: {msg}',
+    saveFailed: 'Could not save: {msg}',
+
+    ghostSpeed: 'Ghost walk speed',
+    resetDefault: 'Reset to default',
+    demoLook: 'Demo look',
+    demoLookNote: 'The theme the public /demo showcase opens in.',
+  },
+
+  catalog: {
+    title: 'Exhibition Catalog',
+    forSale: 'Available for purchase',
+    empty: 'This exhibition has no works yet.',
+    download: 'Download PDF',
+  },
 } as const
 
 /** Same keys, but values widened from literals to `string` — `as const` above is

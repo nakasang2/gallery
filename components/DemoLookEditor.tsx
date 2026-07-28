@@ -6,8 +6,10 @@ import { useEffect, useRef, useState } from 'react'
 import { fetchDemoLook, saveDemoLook } from '@/lib/siteConfig'
 import { THEMES } from '@/lib/presets'
 import { ThemeSwatch } from '@/components/SpacePreviews'
+import { useT } from '@/components/I18nProvider'
 
 export default function DemoLookEditor() {
+  const t = useT()
   const [theme, setTheme] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -52,9 +54,9 @@ export default function DemoLookEditor() {
 
   return (
     <section className="me-section">
-      <h2>Demo look</h2>
+      <h2>{t('adminUi.demoLook')}</h2>
       <p className="me-note" style={{ marginTop: 0 }}>
-        The theme the public <code>/demo</code> showcase opens in. {saved && <b style={{ color: 'var(--gold)' }}>Saved</b>}
+        {t('adminUi.demoLookNote')} {saved && <b style={{ color: 'var(--gold)' }}>{t('common.saved')}</b>}
       </p>
       <div className="chips">
         {Object.entries(THEMES).map(([key, def]) => (

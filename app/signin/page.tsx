@@ -107,7 +107,7 @@ export default function SignInPage() {
         )}
         {confirmSent && <p className="auth-note">{t('auth.confirmResent')}</p>}
         <button className="auth-submit" disabled={busy} type="submit">
-          Sign in
+          {t('auth.signIn')}
         </button>
       </form>
       <div className="auth-alt">

@@ -12,10 +12,12 @@ import {
   type ArticleInput,
 } from '@/lib/blog'
 import { renderMarkdown } from '@/lib/markdown'
+import { useT } from '@/components/I18nProvider'
 
 const BLANK: ArticleInput = { slug: '', title: '', excerpt: '', bodyMd: '', coverUrl: null, published: false }
 
 export default function ArticlesEditor() {
+  const t = useT()
   const [list, setList] = useState<Article[] | null>(null)
   const [editing, setEditing] = useState<ArticleInput | null>(null)
   const [existing, setExisting] = useState<Article | null>(null)
@@ -79,7 +81,7 @@ export default function ArticlesEditor() {
   }
 
   async function remove(a: Article) {
-    if (!confirm(`Delete “${a.title || a.slug}”? This can't be undone.`)) return
+    if (!confirm(t('adminUi.deleteArticle', { name: a.title || a.slug }))) return
     setBusy(true)
     try {
       await deleteArticle(a.id)
@@ -97,13 +99,13 @@ export default function ArticlesEditor() {
 
   return (
     <section className="me-section">
-      <h2>Guides</h2>
+      <h2>{t('adminUi.guides')}</h2>
       <p className="me-note" style={{ marginTop: 0 }}>
-        Articles shown at <code>/articles</code>. Draft privately, publish when ready. Body is Markdown.
+        {t('adminUi.shownAt')} <code>/articles</code>.
       </p>
 
       {list === null ? (
-        <p className="me-note">Loading…</p>
+        <p className="me-note">{t('adminUi.loading')}</p>
       ) : (
         <div className="admin-articles-list">
           {list.map((a) => (
@@ -112,11 +114,11 @@ export default function ArticlesEditor() {
                 {a.published ? 'Live' : 'Draft'}
               </span>
               <span className="admin-article-row-title">{a.title || a.slug || '(untitled)'}</span>
-              <button className="btn-line" onClick={() => edit(a)}>Edit</button>
-              <button className="btn-line danger" onClick={() => void remove(a)} disabled={busy}>Delete</button>
+              <button className="btn-line" onClick={() => edit(a)}>{t('adminUi.edit')}</button>
+              <button className="btn-line danger" onClick={() => void remove(a)} disabled={busy}>{t('adminUi.delete')}</button>
             </div>
           ))}
-          {list.length === 0 && <p className="me-note">No articles yet.</p>}
+          {list.length === 0 && <p className="me-note">{t('adminUi.noArticles')}</p>}
         </div>
       )}
 
@@ -125,29 +127,29 @@ export default function ArticlesEditor() {
       ) : (
         <div className="admin-article-editor">
           <label className="me-field">
-            <span>Title</span>
-            <input value={editing.title} onChange={(e) => set({ title: e.target.value })} placeholder="How to open a web solo show" />
+            <span>{t('adminUi.articleTitle')}</span>
+            <input value={editing.title} onChange={(e) => set({ title: e.target.value })} placeholder={t('adminUi.articleTitlePlaceholder')} />
           </label>
           <label className="me-field">
-            <span>URL slug — /articles/…</span>
+            <span>{t('adminUi.slug')}</span>
             <input value={editing.slug} onChange={(e) => set({ slug: e.target.value })} placeholder="open-a-web-solo-show" />
           </label>
           <label className="me-field">
-            <span>Excerpt (list + SEO description)</span>
-            <textarea value={editing.excerpt} onChange={(e) => set({ excerpt: e.target.value })} rows={2} placeholder="One or two sentences shown on the list and in search results." />
+            <span>{t('adminUi.excerpt')}</span>
+            <textarea value={editing.excerpt} onChange={(e) => set({ excerpt: e.target.value })} rows={2} placeholder={t('adminUi.excerptPlaceholder')} />
           </label>
           <label className="me-field">
-            <span>Cover image URL (optional)</span>
+            <span>{t('adminUi.coverUrl')}</span>
             <input value={editing.coverUrl ?? ''} onChange={(e) => set({ coverUrl: e.target.value.trim() || null })} placeholder="https://…" />
           </label>
           <label className="me-field">
-            <span>Body (Markdown)</span>
+            <span>{t('adminUi.body')}</span>
             <textarea className="md-input" value={editing.bodyMd} onChange={(e) => set({ bodyMd: e.target.value })} placeholder={'## A heading\n\nA paragraph with **bold**, *italic* and a [link](https://example.com).\n\n- a list item\n- another'} />
           </label>
 
           <label className="checkbox-row" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.4rem 0 0.9rem' }}>
             <input type="checkbox" checked={editing.published} onChange={(e) => set({ published: e.target.checked })} />
-            <span>Published (visible at /articles)</span>
+            <span>{t('adminUi.published')}</span>
           </label>
 
           <div className="hako-actions">
@@ -155,14 +157,14 @@ export default function ArticlesEditor() {
               {busy ? 'Saving…' : saved ? 'Saved' : 'Save article'}
             </button>
             <button className="btn-line" onClick={() => { setEditing(null); setExisting(null); setErr('') }} disabled={busy}>
-              Close
+              {t('common.close')}
             </button>
           </div>
           {err && <p className="me-error">{err}</p>}
 
           {editing.bodyMd.trim() && (
             <div className="admin-article-preview">
-              <p className="admin-article-preview-label">Preview</p>
+              <p className="admin-article-preview-label">{t('adminUi.preview')}</p>
               <div className="article-body">{renderMarkdown(editing.bodyMd)}</div>
             </div>
           )}

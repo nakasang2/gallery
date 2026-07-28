@@ -440,7 +440,7 @@ export default function SettingsPanel() {
   function confirmOverrideReset(...maps: Record<string, string>[]): boolean {
     const n = new Set(maps.flatMap((m) => Object.keys(m))).size
     if (n === 0) return true
-    return confirm(`This resets the per-work design on ${n} work${n === 1 ? '' : 's'}. Continue?`)
+    return confirm(t('artwork.resetPerWork', { count: n }))
   }
   const allOverrideMaps = [
     settings.frameOverrides,

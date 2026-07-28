@@ -6,8 +6,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useGallery } from '@/lib/store'
 import { uploadLpImage } from '@/lib/cloud'
 import { fetchLpHero, saveLpHero, LP_HERO_SLOTS, LP_HERO_SLOT_LABELS, type LpHeroSlot } from '@/lib/siteConfig'
+import { useT } from '@/components/I18nProvider'
 
 export default function LpHeroEditor() {
+  const t = useT()
   const user = useGallery((s) => s.user)
   const [slots, setSlots] = useState<LpHeroSlot[]>(Array(LP_HERO_SLOTS).fill(null))
   const [loaded, setLoaded] = useState(false)
@@ -42,7 +44,7 @@ export default function LpHeroEditor() {
       setSlots((prev) => prev.map((s, k) => (k === i ? img : s)))
       setDirty(true)
     } catch (e) {
-      if (alive.current) alert(`Upload failed: ${e instanceof Error ? e.message : e}`)
+      if (alive.current) alert(t('adminUi.uploadFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       if (alive.current) setBusy(null)
     }
@@ -62,7 +64,7 @@ export default function LpHeroEditor() {
       setDirty(false)
       savedTimer.current = setTimeout(() => setSaved(false), 1800)
     } catch (e) {
-      if (alive.current) alert(`Could not save: ${e instanceof Error ? e.message : e}`)
+      if (alive.current) alert(t('adminUi.saveFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       if (alive.current) setBusy(null)
     }
@@ -70,7 +72,7 @@ export default function LpHeroEditor() {
 
   return (
     <section className="me-section">
-      <h2>Landing page hero</h2>
+      <h2>{t('adminUi.lpHero')}</h2>
       <div className="me-card">
         <p className="me-note" style={{ marginTop: 0 }}>
           The three works visible at the top of the landing page (PC &amp; mobile). Upload an image
@@ -90,7 +92,7 @@ export default function LpHeroEditor() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img crossOrigin="anonymous" src={s.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Demo default</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t('adminUi.demoDefault')}</span>
                   )}
                 </div>
                 <div className="hako-actions" style={{ marginTop: '0.6rem' }}>
@@ -109,7 +111,7 @@ export default function LpHeroEditor() {
                   </label>
                   {s && (
                     <button className="btn-line" disabled={busy !== null} onClick={() => clearSlot(i)}>
-                      Clear
+                      {t('adminUi.clear')}
                     </button>
                   )}
                 </div>

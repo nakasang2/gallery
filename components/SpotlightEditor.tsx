@@ -11,8 +11,10 @@ import {
   type SpotlightConfig,
   type SpotlightRef,
 } from '@/lib/siteConfig'
+import { useT } from '@/components/I18nProvider'
 
 export default function SpotlightEditor() {
+  const t = useT()
   const [cfg, setCfg] = useState<SpotlightConfig>({ title: '', subtitle: '', items: [] })
   const [loaded, setLoaded] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -80,13 +82,13 @@ export default function SpotlightEditor() {
 
   return (
     <section className="me-section">
-      <h2>Explore spotlight</h2>
+      <h2>{t('adminUi.spotlight')}</h2>
       <p className="me-note" style={{ marginTop: 0 }}>
         A curated row shown above the Explore feed. Leave the heading blank to hide it. Up to {SPOTLIGHT_MAX} galleries.
       </p>
 
       <label className="me-field">
-        <span>Heading</span>
+        <span>{t('adminUi.heading')}</span>
         <input
           value={cfg.title}
           placeholder="e.g. Summer Show / #SummerShow"
@@ -94,10 +96,10 @@ export default function SpotlightEditor() {
         />
       </label>
       <label className="me-field">
-        <span>Subtitle</span>
+        <span>{t('adminUi.subtitle')}</span>
         <input
           value={cfg.subtitle}
-          placeholder="One line under the heading (optional)"
+          placeholder={t('adminUi.subtitleHint')}
           onChange={(e) => setCfg((c) => ({ ...c, subtitle: e.target.value }))}
         />
       </label>
@@ -121,9 +123,9 @@ export default function SpotlightEditor() {
               aria-label={`Gallery ${i + 1} slug`}
               onChange={(e) => setItem(i, { slug: e.target.value })}
             />
-            <button className="btn-line" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
-            <button className="btn-line" onClick={() => move(i, 1)} disabled={i === cfg.items.length - 1} aria-label="Move down">↓</button>
-            <button className="btn-line danger" onClick={() => removeItem(i)} aria-label="Remove">×</button>
+            <button className="btn-line" onClick={() => move(i, -1)} disabled={i === 0} aria-label={t('adminUi.moveUp')}>↑</button>
+            <button className="btn-line" onClick={() => move(i, 1)} disabled={i === cfg.items.length - 1} aria-label={t('adminUi.moveDown')}>↓</button>
+            <button className="btn-line danger" onClick={() => removeItem(i)} aria-label={t('adminUi.remove')}>×</button>
           </div>
         ))}
       </div>

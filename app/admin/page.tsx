@@ -14,8 +14,10 @@ import ArticlesEditor from '@/components/ArticlesEditor'
 import DemoLookEditor from '@/components/DemoLookEditor'
 import GhostSpeedEditor from '@/components/GhostSpeedEditor'
 import AuthShell from '@/components/auth/AuthShell'
+import { useT } from '@/components/I18nProvider'
 
 export default function AdminPage() {
+  const t = useT()
   const user = useGallery((s) => s.user)
   const initAuth = useGallery((s) => s.initAuth)
   const signOut = useGallery((s) => s.signOut)
@@ -51,7 +53,7 @@ export default function AdminPage() {
   if (!supabase) {
     return (
       <AuthShell title="Admin">
-        <p className="auth-note">Cloud features are not configured (Supabase keys required in .env.local).</p>
+        <p className="auth-note">{t('me.notConfigured')}</p>
       </AuthShell>
     )
   }
@@ -61,13 +63,13 @@ export default function AdminPage() {
     return (
       <AuthShell title="Admin">
         {user ? (
-          <p className="auth-note">This account doesn&apos;t have admin access.</p>
+          <p className="auth-note">{t('adminUi.noAccess')}</p>
         ) : (
-          <p className="auth-note">Sign in with an admin account to continue.</p>
+          <p className="auth-note">{t('adminUi.signInPrompt')}</p>
         )}
         <p className="auth-links">
-          {!user && <Link href="/signin">Sign in</Link>}
-          <Link href="/">Back to XIBIT360</Link>
+          {!user && <Link href="/signin">{t('common.signIn')}</Link>}
+          <Link href="/">{t('me.backHome')}</Link>
         </p>
       </AuthShell>
     )
@@ -79,24 +81,24 @@ export default function AdminPage() {
         <div className="me-top">
           <Link href="/" className="auth-logo">XIBIT360</Link>
           <div className="me-top-actions">
-            <Link className="btn-line" href="/me">Dashboard</Link>
+            <Link className="btn-line" href="/me">{t('common.dashboard')}</Link>
             <button className="btn-line" onClick={() => void load()} disabled={loading}>
               {loading ? 'Refreshing…' : 'Refresh'}
             </button>
-            <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
+            <button className="btn-line" onClick={() => void signOut()}>{t('me.signOut')}</button>
           </div>
         </div>
 
         <div className="me-hero">
           <div className="me-hero-avatar empty">★</div>
           <div>
-            <div className="me-hero-greet">Admin console</div>
-            <p className="me-hero-sub">Platform-wide view — revenue, packages, and every exhibition.</p>
+            <div className="me-hero-greet">{t('adminUi.console')}</div>
+            <p className="me-hero-sub">{t('adminUi.intro')}</p>
           </div>
         </div>
 
         {err && <p className="me-error">{err}</p>}
-        {!data && !err && <p className="me-note">Loading…</p>}
+        {!data && !err && <p className="me-note">{t('adminUi.loading')}</p>}
 
         {data && <AdminDashboard data={data} onReload={load} />}
 
@@ -107,9 +109,9 @@ export default function AdminPage() {
         {isAdmin && <LpHeroEditor />}
 
         <footer className="artist-footer">
-          <Link href="/terms">Terms</Link>
-          <Link href="/legal">Legal</Link>
-          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">{t('footer.terms')}</Link>
+          <Link href="/legal">{t('footer.legal')}</Link>
+          <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>
     </main>
