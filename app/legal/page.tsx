@@ -2,11 +2,18 @@
 // Mirrors the disclosure on the operator's other service (ktlyst.art/legal) so
 // the two stay consistent. Prices come from lib/pricing rather than being typed
 // in, so a price change can't leave this page quietly wrong (LESSONS 2026-07-13).
+//
+// Localised, unlike /terms and /privacy: this disclosure exists for Japanese
+// consumers under Japanese law, so Japanese is its natural language — while an
+// English rendering keeps it readable for everyone else (decision 2026-07-28,
+// option B). The Terms and Privacy Policy stay English-only, with English as the
+// governing version.
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PRICE_SLOT, PRICE_THEME, PRICE_LAYOUT } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM } from '@/lib/limits'
 import { LanguageSwitcher } from '@/components/I18nProvider'
+import { getServerT } from '@/lib/i18n/server'
 
 export const metadata: Metadata = {
   title: 'Legal — Xibit360',
@@ -23,67 +30,52 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-export default function LegalPage() {
+export default async function LegalPage() {
+  const { t } = await getServerT()
   return (
     <main className="legal-page">
       <div className="me-inner">
         <div className="me-top">
           <Link href="/" className="auth-logo">XIBIT360</Link>
         </div>
-        <h1 className="me-h1">Legal</h1>
+        <h1 className="me-h1">{t('legal.heading')}</h1>
         <div className="legal-body">
-          <p>
-            Seller information disclosed under the Japanese Act on Specified Commercial
-            Transactions (特定商取引法に基づく表記). Last updated: July 28, 2026.
-          </p>
+          <p>{t('legal.intro')}</p>
 
           <dl className="legal-table">
-            <Row label="Service">Xibit360 (xibit360.art)</Row>
-            <Row label="Operator">Nakamae Yusuke</Row>
-            <Row label="Address">178-201 Bentencho, Shinjuku-ku, Tokyo, Japan</Row>
-            <Row label="Phone">
-              Disclosed without delay on request — please write to the email address below.
-            </Row>
-            <Row label="Email">
+            <Row label={t('legal.rowService')}>Xibit360 (xibit360.art)</Row>
+            <Row label={t('legal.rowOperator')}>Nakamae Yusuke</Row>
+            <Row label={t('legal.rowAddress')}>{t('legal.valAddress')}</Row>
+            <Row label={t('legal.rowPhone')}>{t('legal.valPhone')}</Row>
+            <Row label={t('legal.rowEmail')}>
               <a href="mailto:support@xibit360.art">support@xibit360.art</a>
             </Row>
-            <Row label="Price">
-              Creating an account, building a gallery and publishing it are free. Optional
-              one-time upgrades: extra work slots {PRICE_SLOT} each (up to{' '}
-              {MAX_WORKS_PER_ROOM} works per room), layouts {PRICE_LAYOUT} each, themes{' '}
-              {PRICE_THEME} each. Prices are shown before you confirm, in the currency your
-              payment provider presents.
+            <Row label={t('legal.rowPrice')}>
+              {t('legal.valPrice', {
+                slot: PRICE_SLOT,
+                layout: PRICE_LAYOUT,
+                theme: PRICE_THEME,
+                max: MAX_WORKS_PER_ROOM,
+              })}
             </Row>
-            <Row label="Additional costs">
-              None from us. You are responsible for your own internet connection. Any
-              consumption tax or VAT is shown at checkout.
+            <Row label={t('legal.rowExtra')}>{t('legal.valExtra')}</Row>
+            <Row label={t('legal.rowPayMethod')}>{t('legal.valPayMethod')}</Row>
+            <Row label={t('legal.rowPayTiming')}>{t('legal.valPayTiming')}</Row>
+            <Row label={t('legal.rowDelivery')}>{t('legal.valDelivery')}</Row>
+            <Row label={t('legal.rowReturns')}>
+              {t('legal.valReturns')} <Link href="/terms">{t('footer.terms')}</Link>
             </Row>
-            <Row label="Payment method">Credit and debit cards, processed by Stripe.</Row>
-            <Row label="Payment timing">At the time you confirm the purchase.</Row>
-            <Row label="Delivery">
-              Immediately on payment confirmation — the upgrade unlocks in your dashboard.
+            <Row label={t('legal.rowAge')}>
+              {t('legal.valAge')} <Link href="/terms">{t('footer.terms')}</Link>
             </Row>
-            <Row label="Returns and cancellation">
-              Upgrades are digital goods delivered immediately, so they are not refundable
-              once unlocked, except where the law requires otherwise. If an upgrade does not
-              unlock after you were charged, write to us and we will fix it or refund you.
-              See the <Link href="/terms">Terms</Link> for the full policy.
-            </Row>
-            <Row label="Age">
-              Xibit360 is for people aged 18 and over. See the <Link href="/terms">Terms</Link>.
-            </Row>
-            <Row label="System requirements">
-              A current version of Chrome, Safari, Edge or Firefox on desktop or mobile.
-              The 3D gallery needs WebGL; where it is unavailable, exhibitions fall back to a
-              flat list of works.
-            </Row>
+            <Row label={t('legal.rowSystem')}>{t('legal.valSystem')}</Row>
           </dl>
         </div>
         <footer className="artist-footer">
           <LanguageSwitcher />
-          <Link href="/terms">Terms</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/">Home</Link>
+          <Link href="/terms">{t('footer.terms')}</Link>
+          <Link href="/privacy">{t('footer.privacy')}</Link>
+          <Link href="/">{t('footer.home')}</Link>
         </footer>
       </div>
     </main>
