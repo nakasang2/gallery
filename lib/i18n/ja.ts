@@ -464,6 +464,7 @@ export const ja: Dictionary = {
     navPricing: '料金',
     navDemo: 'デモ',
     navCreateAccount: 'アカウントを作る',
+    navStart: 'はじめる',
     footerTagline: 'あなたの作品に、居場所を。',
     footerNav: 'フッター',
 

@@ -1133,6 +1133,10 @@ html { scroll-padding-top: 72px; }
   .nav-links { display: none; }
   .nav-actions { gap: 0.4rem; flex: 0 0 auto; }
   .nav-actions .btn-small { padding: 0.55em 0.9em; font-size: 0.62rem; white-space: nowrap; }
+  /* 収まらないときに削られるのはブランド名の側。ロゴが縮むのは見た目の問題だが、
+     CTAが画面外に出るのは導線が消えることで、後者の方が高くつく
+     （LESSONS 2026-07-27 で一度やっている）。 */
+  .nav-logo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 
 /* ---- 組版 ----
@@ -1161,6 +1165,22 @@ html { scroll-padding-top: 72px; }
 .demo-body p,
 .pricing-note {
   word-break: auto-phrase;
+}
+
+/* .demo-card は grid の2カラムを一度も畳んでおらず、375pxでは .demo-body
+   （左右パディング計115px＋段落の max-width: 46ch）が自分のトラックより広くなり、
+   そのまま画面外へ溢れていた。grid項目の自動最小サイズは min-content なので、
+   1カラムに戻すだけでなく min-width: 0 も要る（.closing-inner と同型の見落とし）。
+   英語でも起きていた既存のバグで、ドイツ語のCTAで初めて可視化された（実測 2026-07-28:
+   .demo-card 324px の中で .demo-body が585px）。 */
+@media (max-width: 720px) {
+  .demo-card { grid-template-columns: 1fr; }
+  .demo-card > * { min-width: 0; }
+  .demo-body { padding: 2.2rem 1.4rem 2.6rem; }
+  .demo-body p { max-width: 100%; }
+  /* uppercase＋広い letter-spacing のCTAは言語によって英語の1.5倍近くになる
+     （実測: en 242px → de 355px @375px）。折り返しを許して親の幅に収める。 */
+  .btn { max-width: 100%; white-space: normal; }
 }
 
 /* .closing は縦方向のflexなので、.closing-inner の幅は「内容の最小幅」で

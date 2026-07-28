@@ -36,7 +36,9 @@ export default async function LandingPage() {
         </div>
         <div className="nav-actions">
           <Link className="btn btn-small" href="/signin">{t('common.signIn')}</Link>
-          <Link className="btn btn-small btn-gold" href="/signup">{t('common.startFree')}</Link>
+          {/* ナビ専用の短いラベル。ここは幅の予算が最も厳しく、共有の
+              common.startFree（「Commencer gratuitement」等）では収まらない言語がある */}
+          <Link className="btn btn-small btn-gold" href="/signup">{t('lp.navStart')}</Link>
         </div>
       </nav>
 

@@ -15,7 +15,9 @@
   - `npm run check:i18n` が**翻訳カバレッジを毎回表示**する。英語のままなのが未訳か意図か分からなくなるのを防ぐ。
 - 却下: `app/[locale]/` への移設＝`[handle]`と衝突し、`[seg]`に統合すると「slugが`explore`の展示」で壊れる。ccTLD/サブドメイン＝2026-07-28の決定どおり。
 - 検証: 11言語×5ページが200で `<html lang>` が正しい／接頭辞なし5本が307で言語別へ／`/ja/me` `/ja/terms` が308で実URLへ／`/me` `/signup` `/terms` `/privacy` `/@name` は素通し／canonical 1本＋alternate 12本／sitemap 57URL・hreflang 660本／`/ko` の内部リンクが `/ko/...` と `/signup` に正しく分かれる／切替UIで `/ja/explore` → `/ko/explore` に遷移して韓国語描画。
-- **残**: 翻訳カバレッジは ja 100%、他9言語は11%（69/623）。次は来場者が見る残り（`lp` 83キーがSEOの本体、続いて `artwork` `guestbook` `report` `articles`）。`me` `panel` `adminUi` `admin` `auth` `design` の419キーは作家・運営だけが見る面なので後回しでよい。
+- **翻訳（第2弾）**: LP 83キーを9言語ぶん入れた。方針は**明快さ優先**（ユーザー判断）— 英語と日本語の詩的な調子を他言語で再現するより、意味が一読で通ることを取る。カバレッジは ja 100% / 他9言語 25%（153/624）。
+- **翻訳で露見した既存バグ2件**（どちらも英語でも起きていた／起こり得た）: ①`.demo-card` の grid 2カラムが電話幅で一度も畳まれておらず、375pxで `.demo-body`（左右パディング計115px＋段落の `max-width: 46ch`）が自分のトラックより広くなって溢れていた（実測: カード324pxの中で本文585px）。grid項目の自動最小サイズは min-content なので、1カラムに戻すだけでなく `min-width: 0` も必要 — `.closing-inner` と同型の見落とし。②ナビのCTAが、共有キー `common.startFree` の長い訳（仏「Commencer gratuitement」）で画面外に出た。**ナビ専用の短いキー `lp.navStart` を新設**し、あわせて「収まらないときはロゴが縮む」安全網（`.nav-logo` に ellipsis）を入れた — ブランド名が縮むのは見た目の問題だが、CTAが画面外に出るのは導線が消えることで後者の方が高くつく（LESSONS 2026-07-27 で一度やっている）。
+- **残**: 次は来場者が見る残り（`lp` 83キーがSEOの本体、続いて `artwork` `guestbook` `report` `articles`）。`me` `panel` `adminUi` `admin` `auth` `design` の419キーは作家・運営だけが見る面なので後回しでよい。
 
 ## 2026-07-28 404ページを作る（案A・1画面完結）
 - 背景: `app/landing.css` には**最初のコミットから完成した404デザイン**（`.notfound` / `-code` / `-title` / `-lead` / `-cta`）が入っていたが、`app/not-found.tsx` が無いため**実際の404はNext.js標準の真っ白なページ**だった。同日の掃除（`a15237c`）で**この5ルールは削除され、基準線は空配列になった**。そのとき「LPの世界観に合わせた404を作るかは別途判断」として起票されたのが本件。

@@ -468,6 +468,7 @@ export const en = {
     navPricing: 'Pricing',
     navDemo: 'Demo',
     navCreateAccount: 'Create account',
+    navStart: 'Start free',
     footerTagline: 'Your work, given space.',
     footerNav: 'Footer',
 
