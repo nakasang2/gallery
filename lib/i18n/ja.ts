@@ -693,6 +693,13 @@ export const ja: Dictionary = {
     download: 'PDFで保存',
   },
 
+  notFound: {
+    code: '404',
+    title: 'この部屋は見つかりませんでした',
+    lead: 'URLが変わったか、展示が非公開になったのかもしれません。入口はいつでも開いています。',
+    ctaHome: '入口へ戻る',
+  },
+
   legal: {
     heading: '特定商取引法に基づく表記',
     intro: '特定商取引法に基づき、販売業者の情報を表示します。最終更新：2026年7月28日。',

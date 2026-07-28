@@ -76,6 +76,8 @@ a { color: inherit; }
 }
 .btn-small { padding: 0.6em 1.4em; font-size: 0.64rem; }
 .btn-small:hover { border-color: var(--ink); }
+/* 二次CTA（.btn-primary の隣に置く控えめな方）。app/not-found.tsx で使う */
+.btn-ghost:hover { border-color: var(--ink); }
 
 .section-eyebrow {
   font-family: var(--mono);
@@ -1026,6 +1028,49 @@ html { scroll-padding-top: 72px; }
   text-transform: uppercase;
   color: var(--muted);
 }
+
+/* ============ 404 ============ */
+
+/* app/not-found.tsx 専用。同じ形のルールが最初のコミットから入っていたが、
+   それを描画するページが無かったため a15237c の掃除で一度消えている。
+   実装と同じコミットで戻すことで「書いてあるのに効いていない」状態を作らない。 */
+.notfound {
+  position: relative;
+  z-index: 2;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 8rem 2.4rem;
+}
+.notfound-code {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 1.6rem;
+}
+.notfound-code::before { content: '/ '; color: var(--ink); }
+.notfound-title {
+  font-family: var(--serif);
+  font-size: clamp(2.6rem, 6vw, 4.4rem);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  margin-bottom: 1.6rem;
+}
+.notfound-lead {
+  font-size: 0.95rem;
+  color: var(--muted);
+  line-height: 2;
+  max-width: 46ch;
+  margin-bottom: 2.8rem;
+}
+.notfound-cta { display: flex; flex-wrap: wrap; gap: 1rem; }
 
 /* ============ ACCESSIBILITY ============ */
 

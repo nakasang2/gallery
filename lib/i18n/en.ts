@@ -697,6 +697,16 @@ export const en = {
     download: 'Download PDF',
   },
 
+  // Reached by a bad URL and by every notFound() in app/[handle] and
+  // app/articles — a private or deleted exhibition lands here too, which is why
+  // the copy names that case instead of only blaming the link.
+  notFound: {
+    code: '404',
+    title: 'This room could not be found.',
+    lead: 'The link may have changed, or the exhibition may have been taken private. The entrance is still open.',
+    ctaHome: 'Back to the entrance',
+  },
+
   legal: {
     heading: 'Legal',
     intro: 'Seller information disclosed under the Japanese Act on Specified Commercial Transactions (特定商取引法に基づく表記). Last updated: July 28, 2026.',
