@@ -27,6 +27,31 @@ export function usd(cents: number): string {
   return `$${d % 1 === 0 ? d.toFixed(0) : d.toFixed(2)}`
 }
 
+// Currencies whose smallest unit IS the unit — no cents to divide by. Stripe
+// reports amounts for these as whole yen/won, not hundredths.
+const ZERO_DECIMAL = new Set(['bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf'])
+
+/**
+ * Format a recorded charge. Unlike `usd()` this takes the currency Stripe
+ * actually billed in (purchases.currency, migration 0031) — a ledger row is
+ * only meaningful together with its currency, and ¥500 must never be rendered
+ * as $5.00.
+ */
+export function money(amount: number, currency: string): string {
+  const code = (currency || 'usd').toLowerCase()
+  const value = ZERO_DECIMAL.has(code) ? amount : amount / 100
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: code.toUpperCase(),
+      maximumFractionDigits: ZERO_DECIMAL.has(code) ? 0 : 2,
+    }).format(value)
+  } catch {
+    // Unknown/invalid code — show the number with the raw code rather than lie
+    return `${value} ${code.toUpperCase()}`
+  }
+}
+
 /** Per-slot price for capacity add-ons (sold by quantity via a picker, §11.5). */
 export const PRICE_PER_SLOT_CENTS = PRICE_USD_CENTS.capacity_addon
 export const PRICE_SLOT = usd(PRICE_PER_SLOT_CENTS) // '$3'

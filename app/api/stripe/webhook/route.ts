@@ -17,7 +17,14 @@ const UNIQUE_VIOLATION = '23505'
 
 async function insertPurchase(
   db: SupabaseClient,
-  row: { user_id: string; kind: string; item_key: string; sku: string; amount_jpy: number | null }
+  row: {
+    user_id: string
+    kind: string
+    item_key: string
+    sku: string
+    amount_jpy: number | null
+    currency: string
+  }
 ): Promise<'inserted' | 'duplicate'> {
   const { error } = await db.from('purchases').insert(row)
   if (!error) return 'inserted'
@@ -52,14 +59,20 @@ export async function POST(req: NextRequest) {
   const session = event.data.object as Stripe.Checkout.Session
   if (session.payment_status !== 'paid') {
     // async payment methods land later via checkout.session.async_payment_succeeded;
-    // JPY card payments (our case) are always 'paid' here
+    // card payments (our case) are always 'paid' here
     return NextResponse.json({ received: true })
   }
 
   const meta = session.metadata ?? {}
   const userId = meta.user_id ?? session.client_reference_id ?? ''
   const sku = meta.sku as Sku | undefined
+  // `amount_total` is in the smallest unit OF `session.currency` — and that is
+  // not necessarily the 'usd' we asked for: Managed Payments / Adaptive Pricing
+  // can present the buyer their local currency. ¥500 and $5.00 both arrive here
+  // as 500, so the amount is meaningless without the currency beside it
+  // (migration 0031).
   const amount = typeof session.amount_total === 'number' ? session.amount_total : null
+  const currency = (session.currency ?? 'usd').toLowerCase()
   if (!userId || !sku) {
     // Not one of ours (or malformed) — acknowledge so Stripe stops retrying
     console.error('webhook: checkout.session.completed without user_id/sku metadata', session.id)
@@ -73,7 +86,7 @@ export async function POST(req: NextRequest) {
         const kind = meta.item_kind === 'layout' ? 'layout' : 'theme'
         const itemKey = meta.item_key ?? ''
         if (!itemKey) break
-        await insertPurchase(db, { user_id: userId, kind, item_key: itemKey, sku, amount_jpy: amount })
+        await insertPurchase(db, { user_id: userId, kind, item_key: itemKey, sku, amount_jpy: amount, currency })
         break
       }
       case 'theme_collection': {
@@ -86,6 +99,7 @@ export async function POST(req: NextRequest) {
           item_key: '',
           sku,
           amount_jpy: amount,
+          currency,
         })
         if (marker === 'duplicate') break
         // The collection grants every PAID theme (those not in FOREVER_FREE).
@@ -96,12 +110,12 @@ export async function POST(req: NextRequest) {
         const paidThemeIds = Object.keys(THEMES).filter((id) => !isThemeUnlocked(id, noOwnership))
         for (const id of paidThemeIds) {
           // per-theme conflicts are fine — the buyer may already own one singly
-          await insertPurchase(db, { user_id: userId, kind: 'theme', item_key: id, sku, amount_jpy: null })
+          await insertPurchase(db, { user_id: userId, kind: 'theme', item_key: id, sku, amount_jpy: null, currency })
         }
         break
       }
       case 'design_tools': {
-        await insertPurchase(db, { user_id: userId, kind: 'design_tools', item_key: '', sku, amount_jpy: amount })
+        await insertPurchase(db, { user_id: userId, kind: 'design_tools', item_key: '', sku, amount_jpy: amount, currency })
         break
       }
       case 'capacity_addon': {
@@ -122,7 +136,8 @@ export async function POST(req: NextRequest) {
           p_user: userId,
           p_gallery: galleryId,
           p_amount: slots,
-          p_amount_jpy: amount, // legacy column name — stores USD cents now
+          p_amount_jpy: amount, // legacy column name — smallest unit of p_currency
+          p_currency: currency,
         })
         if (rpcErr) {
           // A transient DB error — return 500 so Stripe retries; nothing was

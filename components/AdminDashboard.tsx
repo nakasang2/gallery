@@ -3,7 +3,7 @@
 // or fixtures (verification). `onReload` (optional) lets the entitlement
 // grant/revoke controls refresh after a change.
 import { useMemo, useState } from 'react'
-import { usd } from '@/lib/pricing'
+import { money } from '@/lib/pricing'
 import { THEMES, LAYOUTS } from '@/lib/presets'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
 import { grantEntitlement, revokeEntitlement, type AdminOverview } from '@/lib/admin'
@@ -58,6 +58,8 @@ function Table({ head, children }: { head: React.ReactNode; children: React.Reac
 
 export default function AdminDashboard({ data, onReload }: { data: AdminOverview; onReload?: () => void | Promise<void> }) {
   const products = useGrantableProducts()
+  // One figure per currency — a cross-currency sum would be a fiction (0031)
+  const revenueLines = data.revenueByCurrency.map((r) => money(r.amount, r.currency))
   const [grantUser, setGrantUser] = useState('')
   const [grantProduct, setGrantProduct] = useState(() => (products[0] ? productKey(products[0].kind, products[0].itemKey) : ''))
   const [busy, setBusy] = useState(false)
@@ -103,7 +105,11 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
         <div className="stat"><b>{data.totals.galleries}</b><span>Galleries</span></div>
         <div className="stat"><b>{data.totals.publicGalleries}</b><span>Public</span></div>
         <div className="stat"><b>{data.totals.works}</b><span>Works</span></div>
-        <div className="stat"><b>{usd(data.totals.revenueJpy)}</b><span>Revenue</span></div>
+        {revenueLines.length <= 1 ? (
+          <div className="stat"><b>{revenueLines[0] ?? money(0, 'usd')}</b><span>Revenue</span></div>
+        ) : (
+          <div className="stat"><b style={{ fontSize: '0.9rem' }}>{revenueLines.join(' · ')}</b><span>Revenue</span></div>
+        )}
         <div className="stat"><b>{data.totals.reports}</b><span>Reports</span></div>
       </div>
 
@@ -112,29 +118,33 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
         <h2>Revenue</h2>
         <div className="me-card">
           <p className="me-note" style={{ marginTop: 0 }}>
-            Total charged: <b style={{ color: 'var(--ink)' }}>{usd(data.totals.revenueJpy)}</b>{' '}
+            Total charged: <b style={{ color: 'var(--ink)' }}>{revenueLines.join(' · ') || money(0, 'usd')}</b>{' '}
             across {data.purchases.length} purchase{data.purchases.length === 1 ? '' : 's'}.
+            {data.revenueByCurrency.length > 1 && ' Currencies are listed separately — they are not comparable.'}
           </p>
           {data.purchases.length === 0 ? (
             <p className="me-note">
-              No purchases recorded yet. Amounts are stored in USD cents in the
-              <code> amount_jpy</code> column (legacy name) and summed here.
+              No purchases recorded yet. Amounts are stored in the smallest unit of
+              <code> purchases.currency</code> (¥500 is 500, $5.00 is also 500) in the
+              <code> amount_jpy</code> column — a legacy name kept from the JPY era.
             </p>
           ) : (
             <Table
               head={
                 <>
                   <th style={th}>SKU / kind</th>
+                  <th style={th}>Currency</th>
                   <th style={th}>Count</th>
                   <th style={th}>Amount</th>
                 </>
               }
             >
               {data.revenueByKind.map((r) => (
-                <tr key={r.key}>
+                <tr key={`${r.key}|${r.currency}`}>
                   <td style={cell}>{r.key}</td>
+                  <td style={cell}>{r.currency.toUpperCase()}</td>
                   <td style={cell}>{r.count}</td>
-                  <td style={cell}>{usd(r.sumJpy)}</td>
+                  <td style={cell}>{money(r.amount, r.currency)}</td>
                 </tr>
               ))}
             </Table>

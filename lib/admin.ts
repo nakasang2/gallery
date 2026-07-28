@@ -36,7 +36,9 @@ export interface AdminPurchaseRow {
   kind: string
   itemKey: string
   sku: string | null
-  amountJpy: number | null
+  /** Smallest unit of `currency` — NOT always cents (¥500 is 500). */
+  amount: number | null
+  currency: string
   createdAt: string
 }
 
@@ -49,10 +51,12 @@ export interface AdminOverview {
     galleries: number
     publicGalleries: number
     works: number
-    revenueJpy: number
     reports: number
   }
-  revenueByKind: { key: string; count: number; sumJpy: number }[]
+  /** One total per currency actually charged. Summing across currencies would
+   *  be meaningless, so the UI shows them side by side (migration 0031). */
+  revenueByCurrency: { currency: string; amount: number; count: number }[]
+  revenueByKind: { key: string; currency: string; count: number; amount: number }[]
 }
 
 /** Admin: manually unlock a paid item for a user (writes the purchases ledger via
@@ -128,6 +132,7 @@ type PurchaseRaw = {
   item_key: string
   sku: string | null
   amount_jpy: number | null
+  currency: string | null
   created_at: string
 }
 
@@ -139,7 +144,8 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
     users: [],
     galleries: [],
     purchases: [],
-    totals: { users: 0, galleries: 0, publicGalleries: 0, works: 0, revenueJpy: 0, reports: 0 },
+    totals: { users: 0, galleries: 0, publicGalleries: 0, works: 0, reports: 0 },
+    revenueByCurrency: [],
     revenueByKind: [],
   }
   if (!supabase) return empty
@@ -149,7 +155,7 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
     fetchAll<GalleryRow>('galleries', 'id, slug, title, is_public, theme, layout, work_cap, updated_at, owner_id'),
     fetchAll<{ gallery_id: string }>('placements', 'gallery_id'),
     fetchAll<{ id: string; owner_id: string }>('artworks', 'id, owner_id'),
-    fetchAll<PurchaseRaw>('purchases', 'user_id, kind, item_key, sku, amount_jpy, created_at'),
+    fetchAll<PurchaseRaw>('purchases', 'user_id, kind, item_key, sku, amount_jpy, currency, created_at'),
     fetchAll<{ gallery_id: string }>('visits', 'gallery_id'),
     fetchAll<{ id: string }>('reports', 'id'),
   ])
@@ -221,25 +227,30 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
       kind: p.kind,
       itemKey: p.item_key,
       sku: p.sku,
-      amountJpy: p.amount_jpy,
+      amount: p.amount_jpy,
+      currency: (p.currency ?? 'usd').toLowerCase(),
       createdAt: p.created_at,
     }))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
-  const revenueMap = new Map<string, { count: number; sumJpy: number }>()
-  let revenueJpy = 0
+  // Group by SKU *and* currency: 500 means $5.00 in usd and ¥500 in jpy, so a
+  // single sum across currencies would be a made-up number (migration 0031).
+  const byKind = new Map<string, { key: string; currency: string; count: number; amount: number }>()
+  const byCurrency = new Map<string, { currency: string; amount: number; count: number }>()
   for (const p of purchaseRows) {
-    const key = p.sku || p.kind
-    const amt = p.amountJpy ?? 0
-    revenueJpy += amt
-    const cur = revenueMap.get(key) ?? { count: 0, sumJpy: 0 }
-    cur.count += 1
-    cur.sumJpy += amt
-    revenueMap.set(key, cur)
+    const amt = p.amount ?? 0
+    const kindKey = `${p.sku || p.kind}|${p.currency}`
+    const k = byKind.get(kindKey) ?? { key: p.sku || p.kind, currency: p.currency, count: 0, amount: 0 }
+    k.count += 1
+    k.amount += amt
+    byKind.set(kindKey, k)
+    const c = byCurrency.get(p.currency) ?? { currency: p.currency, amount: 0, count: 0 }
+    c.count += 1
+    c.amount += amt
+    byCurrency.set(p.currency, c)
   }
-  const revenueByKind = [...revenueMap.entries()]
-    .map(([key, v]) => ({ key, ...v }))
-    .sort((a, b) => b.sumJpy - a.sumJpy)
+  const revenueByKind = [...byKind.values()].sort((a, b) => b.amount - a.amount)
+  const revenueByCurrency = [...byCurrency.values()].sort((a, b) => b.amount - a.amount)
 
   return {
     users: userRows,
@@ -250,9 +261,9 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
       galleries: galleries.length,
       publicGalleries: galleries.filter((g) => g.is_public).length,
       works: artworks.length,
-      revenueJpy,
       reports: reports.length,
     },
+    revenueByCurrency,
     revenueByKind,
   }
 }
