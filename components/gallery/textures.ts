@@ -357,11 +357,25 @@ export function makePlaqueTexture(art: ArtworkData, index: number): THREE.Canvas
   ctx.font = '500 26px "Geist", sans-serif'
   ctx.fillText(`NO. ${String(index + 1).padStart(2, '0')}`, 42, 66)
   ctx.fillStyle = '#22201c'
-  ctx.font = '400 44px "Instrument Serif", serif'
-  ctx.fillText(art.title, 42, 130)
+  // 512 wide, text inset 42 each side. One line while it fits; a long title
+  // (i.e. almost any Japanese one) drops to two rather than running off the edge.
+  const PLATE_W = 428
+  const titleFont = (px: number) => `400 ${px}px "Instrument Serif", serif`
+  const titlePx = fitOneLine(ctx, art.title, PLATE_W, titleFont, 44, 28)
+  if (titlePx !== null) {
+    ctx.font = titleFont(titlePx)
+    ctx.fillText(art.title, 42, 130)
+  } else {
+    ctx.font = titleFont(28)
+    // Sits a little higher so the second line clears the byline at y=190
+    wrapLeft(ctx, art.title, PLATE_W, 2).forEach((line, i) => ctx.fillText(line, 42, 118 + i * 36))
+  }
   ctx.fillStyle = '#55524b'
-  ctx.font = '400 30px "Geist", sans-serif'
-  ctx.fillText(`${art.artist} / ${art.year}`, 42, 190)
+  const byFont = (px: number) => `400 ${px}px "Geist", sans-serif`
+  const byline = `${art.artist} / ${art.year}`
+  const byPx = fitOneLine(ctx, byline, PLATE_W, byFont, 30, 20)
+  ctx.font = byFont(byPx ?? 20)
+  ctx.fillText(byPx !== null ? byline : (wrapLeft(ctx, byline, PLATE_W, 1)[0] ?? byline), 42, 190)
   ctx.font = '300 24px "Geist", sans-serif'
   // The caption line(s): the artist's own text when present, tags otherwise
   const capText = (art.desc || '').trim() || (art.tags || []).join(' · ')
@@ -370,6 +384,30 @@ export function makePlaqueTexture(art: ArtworkData, index: number): THREE.Canvas
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
+}
+
+/** Largest size in [minPx, maxPx] at which `s` fits on one line, or null when
+ *  even minPx overflows.
+ *
+ *  This exists because of CJK. Every caller below drew its title with a fixed
+ *  font and no width check, which is survivable in Latin (a 44px serif fits
+ *  ~20 characters on the plate) and breaks immediately in Japanese, where one
+ *  glyph is a full em: the same plate holds about nine. Titles ran straight off
+ *  the canvas — the plate clipped them, the title wall spilled off both sides
+ *  because it draws centred. */
+function fitOneLine(
+  ctx: CanvasRenderingContext2D,
+  s: string,
+  maxW: number,
+  font: (px: number) => string,
+  maxPx: number,
+  minPx: number,
+): number | null {
+  for (let px = maxPx; px >= minPx; px -= 2) {
+    ctx.font = font(px)
+    if (ctx.measureText(s).width <= maxW) return px
+  }
+  return null
 }
 
 // Wrap free-form caption text into at most `maxLines` left-aligned lines,
@@ -449,15 +487,32 @@ export function makeTitleTexture(
   const rows: BoardRow[] = []
   ctx.textAlign = 'center'
 
-  // 1) Exhibition name
+  // 1) Exhibition name. Shrinking alone used to be the whole strategy, floored at
+  // 80px — which silently overflowed the board past ~20 Japanese characters,
+  // centred, so it spilled off both sides. Shrink first, then take a second line
+  // rather than keep shrinking a title into unreadability.
+  const titleFont = (px: number) => `400 ${px}px "Instrument Serif", serif`
+  let titlePx = fitOneLine(ctx, text.title, maxW, titleFont, 156, 100)
+  let titleLines = [text.title]
+  if (titlePx === null) {
+    titlePx = 64
+    for (let px = 112; px >= 64; px -= 2) {
+      ctx.font = titleFont(px)
+      if (!wrapLeft(ctx, text.title, maxW, 2).some((l) => l.endsWith('…'))) {
+        titlePx = px
+        break
+      }
+    }
+    ctx.font = titleFont(titlePx)
+    titleLines = wrapLeft(ctx, text.title, maxW, 2)
+  }
+  const titleLead = Math.round(titlePx * 1.18)
   rows.push({
-    h: 210,
+    h: titleLines.length > 1 ? 150 + titleLead + 60 : 210,
     draw: (top) => {
       ctx.fillStyle = ink
-      ctx.font = '400 156px "Instrument Serif", serif'
-      const w = ctx.measureText(text.title).width
-      if (w > maxW) ctx.font = `400 ${Math.max(80, Math.floor(156 * (maxW / w)))}px "Instrument Serif", serif`
-      ctx.fillText(text.title, CX, top + 150)
+      ctx.font = titleFont(titlePx)
+      titleLines.forEach((line, i) => ctx.fillText(line, CX, top + 150 + i * titleLead))
     },
   })
 
@@ -489,8 +544,15 @@ export function makeTitleTexture(
       h: 82,
       draw: (top) => {
         ctx.fillStyle = ink
-        ctx.font = '400 60px "Instrument Serif", serif'
-        ctx.fillText(artist.name, CX, top + 58)
+        // Had no width check at all — a long display name ran off the board.
+        const nameFont = (px: number) => `400 ${px}px "Instrument Serif", serif`
+        const namePx = fitOneLine(ctx, artist.name, maxW, nameFont, 60, 36)
+        ctx.font = nameFont(namePx ?? 36)
+        ctx.fillText(
+          namePx !== null ? artist.name : (wrapLeft(ctx, artist.name, maxW, 1)[0] ?? artist.name),
+          CX,
+          top + 58,
+        )
       },
     })
   }

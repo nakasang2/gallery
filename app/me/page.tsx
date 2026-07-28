@@ -147,6 +147,12 @@ const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
 // Design Tools (paid recolour/light/logo) is hidden for now to keep the settings panel
 // simple — the code stays in place so it's a one-line flip to bring back. Typed `boolean`
 // (not a literal) so the JSX inside still counts as "used".
+// Titles are drawn onto fixed-size canvases (the name plate and the title wall).
+// They now shrink and wrap to fit, but a title still has to be a title — and one
+// Japanese character is as wide as two Latin ones, so the cap is deliberately
+// tighter than it looks (components/gallery/textures.ts).
+const TITLE_MAX = 60
+
 const DESIGN_TOOLS_VISIBLE = false as boolean
 
 // A field label kept to one or two words, with the "why/how" moved into an info
@@ -401,6 +407,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
         <input
           type="text"
           placeholder="e.g. Blue Hours"
+          maxLength={TITLE_MAX}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           autoFocus
@@ -897,6 +904,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         <input
           className="hako-title-input"
           type="text"
+          maxLength={TITLE_MAX}
           value={nameInput}
           placeholder="Untitled exhibition — name it"
           aria-label="Exhibition title"
@@ -1456,7 +1464,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 <div className="wd-title"><span>Title &amp; caption</span></div>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
                   <span>Title</span>
-                  <input type="text" value={titleInput} onChange={(e) => editWork({ title: e.target.value })} />
+                  <input
+                    type="text"
+                    maxLength={TITLE_MAX}
+                    value={titleInput}
+                    onChange={(e) => editWork({ title: e.target.value })}
+                  />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
                   <FieldLabel hint="Shown on the name plate beside the work.">Caption</FieldLabel>
