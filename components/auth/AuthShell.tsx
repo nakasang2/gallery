@@ -2,7 +2,7 @@
 // Shared frame for the auth pages (/signin /signup /reset)
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { LocaleLink, useT } from '@/components/I18nProvider'
+import { LegalLink, LocaleLink, useT } from '@/components/I18nProvider'
 
 export default function AuthShell({ title, children }: { title: string; children: ReactNode }) {
   const t = useT()
@@ -14,7 +14,7 @@ export default function AuthShell({ title, children }: { title: string; children
         {children}
       </section>
       <p className="auth-legal">
-        <Link href="/terms">{t('footer.terms')}</Link> · <Link href="/privacy">{t('footer.privacy')}</Link> · <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
+        <Link href="/terms">{t('footer.terms')}</Link> · <Link href="/privacy">{t('footer.privacy')}</Link><LegalLink before=" · " />
       </p>
     </main>
   )

@@ -221,6 +221,18 @@ export const zhHant: PartialDictionary = {
     corsFailed: '圖片沒能載入。對方站點可能不允許 CORS — 請改為直接上傳檔案。',
     removeFailed: '沒能刪除作品：{msg}',
   },
+  presets: {
+    layout: { hall: '大展場', corridor: '迴廊', island: '中央牆面', portrait: '直長展場', custom: '自訂' },
+    frame: { black: '黑', gold: '金', white: '白', wood: '橡木', none: '無' },
+    frameWord: '畫框',
+    frameOf: '{name}畫框',
+    frameMaterial: { wood: '木', metal: '金屬', paint: '烤漆' },
+    frameColor: { ink: '墨', white: '白', gold: '金', silver: '銀', oak: '橡木', walnut: '胡桃木', navy: '藏青', wine: '酒紅' },
+    mat: { auto: '依畫框', none: '無襯邊', white: '白', ivory: '象牙', grey: '灰', black: '黑' },
+    matAria: '{name}襯邊',
+    hanging: { wire: '鋼索懸吊', flush: '貼牆安裝', ledge: '擱在托板' },
+    caption: { side: '說明牌在側', under: '說明牌在下', none: '無' },
+  },
   common: {
     add: '新增',
     free: '免費',
@@ -290,7 +302,6 @@ export const zhHant: PartialDictionary = {
   footer: {
     terms: '服務條款',
     privacy: '隱私',
-    legal: '營業者資訊',
     guides: '指南',
     home: '首頁',
     explore: '瀏覽展覽',

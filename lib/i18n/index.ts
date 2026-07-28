@@ -88,12 +88,22 @@ export const LOCALE_META: Record<Locale, LocaleMeta> = {
   id: { script: 'latin', dir: 'ltr', bcp47: 'id', label: 'Bahasa Indonesia' },
 }
 
-/** Paths that get a locale prefix. Everything else — artist pages, the dashboard,
- *  auth, `/terms` and `/privacy` (English is the governing version, so eleven
- *  copies of the same English text would be pure duplication) — stays on one URL.
+/** Paths that get a locale prefix. Everything else stays on one URL:
+ *  artist pages, the dashboard, auth, and the three legal pages.
+ *
+ *  Why the legal pages are excluded (docs/DECISIONS 2026-07-29):
+ *  - `/terms` and `/privacy` — English is the governing version, so eleven copies
+ *    of the same English text would be duplication, not localization.
+ *  - `/legal` — the 特商法 disclosure is Japanese law, and the Japanese version is
+ *    the one that legally operates. Publishing it under eleven URLs would mean
+ *    declaring "which one governs" on every page, for a page nine of those
+ *    languages will never have. It stays one URL, and the footer only offers it in
+ *    Japanese (see LegalLink). Whether selling into other jurisdictions needs its
+ *    OWN seller disclosure is a question for a lawyer, not a translation of this
+ *    page.
  *
  *  `''` is the landing page. A trailing `/*` means the segment and anything under it. */
-export const LOCALIZED_PATHS = ['', '/explore', '/demo', '/articles', '/legal'] as const
+export const LOCALIZED_PATHS = ['', '/explore', '/demo', '/articles'] as const
 
 /** Does this path (already stripped of any locale prefix) get a prefix? */
 export function isLocalizedPath(pathname: string): boolean {

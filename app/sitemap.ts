@@ -48,10 +48,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...localized(base, '/explore', { lastModified: now, changeFrequency: 'daily', priority: 0.9 }),
     ...localized(base, '/demo', { lastModified: now, changeFrequency: 'monthly', priority: 0.7 }),
     ...localized(base, '/articles', { lastModified: now, changeFrequency: 'weekly', priority: 0.6 }),
-    ...localized(base, '/legal', { lastModified: now, changeFrequency: 'yearly', priority: 0.2 }),
-    // English is the governing version of these two, so they stay one URL each
-    // (docs/DECISIONS 2026-07-28) — eleven copies of the same English text would
-    // be duplication, not localization.
+    // The three legal pages stay one URL each (docs/DECISIONS 2026-07-28 / 07-29):
+    // English is the governing version of the Terms and the Privacy Policy, and the
+    // 特商法 disclosure is Japanese law whose Japanese version is the operative one.
+    { url: `${base}/legal`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${base}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
   ]

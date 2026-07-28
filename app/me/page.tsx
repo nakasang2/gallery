@@ -65,7 +65,7 @@ import {
 import { loadImage } from '@/lib/upload'
 import type { ArtworkData } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
-import { LocaleLink, useT } from '@/components/I18nProvider'
+import { LegalLink, LocaleLink, useT } from '@/components/I18nProvider'
 
 // The works preview is the REAL renderer (three.js), loaded only when needed;
 // until the chunk arrives the flat CSS preview holds the same footprint
@@ -1277,12 +1277,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                       className={`chip chip-visual${key === row.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                       disabled={busy}
                       onClick={() => {
-                        if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: def.label }); return }
+                        if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: t(`presets.layout.${key}`) }); return }
                         void setSpace({ layout: key })
                       }}
                     >
                       <LayoutPlan layoutKey={key} className="chip-plan" />
-                      {def.label}
+                      {t(`presets.layout.${key}`)}
                       {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
                     </button>
                   )
@@ -2292,7 +2292,7 @@ export default function MePage() {
 
         <footer className="artist-footer">
           <Link href="/terms">{t('footer.terms')}</Link>
-          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
+          <LegalLink />
           <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>

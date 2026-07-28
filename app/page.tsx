@@ -4,7 +4,7 @@ import LandingEffects from '@/components/landing/LandingEffects'
 import HeroCanvas from '@/components/landing/HeroCanvas'
 import { PLAN } from '@/lib/limits'
 import { PRICE_SLOT, PRICE_THEME, PRICE_LAYOUT } from '@/lib/pricing'
-import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
+import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
 import { localeAlternates } from '@/lib/i18n/metadata'
 
@@ -242,7 +242,7 @@ export default async function LandingPage() {
           <LanguageSwitcher />
           <Link href="/privacy">{t('footer.privacy')}</Link>
           <Link href="/terms">{t('footer.terms')}</Link>
-          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
+          <LegalLink />
           <span>© 2026 XIBIT360</span>
         </div>
       </footer>

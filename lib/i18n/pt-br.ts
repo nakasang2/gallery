@@ -222,6 +222,18 @@ export const ptBr: PartialDictionary = {
     corsFailed: 'A imagem não carregou. O site de origem talvez não permita CORS — melhor enviar o arquivo.',
     removeFailed: 'Não foi possível remover a obra: {msg}',
   },
+  presets: {
+    layout: { hall: 'Salão grande', corridor: 'Corredor', island: 'Parede central', portrait: 'Sala vertical', custom: 'Sob medida' },
+    frame: { black: 'Preto', gold: 'Dourado', white: 'Branco', wood: 'Carvalho', none: 'Nenhuma' },
+    frameWord: 'moldura',
+    frameOf: 'moldura {name}',
+    frameMaterial: { wood: 'Madeira', metal: 'Metal', paint: 'Laca' },
+    frameColor: { ink: 'Tinta', white: 'Branco', gold: 'Dourado', silver: 'Prata', oak: 'Carvalho', walnut: 'Nogueira', navy: 'Azul-marinho', wine: 'Vinho' },
+    mat: { auto: 'Conforme a moldura', none: 'Sem passepartout', white: 'Branco', ivory: 'Marfim', grey: 'Cinza', black: 'Preto' },
+    matAria: 'Passepartout {name}',
+    hanging: { wire: 'Cabos no trilho', flush: 'Fixada na parede', ledge: 'Apoiada na prateleira' },
+    caption: { side: 'Ficha ao lado', under: 'Ficha embaixo', none: 'Nenhuma' },
+  },
   common: {
     add: 'Adicionar',
     free: 'de graça',
@@ -292,7 +304,6 @@ export const ptBr: PartialDictionary = {
   footer: {
     terms: 'Termos',
     privacy: 'Privacidade',
-    legal: 'Informações legais',
     guides: 'Guias',
     home: 'Início',
     explore: 'Explorar',

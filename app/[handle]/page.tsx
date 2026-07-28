@@ -9,7 +9,7 @@ import { fetchPublicProfile, fetchPublicExhibition, isPlaceholderTitle } from '@
 import VisitorGallery from '@/components/gallery/VisitorGallery'
 import OwnerPreview from '@/components/gallery/OwnerPreview'
 import SnsLinks from '@/components/SnsLinks'
-import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
+import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
 import { COVER_SIZES } from '@/components/FeedCard'
 
@@ -148,7 +148,7 @@ export default async function ArtistPage({
         <footer className="artist-footer">
           <LanguageSwitcher />
           <Link href="/terms">{t('footer.terms')}</Link>
-          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
+          <LegalLink />
           <Link href="/privacy">{t('footer.privacy')}</Link>
           <Link href={`/report?about=${encodeURIComponent(`@${p.username}`)}`}>{t('artist.reportProblem')}</Link>
         </footer>

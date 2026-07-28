@@ -222,6 +222,18 @@ export const de: PartialDictionary = {
     corsFailed: 'Das Bild konnte nicht geladen werden. Die Quelle erlaubt vielleicht kein CORS — lade die Datei stattdessen hoch.',
     removeFailed: 'Das Werk konnte nicht entfernt werden: {msg}',
   },
+  presets: {
+    layout: { hall: 'Großer Saal', corridor: 'Korridor', island: 'Mittelwand', portrait: 'Hoher Saal', custom: 'Eigene' },
+    frame: { black: 'Schwarz', gold: 'Gold', white: 'Weiß', wood: 'Eiche', none: 'Keiner' },
+    frameWord: 'Rahmen',
+    frameOf: 'Rahmen: {name}',
+    frameMaterial: { wood: 'Holz', metal: 'Metall', paint: 'Lack' },
+    frameColor: { ink: 'Tusche', white: 'Weiß', gold: 'Gold', silver: 'Silber', oak: 'Eiche', walnut: 'Walnuss', navy: 'Marineblau', wine: 'Weinrot' },
+    mat: { auto: 'Nach Rahmen', none: 'Ohne Passepartout', white: 'Weiß', ivory: 'Elfenbein', grey: 'Grau', black: 'Schwarz' },
+    matAria: 'Passepartout {name}',
+    hanging: { wire: 'Seile an der Schiene', flush: 'An der Wand', ledge: 'Auf der Ablage' },
+    caption: { side: 'Schild daneben', under: 'Schild darunter', none: 'Keines' },
+  },
   common: {
     add: 'Hinzufügen',
     free: 'kostenlos',
@@ -292,7 +304,6 @@ export const de: PartialDictionary = {
   footer: {
     terms: 'AGB',
     privacy: 'Datenschutz',
-    legal: 'Impressum',
     guides: 'Anleitungen',
     home: 'Start',
     explore: 'Entdecken',

@@ -281,7 +281,9 @@ export function TemplateCard({
       )}
       <span className="tpl-name">{t.label}</span>
       <span className="tpl-sub">
-        {THEMES[t.theme]?.label} · {LAYOUTS[t.layout]?.label} · {FRAMES[t.frame]?.label} frame
+        {/* テーマ名は固有名詞なのでデータのまま。間取りと額は説明語なので辞書経由 */}
+        {THEMES[t.theme]?.label} · {tr(`presets.layout.${t.layout}`)} ·{' '}
+        {tr('presets.frameOf', { name: tr(`presets.frame.${t.frame}`) })}
       </span>
     </button>
   )

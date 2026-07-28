@@ -14,14 +14,16 @@ import { PRICE_SLOT, PRICE_THEME, PRICE_LAYOUT } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM } from '@/lib/limits'
 import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
-import { localeAlternates } from '@/lib/i18n/metadata'
+import { siteUrl } from '@/lib/publicUrl'
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Legal — Xibit360',
     description:
       'Seller information for Xibit360, disclosed under the Japanese Act on Specified Commercial Transactions.',
-    alternates: await localeAlternates('/legal'),
+    // 言語別URLを持たない単一ページ（DECISIONS 2026-07-29）。hreflang は張らず、
+    // canonical だけを自分自身に向ける。
+    alternates: { canonical: `${siteUrl()}/legal` },
   }
 }
 

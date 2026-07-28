@@ -84,6 +84,28 @@ export function useT(): I18nValue['t'] {
   return useI18n().t
 }
 
+/** The 特商法 disclosure, offered only in Japanese.
+ *
+ *  It is a Japanese-law disclosure whose Japanese version is the one that
+ *  legally operates, so promoting it in ten other languages would put a
+ *  Japanese obligation under a foreign label — the German footer read
+ *  `Impressum` and pointed here, which is a promise this page does not keep.
+ *  The page itself stays reachable at `/legal` (the English Terms cross-reference
+ *  it), it just is not advertised outside Japanese. Decided 2026-07-29.
+ *
+ *  Renders nothing in other languages — including the separator, which is why the
+ *  callers put the `·` inside this component rather than beside it. */
+export function LegalLink({ before }: { before?: React.ReactNode }) {
+  const { locale, t } = useI18n()
+  if (locale !== 'ja') return null
+  return (
+    <>
+      {before}
+      <Link href="/legal">{t('footer.legal')}</Link>
+    </>
+  )
+}
+
 /** `next/link` that keeps the visitor in their language.
  *
  *  Links to a page we author (`/explore`, `/articles/…`) need the locale prefix:

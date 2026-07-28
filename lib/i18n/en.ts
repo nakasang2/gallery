@@ -9,6 +9,36 @@
 // `{name}` placeholders are filled by t(); `_one` / `_other` suffixes are picked
 // with Intl.PluralRules against the `count` param (see lib/i18n/index).
 export const en = {
+  // テーマ名（Chic / White Cube / Noir）とテンプレート名（Classic Salon など）は
+  // 固有名詞として lib/presets.ts のデータ側に残す（ユーザー判断 2026-07-29）。
+  // ここにあるのは説明語だけ — 間取り、額、マット、掛け方、名板。
+  presets: {
+    layout: {
+      hall: 'Single Hall',
+      corridor: 'Corridor',
+      island: 'Center Wall',
+      portrait: 'Portrait Hall',
+      custom: 'Custom',
+    },
+    frame: { black: 'Black', gold: 'Gold', white: 'White', wood: 'Oak', none: 'None' },
+    frameWord: 'frame',
+    frameOf: '{name} frame',
+    frameMaterial: { wood: 'Wood', metal: 'Metal', paint: 'Paint' },
+    frameColor: {
+      ink: 'Ink',
+      white: 'White',
+      gold: 'Gold',
+      silver: 'Silver',
+      oak: 'Oak',
+      walnut: 'Walnut',
+      navy: 'Navy',
+      wine: 'Wine',
+    },
+    mat: { auto: 'Frame default', none: 'No mat', white: 'White', ivory: 'Ivory', grey: 'Grey', black: 'Black' },
+    matAria: '{name} mat',
+    hanging: { wire: 'Rail wires', flush: 'Flush mount', ledge: 'Shelf ledge' },
+    caption: { side: 'Side plate', under: 'Under plate', none: 'None' },
+  },
   common: {
     add: 'Add',
     free: 'free',

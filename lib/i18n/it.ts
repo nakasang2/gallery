@@ -221,6 +221,18 @@ export const it: PartialDictionary = {
     corsFailed: 'L’immagine non si è caricata. Il sito di origine forse non permette il CORS — meglio caricare il file.',
     removeFailed: 'Non è stato possibile togliere l’opera: {msg}',
   },
+  presets: {
+    layout: { hall: 'Sala grande', corridor: 'Corridoio', island: 'Parete centrale', portrait: 'Sala verticale', custom: 'Su misura' },
+    frame: { black: 'Nero', gold: 'Oro', white: 'Bianco', wood: 'Rovere', none: 'Nessuna' },
+    frameWord: 'cornice',
+    frameOf: 'cornice {name}',
+    frameMaterial: { wood: 'Legno', metal: 'Metallo', paint: 'Laccato' },
+    frameColor: { ink: 'Inchiostro', white: 'Bianco', gold: 'Oro', silver: 'Argento', oak: 'Rovere', walnut: 'Noce', navy: 'Blu notte', wine: 'Bordeaux' },
+    mat: { auto: 'Secondo la cornice', none: 'Senza passepartout', white: 'Bianco', ivory: 'Avorio', grey: 'Grigio', black: 'Nero' },
+    matAria: 'Passepartout {name}',
+    hanging: { wire: 'Cavi su binario', flush: 'Fissata al muro', ledge: 'Appoggiata su mensola' },
+    caption: { side: 'Didascalia di lato', under: 'Didascalia sotto', none: 'Nessuna' },
+  },
   common: {
     add: 'Aggiungi',
     free: 'gratis',
@@ -291,7 +303,6 @@ export const it: PartialDictionary = {
   footer: {
     terms: 'Termini',
     privacy: 'Privacy',
-    legal: 'Note legali',
     guides: 'Guide',
     home: 'Home',
     explore: 'Esplora',

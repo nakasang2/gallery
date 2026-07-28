@@ -222,6 +222,18 @@ export const fr: PartialDictionary = {
     corsFailed: 'L’image n’a pas pu être chargée. Le site d’origine n’autorise peut-être pas le CORS — importez plutôt le fichier.',
     removeFailed: 'L’œuvre n’a pas pu être retirée : {msg}',
   },
+  presets: {
+    layout: { hall: 'Grande salle', corridor: 'Couloir', island: 'Mur central', portrait: 'Salle en hauteur', custom: 'Sur mesure' },
+    frame: { black: 'Noir', gold: 'Or', white: 'Blanc', wood: 'Chêne', none: 'Aucun' },
+    frameWord: 'cadre',
+    frameOf: 'cadre {name}',
+    frameMaterial: { wood: 'Bois', metal: 'Métal', paint: 'Laque' },
+    frameColor: { ink: 'Encre', white: 'Blanc', gold: 'Or', silver: 'Argent', oak: 'Chêne', walnut: 'Noyer', navy: 'Marine', wine: 'Bordeaux' },
+    mat: { auto: 'Selon le cadre', none: 'Sans passe-partout', white: 'Blanc', ivory: 'Ivoire', grey: 'Gris', black: 'Noir' },
+    matAria: 'Passe-partout {name}',
+    hanging: { wire: 'Câbles sur rail', flush: 'Fixé au mur', ledge: 'Posé sur tablette' },
+    caption: { side: 'Cartel à côté', under: 'Cartel en dessous', none: 'Aucun' },
+  },
   common: {
     add: 'Ajouter',
     free: 'gratuit',
@@ -292,7 +304,6 @@ export const fr: PartialDictionary = {
   footer: {
     terms: 'Conditions',
     privacy: 'Confidentialité',
-    legal: 'Mentions légales',
     guides: 'Guides',
     home: 'Accueil',
     explore: 'Explorer',

@@ -646,12 +646,12 @@ export default function SettingsPanel() {
                 key={key}
                 className={`chip chip-visual${key === settings.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                 onClick={() => {
-                  if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: def.label }); return }
+                  if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: t(`presets.layout.${key}`) }); return }
                   updateSettings({ layout: key })
                 }}
               >
                 <LayoutPlan layoutKey={key} className="chip-plan" />
-                {def.label}
+                {t(`presets.layout.${key}`)}
                 {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
               </button>
             )
@@ -744,7 +744,7 @@ export default function SettingsPanel() {
               }}
             >
               <FramedArt frameKey={key} className="chip-frame" />
-              {def.label}
+              {t(`presets.frame.${key}`)}
             </button>
           ))}
         </div>
@@ -765,7 +765,7 @@ export default function SettingsPanel() {
               }}
             >
               <FramedArt frameKey={settings.frame} matKey={key} className="chip-frame" />
-              {def.label}
+              {t(`presets.mat.${key}`)}
             </button>
           ))}
         </div>
@@ -787,7 +787,7 @@ export default function SettingsPanel() {
               }}
             >
               <HangingIcon hangingKey={key} />
-              {def.label}
+              {t(`presets.hanging.${key}`)}
             </button>
           ))}
         </div>
@@ -806,7 +806,7 @@ export default function SettingsPanel() {
               }}
             >
               <CaptionIcon captionKey={key} />
-              {def.label}
+              {t(`presets.caption.${key}`)}
             </button>
           ))}
         </div>

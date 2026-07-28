@@ -14,7 +14,7 @@ import ArticlesEditor from '@/components/ArticlesEditor'
 import DemoLookEditor from '@/components/DemoLookEditor'
 import GhostSpeedEditor from '@/components/GhostSpeedEditor'
 import AuthShell from '@/components/auth/AuthShell'
-import { LocaleLink, useT } from '@/components/I18nProvider'
+import { LegalLink, LocaleLink, useT } from '@/components/I18nProvider'
 
 export default function AdminPage() {
   const t = useT()
@@ -110,7 +110,7 @@ export default function AdminPage() {
 
         <footer className="artist-footer">
           <Link href="/terms">{t('footer.terms')}</Link>
-          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
+          <LegalLink />
           <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>

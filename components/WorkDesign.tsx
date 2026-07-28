@@ -80,7 +80,7 @@ export default function WorkDesign({
                     className={key === spec.material ? 'active' : ''}
                     onClick={() => set({ material: key })}
                   >
-                    {m.label}
+                    {t(`presets.frameMaterial.${key}`)}
                   </button>
                 ))}
               </div>
@@ -94,8 +94,8 @@ export default function WorkDesign({
                     type="button"
                     className={`swatch${c.hex === spec.color ? ' active' : ''}`}
                     style={{ background: hex(c.hex) }}
-                    title={c.label}
-                    aria-label={`${c.label} frame`}
+                    title={t(`presets.frameColor.${c.key}`)}
+                    aria-label={t('presets.frameOf', { name: t(`presets.frameColor.${c.key}`) })}
                     onClick={() => set({ color: c.hex })}
                   />
                 ))}
@@ -134,8 +134,8 @@ export default function WorkDesign({
                       type="button"
                       className={`swatch${key === 'auto' ? ' auto' : ''}${matKey === key ? ' active' : ''}`}
                       style={{ background: hex(key === 'auto' ? autoMatColor : MATS[key].color!) }}
-                      title={MATS[key].label}
-                      aria-label={`${MATS[key].label} mat`}
+                      title={t(`presets.mat.${key}`)}
+                      aria-label={t('presets.matAria', { name: t(`presets.mat.${key}`) })}
                       onClick={() => onMat(key)}
                     />
                   ))}
@@ -161,7 +161,7 @@ export default function WorkDesign({
                 onClick={() => onHanging(key)}
               >
                 <HangingIcon hangingKey={key} />
-                {def.label}
+                {t(`presets.hanging.${key}`)}
               </button>
             ))}
           </div>
@@ -177,7 +177,7 @@ export default function WorkDesign({
                 onClick={() => onCaption(key)}
               >
                 <CaptionIcon captionKey={key} />
-                {def.label}
+                {t(`presets.caption.${key}`)}
               </button>
             ))}
           </div>

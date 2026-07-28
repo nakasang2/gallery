@@ -222,6 +222,18 @@ export const es: PartialDictionary = {
     corsFailed: 'No se pudo cargar la imagen. Puede que el sitio no permita CORS — mejor sube el archivo.',
     removeFailed: 'No se pudo quitar la obra: {msg}',
   },
+  presets: {
+    layout: { hall: 'Sala grande', corridor: 'Corredor', island: 'Muro central', portrait: 'Sala vertical', custom: 'A medida' },
+    frame: { black: 'Negro', gold: 'Oro', white: 'Blanco', wood: 'Roble', none: 'Ninguno' },
+    frameWord: 'marco',
+    frameOf: 'marco {name}',
+    frameMaterial: { wood: 'Madera', metal: 'Metal', paint: 'Laca' },
+    frameColor: { ink: 'Tinta', white: 'Blanco', gold: 'Oro', silver: 'Plata', oak: 'Roble', walnut: 'Nogal', navy: 'Azul marino', wine: 'Vino' },
+    mat: { auto: 'Según el marco', none: 'Sin paspartú', white: 'Blanco', ivory: 'Marfil', grey: 'Gris', black: 'Negro' },
+    matAria: 'Paspartú {name}',
+    hanging: { wire: 'Cables en riel', flush: 'Fijado al muro', ledge: 'Apoyado en repisa' },
+    caption: { side: 'Ficha al lado', under: 'Ficha debajo', none: 'Ninguna' },
+  },
   common: {
     add: 'Añadir',
     free: 'gratis',
@@ -292,7 +304,6 @@ export const es: PartialDictionary = {
   footer: {
     terms: 'Términos',
     privacy: 'Privacidad',
-    legal: 'Aviso legal',
     guides: 'Guías',
     home: 'Inicio',
     explore: 'Explorar',

@@ -16,7 +16,7 @@ export default function PrivacyPage() {
           <p>
             Last updated: July 28, 2026. The controller of your personal data is Nakamae
             Yusuke, 178-201 Bentencho, Shinjuku-ku, Tokyo, Japan — full details on the{' '}
-            <LocaleLink href="/legal">Legal</LocaleLink> page. For anything in this policy, including
+            <Link href="/legal">Legal</Link> page. For anything in this policy, including
             the requests described in section 7, write to{' '}
             <a href="mailto:support@xibit360.art">support@xibit360.art</a>.
           </p>
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
         <footer className="artist-footer">
           <LanguageSwitcher />
           <Link href="/terms">Terms</Link>
-          <LocaleLink href="/legal">Legal</LocaleLink>
+          <Link href="/legal">Legal</Link>
           <LocaleLink href="/">Home</LocaleLink>
         </footer>
       </div>

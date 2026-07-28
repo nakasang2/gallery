@@ -6,7 +6,7 @@ import { fetchPublicFeed, fetchSpotlightGalleries, EXPLORE_PAGE_SIZE } from '@/l
 import { fetchSpotlight } from '@/lib/siteConfig'
 import ExploreFeed from '@/components/ExploreFeed'
 import FeedCard from '@/components/FeedCard'
-import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
+import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
 import { localeAlternates } from '@/lib/i18n/metadata'
 
@@ -64,7 +64,7 @@ export default async function ExplorePage() {
           <LanguageSwitcher />
           <LocaleLink href="/articles">{t('footer.guides')}</LocaleLink>
           <Link href="/terms">{t('footer.terms')}</Link>
-          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
+          <LegalLink />
           <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>

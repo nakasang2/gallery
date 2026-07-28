@@ -4,7 +4,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { fetchPublishedArticles } from '@/lib/blog'
-import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
+import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
 import { localeAlternates } from '@/lib/i18n/metadata'
 
@@ -71,7 +71,7 @@ export default async function ArticlesPage() {
           <LanguageSwitcher />
           <LocaleLink href="/explore">{t('footer.explore')}</LocaleLink>
           <Link href="/terms">{t('footer.terms')}</Link>
-          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
+          <LegalLink />
           <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>

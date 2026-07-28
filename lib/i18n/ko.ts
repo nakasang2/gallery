@@ -223,6 +223,18 @@ export const ko: PartialDictionary = {
     corsFailed: '이미지를 불러오지 못했습니다. 해당 사이트가 CORS를 허용하지 않을 수 있습니다 — 파일을 직접 올려 보세요.',
     removeFailed: '작품을 삭제하지 못했습니다: {msg}',
   },
+  presets: {
+    layout: { hall: '큰 전시실', corridor: '회랑', island: '가운데 벽', portrait: '세로로 긴 방', custom: '직접 설정' },
+    frame: { black: '검정', gold: '금', white: '흰색', wood: '오크', none: '없음' },
+    frameWord: ' 액자',
+    frameOf: '{name} 액자',
+    frameMaterial: { wood: '나무', metal: '금속', paint: '도장' },
+    frameColor: { ink: '먹', white: '흰색', gold: '금', silver: '은', oak: '오크', walnut: '월넛', navy: '네이비', wine: '와인' },
+    mat: { auto: '액자에 맞춤', none: '매트 없음', white: '흰색', ivory: '아이보리', grey: '회색', black: '검정' },
+    matAria: '{name} 매트',
+    hanging: { wire: '와이어 걸이', flush: '벽에 붙이기', ledge: '선반에 세우기' },
+    caption: { side: '옆에 명제표', under: '아래에 명제표', none: '없음' },
+  },
   common: {
     add: '추가',
     free: '무료',
@@ -293,7 +305,6 @@ export const ko: PartialDictionary = {
   footer: {
     terms: '이용약관',
     privacy: '개인정보',
-    legal: '사업자 정보',
     guides: '가이드',
     home: '홈',
     explore: '전시 찾아보기',

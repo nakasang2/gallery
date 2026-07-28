@@ -222,6 +222,18 @@ export const id: PartialDictionary = {
     corsFailed: 'Gambarnya tidak bisa dimuat. Situs sumbernya mungkin tidak mengizinkan CORS — lebih baik unggah berkasnya.',
     removeFailed: 'Karyanya tidak bisa dihapus: {msg}',
   },
+  presets: {
+    layout: { hall: 'Ruang besar', corridor: 'Koridor', island: 'Dinding tengah', portrait: 'Ruang menjulang', custom: 'Atur sendiri' },
+    frame: { black: 'Hitam', gold: 'Emas', white: 'Putih', wood: 'Ek', none: 'Tanpa bingkai' },
+    frameWord: 'bingkai',
+    frameOf: 'bingkai {name}',
+    frameMaterial: { wood: 'Kayu', metal: 'Logam', paint: 'Cat' },
+    frameColor: { ink: 'Tinta', white: 'Putih', gold: 'Emas', silver: 'Perak', oak: 'Ek', walnut: 'Kenari', navy: 'Biru laut', wine: 'Merah anggur' },
+    mat: { auto: 'Sesuai bingkai', none: 'Tanpa mat', white: 'Putih', ivory: 'Gading', grey: 'Kelabu', black: 'Hitam' },
+    matAria: 'Mat {name}',
+    hanging: { wire: 'Kawat pada rel', flush: 'Menempel di dinding', ledge: 'Disandarkan di rak' },
+    caption: { side: 'Label di samping', under: 'Label di bawah', none: 'Tanpa label' },
+  },
   common: {
     add: 'Tambah',
     free: 'gratis',
@@ -292,7 +304,6 @@ export const id: PartialDictionary = {
   footer: {
     terms: 'Ketentuan',
     privacy: 'Privasi',
-    legal: 'Informasi hukum',
     guides: 'Panduan',
     home: 'Beranda',
     explore: 'Jelajahi',

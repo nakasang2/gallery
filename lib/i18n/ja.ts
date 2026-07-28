@@ -9,6 +9,18 @@
 import type { Dictionary } from './en'
 
 export const ja: Dictionary = {
+  presets: {
+    layout: { hall: '大広間', corridor: '回廊', island: '中央の壁', portrait: '縦長の間', custom: 'カスタム' },
+    frame: { black: '黒', gold: '金', white: '白', wood: 'オーク', none: 'なし' },
+    frameWord: 'の額',
+    frameOf: '{name}の額',
+    frameMaterial: { wood: '木', metal: '金属', paint: '塗装' },
+    frameColor: { ink: '墨', white: '白', gold: '金', silver: '銀', oak: 'オーク', walnut: 'ウォルナット', navy: '紺', wine: 'ワイン' },
+    mat: { auto: '額に合わせる', none: 'マットなし', white: '白', ivory: 'アイボリー', grey: 'グレー', black: '黒' },
+    matAria: '{name}のマット',
+    hanging: { wire: 'ワイヤー吊り', flush: '壁付け', ledge: '棚に立てる' },
+    caption: { side: '横に名板', under: '下に名板', none: 'なし' },
+  },
   common: {
     add: '追加',
     free: '無料',

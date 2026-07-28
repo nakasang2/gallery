@@ -200,9 +200,12 @@ if (findings.length) {
 // 英語以外の辞書は部分辞書で、欠けたキーは英語にフォールバックする
 // （lib/i18n getDictionary）。何%訳せているかを毎回出しておかないと、
 // 「英語のままなのは未訳なのか意図なのか」が誰にも分からなくなる。
-// 値が次の行から始まるキー（`intro:` 改行 `'…'`）も数える。4スペース以上の
-// インデントに限るので、2スペースのグループ見出し（`common: {`）は入らない。
-const leafCount = (src) => (src.match(/^\s{4,}[a-zA-Z0-9_]+:/gm) || []).length
+// 数えるのは「文字列の値を持つキー」。行頭のインデントでは数えられない —
+// 入れ子のグループを1行で書くと（`layout: { hall: '…', corridor: '…' },`）
+// 中身が数から漏れ、逆にグループ見出し（`layout: {`）は1件と数えてしまう。
+// 実際に ja が 98% と出て、翻訳漏れではなく計測の穴だった（2026-07-29）。
+const leafCount = (src) =>
+  (src.replace(/^\s*\/\/.*$/gm, '').match(/[a-zA-Z0-9_]+:\s*['"`]/g) || []).length
 const enLeaves = leafCount(readFileSync('lib/i18n/en.ts', 'utf8'))
 const localeFiles = execSync('git ls-files lib/i18n', { encoding: 'utf8' })
   .split('\n')

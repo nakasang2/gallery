@@ -223,6 +223,18 @@ export const zhHans: PartialDictionary = {
     corsFailed: '图片没能载入。对方站点可能不允许 CORS — 请改为直接上传文件。',
     removeFailed: '没能删除作品：{msg}',
   },
+  presets: {
+    layout: { hall: '大展厅', corridor: '回廊', island: '中央墙面', portrait: '竖长展厅', custom: '自定义' },
+    frame: { black: '黑', gold: '金', white: '白', wood: '橡木', none: '无' },
+    frameWord: '画框',
+    frameOf: '{name}画框',
+    frameMaterial: { wood: '木', metal: '金属', paint: '烤漆' },
+    frameColor: { ink: '墨', white: '白', gold: '金', silver: '银', oak: '橡木', walnut: '胡桃木', navy: '藏青', wine: '酒红' },
+    mat: { auto: '按画框', none: '无衬边', white: '白', ivory: '象牙', grey: '灰', black: '黑' },
+    matAria: '{name}衬边',
+    hanging: { wire: '钢丝悬吊', flush: '贴墙安装', ledge: '搁在托板' },
+    caption: { side: '说明牌在侧', under: '说明牌在下', none: '无' },
+  },
   common: {
     add: '添加',
     free: '免费',
@@ -292,7 +304,6 @@ export const zhHans: PartialDictionary = {
   footer: {
     terms: '服务条款',
     privacy: '隐私',
-    legal: '经营者信息',
     guides: '指南',
     home: '首页',
     explore: '浏览展览',

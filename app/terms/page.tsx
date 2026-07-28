@@ -16,7 +16,7 @@ export default function TermsPage() {
           <p>
             Last updated: July 28, 2026. These terms are between you and Nakamae Yusuke, the
             operator of Xibit360 (&quot;we&quot;). Our full seller details are on the{' '}
-            <LocaleLink href="/legal">Legal</LocaleLink> page. Questions:{' '}
+            <Link href="/legal">Legal</Link> page. Questions:{' '}
             <a href="mailto:support@xibit360.art">support@xibit360.art</a>.
           </p>
 
@@ -53,7 +53,7 @@ export default function TermsPage() {
         <footer className="artist-footer">
           <LanguageSwitcher />
           <Link href="/privacy">Privacy</Link>
-          <LocaleLink href="/legal">Legal</LocaleLink>
+          <Link href="/legal">Legal</Link>
           <LocaleLink href="/">Home</LocaleLink>
         </footer>
       </div>
