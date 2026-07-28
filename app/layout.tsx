@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
-import { cookies, headers } from 'next/headers'
 import { I18nProvider } from '@/components/I18nProvider'
-import { getDictionary, resolveLocale, LOCALE_COOKIE, LOCALE_META } from '@/lib/i18n'
+import { getDictionary, LOCALE_META } from '@/lib/i18n'
+import { getRequestLocale } from '@/lib/i18n/server'
 import './landing.css'
 import './gallery.css'
 import './auth.css'
@@ -36,17 +36,17 @@ export const viewport: Viewport = {
 // deciding on the client would flash English first, which is exactly the moment
 // a shared link makes its impression.
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [cookieStore, headerList] = await Promise.all([cookies(), headers()])
-  const locale = resolveLocale(
-    cookieStore.get(LOCALE_COOKIE)?.value,
-    headerList.get('accept-language'),
-  )
+  const locale = await getRequestLocale()
   const dictionary = getDictionary(locale)
   const meta = LOCALE_META[locale]
   return (
+    // `lang` is the canonical BCP-47 tag, not the URL segment: the segment is
+    // lowercase (`/zh-hans/…`) because URLs are, but a browser and a screen reader
+    // want `zh-Hans`.
+    //
     // `data-script` is what stylesheets key off — never the language itself, so a
     // new locale needs no CSS (lib/i18n LOCALE_META).
-    <html lang={locale} dir={meta.dir} data-script={meta.script}>
+    <html lang={meta.bcp47} dir={meta.dir} data-script={meta.script}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

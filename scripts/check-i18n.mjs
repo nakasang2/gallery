@@ -177,6 +177,30 @@ if (findings.length) {
   console.error(`\n訳す対象でなければ、その行に i18n-ok とコメントを書いてください。`)
   process.exit(1)
 }
+// --- 翻訳カバレッジ（ゲートではなく進捗の可視化） ---------------------------
+// 英語以外の辞書は部分辞書で、欠けたキーは英語にフォールバックする
+// （lib/i18n getDictionary）。何%訳せているかを毎回出しておかないと、
+// 「英語のままなのは未訳なのか意図なのか」が誰にも分からなくなる。
+// 値が次の行から始まるキー（`intro:` 改行 `'…'`）も数える。4スペース以上の
+// インデントに限るので、2スペースのグループ見出し（`common: {`）は入らない。
+const leafCount = (src) => (src.match(/^\s{4,}[a-zA-Z0-9_]+:/gm) || []).length
+const enLeaves = leafCount(readFileSync('lib/i18n/en.ts', 'utf8'))
+const localeFiles = execSync('git ls-files lib/i18n', { encoding: 'utf8' })
+  .split('\n')
+  .filter((f) => f.endsWith('.ts') && !/\/(index|server|metadata|en)\.ts$/.test(f))
+const coverage = localeFiles
+  .map((f) => {
+    const name = f.replace('lib/i18n/', '').replace('.ts', '')
+    const n = leafCount(readFileSync(f, 'utf8'))
+    return { name, n, pct: Math.round((n / enLeaves) * 100) }
+  })
+  .sort((a, b) => b.n - a.n)
+
 if (stateFindings.length) process.exit(1)
 console.log(`UI文言の直書き: 0 件（${files.length} ファイルを検査）`)
 console.log(`状態を語る対外文言: 0 件（${stateFiles.length} ファイルを検査）`)
+console.log(`\n翻訳カバレッジ（英語 ${enLeaves} キーに対して。欠けた分は英語で表示される）:`)
+for (const c of coverage) {
+  const bar = '█'.repeat(Math.round(c.pct / 5)).padEnd(20, '·')
+  console.log(`  ${c.name.padEnd(8)} ${bar} ${String(c.pct).padStart(3)}%  ${c.n}/${enLeaves}`)
+}

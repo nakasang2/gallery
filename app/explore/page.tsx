@@ -6,14 +6,18 @@ import { fetchPublicFeed, fetchSpotlightGalleries, EXPLORE_PAGE_SIZE } from '@/l
 import { fetchSpotlight } from '@/lib/siteConfig'
 import ExploreFeed from '@/components/ExploreFeed'
 import FeedCard from '@/components/FeedCard'
-import { LanguageSwitcher } from '@/components/I18nProvider'
+import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
+import { localeAlternates } from '@/lib/i18n/metadata'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Explore — Xibit360',
-  description: 'Walk through public galleries from other artists — every exhibition on the platform, one link each.',
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: 'Explore — Xibit360',
+    description: 'Walk through public galleries from other artists — every exhibition on the platform, one link each.',
+    alternates: await localeAlternates('/explore'),
+  }
 }
 
 export default async function ExplorePage() {
@@ -30,7 +34,7 @@ export default async function ExplorePage() {
     <main className="artist-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">XIBIT360</Link>
+          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
           <Link href="/signup" className="btn-line">{t('common.startFree')}</Link>
         </div>
 
@@ -58,9 +62,9 @@ export default async function ExplorePage() {
 
         <footer className="artist-footer">
           <LanguageSwitcher />
-          <Link href="/articles">{t('footer.guides')}</Link>
+          <LocaleLink href="/articles">{t('footer.guides')}</LocaleLink>
           <Link href="/terms">{t('footer.terms')}</Link>
-          <Link href="/legal">{t('footer.legal')}</Link>
+          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
           <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>

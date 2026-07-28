@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { LanguageSwitcher } from '@/components/I18nProvider'
+import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 
 export const metadata: Metadata = { title: 'Privacy Policy — Xibit360' }
 
@@ -9,14 +9,14 @@ export default function PrivacyPage() {
     <main className="legal-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">XIBIT360</Link>
+          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
         </div>
         <h1 className="me-h1">Privacy Policy</h1>
         <div className="legal-body">
           <p>
             Last updated: July 28, 2026. The controller of your personal data is Nakamae
             Yusuke, 178-201 Bentencho, Shinjuku-ku, Tokyo, Japan — full details on the{' '}
-            <Link href="/legal">Legal</Link> page. For anything in this policy, including
+            <LocaleLink href="/legal">Legal</LocaleLink> page. For anything in this policy, including
             the requests described in section 7, write to{' '}
             <a href="mailto:support@xibit360.art">support@xibit360.art</a>.
           </p>
@@ -45,7 +45,7 @@ export default function PrivacyPage() {
           <p>These providers operate globally, so your data may be processed outside your country, including in the United States. Where data leaves the UK or the European Economic Area we rely on the transfer mechanisms our providers offer, such as the Standard Contractual Clauses.</p>
 
           <h2>5. What is public</h2>
-          <p>Anything in a published gallery is public: the works placed in it, its title and statement, your username, display name, bio and avatar on your artist page, and any guestbook entries left on it. Published galleries are also listed on our <Link href="/explore">Explore</Link> page and can be found by search engines. Unpublished galleries and works not placed in a public gallery are not visible to others.</p>
+          <p>Anything in a published gallery is public: the works placed in it, its title and statement, your username, display name, bio and avatar on your artist page, and any guestbook entries left on it. Published galleries are also listed on our <LocaleLink href="/explore">Explore</LocaleLink> page and can be found by search engines. Unpublished galleries and works not placed in a public gallery are not visible to others.</p>
 
           <h2>6. How long we keep it</h2>
           <p>Your account data and works are kept until you delete them or close your account. Deleting a work removes its files from storage and clears them from our CDN. Deleting your account removes your profile, galleries and uploaded works. Records of purchases are kept for as long as tax and accounting law requires, even after an account is closed.</p>
@@ -65,8 +65,8 @@ export default function PrivacyPage() {
         <footer className="artist-footer">
           <LanguageSwitcher />
           <Link href="/terms">Terms</Link>
-          <Link href="/legal">Legal</Link>
-          <Link href="/">Home</Link>
+          <LocaleLink href="/legal">Legal</LocaleLink>
+          <LocaleLink href="/">Home</LocaleLink>
         </footer>
       </div>
     </main>

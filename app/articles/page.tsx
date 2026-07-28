@@ -4,14 +4,19 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { fetchPublishedArticles } from '@/lib/blog'
-import { LanguageSwitcher } from '@/components/I18nProvider'
+import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
+import { localeAlternates } from '@/lib/i18n/metadata'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Guides — Xibit360',
-  description: 'How to open a walkable 3D exhibition: guides on showing your art, growing an audience, and making the most of Xibit360.',
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: 'Guides — Xibit360',
+    description:
+      'How to open a walkable 3D exhibition: guides on showing your art, growing an audience, and making the most of Xibit360.',
+    alternates: await localeAlternates('/articles'),
+  }
 }
 
 function fmtDate(iso: string | null): string {
@@ -31,7 +36,7 @@ export default async function ArticlesPage() {
     <main className="artist-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">XIBIT360</Link>
+          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
           <Link href="/signup" className="btn-line">{t('common.startFree')}</Link>
         </div>
 
@@ -45,7 +50,7 @@ export default async function ArticlesPage() {
         ) : (
           <div className="article-list">
             {articles.map((a) => (
-              <Link key={a.slug} className="article-card" href={`/articles/${a.slug}`}>
+              <LocaleLink key={a.slug} className="article-card" href={`/articles/${a.slug}`}>
                 {a.coverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img crossOrigin="anonymous" src={a.coverUrl} alt="" className="article-card-cover" />
@@ -57,16 +62,16 @@ export default async function ArticlesPage() {
                   {a.excerpt && <p className="article-card-excerpt">{a.excerpt}</p>}
                   {a.publishedAt && <p className="article-card-date">{fmtDate(a.publishedAt)}</p>}
                 </div>
-              </Link>
+              </LocaleLink>
             ))}
           </div>
         )}
 
         <footer className="artist-footer">
           <LanguageSwitcher />
-          <Link href="/explore">{t('footer.explore')}</Link>
+          <LocaleLink href="/explore">{t('footer.explore')}</LocaleLink>
           <Link href="/terms">{t('footer.terms')}</Link>
-          <Link href="/legal">{t('footer.legal')}</Link>
+          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
           <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>

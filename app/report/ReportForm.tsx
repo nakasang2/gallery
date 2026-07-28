@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { submitReport } from '@/lib/engagement'
 import AuthShell from '@/components/auth/AuthShell'
-import { useT } from '@/components/I18nProvider'
+import { LocaleLink, useT } from '@/components/I18nProvider'
 
 export default function ReportForm({ about }: { about: string }) {
   const t = useT()
@@ -30,7 +30,7 @@ export default function ReportForm({ about }: { about: string }) {
           <Link href="/terms" style={{ color: 'var(--gold)' }}>terms</Link>.
         </p>
         <p className="auth-links">
-          <Link href="/">{t('me.backHome')}</Link>
+          <LocaleLink href="/">{t('me.backHome')}</LocaleLink>
         </p>
       </AuthShell>
     )

@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { fetchArticle } from '@/lib/blog'
 import { renderMarkdown } from '@/lib/markdown'
 import { getServerT } from '@/lib/i18n/server'
+import { localeAlternates } from '@/lib/i18n/metadata'
+import { LocaleLink } from '@/components/I18nProvider'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +41,7 @@ export async function generateMetadata({
       images: a.coverUrl ? [{ url: a.coverUrl }] : undefined,
     },
     twitter: { card: a.coverUrl ? 'summary_large_image' : 'summary' },
+    alternates: await localeAlternates(`/articles/${slug}`),
   }
 }
 
@@ -52,7 +55,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     <main className="article-page">
       <div className="article-inner">
         <div className="me-top">
-          <Link href="/articles" className="auth-logo">← Guides</Link>
+          <LocaleLink href="/articles" className="auth-logo">← Guides</LocaleLink>
           <Link href="/signup" className="btn-line btn-gold">{t('common.startFree')}</Link>
         </div>
 
@@ -76,14 +79,14 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <p>{t('articles.ctaBody')}</p>
           <Link href="/signup" className="btn btn-gold">{t('common.startFree')}</Link>
           <p className="article-cta-alt">
-            <Link href="/demo">{t('articles.ctaAlt')}</Link>
+            <LocaleLink href="/demo">{t('articles.ctaAlt')}</LocaleLink>
           </p>
         </section>
 
         <footer className="artist-footer">
-          <Link href="/articles">{t('articles.allGuides')}</Link>
-          <Link href="/explore">{t('footer.explore')}</Link>
-          <Link href="/">Home</Link>
+          <LocaleLink href="/articles">{t('articles.allGuides')}</LocaleLink>
+          <LocaleLink href="/explore">{t('footer.explore')}</LocaleLink>
+          <LocaleLink href="/">Home</LocaleLink>
         </footer>
       </div>
     </main>

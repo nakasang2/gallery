@@ -12,13 +12,17 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PRICE_SLOT, PRICE_THEME, PRICE_LAYOUT } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM } from '@/lib/limits'
-import { LanguageSwitcher } from '@/components/I18nProvider'
+import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
+import { localeAlternates } from '@/lib/i18n/metadata'
 
-export const metadata: Metadata = {
-  title: 'Legal — Xibit360',
-  description:
-    'Seller information for Xibit360, disclosed under the Japanese Act on Specified Commercial Transactions.',
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: 'Legal — Xibit360',
+    description:
+      'Seller information for Xibit360, disclosed under the Japanese Act on Specified Commercial Transactions.',
+    alternates: await localeAlternates('/legal'),
+  }
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -36,7 +40,7 @@ export default async function LegalPage() {
     <main className="legal-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">XIBIT360</Link>
+          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
         </div>
         <h1 className="me-h1">{t('legal.heading')}</h1>
         <div className="legal-body">
@@ -76,7 +80,7 @@ export default async function LegalPage() {
           <LanguageSwitcher />
           <Link href="/terms">{t('footer.terms')}</Link>
           <Link href="/privacy">{t('footer.privacy')}</Link>
-          <Link href="/">{t('footer.home')}</Link>
+          <LocaleLink href="/">{t('footer.home')}</LocaleLink>
         </footer>
       </div>
     </main>

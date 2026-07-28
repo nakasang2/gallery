@@ -11,7 +11,7 @@ import { audioGuide } from '@/lib/guide'
 import { showToast } from '@/lib/toast'
 import { SendIcon } from '@/components/icons'
 import { useWalkRecorder } from './RecordButton'
-import { useT } from '@/components/I18nProvider'
+import { LocaleLink, useT } from '@/components/I18nProvider'
 
 export function HudTop() {
   const t = useT()
@@ -55,7 +55,7 @@ export function HudTop() {
     return (
       <header className="hud-top">
         <div className="hud-identity">
-          <Link className="hud-identity-home" href="/">XIBIT360</Link>
+          <LocaleLink className="hud-identity-home" href="/">XIBIT360</LocaleLink>
           <span className="hud-identity-main">{untitled ? visitor.ownerName : visitor.title}</span>
           {!untitled && <span className="hud-identity-sub">{visitor.ownerName}</span>}
         </div>
@@ -86,7 +86,7 @@ export function HudTop() {
 
   return (
     <header className="hud-top">
-      <Link className="hud-back" href="/">← XIBIT360</Link>
+      <LocaleLink className="hud-back" href="/">← XIBIT360</LocaleLink>
       <div className="hud-title">
         <span className="hud-title-main">{t('hud.houseTitle')}</span>
         <span className="hud-title-sub">{t('hud.houseSub')}</span>

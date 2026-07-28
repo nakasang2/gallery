@@ -9,7 +9,7 @@ import { fetchPublicProfile, fetchPublicExhibition, isPlaceholderTitle } from '@
 import VisitorGallery from '@/components/gallery/VisitorGallery'
 import OwnerPreview from '@/components/gallery/OwnerPreview'
 import SnsLinks from '@/components/SnsLinks'
-import { LanguageSwitcher } from '@/components/I18nProvider'
+import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
 import { COVER_SIZES } from '@/components/FeedCard'
 
@@ -94,8 +94,8 @@ export default async function ArtistPage({
     <main className="artist-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">XIBIT360</Link>
-          <Link href="/explore" className="btn-line">{t('footer.explore')}</Link>
+          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
+          <LocaleLink href="/explore" className="btn-line">{t('footer.explore')}</LocaleLink>
         </div>
 
         <div className="artist-head">
@@ -148,7 +148,7 @@ export default async function ArtistPage({
         <footer className="artist-footer">
           <LanguageSwitcher />
           <Link href="/terms">{t('footer.terms')}</Link>
-          <Link href="/legal">{t('footer.legal')}</Link>
+          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
           <Link href="/privacy">{t('footer.privacy')}</Link>
           <Link href={`/report?about=${encodeURIComponent(`@${p.username}`)}`}>{t('artist.reportProblem')}</Link>
         </footer>

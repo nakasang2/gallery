@@ -8,6 +8,7 @@ import type { MetadataRoute } from 'next'
 import { supabase } from '@/lib/supabase'
 import { siteUrl } from '@/lib/publicUrl'
 import { fetchPublishedArticles } from '@/lib/blog'
+import { DEFAULT_LOCALE, LOCALES, LOCALE_META, localePath } from '@/lib/i18n'
 
 // Public galleries change as artists edit; keep the file fresh rather than
 // letting a build-time snapshot go stale.
@@ -19,18 +20,40 @@ type GalleryRow = {
   profiles: { username: string | null } | null
 }
 
+/** One sitemap entry per locale for a page we author, each carrying the full
+ *  hreflang set. Listing the alternates here as well as in the page's <head> is
+ *  belt-and-braces: Google accepts either, and the sitemap is what it reads first
+ *  for pages it has not crawled yet. */
+function localized(
+  base: string,
+  path: string,
+  rest: Omit<MetadataRoute.Sitemap[number], 'url' | 'alternates'>,
+): MetadataRoute.Sitemap {
+  const languages: Record<string, string> = {}
+  for (const l of LOCALES) languages[LOCALE_META[l].bcp47] = `${base}${localePath(l, path)}`
+  languages['x-default'] = `${base}${localePath(DEFAULT_LOCALE, path)}`
+  return LOCALES.map((l) => ({
+    url: `${base}${localePath(l, path)}`,
+    ...rest,
+    alternates: { languages },
+  }))
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl()
   const now = new Date()
 
   const staticPages: MetadataRoute.Sitemap = [
-    { url: `${base}/`, lastModified: now, changeFrequency: 'weekly', priority: 1 },
-    { url: `${base}/explore`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
-    { url: `${base}/demo`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${base}/articles`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
+    ...localized(base, '/', { lastModified: now, changeFrequency: 'weekly', priority: 1 }),
+    ...localized(base, '/explore', { lastModified: now, changeFrequency: 'daily', priority: 0.9 }),
+    ...localized(base, '/demo', { lastModified: now, changeFrequency: 'monthly', priority: 0.7 }),
+    ...localized(base, '/articles', { lastModified: now, changeFrequency: 'weekly', priority: 0.6 }),
+    ...localized(base, '/legal', { lastModified: now, changeFrequency: 'yearly', priority: 0.2 }),
+    // English is the governing version of these two, so they stay one URL each
+    // (docs/DECISIONS 2026-07-28) — eleven copies of the same English text would
+    // be duplication, not localization.
     { url: `${base}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
-    { url: `${base}/legal`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
   ]
 
   if (!supabase) return staticPages
@@ -75,11 +98,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     })),
     ...rooms,
-    ...articles.map((a) => ({
-      url: `${base}/articles/${a.slug}`,
-      lastModified: a.publishedAt ? new Date(a.publishedAt) : now,
-      changeFrequency: 'monthly' as const,
-      priority: 0.5,
-    })),
+    ...articles.flatMap((a) =>
+      localized(base, `/articles/${a.slug}`, {
+        lastModified: a.publishedAt ? new Date(a.publishedAt) : now,
+        changeFrequency: 'monthly' as const,
+        priority: 0.5,
+      }),
+    ),
   ]
 }

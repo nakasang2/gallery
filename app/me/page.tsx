@@ -65,7 +65,7 @@ import {
 import { loadImage } from '@/lib/upload'
 import type { ArtworkData } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
-import { useT } from '@/components/I18nProvider'
+import { LocaleLink, useT } from '@/components/I18nProvider'
 
 // The works preview is the REAL renderer (three.js), loaded only when needed;
 // until the chunk arrives the flat CSS preview holds the same footprint
@@ -1138,12 +1138,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         {/* The only way back into the 3D editor. Creating a gallery pushes you to
             /demo, but nothing here linked to it — and two alerts below used to
             send people to "the editor" with no door to walk through. */}
-        <Link className="me-subnav-item me-subnav-walk" href="/demo">
+        <LocaleLink className="me-subnav-item me-subnav-walk" href="/demo">
           <span className="me-subnav-ic" aria-hidden="true">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 20V9l8-5 8 5v11" /><path d="M9.5 20v-6h5v6" /></svg>
           </span>
           <span className="me-subnav-tx">{t('me.navWalk')}</span>
-        </Link>
+        </LocaleLink>
         <div className="me-subnav-group">{t('me.navWorksCount', { count: cloudArtworks.length, cap: row.work_cap })}</div>
         {cloudArtworks.map((art) => (
           <button
@@ -2168,7 +2168,7 @@ export default function MePage() {
       <AuthShell title={t('me.dashboard')}>
         <p className="auth-note">{t('me.notConfigured')}</p>
         <p className="auth-links">
-          <Link href="/">{t('me.backHome')}</Link>
+          <LocaleLink href="/">{t('me.backHome')}</LocaleLink>
         </p>
       </AuthShell>
     )
@@ -2182,9 +2182,9 @@ export default function MePage() {
       )}
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">XIBIT360</Link>
+          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
           <div className="me-top-actions">
-            <Link className="btn-line" href="/explore">{t('me.explore')}</Link>
+            <LocaleLink className="btn-line" href="/explore">{t('me.explore')}</LocaleLink>
             {isAdmin && (
               <Link className="btn-line btn-gold" href="/admin">{t('me.admin')}</Link>
             )}
@@ -2292,7 +2292,7 @@ export default function MePage() {
 
         <footer className="artist-footer">
           <Link href="/terms">{t('footer.terms')}</Link>
-          <Link href="/legal">{t('footer.legal')}</Link>
+          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
           <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>

@@ -1,0 +1,97 @@
+// Traditional Chinese (Taiwan-leaning vocabulary). A partial dictionary: anything
+// absent falls through to English (lib/i18n getDictionary).
+//
+// Deliberately separate from zh-hans — see the note there.
+import type { PartialDictionary } from './index'
+
+export const zhHant: PartialDictionary = {
+  common: {
+    exhibition: '展覽',
+    close: '關閉',
+    cancel: '取消',
+    save: '儲存',
+    saving: '儲存中…',
+    saved: '已儲存',
+    retry: '再試一次',
+    startFree: '免費開始',
+    signIn: '登入',
+    dashboard: '控制台',
+    language: '語言',
+  },
+  hud: {
+    tour: '導覽',
+    endTour: '結束導覽',
+    bgmOn: '開啟音樂',
+    bgmOff: '關閉音樂',
+    share: '分享',
+    guestbook: '留言簿',
+    editSpace: '編輯空間',
+    others: '更多操作',
+    closeMenu: '關閉選單',
+    report: '檢舉',
+    reportAria: '檢舉這個展覽',
+    record: '錄製',
+    recordAria: '錄製觀展過程',
+    stop: '停止',
+    stopAria: '停止錄製',
+    linkCopied: '已複製連結',
+    yourSpace: '你的空間',
+    livePublished: '已公開 — 儲存後立即生效',
+    privateDraft: '未公開的草稿',
+    yourExhibition: '你的展覽',
+    open: '開啟 ↗',
+    houseTitle: 'XIBIT360 典藏',
+    houseSub: '常設展 — 十件作品',
+  },
+  hint: {
+    touch: '拖曳環視 · 點擊地面移動',
+    drag: '拖曳',
+    dragWhat: '行走・轉向',
+    tap: '點擊',
+    tapWhat: '地面移動 · 作品欣賞',
+    step: '下一件',
+  },
+  loading: {
+    nowShowing: '正在展出',
+    openingDoors: '正在開門…',
+    preparing: '正在準備展場…',
+  },
+  contextLost: {
+    title: '展場與顯示卡的連線中斷了。',
+    body: '當裝置記憶體不足，或你切換到其他應用程式時，可能會發生這種情況。',
+    rebuild: '重建展場',
+  },
+  explore: {
+    title: '瀏覽展覽',
+    intro: '平台上所有公開的展覽，依最近編輯排序。走進去看看 — 每個展場都能在瀏覽器裡直接以 3D 開啟。',
+    emptyState: '還沒有公開的展覽 — 來當第一個。',
+    walkThrough_one: '{count} 件作品 · 以 3D 走進去 →',
+    walkThrough_other: '{count} 件作品 · 以 3D 走進去 →',
+    loadMore: '載入更多',
+  },
+  footer: {
+    terms: '服務條款',
+    privacy: '隱私',
+    legal: '營業者資訊',
+    guides: '指南',
+    home: '首頁',
+    explore: '瀏覽展覽',
+  },
+  artist: {
+    exhibitions: '展覽',
+    noExhibitions: '還沒有公開的展覽。',
+    reportProblem: '檢舉問題',
+  },
+  catalog: {
+    back: '← 返回展覽',
+    title: '展覽圖錄',
+    forSale: '可以購買',
+    empty: '這個展覽還沒有作品。',
+    download: '下載 PDF',
+  },
+  notFound: {
+    title: '找不到這個展場。',
+    lead: '連結可能已經變更，或者展覽已改為不公開。入口仍然開著。',
+    ctaHome: '返回入口',
+  },
+}

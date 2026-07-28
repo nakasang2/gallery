@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getServerT } from '@/lib/i18n/server'
+import { LocaleLink } from '@/components/I18nProvider'
 
 // The real 404 used to be Next.js's built-in white page. app/landing.css had
 // carried a finished 404 design (.notfound*) since the first commit, but nothing
@@ -22,12 +23,12 @@ export default async function NotFound() {
       <h1 className="notfound-title">{t('notFound.title')}</h1>
       <p className="notfound-lead">{t('notFound.lead')}</p>
       <div className="notfound-cta">
-        <Link className="btn btn-primary" href="/">
+        <LocaleLink className="btn btn-primary" href="/">
           {t('notFound.ctaHome')}
-        </Link>
-        <Link className="btn btn-ghost" href="/explore">
+        </LocaleLink>
+        <LocaleLink className="btn btn-ghost" href="/explore">
           {t('footer.explore')}
-        </Link>
+        </LocaleLink>
       </div>
     </main>
   )

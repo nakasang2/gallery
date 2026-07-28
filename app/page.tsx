@@ -1,10 +1,18 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import LandingEffects from '@/components/landing/LandingEffects'
 import HeroCanvas from '@/components/landing/HeroCanvas'
 import { PLAN } from '@/lib/limits'
 import { PRICE_SLOT, PRICE_THEME, PRICE_LAYOUT } from '@/lib/pricing'
-import { LanguageSwitcher } from '@/components/I18nProvider'
+import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
+import { localeAlternates } from '@/lib/i18n/metadata'
+
+// The landing page inherits title/description from the root layout; what it needs
+// of its own is the canonical + hreflang set for `/{locale}` (lib/i18n/metadata).
+export async function generateMetadata(): Promise<Metadata> {
+  return { alternates: await localeAlternates('/') }
+}
 
 export default async function LandingPage() {
   const { t } = await getServerT()
@@ -17,14 +25,14 @@ export default async function LandingPage() {
       <LandingEffects />
 
       <nav className="nav" id="nav">
-        <Link className="nav-logo" href="/">XIBIT360</Link>
+        <LocaleLink className="nav-logo" href="/">XIBIT360</LocaleLink>
         <div className="nav-links">
           <a href="#concept">{t('lp.navConcept')}</a>
           <a href="#features">{t('lp.navFeatures')}</a>
           <a href="#flow">{t('lp.navFlow')}</a>
           <a href="#pricing">{t('lp.navPricing')}</a>
-          <Link href="/explore">{t('footer.explore')}</Link>
-          <Link href="/articles">{t('footer.guides')}</Link>
+          <LocaleLink href="/explore">{t('footer.explore')}</LocaleLink>
+          <LocaleLink href="/articles">{t('footer.guides')}</LocaleLink>
         </div>
         <div className="nav-actions">
           <Link className="btn btn-small" href="/signin">{t('common.signIn')}</Link>
@@ -41,8 +49,8 @@ export default async function LandingPage() {
 
         {/* 入口のミニマルなクローム(ナビはスクロールで初めて現れる) */}
         <div className="hero-chrome">
-          <Link className="hero-mark" href="/">XIBIT360</Link>
-          <Link className="hero-enter" href="/demo">{t('lp.heroCtaArrow')}</Link>
+          <LocaleLink className="hero-mark" href="/">XIBIT360</LocaleLink>
+          <LocaleLink className="hero-enter" href="/demo">{t('lp.heroCtaArrow')}</LocaleLink>
         </div>
 
         <div className="hero-lead-wrap">
@@ -51,7 +59,7 @@ export default async function LandingPage() {
           <p className="hero-sub">
             {t('lp.heroSub')}
           </p>
-          <Link className="hero-cta" href="/demo">{t('lp.heroCta')}</Link>
+          <LocaleLink className="hero-cta" href="/demo">{t('lp.heroCta')}</LocaleLink>
           <p className="hero-alt">
             <Link href="/signup">{t('lp.heroAlt')}</Link>
           </p>
@@ -150,7 +158,7 @@ export default async function LandingPage() {
             <p>
               {t('lp.demoBody')}
             </p>
-            <Link className="btn btn-primary" href="/demo">{t('lp.demoCta')}</Link>
+            <LocaleLink className="btn btn-primary" href="/demo">{t('lp.demoCta')}</LocaleLink>
           </div>
         </div>
       </section>
@@ -209,7 +217,7 @@ export default async function LandingPage() {
           </p>
           <Link className="hero-cta" href="/signup">{t('lp.closingCta')}</Link>
           <p className="closing-alt">
-            <Link href="/demo">{t('lp.closingAlt')}</Link>
+            <LocaleLink href="/demo">{t('lp.closingAlt')}</LocaleLink>
           </p>
         </div>
       </section>
@@ -222,9 +230,9 @@ export default async function LandingPage() {
           <a href="#concept">{t('lp.navConcept')}</a>
           <a href="#features">{t('lp.navFeatures')}</a>
           <a href="#pricing">{t('lp.navPricing')}</a>
-          <Link href="/demo">{t('lp.navDemo')}</Link>
-          <Link href="/explore">{t('footer.explore')}</Link>
-          <Link href="/articles">{t('footer.guides')}</Link>
+          <LocaleLink href="/demo">{t('lp.navDemo')}</LocaleLink>
+          <LocaleLink href="/explore">{t('footer.explore')}</LocaleLink>
+          <LocaleLink href="/articles">{t('footer.guides')}</LocaleLink>
           <Link href="/signin">{t('common.signIn')}</Link>
           <Link href="/signup">{t('lp.navCreateAccount')}</Link>
         </nav>
@@ -232,7 +240,7 @@ export default async function LandingPage() {
           <LanguageSwitcher />
           <Link href="/privacy">{t('footer.privacy')}</Link>
           <Link href="/terms">{t('footer.terms')}</Link>
-          <Link href="/legal">{t('footer.legal')}</Link>
+          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
           <span>© 2026 XIBIT360</span>
         </div>
       </footer>

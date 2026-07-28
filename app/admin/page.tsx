@@ -14,7 +14,7 @@ import ArticlesEditor from '@/components/ArticlesEditor'
 import DemoLookEditor from '@/components/DemoLookEditor'
 import GhostSpeedEditor from '@/components/GhostSpeedEditor'
 import AuthShell from '@/components/auth/AuthShell'
-import { useT } from '@/components/I18nProvider'
+import { LocaleLink, useT } from '@/components/I18nProvider'
 
 export default function AdminPage() {
   const t = useT()
@@ -69,7 +69,7 @@ export default function AdminPage() {
         )}
         <p className="auth-links">
           {!user && <Link href="/signin">{t('common.signIn')}</Link>}
-          <Link href="/">{t('me.backHome')}</Link>
+          <LocaleLink href="/">{t('me.backHome')}</LocaleLink>
         </p>
       </AuthShell>
     )
@@ -79,7 +79,7 @@ export default function AdminPage() {
     <main className="me-page">
       <div className="me-inner">
         <div className="me-top">
-          <Link href="/" className="auth-logo">XIBIT360</Link>
+          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
           <div className="me-top-actions">
             <Link className="btn-line" href="/me">{t('common.dashboard')}</Link>
             <button className="btn-line" onClick={() => void load()} disabled={loading}>
@@ -110,7 +110,7 @@ export default function AdminPage() {
 
         <footer className="artist-footer">
           <Link href="/terms">{t('footer.terms')}</Link>
-          <Link href="/legal">{t('footer.legal')}</Link>
+          <LocaleLink href="/legal">{t('footer.legal')}</LocaleLink>
           <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>
