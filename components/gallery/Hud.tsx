@@ -1,6 +1,6 @@
 'use client'
 // Top HUD (back/title), bottom-right actions (guided tour / edit space / ambience), and control hints
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
@@ -135,6 +135,19 @@ export function HudActions() {
   const [othersOpen, setOthersOpen] = useState(false)
   const recorder = useWalkRecorder()
 
+  // The cluster rests at low opacity so it stops sitting on top of the artwork
+  // (app/gallery.css). Desktop gets that back on :hover; touch has no hover, so
+  // a tap holds the whole cluster at full presence for a few seconds — long
+  // enough to reach a second button without it fading under your finger.
+  const [engaged, setEngaged] = useState(false)
+  const engageTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const engage = () => {
+    setEngaged(true)
+    if (engageTimer.current) clearTimeout(engageTimer.current)
+    engageTimer.current = setTimeout(() => setEngaged(false), 3500)
+  }
+  useEffect(() => () => { if (engageTimer.current) clearTimeout(engageTimer.current) }, [])
+
   // Any open surface (artwork sheet, settings, guestbook, exhibition info) covers this
   // corner — tuck the cluster away instead of leaving dead buttons underneath
   const tucked = focusedIndex >= 0 || settingsOpen || guestbookOpen || infoOpen
@@ -163,9 +176,11 @@ export function HudActions() {
 
   return (
     <div
-      className={`hud-cluster${tucked ? ' tucked' : ''}${othersOpen ? ' others-open' : ''}`}
+      className={`hud-cluster${tucked ? ' tucked' : ''}${othersOpen ? ' others-open' : ''}${engaged ? ' engaged' : ''}`}
       aria-hidden={tucked}
       inert={tucked}
+      onPointerDown={engage}
+      onFocusCapture={engage}
     >
       {/* Base actions — hidden while Others is open so the submenu stands alone */}
       <div className="hud-base">

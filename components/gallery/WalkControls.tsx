@@ -312,6 +312,7 @@ export default function WalkControls({
 
     const hideStick = () => {
       stick.classList.remove('on')
+      document.documentElement.classList.remove('is-walking')
       knob.style.transform = ''
     }
 
@@ -390,6 +391,9 @@ export default function WalkControls({
         stick.style.left = `${s.startX}px`
         stick.style.top = `${s.startY}px`
         stick.classList.add('on')
+        // Lets the HUD rest itself out of the way while the visitor is walking
+        // (app/gallery.css). Imperative like the stick — no React re-render.
+        document.documentElement.classList.add('is-walking')
       }
       if (s.dragActive) knob.style.transform = `translate(${s.dragX * 34}px, ${s.dragY * 34}px)`
     }
@@ -442,6 +446,9 @@ export default function WalkControls({
     window.addEventListener('keyup', onKeyUp)
     return () => {
       stick.remove()
+      // Leaving mid-drag must not strand the HUD in its walking (near-invisible)
+      // state — the class lives on <html>, which outlives this component.
+      document.documentElement.classList.remove('is-walking')
       el.removeEventListener('pointerdown', onPointerDown)
       el.removeEventListener('pointermove', onPointerMove)
       el.removeEventListener('pointerup', onPointerUp)

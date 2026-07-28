@@ -589,6 +589,26 @@ body:not(.gallery-mode) {
 /* An open surface (artwork sheet / settings / guestbook) covers this corner */
 .hud-cluster.tucked { opacity: 0; pointer-events: none; }
 
+/* The cluster is five 46px circles = a third of a phone's height, sitting on top
+   of the artwork the whole visit (measured on a real gallery at 375x812).
+   Rest it back so the room reads through, and bring it to full presence the
+   moment it is touched — deliberately opacity only, never size or
+   pointer-events, so nothing ever costs an extra tap (docs/DECISIONS 2026-07-28).
+   `.engaged` is set for a few seconds after a tap, which is how touch devices
+   get the "hover" state they don't have. */
+.hud-cluster { opacity: 0.55; }
+.hud-cluster.engaged,
+.hud-cluster:hover,
+.hud-cluster:focus-within { opacity: 1; }
+/* Walking: the visitor is looking at the room, not the buttons */
+:root.is-walking .hud-cluster:not(.engaged) { opacity: 0.16; }
+:root.is-walking .minimap,
+:root.is-walking .hud-stepper { opacity: 0.35; }
+.hud-stepper { transition: opacity 0.25s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .hud-cluster { transition: none; }
+}
+
 /* Base actions (BGM / Share / Guestbook) stacked above the Others button */
 .hud-base {
   display: flex;
