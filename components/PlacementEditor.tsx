@@ -66,6 +66,27 @@ export default function PlacementEditor({
   const h = def.hd * 2 + pad * 2
   const S = 1.25 // slot square side, in metres
 
+  // Finger-sized hit areas. The map is scale-bound: a hall (26×16m) drawn into a
+  // 360px-wide box renders at ~11px per metre, so the 1.25m square is ~14px — a
+  // third of the 44px minimum, and no amount of extra map width fixes that
+  // (measured 2026-07-28). So we widen the *hit* area instead of the drawing,
+  // out to 90% of the distance to the nearest neighbour so slots can never
+  // steal each other's taps. Only live on coarse pointers — see .pe-slot-hit.
+  const hitSide = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const i of usable) {
+      const a = def.slots[i]
+      let nearest = Infinity
+      for (const j of usable) {
+        if (j === i) continue
+        const b = def.slots[j]
+        nearest = Math.min(nearest, Math.hypot(a.x - b.x, a.z - b.z))
+      }
+      m.set(i, Math.min(4.4, Math.max(S, nearest * 0.9)))
+    }
+    return m
+  }, [def, usable])
+
   function assign(slot: number, workId: string) {
     const next = [...current]
     const prev = next.indexOf(workId)
@@ -108,6 +129,10 @@ export default function PlacementEditor({
               <clipPath id={cid}>
                 <rect x={-S / 2} y={-S / 2} width={S} height={S} rx={0.16} />
               </clipPath>
+              {(() => {
+                const hs = hitSide.get(slotIdx) ?? S
+                return <rect className="pe-slot-hit" x={-hs / 2} y={-hs / 2} width={hs} height={hs} />
+              })()}
               <rect className="pe-slot-bg" x={-S / 2} y={-S / 2} width={S} height={S} rx={0.16} />
               {src && (
                 <image

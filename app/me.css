@@ -1278,3 +1278,75 @@
   padding: 0.3em 0.5em;
   cursor: pointer;
 }
+
+
+/* ============================================================
+   B15 — タブレット幅（721〜1024px）
+   ブレークポイントが 720 と 1300 しか無く、iPad縦（768〜834px）は
+   デスクトップの2カラムをそのまま受けていた。左に172px固定のサブナビ、
+   右をさらに 1.1fr / 1fr で割るので、実質250px / 218pxまで潰れる。
+   サブナビは縦のまま活かしたいので、内側の分割だけ1カラムに戻す。
+   ============================================================ */
+@media (min-width: 721px) and (max-width: 1024px) {
+  .works-detail { grid-template-columns: 1fr; gap: 1.1rem; }
+  /* 1カラムでは貼り付いても意味がない（プレビューの真下に設定が来る） */
+  .works-detail .we-left { position: static; }
+  .me-gallery-body { grid-template-columns: 148px minmax(0, 1fr); }
+}
+
+/* ============================================================
+   B17 — iOSの入力欄オートズーム
+   16px未満の入力欄にフォーカスすると、iOSはページを勝手に拡大し、
+   しかも自動では戻さない。11箇所が該当していた。
+   狙ってデスクトップの詰まった見た目は変えたくないので、粗いポインタの
+   端末だけに当てる。!important は装飾ではなくブラウザ挙動の抑止で、
+   既存のどの指定より強く効かないと意味がないため（16pxが閾値）。
+   ============================================================ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* ============================================================
+   B16 — 指で押せないタップ対象
+   Apple/Googleの目安は44px。粗いポインタのときだけ広げる（デスクトップの
+   密度は保つ）。見た目の大きさではなく、当たり判定を稼ぐのが目的。
+   ============================================================ */
+@media (pointer: coarse) {
+  .me-tab { min-height: 44px; display: inline-flex; align-items: center; }
+  .btn-line { min-height: 44px; }
+  /* 芳名帳の削除✕（1.4rem = 22.4px） */
+  .gb-list .gb-meta button { width: 44px; height: 44px; }
+  /* 埋め込みコードなどのモーダル閉じる（約22px） */
+  .me-modal-close { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  /* 公開トグルのつまみ（34×20）。見た目は変えず、当たり判定だけ広げる */
+  .switch { position: relative; }
+  .switch::after { content: ''; position: absolute; inset: -12px; }
+}
+
+/* ============================================================
+   B16（続き）— 配置エディタのスロット
+   390px幅・hallで実測12×12px、corridorで9×9px。地図は max-width: 360px で
+   上限が決まっており、hall（26×16m）は約11px/mでしか描けないので、地図を
+   広げても1.25mのスロットは15px程度にしかならない（実測）。そこで描画では
+   なく当たり判定だけを広げる。矩形の寸法は PlacementEditor 側で最近傍まで
+   の距離から算出しており、隣のスロットのタップを奪わない。
+   ============================================================ */
+.pe-slot-hit { fill: none; pointer-events: none; }
+@media (pointer: coarse) {
+  .pe-slot-hit { pointer-events: fill; }
+  .pe-slot-ring { stroke-width: 0.14; }
+  /* 当たり判定はメートル基準なので、地図が広いほど指に有利。カード自身の
+     左右paddingを食い返して 360px の上限も外す（はみ出しはしない）。 */
+  .place-map {
+    max-width: none;
+    margin-inline: -1.2rem;
+    /* 負のマージンだけでは width: 100% の基準が変わらず左にずれるだけなので、
+       幅も同じ分だけ足す（実測 2026-07-28）。 */
+    width: calc(100% + 2.4rem);
+    padding: 0.3rem;
+  }
+}

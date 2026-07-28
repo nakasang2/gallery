@@ -1828,3 +1828,40 @@ body:not(.gallery-mode) {
   margin-bottom: 0.6rem;
 }
 .ctx-lost-sub { font-size: 0.8rem; line-height: 1.7; color: var(--muted); margin-bottom: 1.4rem; }
+
+
+/* ============================================================
+   B16 — 3D HUDのタップ対象（粗いポインタのみ）
+   ページャの前後（40px）、パネル内の前後（33.6px）、Start free（約27px）、
+   ← Dashboard（約11px）、← XIBIT360（約18px）が目安の44pxを下回っていた。
+   ============================================================ */
+@media (pointer: coarse) {
+  .step-btn { width: 44px; height: 44px; }
+  .panel-nav-btn { width: 44px; height: 44px; }
+  .hud-signup-cta { min-height: 44px; display: inline-flex; align-items: center; }
+  /* 文字リンクは高さを持たない。見た目を崩さずに当たり判定だけ広げる */
+  .hud-identity-home,
+  .hud-back {
+    position: relative;
+    display: inline-block;
+  }
+  .hud-identity-home::after,
+  .hud-back::after {
+    content: '';
+    position: absolute;
+    inset: -14px -10px;
+  }
+  .panel-close { width: 44px; height: 44px; }
+}
+
+/* ============================================================
+   B16 — 空間を編集パネルの作品リスト（粗いポインタのみ）
+   ▲▼✕ が横に3つ並ぶ狭い列なので、幅は隣とぶつかる分しか稼げない。
+   高さを44pxまで伸ばし、幅は40pxまで（gapを詰めて場所を作る）。
+   既存の .works-move が !important を使っているので、こちらも必要。
+   ============================================================ */
+@media (pointer: coarse) {
+  .my-works li { gap: 0.4rem; }
+  .my-works button { width: 40px !important; height: 44px !important; border-radius: 22px; }
+  .works-move { font-size: 0.7rem !important; }
+}
