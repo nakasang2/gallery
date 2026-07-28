@@ -1624,6 +1624,15 @@ body:not(.gallery-mode) {
     max-width: min(92vw, 420px);
     border-radius: 16px;
   }
+  /* 触る端末は1行だけなので、丸ピルに戻して折り返さない（Hud.tsx の Hint 参照）。
+     bottom は上書きしない — 7.2rem まで下げるとミニマップに重なる（実測 2026-07-28）。 */
+  .hint.hint-touch {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    max-width: 96vw;
+    border-radius: 100px;
+    padding: 0.5rem 1.1rem;
+  }
   .hud-title-main { font-size: 0.72rem; letter-spacing: 0.14em; }
   .hud-identity-main { font-size: 0.76rem; letter-spacing: 0.02em; }
   /* タッチターゲット 44px + ジェスチャバーの安全域 */

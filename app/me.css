@@ -611,6 +611,27 @@
 .me-subnav-add[aria-disabled='true'] { opacity: 0.6; cursor: default; }
 .me-subnav-cap .me-subnav-ic { color: var(--gold); }
 
+/* 空き枠をたたむトグル。枠そのものではないので、罫線だけの控えめな行にする */
+.me-subnav-more {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  padding: 0.5em 0.6em 0.5em 2.1rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.me-subnav-more:hover { color: var(--gold); }
+
+/* 電話幅だけで使う「いま何を編集しているか」の行。デスクトップとタブレットでは
+   レールが常に開いているので出さない（720px以下のブロックで display を戻す）。 */
+.me-subnav-toggle { display: none; }
+.me-subnav-caret { flex: none; color: var(--muted); font-size: 0.7rem; }
+
 /* The content card sits flush with the rail (no extra top margin — the row owns it) */
 .me-subcard { margin: 0; }
 
@@ -660,21 +681,42 @@
 
 @media (max-width: 720px) {
   .me-gallery-body { grid-template-columns: 1fr; gap: 0.8rem; }
+  /* かつては横スクロールのタブ列だったが、作品が増えるほど「+ 追加」が右端の
+     画面外へ押し出され、そこへ辿り着くまで横スクロールが必要だった
+     （ユーザー指摘 2026-07-28）。縦リストに戻し、代わりに既定でたたむ。 */
   .me-subnav {
-    flex-direction: row;
     position: static;
-    overflow-x: auto;
-    gap: 0.3rem;
+    display: none;
+    gap: 0.15rem;
     padding-bottom: 0.4rem;
-    scrollbar-width: thin;
-    scrollbar-color: var(--hairline) transparent;
   }
+  .me-subnav.open { display: flex; flex-direction: column; }
+  .me-subnav-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    color: var(--ink);
+    background: rgba(236, 231, 222, 0.04);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 0.6em 0.7em;
+    cursor: pointer;
+  }
+  .me-subnav-toggle .me-subnav-caret { margin-left: auto; }
+  .me-subnav-tx { max-width: none; }
+}
+
+/* 指で押す端末では、レールの行も目安の44pxまで広げる */
+@media (pointer: coarse) {
   .me-subnav-item,
   .me-subnav-add,
-  .me-subnav-cap { width: auto; flex: 0 0 auto; }
-  /* On a horizontal rail the group label would break the flow — hide it on phones */
-  .me-subnav-group { display: none; }
-  .me-subnav-tx { max-width: 8rem; }
+  .me-subnav-cap,
+  .me-subnav-toggle { min-height: 44px; }
+  .me-subnav-more { min-height: 44px; }
 }
 
 /* Wide screens: break the rail out into the left gutter so it reads as a page-level

@@ -50,6 +50,7 @@ export const en = {
   },
 
   hint: {
+    touch: 'Drag to look · tap the floor to walk',
     drag: 'Drag',
     dragWhat: 'walk & steer',
     tap: 'Tap',
@@ -272,6 +273,10 @@ export const en = {
     navWorksCount: 'Works {count} / {cap}',
     addFirstWork: 'Hang your first work',
     addWork: 'Add work',
+    slotEmpty: 'Slot {n} — empty',
+    showAllSlots: 'Show {count} more slots',
+    showFewerSlots: 'Show fewer slots',
+    railPick: 'Choose what to edit',
     addSlots: 'Add slots',
     roomFull: 'Room full',
     roomFullHint: 'This room is already at the maximum',

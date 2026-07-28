@@ -50,6 +50,7 @@ export const ja: Dictionary = {
   },
 
   hint: {
+    touch: 'ドラッグで見まわす · 床をタップで移動',
     drag: 'ドラッグ',
     dragWhat: '歩く・向きを変える',
     tap: 'タップ',
@@ -270,6 +271,10 @@ export const ja: Dictionary = {
     navWorksCount: '作品 {count} / {cap}',
     addFirstWork: '最初の作品を飾る',
     addWork: '作品を追加',
+    slotEmpty: '枠 {n} — 空き',
+    showAllSlots: '空き枠をあと{count}つ表示',
+    showFewerSlots: '空き枠の表示を減らす',
+    railPick: '編集する対象を選ぶ',
     addSlots: '枠を追加',
     roomFull: '満室',
     roomFullHint: 'この部屋はすでに上限です',

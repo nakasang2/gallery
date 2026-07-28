@@ -471,6 +471,29 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   // rail drives it; per-work editing shows one work at a time (no more works strip).
   const [nav, setNav] = useState<'room' | string>('room')
   const selectedId = nav === 'room' ? null : nav
+  // Phones: the rail is a vertical list (a horizontal scroller pushed the "add"
+  // affordance off-screen behind every work — ユーザー指摘 2026-07-28), but up to
+  // 15 rows would bury the editor below the fold, so it starts collapsed to a
+  // single row showing what you're editing. Desktop and tablet keep it always open.
+  const [railOpen, setRailOpen] = useState(true)
+  const [narrow, setNarrow] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 720px)')
+    const apply = () => {
+      setNarrow(mq.matches)
+      setRailOpen(!mq.matches)
+    }
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+  // Picking something on a phone should land you on the editor, not leave the
+  // list covering it.
+  const pickNav = (id: 'room' | string) => {
+    setNav(id)
+    if (narrow) setRailOpen(false)
+  }
+  const [slotsExpanded, setSlotsExpanded] = useState(false)
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
@@ -505,6 +528,15 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
 
   const selected = selectedId ? cloudArtworks.find((a) => a.id === selectedId) : undefined
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
+
+  // How many rows the rail shows before collapsing. Works + empty slots always sum
+  // to work_cap (max 15), so this only has to keep a full room from becoming a wall.
+  const RAIL_BUDGET = 8
+  const emptySlots = Math.max(0, row.work_cap - cloudArtworks.length)
+  const collapsedSlots =
+    emptySlots === 0 ? 0 : Math.max(1, Math.min(emptySlots, RAIL_BUDGET - cloudArtworks.length))
+  const slotsCollapsible = emptySlots > collapsedSlots
+  const shownSlots = slotsExpanded ? emptySlots : collapsedSlots
   // Effective per-work design: the override when set, else the gallery default
   const frame = (selected && frameOverrides[selected.id]) || row.frame_default
   const mat = (selected && matOverrides[selected.id]) || row.mat_default
@@ -1068,13 +1100,35 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     </div>
 
     {/* Second-level rail (outside the card): the room, then every work as its own
-        entry. Vertical on desktop, a horizontal scroller on phones. */}
+        entry, then one row per empty slot. Always-open vertical list on desktop and
+        tablet; on phones it collapses behind the row below (see railOpen). */}
     <div className="me-gallery-body">
-      <nav className="me-subnav" aria-label={t('me.navSections')}>
+      <button
+        type="button"
+        className="me-subnav-toggle"
+        aria-expanded={railOpen}
+        aria-controls="me-subnav"
+        onClick={() => setRailOpen((o) => !o)}
+      >
+        <span className="me-subnav-ic" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        </span>
+        <span className="me-subnav-tx">
+          {nav === 'room'
+            ? t('me.navRoom')
+            : cloudArtworks.find((a) => a.id === nav)?.title || t('me.railPick')}
+        </span>
+        <span className="me-subnav-caret" aria-hidden="true">{railOpen ? '\u25b4' : '\u25be'}</span>
+      </button>
+      <nav
+        id="me-subnav"
+        className={`me-subnav${railOpen ? ' open' : ''}`}
+        aria-label={t('me.navSections')}
+      >
         <button
           type="button"
           className={`me-subnav-item${nav === 'room' ? ' active' : ''}`}
-          onClick={() => setNav('room')}
+          onClick={() => pickNav('room')}
         >
           <span className="me-subnav-ic" aria-hidden="true">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3.5" y="5" width="17" height="14" rx="1" /><path d="M3.5 9.5h17" /></svg>
@@ -1096,7 +1150,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             type="button"
             key={art.id}
             className={`me-subnav-item me-subnav-work${nav === art.id ? ' active' : ''}`}
-            onClick={() => setNav(art.id)}
+            onClick={() => pickNav(art.id)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img crossOrigin="anonymous" className="me-subnav-thumb" src={art.poster ?? art.thumb ?? art.src} alt="" loading="lazy" />
@@ -1106,10 +1160,24 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             {row.cover_artwork_id === art.id && <span className="me-subnav-star" title={t('me.shareCover')}>★</span>}
           </button>
         ))}
-        {cloudArtworks.length < row.work_cap && (
-          <label className={`me-subnav-add${uploading ? ' busy' : ''}`} aria-disabled={uploading}>
+        {/* One row per empty slot, so the room's remaining capacity is visible instead
+            of hidden behind a single "+" (ユーザー指摘 2026-07-28). Every one opens the
+            same picker — numbering them reads as capacity rather than as N identical
+            buttons. Slots beyond the budget collapse behind the toggle below, because
+            a 15-slot room would otherwise be a wall of rows. Works always win the
+            budget, and at least one slot stays visible so "add" is never buried. */}
+        {Array.from({ length: shownSlots }, (_, i) => (
+          <label
+            key={`slot-${cloudArtworks.length + i}`}
+            className={`me-subnav-add${uploading ? ' busy' : ''}`}
+            aria-disabled={uploading}
+          >
             <span className="me-subnav-ic" aria-hidden="true">{uploading ? '…' : '+'}</span>
-            <span className="me-subnav-tx">{cloudArtworks.length === 0 ? t('me.addFirstWork') : t('me.addWork')}</span>
+            <span className="me-subnav-tx">
+              {cloudArtworks.length === 0 && i === 0
+                ? t('me.addFirstWork')
+                : t('me.slotEmpty', { n: cloudArtworks.length + i + 1 })}
+            </span>
             <input
               type="file"
               accept="image/*"
@@ -1122,6 +1190,17 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               }}
             />
           </label>
+        ))}
+        {slotsCollapsible && (
+          <button
+            type="button"
+            className="me-subnav-more"
+            onClick={() => setSlotsExpanded((v) => !v)}
+          >
+            {slotsExpanded
+              ? t('me.showFewerSlots')
+              : t('me.showAllSlots', { count: emptySlots - collapsedSlots })}
+          </button>
         )}
         <button
           type="button"

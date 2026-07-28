@@ -310,10 +310,30 @@ export function Hint() {
   const infoOpen = useGallery((s) => s.infoOpen)
   const suppressed = focusedIndex >= 0 || settingsOpen || guestbookOpen || infoOpen
 
+  // Touch screens get a different hint entirely. Three rows wrap to 84px tall on a
+  // phone and sit above 134px of chrome, so together they claimed a third of the
+  // viewport (measured 34% at 375x667) — in a product whose whole point is looking
+  // at the art. On touch we show one short line, drop the ‹ › row (the pager is
+  // right there on screen), hide it on the first drag or tap, and never bring it
+  // back: the gestures are two, and a visitor who has used them knows them.
+  const [touch, setTouch] = useState(false)
+  useEffect(() => {
+    setTouch(window.matchMedia('(pointer: coarse)').matches)
+  }, [])
+
   // Fade after a while, but come back for lost users: 25s of idle re-shows the hint
   useEffect(() => {
     let hideT: ReturnType<typeof setTimeout>
     let showT: ReturnType<typeof setTimeout>
+    if (touch) {
+      const hide = () => setFaded(true)
+      hideT = setTimeout(hide, 7000)
+      window.addEventListener('pointerdown', hide, { once: true })
+      return () => {
+        clearTimeout(hideT)
+        window.removeEventListener('pointerdown', hide)
+      }
+    }
     const arm = (delay: number) => {
       clearTimeout(hideT)
       hideT = setTimeout(() => {
@@ -338,13 +358,19 @@ export function Hint() {
       window.removeEventListener('pointerdown', onActivity)
       window.removeEventListener('keydown', onActivity)
     }
-  }, [])
+  }, [touch])
 
   return (
-    <div id="hint" className={`hint${faded || suppressed ? ' faded' : ''}`}>
-      <div className="hint-row"><b>{t('hint.drag')}</b> {t('hint.dragWhat')}</div>
-      <div className="hint-row"><b>{t('hint.tap')}</b> {t('hint.tapWhat')}</div>
-      <div className="hint-row"><b>‹ ›</b> {t('hint.step')}</div>
+    <div id="hint" className={`hint${touch ? ' hint-touch' : ''}${faded || suppressed ? ' faded' : ''}`}>
+      {touch ? (
+        <div className="hint-row">{t('hint.touch')}</div>
+      ) : (
+        <>
+          <div className="hint-row"><b>{t('hint.drag')}</b> {t('hint.dragWhat')}</div>
+          <div className="hint-row"><b>{t('hint.tap')}</b> {t('hint.tapWhat')}</div>
+          <div className="hint-row"><b>‹ ›</b> {t('hint.step')}</div>
+        </>
+      )}
     </div>
   )
 }
