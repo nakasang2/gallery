@@ -106,24 +106,11 @@
   flex-wrap: wrap;
 }
 .me-section-head h2 { margin-bottom: 0; }
-.me-section-head-action { flex-shrink: 0; }
 /* Compact variant of the gold save CTA for the header (not full-width like in a form) */
 .wd-save-compact {
   width: auto;
   margin-top: 0;
   padding: 0.5em 1.5em;
-}
-/* Floating fallback: shown only while the header Save has scrolled out of view */
-.me-sticky-save {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  /* Fixed, so it sits outside the body-level safe-area inset — clear the home bar */
-  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
-  z-index: 50;
-}
-.me-sticky-save .wd-save-cta {
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(212, 162, 78, 0.28);
 }
 
 .me-card {
@@ -175,14 +162,6 @@
   padding: 0.45em 0.7em;
 }
 
-/* Embed code panel (dashboard → public gallery → Embed) */
-.embed-panel {
-  margin-top: 0.9rem;
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.25);
-}
 /* Embed popup (and a base for other centred dashboard dialogs) */
 .me-modal-overlay {
   position: fixed;
@@ -259,41 +238,6 @@
   background: rgba(212, 162, 78, 0.08);
 }
 
-/* ギャラリーカードのビジュアルヘッダー(カバー作品 or テーマ色 + 間取り) */
-.hako-visual {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  margin-bottom: 1.1rem;
-}
-.hako-cover {
-  width: 108px;
-  height: 68px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid var(--hairline);
-  flex: none;
-}
-.hako-cover-swatch { width: 108px; height: 68px; border-radius: 8px; }
-.hako-plan-chip {
-  width: 84px;
-  height: 56px;
-  padding: 4px;
-  border-radius: 8px;
-  border: 1px solid var(--hairline);
-  color: var(--muted);
-  flex: none;
-}
-.hako-space-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-}
-.hako-space-tag .theme-swatch { width: 1.9em; height: 1.3em; }
-
 /* 部屋のテーマ色を映すリボン — カードと3D空間を視覚的に接続する */
 .hako-ribbon { height: 5px; border-radius: 100px; margin-bottom: 1.15rem; opacity: 0.9; }
 
@@ -323,24 +267,6 @@
 @media (max-width: 640px) {
   .stat-row { grid-template-columns: repeat(2, 1fr); }
 }
-
-/* 空のライブラリ: 最初の一歩を誘う大きなアップロードゾーン */
-.upload-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  border: 1px dashed rgba(212, 162, 78, 0.45);
-  border-radius: 12px;
-  padding: 2.4rem 1.2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-}
-.upload-hero:hover { border-color: var(--gold); background: rgba(212, 162, 78, 0.05); }
-.upload-hero b { font-family: var(--serif); font-size: 1.1rem; font-weight: 500; }
-.upload-hero span { font-size: 0.72rem; line-height: 1.7; color: var(--muted); }
 
 /* URLと公開状態はワンセット: スイッチで開閉する */
 .hako-url-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; flex-wrap: wrap; }
@@ -417,15 +343,6 @@
 .hako-statement-input:hover { border-bottom-color: var(--hairline); }
 .hako-statement-input:focus { border-bottom-color: var(--gold); }
 .hako-save-state { font-size: 0.62rem; letter-spacing: 0.14em; color: var(--muted); flex: none; }
-.hako-badge {
-  font-size: 0.62rem;
-  letter-spacing: 0.16em;
-  padding: 0.3em 0.9em;
-  border-radius: 100px;
-  border: 1px solid var(--hairline);
-  color: var(--muted);
-}
-.hako-badge.public { border-color: var(--gold); color: var(--gold); }
 .hako-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem; }
 .hako-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.2rem; }
 .hako-danger { color: #c96a5a; border-color: rgba(201, 106, 90, 0.4); }
@@ -576,127 +493,8 @@
   .hako-actions .btn-line { flex: 1 1 44%; }
 }
 
-/* 作品ワークベンチ: 設定カラム内に Room → 作品カルーセル → 選択作品の詳細 と縦に流れる */
-
-/* フィルムストリップ: 10枠を横一列にスクロール。スクロールバーは細く控えめに */
-.works-strip {
-  display: flex;
-  gap: 0.7rem;
-  overflow-x: auto;
-  padding: 0.2rem 0.1rem 0.7rem;
-  scrollbar-width: thin;
-  scrollbar-color: var(--hairline) transparent;
-}
-.works-strip::-webkit-scrollbar { height: 6px; }
-.works-strip::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 100px; }
-.works-cell { position: relative; margin: 0; flex: 0 0 130px; }
-.works-cell img {
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid var(--hairline);
-  display: block;
-  cursor: pointer;
-  transition: border-color 0.2s, transform 0.2s;
-}
-.works-cell img:hover { border-color: rgba(212, 162, 78, 0.5); transform: scale(1.03); }
-.works-cell img:active { transform: scale(0.99); }
-.works-cell.selected img { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
-.works-cell figcaption {
-  font-size: 0.64rem;
-  color: var(--muted);
-  margin-top: 0.35rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 130px;
-}
-.works-cell button {
-  position: absolute;
-  top: 0.3rem;
-  right: 0.3rem;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  border: 1px solid var(--hairline);
-  background: rgba(11, 10, 9, 0.7);
-  color: var(--ink);
-  cursor: pointer;
-  line-height: 1;
-}
-.works-cell button { color: #c96a5a; } /* 完全削除であることが静置状態でも伝わる色 */
-.works-cell button:hover { border-color: #e08a7a; color: #e08a7a; }
-
-/* ストリップ末尾の追加タイル: 塗り済みセルと同じ「正方形の枠 + 下にキャプション」構成
-   にして、行全体の高さを揃える(枠だけだとキャプション分だけ塗り済みセルより低くなる) */
-.works-add {
-  flex: 0 0 130px;
-  display: flex;
-  flex-direction: column;
-  cursor: pointer;
-}
-.works-add-box {
-  width: 100%;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  color: var(--muted);
-  border: 1px dashed rgba(212, 162, 78, 0.45);
-  border-radius: 8px;
-  transition: border-color 0.2s, color 0.2s, background 0.2s;
-}
-.works-add:hover .works-add-box { border-color: var(--gold); color: var(--gold); background: rgba(212, 162, 78, 0.05); }
-.works-add-label {
-  font-size: 0.64rem;
-  color: var(--muted);
-  margin-top: 0.35rem;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 130px;
-}
-
-/* Paid "add more slots" tile — distinct from the neutral upload tiles (gold, locked),
-   same box+caption shape as everything else in the row */
-.works-capacity {
-  flex: 0 0 130px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  border: none;
-  background: none;
-  padding: 0;
-  font: inherit;
-  cursor: pointer;
-}
-.works-capacity-box {
-  width: 100%;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3em;
-  border: 1px dashed rgba(212, 162, 78, 0.55);
-  border-radius: 8px;
-  background: rgba(212, 162, 78, 0.05);
-  color: var(--gold);
-  font-size: 1.1rem;
-  letter-spacing: 0.02em;
-  transition: border-color 0.2s, background 0.2s;
-}
-.works-capacity:hover .works-capacity-box { border-color: var(--gold); background: rgba(212, 162, 78, 0.1); }
-.works-capacity-label {
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin-top: 0.35rem;
-}
-@media (max-width: 640px) { .works-capacity { flex-basis: 108px; } }
+/* 作品ワークベンチ: 設定カラム内に Room → 選択作品の詳細 と縦に流れる
+   (作品の切り替えは左のサブナビ .me-subnav-work が担う) */
 
 /* 詳細: プレビュー左 / 設定右。全幅なので余裕を持って2カラム */
 .works-detail {
@@ -707,13 +505,8 @@
   margin-top: 0.4rem;
 }
 .works-detail .we-left { position: sticky; top: 1rem; }
-/* The artworks section sits below the theme section, set apart by a divider. Inside it:
-   a full-width strip of works, then the 2-column preview+settings detail. */
-.art-section { margin-top: 2.2rem; padding-top: 2rem; border-top: 1px solid var(--hairline); }
-.art-section .works-in-room { margin-bottom: 1.4rem; }
 /* The art preview sits inside the card like the theme preview above it — both inset within
    the card's side padding — so the two 3D views line up (no edge bleed). */
-.we-chips { margin-top: 0.45rem; gap: 0.35rem; }
 .wall-preview--lg { height: 320px; font-size: 22px; }
 /* 実3Dプレビュー(ルームと同じExhibitを小キャンバスで描画) */
 .wall-preview3d {
@@ -730,8 +523,6 @@
   .works-detail .we-left { position: static; }
   .wall-preview--lg { height: 230px; font-size: 16px; }
   .wall-preview3d { height: 230px; }
-  .works-cell, .works-add, .works-capacity { flex-basis: 108px; }
-  .works-cell figcaption, .works-add-label { max-width: 108px; }
 }
 
 /* ---- Gallery workbench: second-level rail + content card (枠外サブメニュー) ---- */
@@ -924,23 +715,6 @@
 .hako-secondary button:hover { color: var(--ink); text-decoration-color: currentColor; }
 .hako-secondary button.danger { color: #c96a5a; }
 .hako-secondary button.danger:hover { color: #e08a7a; }
-
-/* カバー指定の★(OGP代表作) */
-.works-star {
-  position: absolute;
-  top: 0.3rem;
-  left: 0.3rem;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  border: 1px solid var(--hairline);
-  background: rgba(11, 10, 9, 0.7);
-  color: var(--muted);
-  cursor: pointer;
-  line-height: 1;
-}
-.works-star:hover { border-color: var(--gold); color: var(--gold); }
-.works-star.active { border-color: var(--gold); color: var(--gold); }
 
 /* アバター */
 .avatar-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.1rem; }
@@ -1143,7 +917,6 @@
    used by inline .wd-row — otherwise "Ambience"/"Placement" + ⓘ get cramped/overlap. */
 .wd-row-block > .wd-label { width: auto; }
 .wd-block-body { display: flex; flex-direction: column; gap: 0.7rem; }
-.wd-sub { font-size: 0.74rem; color: var(--muted); line-height: 1.5; }
 
 .place-editor { display: flex; flex-direction: column; gap: 0.8rem; }
 .place-map {
@@ -1169,8 +942,6 @@
 .pe-slot.sel .pe-slot-ring { stroke: var(--gold); stroke-width: 0.16; opacity: 1; }
 .pe-slot-num { fill: currentColor; opacity: 0.55; font-size: 0.62px; text-anchor: middle; font-family: var(--sans, sans-serif); }
 .pe-slot:hover .pe-slot-ring { opacity: 0.9; }
-
-.place-hint { font-size: 0.74rem; color: var(--muted); text-align: center; }
 
 .place-picker { display: flex; flex-direction: column; gap: 0.5rem; }
 .place-picker-head {
@@ -1227,6 +998,8 @@
   border: 1px solid var(--hairline);
   color: var(--muted);
 }
+/* AdminDashboard.tsx が `report-status is-${r.status}` とテンプレート文字列で
+ * 組み立てるため、is-open という語はコード側に現れない（css-ok。生きている） */
 .report-status.is-open { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
 .report-when { font-size: 0.68rem; color: var(--muted); }
 .report-about { font-size: 0.84rem; margin-bottom: 0.35rem; }

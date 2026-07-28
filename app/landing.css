@@ -74,9 +74,6 @@ a { color: inherit; }
   box-shadow: 0 10px 40px rgba(236, 236, 234, 0.14);
   transform: translateY(-2px);
 }
-.btn-ghost:hover {
-  border-color: var(--ink);
-}
 .btn-small { padding: 0.6em 1.4em; font-size: 0.64rem; }
 .btn-small:hover { border-color: var(--ink); }
 
@@ -577,22 +574,6 @@ a { color: inherit; }
   font-style: italic;
 }
 
-/* セクション上部の淡いスポットライト(展示室の空気を全編に通す) */
-.glow-top {
-  position: relative;
-}
-.glow-top::before {
-  content: '';
-  position: absolute;
-  top: -2%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 60%;
-  pointer-events: none;
-  background: radial-gradient(ellipse 50% 60% at 50% 0%, var(--glow), transparent 70%);
-}
-
 /* ============ CONCEPT — centered statement ============ */
 
 .concept {
@@ -893,10 +874,6 @@ html { scroll-padding-top: 72px; }
 .hero-alt { margin-top: 1.3rem; font-size: 0.8rem; }
 .hero-alt a { color: var(--muted); text-decoration: none; letter-spacing: 0.08em; }
 .hero-alt a:hover { color: var(--ink); }
-@media (max-width: 520px) {
-  /* 狭幅ではデモボタンを畳む(ヒーローに同じCTAがある) */
-  .nav-demo { display: none; }
-}
 .closing-alt { margin-top: 1.4rem; font-size: 0.82rem; }
 .closing-alt a { color: var(--muted); text-decoration: none; letter-spacing: 0.08em; }
 .closing-alt a:hover { color: var(--ink); }
@@ -1049,46 +1026,6 @@ html { scroll-padding-top: 72px; }
   text-transform: uppercase;
   color: var(--muted);
 }
-
-/* ============ 404 ============ */
-
-.notfound {
-  position: relative;
-  z-index: 2;
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 8rem 2.4rem;
-}
-.notfound-code {
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.4em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 1.6rem;
-}
-.notfound-code::before { content: '/ '; color: var(--ink); }
-.notfound-title {
-  font-family: var(--serif);
-  font-size: clamp(2.6rem, 6vw, 4.4rem);
-  font-weight: 400;
-  line-height: 1.08;
-  letter-spacing: -0.01em;
-  margin-bottom: 1.6rem;
-}
-.notfound-lead {
-  font-size: 0.95rem;
-  color: var(--muted);
-  line-height: 2;
-  max-width: 46ch;
-  margin-bottom: 2.8rem;
-}
-.notfound-cta { display: flex; flex-wrap: wrap; gap: 1rem; }
 
 /* ============ ACCESSIBILITY ============ */
 

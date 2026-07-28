@@ -47,7 +47,6 @@ body:not(.gallery-mode) {
   cursor: grab;
 }
 #stage.dragging { cursor: grabbing; }
-#stage.pointing { cursor: pointer; }
 
 /* ---- ローディング ---- */
 #loading {
@@ -568,10 +567,6 @@ body:not(.gallery-mode) {
   .hud-identity-sub { display: none; }
   .hud-signup-cta { font-size: 0.64rem; padding: 0.55em 1em; }
 }
-.hud-report { color: inherit; text-decoration: none; opacity: 0.75; }
-.hud-report:hover { color: var(--gold); opacity: 1; }
-.hud-sns.sns-links { margin-left: 0.6em; opacity: 0.85; }
-.hud-sns.sns-links a { color: inherit; }
 
 /* ---- HUD アクション ---- */
 /* ---- Bottom-right action cluster: icon circles that expand to labelled capsules ---- */
@@ -766,30 +761,6 @@ body:not(.gallery-mode) {
 }
 .step-sep { opacity: 0.5; margin: 0 0.1em; }
 .step-count.idle { opacity: 0.45; } /* 未フォーカス時の "–" がグリッチに見えないよう減光 */
-.step-divider { width: 1px; height: 1.4rem; background: var(--hairline); margin: 0 0.15rem; }
-.step-tour { font-size: 0.8rem; }
-.step-tour.active { color: var(--gold); background: rgba(212, 162, 78, 0.12); }
-
-/* ---- サウンドのアイコントグル(動画プレイヤー風) ---- */
-.hud-icon {
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.05rem;
-  color: var(--ink);
-  background: rgba(11, 10, 9, 0.6);
-  border: 1px solid var(--hairline);
-  border-radius: 50%;
-  cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: border-color 0.2s, color 0.2s, opacity 0.2s;
-}
-.hud-icon:hover { border-color: var(--gold); color: var(--gold); }
-.hud-icon.active { border-color: var(--gold); color: var(--gold); }
-.hud-icon.muted { opacity: 0.65; text-decoration: line-through; }
 
 /* ドラッグ操縦の可視化(押下点に現れるスティック) */
 .drag-stick {
@@ -940,7 +911,6 @@ body:not(.gallery-mode) {
   transform: translate(-50%, -50%);
 }
 .theme-swatch .framed-art { font-size: 3px; }
-.hako-cover-swatch .framed-art { font-size: 7px; }
 
 /* 額装プレビュー(FRAMESの実データから生成。font-sizeでスケール) */
 .framed-art {
@@ -1315,19 +1285,6 @@ body:not(.gallery-mode) {
   font-size: 0.82rem;
   color: var(--muted);
 }
-.purchase-badge {
-  position: absolute;
-  top: -0.65em;
-  right: 0.9rem;
-  background: var(--gold);
-  color: #1a1510;
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 0.22em 0.65em;
-  border-radius: 100px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
-}
 .purchase-cta {
   display: block;
   width: 100%;
@@ -1363,9 +1320,6 @@ body:not(.gallery-mode) {
 /* First group in the settings column — nothing above it needs a divider rule */
 .wd-group--flush { margin-top: 0; padding-top: 0; border-top: none; }
 .work-design .wd-group:first-child { margin-top: 0.6rem; padding-top: 0; border-top: none; }
-/* "Works in this room": the child list nested under the room's own settings */
-.wd-title-meta { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; color: var(--muted); }
-.works-in-room .works-strip { margin-top: 0.2rem; }
 
 /* Closing CTA for the whole per-work panel — full-width and visually weighted so
    it reads as THE save action, not a .btn-line easy to scroll past mid-form (frame/
@@ -1392,16 +1346,6 @@ body:not(.gallery-mode) {
 .wd-save-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(212, 162, 78, 0.38); }
 .wd-save-cta:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: 0 4px 14px rgba(212, 162, 78, 0.28); }
 .wd-save-cta:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
-/* Global save: docks to the bottom of the viewport while the panel scrolls, then releases
-   into normal flow at the very end of the card — a classic sticky action bar. The lifted
-   shadow makes it read as floating above the content it overlaps. */
-.wd-save-sticky {
-  position: sticky;
-  bottom: 1rem;
-  z-index: 5;
-  margin-top: 1.6rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(212, 162, 78, 0.28);
-}
 
 .wd-title {
   display: flex;
@@ -1438,52 +1382,6 @@ body:not(.gallery-mode) {
   border-radius: 6px;
   background: rgba(236, 231, 222, 0.05);
 }
-
-/* Small "paint chip" strip — the preview both inside the locked Design Tools
-   teaser and inside its purchase modal, built from the room's own colours
-   rather than arbitrary decoration */
-.swatch-strip { display: flex; gap: 0.5rem; }
-.swatch-strip span {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 2px solid rgba(236, 231, 222, 0.18);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-/* Design Tools locked teaser — a proper "product shot" card instead of a bare
-   chip, since this is the single biggest-ticket item in the whole dashboard */
-.dt-teaser {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding: 1.1rem 1.2rem;
-  border: 1px solid rgba(212, 162, 78, 0.3);
-  border-radius: 12px;
-  background: radial-gradient(120% 160% at 0% 0%, rgba(212, 162, 78, 0.08), transparent 60%);
-}
-.dt-teaser-copy { flex: 1 1 200px; min-width: 0; }
-.dt-teaser-title { font-family: var(--serif); font-size: 1rem; color: var(--ink); margin-bottom: 0.3rem; }
-.dt-teaser-sub { font-size: 0.72rem; line-height: 1.6; color: var(--muted); }
-.dt-teaser-cta {
-  flex: none;
-  font-family: var(--sans);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: #1a1510;
-  background: linear-gradient(135deg, #e6bb70, var(--gold));
-  border: none;
-  border-radius: 100px;
-  padding: 0.6em 1.2em;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(212, 162, 78, 0.28);
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
-  white-space: nowrap;
-}
-.dt-teaser-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(212, 162, 78, 0.36); }
-.dt-teaser-cta:active { transform: translateY(0) scale(0.98); }
 
 /* セグメント(素材) */
 .seg { display: inline-flex; border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden; }
