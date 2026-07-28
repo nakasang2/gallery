@@ -1,6 +1,6 @@
 'use client'
 // 3D gallery core: R3F Canvas + HUD/panels + guided tour
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { PerformanceMonitor, useProgress } from '@react-three/drei'
@@ -54,38 +54,6 @@ function AdaptiveFov() {
     cam.fov = fov
     cam.updateProjectionMatrix()
   }, [camera, width, height])
-  return null
-}
-
-/** Watches for the GPU context going away and coming back.
- *
- *  Lives inside the Canvas on purpose. The obvious places both failed: a parent
- *  effect runs before R3F has built the canvas (it saw a null ref and attached
- *  nothing), and `onCreated` turned out never to fire here at all — verified by
- *  the `touchAction` it is supposed to set still being unset on the live canvas.
- *  `useThree` is the one path that is guaranteed to see a real renderer.
- *
- *  preventDefault() is what actually buys the recovery: the default action for
- *  `webglcontextlost` is to never restore the context, and iOS Safari drops it
- *  routinely on app switch or memory pressure. Without this the room simply
- *  stays black — and because the initial WebGL probe succeeded, it never falls
- *  back to the 2D list either. */
-function ContextGuard({ onLost, onRestored }: { onLost: () => void; onRestored: () => void }) {
-  const gl = useThree((s) => s.gl)
-  useEffect(() => {
-    const el = gl.domElement
-    const lost = (e: Event) => {
-      e.preventDefault()
-      onLost()
-    }
-    const restored = () => onRestored()
-    el.addEventListener('webglcontextlost', lost)
-    el.addEventListener('webglcontextrestored', restored)
-    return () => {
-      el.removeEventListener('webglcontextlost', lost)
-      el.removeEventListener('webglcontextrestored', restored)
-    }
-  }, [gl, onLost, onRestored])
   return null
 }
 
@@ -184,11 +152,7 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   // thought to reload. `canvasKey` rebuilds the scene against a fresh context.
   const [canvasKey, setCanvasKey] = useState(0)
   const [contextLost, setContextLost] = useState(false)
-  const handleContextLost = useCallback(() => setContextLost(true), [])
-  const handleContextRestored = useCallback(() => {
-    setContextLost(false)
-    setCanvasKey((k) => k + 1) // rebuild the scene against the new context
-  }, [])
+
   // Settings hydrated + canvas fonts ready. Used to be the whole story, which is
   // why the door opened on a timer while the room was still empty.
   const [hydrated, setHydrated] = useState(false)
@@ -288,6 +252,51 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
     return () => clearTimeout(t)
   }, [loadingDone, hydrated, assetsIdle, waitedOut])
 
+  // Recover from the browser taking the GPU away — iOS Safari does this on app
+  // switch or memory pressure, and there was no handler at all, so the room just
+  // stayed black (the startup WebGL probe had already passed, so it never fell
+  // back to the 2D list either).
+  //
+  // preventDefault() is the part that buys the recovery: the default action for
+  // `webglcontextlost` is to never restore the context.
+  //
+  // The element is found by querying the DOM rather than through R3F. Three
+  // tidier routes were tried first and all failed on a real production build:
+  // `canvasRef` is still null when a parent effect runs, `onCreated` never fired
+  // here at all (the touchAction it sets was unset on the live canvas), and a
+  // `useThree` component inside the Canvas never received the event either. A
+  // listener added straight to `document.querySelector('canvas')` demonstrably
+  // does fire, so that is what we use — polling briefly because the canvas
+  // appears a tick or two after this effect first runs.
+  useEffect(() => {
+    if (!ready || !webgl) return
+    let el: HTMLCanvasElement | null = null
+    let retry: ReturnType<typeof setTimeout> | undefined
+    const onLost = (e: Event) => {
+      e.preventDefault()
+      setContextLost(true)
+    }
+    const onRestored = () => {
+      setContextLost(false)
+      setCanvasKey((k) => k + 1) // rebuild the scene against the new context
+    }
+    const attach = (tries = 0) => {
+      el = document.querySelector<HTMLCanvasElement>('canvas')
+      if (!el) {
+        if (tries < 40) retry = setTimeout(() => attach(tries + 1), 200)
+        return
+      }
+      el.addEventListener('webglcontextlost', onLost)
+      el.addEventListener('webglcontextrestored', onRestored)
+    }
+    attach()
+    return () => {
+      if (retry) clearTimeout(retry)
+      el?.removeEventListener('webglcontextlost', onLost)
+      el?.removeEventListener('webglcontextrestored', onRestored)
+    }
+  }, [ready, webgl, canvasKey])
+
   // Admin-set demo theme (/admin → Demo look): apply AFTER hydration settles
   // (loadingDone is set past both hydrate passes) so loadSettings can't clobber it.
   // Guest showcase only — never a signed-in owner's room or a real visitor page.
@@ -350,10 +359,6 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
             />
           )}
           <AdaptiveFov />
-          <ContextGuard
-            onLost={handleContextLost}
-            onRestored={handleContextRestored}
-          />
           <GalleryScene />
         </Canvas>
       )}
