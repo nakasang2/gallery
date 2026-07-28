@@ -40,32 +40,46 @@ const inUse = (port) =>
 
 const busy = (await Promise.all(ports.map(inUse))).filter(Boolean)
 
-// そのポートを listen しているプロセスの cwd が、この作業ツリーの中かどうか。
+const quiet = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+const topLevel = (cwd) => {
+  try {
+    return execFileSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], quiet).trim()
+  } catch {
+    return null
+  }
+}
+
+// この作業ツリーのルート。worktree は `<main>/.claude/worktrees/<name>` のように
+// **メインチェックアウトの内側**に置かれるので、cwd の前方一致で判定すると
+// 「worktree の dev が動いているだけでメイン側の build が止まる」という逆向きの
+// 誤爆になる（レビューで実測。.next は別ディレクトリなので止める理由はない）。
+// 作業ツリーのルート同士を比較する。
+const MY_TOP = topLevel(process.cwd())
+
+// そのポートを listen しているプロセスの cwd が、この作業ツリーのものかどうか。
 // 判定できなければ null を返し、呼び出し側は「危ないので止める」に倒す。
 const inThisTree = (port) => {
+  if (!MY_TOP) return null
   try {
-    const pids = execFileSync('lsof', ['-t', `-iTCP:${port}`, '-sTCP:LISTEN'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
+    const pids = execFileSync('lsof', ['-t', `-iTCP:${port}`, '-sTCP:LISTEN'], quiet)
       .split('\n')
       .filter(Boolean)
     if (!pids.length) return null
     return pids.some((pid) => {
-      const out = execFileSync('lsof', ['-a', '-p', pid, '-d', 'cwd', '-Fn'], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      })
+      const out = execFileSync('lsof', ['-a', '-p', pid, '-d', 'cwd', '-Fn'], quiet)
       const cwd = out.split('\n').find((l) => l.startsWith('n'))?.slice(1)
-      return !!cwd && (cwd === process.cwd() || cwd.startsWith(`${process.cwd()}/`))
+      return !!cwd && topLevel(cwd) === MY_TOP
     })
   } catch {
     return null // lsof が無い/権限が無い環境では判定不能
   }
 }
 
-const blocking = busy.filter((p) => inThisTree(p) !== false)
-const elsewhere = busy.filter((p) => inThisTree(p) === false)
+// 判定は1ポート1回だけ。2回呼ぶと、その間にサーバーが終了した場合に
+// blocking と elsewhere の両方から漏れる（または両方に入る）。
+const verdict = new Map(busy.map((p) => [p, inThisTree(p)]))
+const blocking = busy.filter((p) => verdict.get(p) !== false)
+const elsewhere = busy.filter((p) => verdict.get(p) === false)
 
 if (elsewhere.length) {
   console.log(`ポート ${elsewhere.join(', ')} は別の作業ツリーの dev です（.next は別なので続行します）。`)

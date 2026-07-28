@@ -20,13 +20,32 @@
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { execFileSync, spawnSync } from 'node:child_process'
 
-const ROOT = resolve(dirname(new URL(import.meta.url).pathname), '..')
+// URL.pathname はパーセントエンコードされる（パスに空白があると
+// `with%20space` になり、番人スクリプトを見つけられない）。必ず変換して使う。
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 // --- 合成リポジトリを作って番人を1本走らせる ------------------------------
+// Ctrl-C では finally が走らないので、作った一時ディレクトリを覚えておいて
+// 終了時とシグナル時にまとめて消す（一時gitリポジトリが残るのを防ぐ）。
+const madeDirs = new Set()
+const cleanAll = () => {
+  for (const d of madeDirs) rmSync(d, { recursive: true, force: true })
+  madeDirs.clear()
+}
+process.on('exit', cleanAll)
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => {
+    cleanAll()
+    process.exit(130)
+  })
+}
+
 const run = ({ files, gate, add = true }) => {
   const dir = mkdtempSync(join(tmpdir(), 'gate-'))
+  madeDirs.add(dir)
   try {
     execFileSync('git', ['init', '-q'], { cwd: dir })
     // 番人が読む定型のファイル（基準線は空配列＝ラチェットの現在値）
@@ -36,10 +55,17 @@ const run = ({ files, gate, add = true }) => {
       writeFileSync(join(dir, rel), body)
     }
     if (add) execFileSync('git', ['add', '-A'], { cwd: dir })
-    const r = spawnSync('node', [join(ROOT, 'scripts', gate)], { cwd: dir, encoding: 'utf8' })
-    return { code: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` }
+    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', gate)], { cwd: dir, encoding: 'utf8' })
+    // status が null なのはシグナルで死んだとき。番人の「検出」と区別する。
+    return {
+      code: r.status,
+      signal: r.signal,
+      error: r.error,
+      out: `${r.stdout ?? ''}${r.stderr ?? ''}`,
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true })
+    madeDirs.delete(dir)
   }
 }
 
@@ -123,13 +149,20 @@ gateCase('check:css — 未追跡のCSSを見落とさず落ちる（git add 前
 })
 
 // --------------------------------------------------------------- check:i18n
-const DICT = "export const ja = { a: 'あ' }\n"
+// 合成リポジトリにも辞書を置く。check:i18n は末尾で翻訳カバレッジを出すために
+// lib/i18n/en.ts を読む（2026-07-28 の多言語SEO で追加された）ので、en が無いと
+// 番人が ENOENT で死ぬ。**この自己テストが導入初日に捕まえたのがこれ**で、
+// 「番人に足された前提」が合成入力から漏れると誤って「誤検知」に見える。
+// 葉キーの数え方（4スペース以上のインデント）に合わせた形で書く。
+const DICT_EN = ['export const en = {', '  common: {', "    save: 'Save',", "    cancel: 'Cancel',", '  },', '}', ''].join('\n')
+const DICT_JA = ['export const ja = {', '  common: {', "    save: '保存',", '  },', '}', ''].join('\n')
+const DICTS = { 'lib/i18n/en.ts': DICT_EN, 'lib/i18n/ja.ts': DICT_JA }
 
 gateCase('check:i18n — トップレベルの app/page.tsx も検査する（pathspec ** の穴）', {
   gate: 'check-i18n.mjs',
   files: {
     'app/page.tsx': 'export default function P() {\n  return <p>Your work, given the space it deserves.</p>\n}\n',
-    'lib/i18n/ja.ts': DICT,
+    ...DICTS,
   },
   expectFail: true,
   contains: ['app/page.tsx'],
@@ -148,7 +181,7 @@ gateCase('check:i18n — accept="image/*" の後ろも検査する（コメン�
       '  )',
       '}',
     ].join('\n'),
-    'lib/i18n/ja.ts': DICT,
+    ...DICTS,
   },
   expectFail: true,
   contains: ['Upload a piece'],
@@ -158,7 +191,7 @@ gateCase('check:i18n — 状態を語る定型句を検出する', {
   gate: 'check-i18n.mjs',
   files: {
     'app/page.tsx': "export default function P() {\n  return <p>{t('x')}</p>\n}\nconst note = 'Coming soon'\n",
-    'lib/i18n/ja.ts': DICT,
+    ...DICTS,
   },
   expectFail: true,
   contains: ['Coming soon'],
@@ -178,7 +211,7 @@ gateCase('check:i18n — 辞書を通した文言と i18n-ok を誤検知しな�
       '  )',
       '}',
     ].join('\n'),
-    'lib/i18n/ja.ts': DICT,
+    ...DICTS,
   },
   expectFail: false,
 })
@@ -187,18 +220,95 @@ gateCase('check:i18n — 未追跡のコードを見落とさず落ちる', {
   gate: 'check-i18n.mjs',
   files: {
     'app/page.tsx': 'export default function P() {\n  return <p>Your work, given the space it deserves.</p>\n}\n',
-    'lib/i18n/ja.ts': DICT,
+    ...DICTS,
   },
   add: false,
   expectFail: true,
   contains: ['未追跡'],
 })
 
+// --- ここから下は「過去に空いた穴」ではなく**ルール本体**を守るケース --------
+// レビュー指摘（2026-07-28）: 導入時の10ケースは4つの歴史的な穴しか見ておらず、
+// その穴が住んでいる検出ルール自体を消しても 10/10 緑のままだった。
+// 「落ちない自己テスト」は無いより悪いので、各ルールに1ケースずつ足す。
+
+gateCase('check:i18n — 目に入る属性（placeholder / aria-label）の直書きを検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    'app/page.tsx': [
+      'export default function P() {',
+      '  return (',
+      '    <div>',
+      '      <input placeholder="Search your exhibitions" />',
+      '      <button aria-label="Close the panel" />',
+      '    </div>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['Search your exhibitions', 'Close the panel'],
+})
+
+gateCase('check:i18n — タグをまたぐ（行が分かれた）JSXテキストを検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    'app/page.tsx': [
+      'export default function P() {',
+      '  return (',
+      '    <p>',
+      '      Upload a piece and give it a wall.',
+      '    </p>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['Upload a piece'],
+})
+
+gateCase('check:css — 複数行コメントの中のクラス名を誤検知しない', {
+  gate: 'check-css.mjs',
+  files: {
+    'components/P.tsx': LIVE_TSX,
+    'app/t.css': ['/*', '.ghost-cls { color: red }', '#ghost-id { color: red }', '*/', '.live-cls { color: red }'].join('\n'),
+  },
+  expectFail: false,
+  notReported: ['.ghost-cls', '#ghost-id'],
+})
+
+gateCase('check:css — 同じ行に前ルールの } が残っても16進カラーをIDと読まない', {
+  gate: 'check-css.mjs',
+  files: {
+    'components/P.tsx': LIVE_TSX,
+    // 「宣言が行頭から始まり、その行で前のルールを閉じて次を開く」形でないと
+    // 再現しない。1行に収めると split('{')[0] が最初の { より前を返すため
+    // 16進カラーがそもそもセレクタ部分に入らず、変異させても落ちなかった。
+    'app/t.css': ['.live-cls {', '  color: #ff0000; } #live-id { color: red }'].join('\n'),
+  },
+  expectFail: false,
+  notReported: ['#ff0000', '#ff'],
+})
+
+gateCase('check:css — 死んだクラス（IDではない従来の検出）も引き続き検出する', {
+  gate: 'check-css.mjs',
+  files: {
+    'components/P.tsx': LIVE_TSX,
+    'app/t.css': '.ghost-cls { color: red }\n',
+  },
+  expectFail: true,
+  reported: ['.ghost-cls'],
+})
+
 // --------------------------------------------------------------------- 実行
 let failed = 0
 for (const c of cases) {
-  const { code, out } = run(c)
+  const { code, out, signal, error } = run(c)
   const problems = []
+  if (error) problems.push(`番人を起動できなかった: ${error.message}`)
+  if (signal) problems.push(`番人がシグナル ${signal} で死んだ（検出ではない）`)
   const didFail = code !== 0
   if (c.expectFail && !didFail) problems.push('落ちるべき入力なのに通した（＝この穴が空いている）')
   if (!c.expectFail && didFail) problems.push('通るべき入力なのに落ちた（＝誤検知でpushが止まる）')
