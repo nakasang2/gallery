@@ -21,10 +21,9 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 
-// 既知の「死んでいるCSS」の基準線。削除済み機能から取り残されたルールが
-// 90件あり、動的にクラス名を組んでいる箇所を巻き込む危険があるため一括削除は
-// していない。ラチェットとして使う: ここに無いものが出たら落ちる（=新しく
-// 書いたルールが効いていない、という×4の失敗を確実に捕まえる）。
+// 既知の「死んでいるCSS」の基準線。ラチェットとして使う: ここに無いものが出たら
+// 落ちる（=新しく書いたルールが効いていない、という×4の失敗を確実に捕まえる）。
+// 導入時の90件は掃除済みで、**現在は空配列＝目標値0に到達している**。
 // **この配列は減らす方向にしか変えない。** 掃除して消えたら基準線からも消す。
 const BASELINE_PATH = 'scripts/css-dead-baseline.json'
 
@@ -64,7 +63,16 @@ for (const m of code.matchAll(ID_SOURCE_RE)) {
 }
 for (const m of code.matchAll(ID_RE)) idLiterals.add(m[1])
 
-const idIsUsed = (id) => idLiterals.has(id) || idPrefixes.some((p) => id.startsWith(p))
+// `id={PANEL_ID}` `id={open ? 'a-open' : 'a-closed'}` のように式で渡す形は上の
+// 収集では拾えない。そのままだと生きているIDを「死んでいる」と言って push を
+// 止めてしまうので、「そのID名と完全一致するクォート済み文字列がTS内にあるか」
+// を最後の砦にする。クラス側の「語としてどこかに現れるか」よりはるかに狭く、
+// 今回の動機だった `#stage` は 'stage' / "stage" / `stage` が全リポジトリで
+// 0件のため、この緩和を入れても検出され続ける。
+const quotedLiteral = (id) => new RegExp(`['"\`]${id.replace(/-/g, '\\-')}['"\`]`).test(code)
+
+const idIsUsed = (id) =>
+  idLiterals.has(id) || idPrefixes.some((p) => id.startsWith(p)) || quotedLiteral(id)
 
 const annotatedCss = (lines, i) => {
   if ((lines[i] ?? '').includes('css-ok')) return true
@@ -80,6 +88,10 @@ const findings = []
 for (const file of cssFiles) {
   const lines = readFileSync(file, 'utf8').split('\n')
   let inComment = false
+  // カンマ区切りのセレクタは複数行に分かれる（`.a,` 改行 `.b {`）。`{` のある行
+  // だけを見ると最終行以外が一度も照合されないので、`{` が来るまで溜める。
+  let pending = ''
+  let pendingAt = -1
   lines.forEach((raw, i) => {
     let line = raw
     if (inComment) {
@@ -95,21 +107,38 @@ for (const file of cssFiles) {
       line = line.slice(0, open)
     }
     if (!line.trim()) return
-    // 宣言の値（url(.foo) や 0.5rem など）を拾わないよう、セレクタ行だけを見る
-    const sel = line.split('{')[0]
-    if (!line.includes('{') || /^\s*@/.test(line)) return
+    if (!line.includes('{')) {
+      // 宣言（`color: red;`）やルールの閉じ（`}`）はセレクタの続きではない
+      if (/[;}]/.test(line)) {
+        pending = ''
+        pendingAt = -1
+        return
+      }
+      if (!pending) pendingAt = i
+      pending += ` ${line}`
+      return
+    }
+    // 宣言の値（url(.foo) や 0.5rem など）を拾わないよう、セレクタ部分だけを見る。
+    // 同じ行に前のルールの `}` が残っていることがあるので、それより後ろを取る
+    // （`color: #ff0000; } .live { ... }` の16進カラーをIDと読み違えないため）
+    const sel = `${pending} ${line.split('{')[0].split('}').pop()}`
+    const selAt = pendingAt >= 0 ? pendingAt : i
+    pending = ''
+    pendingAt = -1
+    if (/^\s*@/.test(line)) return
     // 例外注記は直前の連続したコメント行もさかのぼって探す（理由を複数行で書けるように）
-    if (annotatedCss(lines, i)) return
+    // 複数行セレクタでは1行目の上に書かれることもあるので両方見る
+    if (annotatedCss(lines, i) || annotatedCss(lines, selAt)) return
 
     for (const m of sel.matchAll(CLASS_RE)) {
       const cls = m[1]
       if (new RegExp(`\\b${cls.replace(/-/g, '\\-')}\\b`).test(code)) continue
-      findings.push({ file, line: i + 1, kind: 'class', cls, sel: sel.trim() })
+      findings.push({ file, line: selAt + 1, kind: 'class', cls, sel: sel.trim() })
     }
     // a[href^='#'] のような属性セレクタの中身をIDと読み違えないよう外しておく
     for (const m of sel.replace(/\[[^\]]*\]/g, ' ').matchAll(ID_RE)) {
       if (idIsUsed(m[1])) continue
-      findings.push({ file, line: i + 1, kind: 'id', cls: m[1], sel: sel.trim() })
+      findings.push({ file, line: selAt + 1, kind: 'id', cls: m[1], sel: sel.trim() })
     }
   })
 }
@@ -130,7 +159,7 @@ if (fresh.length) {
   process.exit(1)
 }
 console.log(`新規に効いていないCSSクラス／ID: 0 件（${cssFiles.length} CSS / ${codeFiles.length} コードと照合）`)
-console.log(`既知の死んだCSS（基準線）: ${findings.length} 件 — 掃除は別タスク`)
+if (findings.length) console.log(`既知の死んだCSS（基準線で抑制中）: ${findings.length} 件 — 掃除は別タスク`)
 if (stale.length) {
   console.log(`\n基準線から外せるもの ${stale.length} 件（掃除済み。${BASELINE_PATH} から消してください）:`)
   for (const k of stale) {
