@@ -1607,7 +1607,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           }
           previewNote={
             purchaseItem.kind === 'capacity'
-              ? 'This is a preview of how buying more work slots will work.'
+              ? 'A one-time purchase — these slots stay on this room for good. No subscription.'
               : undefined
           }
           intent={{

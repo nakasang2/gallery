@@ -5,6 +5,10 @@ import { PLAN } from '@/lib/limits'
 import { PRICE_SLOT, PRICE_THEME, PRICE_LAYOUT } from '@/lib/pricing'
 
 export default function LandingPage() {
+  // Server component, so we can tell the truth about billing instead of hard-coding
+  // it: the pricing card said "Coming soon / billing is not implemented yet" long
+  // after Checkout went live, and would have said it forever if nobody remembered.
+  const billingLive = !!process.env.STRIPE_SECRET_KEY
   return (
     <>
       <LandingEffects />
@@ -156,7 +160,7 @@ export default function LandingPage() {
       {/* ============ PRICING ============ */}
       <section className="pricing" id="pricing">
         <div className="section-head reveal">
-          <p className="section-eyebrow">Pricing — concept</p>
+          <p className="section-eyebrow">Pricing</p>
           <h2 className="section-title">Free to open. Pay only for more.</h2>
         </div>
         <div className="pricing-grid">
@@ -183,13 +187,17 @@ export default function LandingPage() {
               <li>New themes<span className="amt">{PRICE_THEME} each</span></li>
               <li>New layouts<span className="amt">{PRICE_LAYOUT} each</span></li>
             </ul>
-            <span className="btn btn-small price-cta price-cta-soon" aria-disabled="true">Coming soon</span>
+            {billingLive ? (
+              <Link className="btn btn-small price-cta" href="/me">Buy from your gallery</Link>
+            ) : (
+              <span className="btn btn-small price-cta price-cta-soon" aria-disabled="true">Coming soon</span>
+            )}
           </div>
         </div>
         <p className="pricing-note reveal">
-          Everything you make stays yours — publishing is always free. Upgrades are one-time buys
-          (only Video Pass renews yearly). Xibit360 is a prototype: these prices are the concept,
-          and billing is not implemented yet.
+          {billingLive
+            ? 'Everything you make stays yours — publishing is always free. Every upgrade is a one-time purchase: no subscription, nothing to renew, nothing to cancel.'
+            : 'Everything you make stays yours — publishing is always free. Every upgrade is a one-time purchase: no subscription, nothing to renew. Paid upgrades are not switched on yet.'}
         </p>
       </section>
 
@@ -223,7 +231,6 @@ export default function LandingPage() {
           <Link href="/signup">Create account</Link>
         </nav>
         <div className="footer-meta">
-          <span>Prototype v0.4</span>
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
           <span>© 2026 XIBIT360</span>

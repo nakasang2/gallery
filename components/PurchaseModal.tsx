@@ -17,7 +17,7 @@ export default function PurchaseModal({
   options = [],
   quantity,
   intent,
-  previewNote = 'This is a preview of how buying a theme or layout will work.',
+  previewNote = 'A one-time purchase — yours for good. No subscription, nothing to renew.',
   onClose,
 }: {
   itemLabel: string
@@ -30,7 +30,8 @@ export default function PurchaseModal({
   quantity?: { unitCents: number; max: number; unitLabel: string }
   /** What checkout should buy — omit to keep the modal preview-only */
   intent?: PurchaseIntent
-  /** Footer copy while the CTA is untried — override for non-theme/layout purchases */
+  /** Footer copy while the CTA is untried. It used to call a live Stripe Checkout
+   *  a "preview", which stopped being true the moment billing was switched on. */
   previewNote?: string
   onClose: () => void
 }) {
