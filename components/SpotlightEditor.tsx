@@ -84,14 +84,14 @@ export default function SpotlightEditor() {
     <section className="me-section">
       <h2>{t('adminUi.spotlight')}</h2>
       <p className="me-note" style={{ marginTop: 0 }}>
-        A curated row shown above the Explore feed. Leave the heading blank to hide it. Up to {SPOTLIGHT_MAX} galleries.
+        {t('adminUi.spotlightNote', { max: SPOTLIGHT_MAX })}
       </p>
 
       <label className="me-field">
         <span>{t('adminUi.heading')}</span>
         <input
           value={cfg.title}
-          placeholder="e.g. Summer Show / #SummerShow"
+          placeholder={t('adminUi.spotlightHeadingPlaceholder')}
           onChange={(e) => setCfg((c) => ({ ...c, title: e.target.value }))}
         />
       </label>
@@ -132,10 +132,10 @@ export default function SpotlightEditor() {
 
       <div className="hako-actions" style={{ marginTop: '0.9rem' }}>
         <button className="btn-line" onClick={addItem} disabled={cfg.items.length >= SPOTLIGHT_MAX}>
-          + Add gallery
+          {t('adminUi.addGallery')}
         </button>
         <button className="btn-line btn-gold" onClick={() => void save()} disabled={busy}>
-          {busy ? 'Saving…' : saved ? 'Saved' : 'Save spotlight'}
+          {busy ? t('adminUi.saving') : saved ? t('common.saved') : t('adminUi.saveSpotlight')}
         </button>
       </div>
       {err && <p className="me-error">{err}</p>}

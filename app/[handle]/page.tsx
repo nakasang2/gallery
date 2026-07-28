@@ -134,10 +134,10 @@ export default async function ArtistPage({
                 )}
                 <div className="artist-gallery-meta">
                   <span className="artist-gallery-title">
-                    {isPlaceholderTitle(g.title) ? 'Exhibition' : g.title}
+                    {isPlaceholderTitle(g.title) ? t('common.exhibition') : g.title}
                   </span>
                   <span className="artist-gallery-sub">
-                    {g.workCount} work{g.workCount === 1 ? '' : 's'} · walk through in 3D →
+                    {t('explore.walkThrough', { count: g.workCount })}
                   </span>
                 </div>
               </Link>

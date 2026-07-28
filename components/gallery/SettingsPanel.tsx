@@ -200,7 +200,7 @@ function PublishSection() {
       )}
       {myGallery.is_public && publicUrl && (
         <p className="settings-note">
-          Live at:{' '}
+          {t('panel.liveAt')}{' '}
           <a href={publicUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--gold)' }}>
             {publicUrl}
           </a>{' '}
@@ -464,7 +464,7 @@ export default function SettingsPanel() {
     <aside id="settings" className={`settings${open ? ' open' : ''}`} aria-hidden={!open} inert={!open}>
       <button className="panel-close" aria-label={t('panel.close')} onClick={() => setOpen(false)}>×</button>
       <h2 className="settings-title">
-        Edit space
+        {t('panel.editSpace')}
         {/* Cloud write-through status — edits to a public gallery must never fail silently */}
         {user && myGallery && syncState !== 'idle' && (
           syncState === 'error' ? (
@@ -481,8 +481,7 @@ export default function SettingsPanel() {
         <button className="btn-line" onClick={() => setIgNote(!igNote)}>{t('panel.fromInstagram')}</button>
         {igNote && (
           <p className="settings-note">
-            Official integration requires the Instagram Graph API (business/creator accounts), so this is a mock
-            in the prototype. Use the upload or image URL below instead.
+            {t('panel.igMockNote')}
           </p>
         )}
         <div className="field-row">
@@ -505,8 +504,7 @@ export default function SettingsPanel() {
           />
         </label>
         <p className="settings-note">
-          Images are always free. Videos (reels etc.) up to 40MB need Video Pass{entitlements.videoEnabled ? ' — active on your account' : ''};
-          they loop in the room and become audible as you approach.
+          {t('panel.videoPassNote', { active: entitlements.videoEnabled ? t('panel.videoPassActive') : '' })}
         </p>
         <div className="field-row">
           <input ref={urlRef} type="url" placeholder={t('panel.pasteUrl')} />
@@ -554,8 +552,8 @@ export default function SettingsPanel() {
         )}
         {over > 0 && (
           <p className="settings-note">
-            This layout has {slots} slots — {over} work{over > 1 ? 's are' : ' is'} currently not shown.
-            {ownerEditing ? ' Change the layout or add capacity to free up space.' : ' Change the layout or hide the demo works to free up space.'}
+            {t('panel.overCapacity', { slots, over })}{' '}
+            {ownerEditing ? t('panel.overCapacityOwner') : t('panel.overCapacityGuest')}
           </p>
         )}
         {/* The sample collection is a guest concept — a signed-in owner's room only
@@ -600,7 +598,7 @@ export default function SettingsPanel() {
             />
           ))}
         </div>
-        <p className="settings-note">A curated starting point. Fine-tune any axis below afterwards.</p>
+        <p className="settings-note">{t('panel.presetNote')}</p>
       </section>
 
       <section className="settings-section">
@@ -772,7 +770,7 @@ export default function SettingsPanel() {
           ))}
         </div>
         <p className="settings-note">
-          “Frame default” uses each frame&apos;s recommended mat. Stretched canvas (frame: None) has no mat.
+          {t('panel.matNote')}
         </p>
       </section>
 
@@ -828,7 +826,7 @@ export default function SettingsPanel() {
       )}
 
       <p className="settings-note">
-        Space settings are saved in this browser. Exhibited works are stored {user ? 'in the cloud' : 'in this browser'}.
+        {t('panel.storageNote', { where: user ? t('panel.storedCloud') : t('panel.storedLocal') })}
       </p>
     </aside>
   )

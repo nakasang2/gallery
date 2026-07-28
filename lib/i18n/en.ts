@@ -10,6 +10,7 @@
 // with Intl.PluralRules against the `count` param (see lib/i18n/index).
 export const en = {
   common: {
+    exhibition: 'Exhibition',
     close: 'Close',
     cancel: 'Cancel',
     save: 'Save',
@@ -118,6 +119,7 @@ export const en = {
   },
 
   auth: {
+    newPasswordLabel: 'New password (min {min} characters)',
     signIn: 'Sign in',
     password2: 'Password',
     magicLink: 'Email me a sign-in link instead',
@@ -207,6 +209,16 @@ export const en = {
     importTitle_other: 'You have {count} works saved in this browser',
     importMove: 'Move them into my account',
     importNotNow: 'Not now',
+    importBody: 'Import it into your account so it appears on every device and can be published?',
+    importBody_other: 'Import them into your account so they appear on every device and can be published?',
+    importing: 'Importing…',
+    importToAccount: 'Import to my account',
+    accountEmailCurrent: 'Email — currently {email}',
+    accountEmailNone: '(none)',
+    moreGalleries: 'You can create {count} more gallery on your plan.',
+    moreGalleries_other: 'You can create {count} more galleries on your plan.',
+    embedFallbackTitle: 'gallery',
+    usernameLabel: 'Username — public URL: /@{name}',
     importPartial: 'Imported {ok}; {failed} could not be read (CORS or storage limit) and stayed local.',
 
     createStep1: 'Step 1 of 2',
@@ -379,6 +391,8 @@ export const en = {
   },
 
   purchase: {
+    optionDesc: 'Adds {count} more {unit} to this room, once, forever. {max} available.',
+    optionDesc_other: 'Adds {count} more {unit}s to this room, once, forever. {max} available.',
     close: 'Close',
     notLive: 'Checkout isn’t live yet — you’ll be able to buy this the moment it ships.',
     continueToCheckout: 'Continue to checkout',
@@ -440,6 +454,9 @@ export const en = {
   },
 
   lp: {
+    // 区切りは U+2002（EN SPACE）の実文字。実体参照だと描画側で
+    // dangerouslySetInnerHTML が必要になる。
+    genres: 'Illustration · Photography · Painting · Ink · Generative · 3DCG · Collage · Graphic · ',
     navConcept: 'Concept',
     navFeatures: 'Features',
     navFlow: 'How it works',
@@ -532,6 +549,21 @@ export const en = {
   },
 
   panel: {
+    igMockNote: 'Official integration requires the Instagram Graph API (business/creator accounts), so this is a mock in the prototype. Use the upload or image URL below instead.',
+    videoPassNote: 'Images are always free. Videos (reels etc.) up to 40MB need Video Pass{active}; they loop in the room and become audible as you approach.',
+    videoPassActive: ' — active on your account',
+    matNote: '“Frame default” uses each frame\u2019s recommended mat. Stretched canvas (frame: None) has no mat.',
+    editSpace: 'Edit space',
+    liveAt: 'Live at:',
+    perWorkOverrideNote: 'These apply to this work only. Matching the gallery-wide setting clears the override, so the work follows the theme again.',
+    overCapacity: 'This layout has {slots} slots — {over} work is currently not shown.',
+    overCapacity_other: 'This layout has {slots} slots — {over} works are currently not shown.',
+    overCapacityOwner: 'Change the layout or add capacity to free up space.',
+    overCapacityGuest: 'Change the layout or hide the demo works to free up space.',
+    presetNote: 'A curated starting point. Fine-tune any axis below afterwards.',
+    storageNote: 'Space settings are saved in this browser. Exhibited works are stored {where}.',
+    storedCloud: 'in the cloud',
+    storedLocal: 'in this browser',
     close: 'Close',
     signedInNote: 'Signed in as {email}. Exhibited works are stored in the cloud, so your show looks the same on every device.',
     signedOutNote: 'Sign in to store your works in the cloud and publish your gallery at a public URL. Without an account, you can still exhibit inside this browser.',
@@ -582,6 +614,7 @@ export const en = {
   },
 
   articles: {
+    ctaAlt: 'or walk the demo first →',
     title: 'Guides',
     intro: 'Everything about showing your art as a walkable exhibition — opening your first room, sharing it, and drawing a crowd.',
     empty: 'No guides published yet — check back soon.',
@@ -597,6 +630,21 @@ export const en = {
   },
 
   adminUi: {
+    exhibitionSpaces: 'Exhibition spaces ({count})',
+    packagesNote:
+      '“Packages” shows what each user owns — bought via checkout or granted here. Use the × to revoke. Grants write the purchases ledger (as admin_grant, $0, so they don’t count as revenue) and unlock instantly. New paid themes/layouts appear in the list automatically. Email addresses live in Supabase Auth (not exposed to the anon key).',
+    newArticle: '+ New article',
+    ghostSpeedNote:
+      'How fast the ambient past-visitor figures walk (m/s), per model. Their step animation locks to this, so any speed still looks natural.',
+    lpHeroNote:
+      'The three works visible at the top of the landing page (PC & mobile). Upload an image for a slot, or leave it empty to keep the built-in demo art. Wide (landscape) images sit best in these frames.',
+    lpHeroApplyNote:
+      'Changes apply to everyone on the next landing-page load. Images are served from public storage, so they may take a moment to appear the first time.',
+    spotlightNote: 'A curated row shown above the Explore feed. Leave the heading blank to hide it. Up to {max} galleries.',
+    spotlightHeadingPlaceholder: 'e.g. Summer Show / #SummerShow',
+    addGallery: '+ Add gallery',
+    saving: 'Saving…',
+    saveSpotlight: 'Save spotlight',
     console: 'Admin console',
     intro: 'Platform-wide view — revenue, packages, and every exhibition.',
     noAccess: 'This account doesn’t have admin access.',
@@ -640,6 +688,7 @@ export const en = {
   },
 
   catalog: {
+    back: '← Back to the gallery',
     title: 'Exhibition Catalog',
     forSale: 'Available for purchase',
     empty: 'This exhibition has no works yet.',

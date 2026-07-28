@@ -75,9 +75,7 @@ export default function LpHeroEditor() {
       <h2>{t('adminUi.lpHero')}</h2>
       <div className="me-card">
         <p className="me-note" style={{ marginTop: 0 }}>
-          The three works visible at the top of the landing page (PC &amp; mobile). Upload an image
-          for a slot, or leave it empty to keep the built-in demo art. Wide (landscape) images sit
-          best in these frames.
+          {t('adminUi.lpHeroNote')}
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginTop: '0.8rem' }}>
           {Array.from({ length: LP_HERO_SLOTS }).map((_, i) => {
@@ -125,8 +123,7 @@ export default function LpHeroEditor() {
           </button>
         </div>
         <p className="me-note">
-          Changes apply to everyone on the next landing-page load. Images are served from public
-          storage, so they may take a moment to appear the first time.
+          {t('adminUi.lpHeroApplyNote')}
         </p>
       </div>
     </section>

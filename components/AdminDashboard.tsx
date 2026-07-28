@@ -256,7 +256,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
 
       {/* Exhibitions */}
       <section className="me-section">
-        <h2>Exhibition spaces ({data.galleries.length})</h2>
+        <h2>{t('adminUi.exhibitionSpaces', { count: data.galleries.length })}</h2>
         <div className="me-card">
           {data.galleries.length === 0 ? (
             <p className="me-note" style={{ marginTop: 0 }}>{t('admin.noGalleries')}</p>
@@ -386,10 +386,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
           </div>
           {err && <p className="me-error">{err}</p>}
           <p className="me-note">
-            “Packages” shows what each user owns — bought via checkout or granted here. Use the × to
-            revoke. Grants write the <code>purchases</code> ledger (as <code>admin_grant</code>, $0, so
-            they don&apos;t count as revenue) and unlock instantly. New paid themes/layouts appear in the
-            list automatically. Email addresses live in Supabase Auth (not exposed to the anon key).
+            {t('adminUi.packagesNote')}
           </p>
         </div>
       </section>

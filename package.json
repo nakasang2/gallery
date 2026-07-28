@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "check:i18n": "node scripts/check-i18n.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",

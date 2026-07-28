@@ -225,8 +225,7 @@ export default function ArtworkPanel() {
                 }
               />
               <p className="settings-note" style={{ marginTop: '0.6rem' }}>
-                These apply to this work only. Matching the gallery-wide setting clears the
-                override, so the work follows the theme again.
+                {t('panel.perWorkOverrideNote')}
               </p>
             </div>
           )}

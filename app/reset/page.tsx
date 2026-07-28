@@ -84,7 +84,7 @@ export default function ResetPage() {
       <AuthShell title={t('auth.setNewTitle')}>
         <form onSubmit={(e) => void updatePassword(e)}>
           <label className="auth-field">
-            <span>New password (min {MIN_PASSWORD} characters)</span>
+            <span>{t('auth.newPasswordLabel', { min: MIN_PASSWORD })}</span>
             <input
               type="password"
               autoComplete="new-password"

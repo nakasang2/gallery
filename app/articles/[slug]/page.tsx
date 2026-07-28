@@ -76,7 +76,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <p>{t('articles.ctaBody')}</p>
           <Link href="/signup" className="btn btn-gold">{t('common.startFree')}</Link>
           <p className="article-cta-alt">
-            <Link href="/demo">or walk the demo first →</Link>
+            <Link href="/demo">{t('articles.ctaAlt')}</Link>
           </p>
         </section>
 

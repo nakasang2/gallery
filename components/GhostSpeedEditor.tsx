@@ -97,8 +97,7 @@ export default function GhostSpeedEditor() {
     <section className="me-section">
       <h2>{t('adminUi.ghostSpeed')}</h2>
       <p className="me-note" style={{ marginTop: 0 }}>
-        How fast the ambient past-visitor figures walk (m/s), per model. Their step animation
-        locks to this, so any speed still looks natural. {saved && <b style={{ color: 'var(--gold)' }}>{t('common.saved')}</b>}
+        {t('adminUi.ghostSpeedNote')} {saved && <b style={{ color: 'var(--gold)' }}>{t('common.saved')}</b>}
       </p>
       {row('Male', male, setMale)}
       {row('Female', female, setFemale)}

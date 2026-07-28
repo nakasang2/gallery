@@ -292,13 +292,12 @@ function GuestImportCard() {
   return (
     <div className="me-card" style={{ marginBottom: '1rem' }}>
       <p className="me-note" style={{ marginTop: 0 }}>
-        {t('me.importTitle', { count: localArtworks.length })}
-        in this browser. Import {localArtworks.length === 1 ? 'it' : 'them'} into your account so they appear on
-        every device and can be published?
+        {t('me.importTitle', { count: localArtworks.length })}{' '}
+        {t('me.importBody', { count: localArtworks.length })}
       </p>
       <div className="hako-actions" style={{ marginTop: '0.8rem' }}>
         <button className="btn-line" disabled={busy} onClick={() => void importAll()}>
-          {busy ? 'Importing…' : 'Import to my account'}
+          {busy ? t('me.importing') : t('me.importToAccount')}
         </button>
         <button className="btn-line" disabled={busy} onClick={dismiss}>{t('me.importNotNow')}</button>
       </div>
@@ -609,7 +608,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   // links in a new tab. 16:10 keeps the walk usable in a blog's content column.
   const embedSrc = publicUrl ? `${publicUrl}?embed=1` : ''
   const embedCode = embedSrc
-    ? `<iframe src="${embedSrc}" width="100%" height="600" style="border:0;border-radius:12px;aspect-ratio:16/10;max-width:100%" allowfullscreen loading="lazy" title="Xibit360 — ${(isPlaceholderTitle(row.title) ? 'gallery' : row.title).replace(/"/g, '&quot;')}"></iframe>`
+    ? `<iframe src="${embedSrc}" width="100%" height="600" style="border:0;border-radius:12px;aspect-ratio:16/10;max-width:100%" allowfullscreen loading="lazy" title="Xibit360 — ${(isPlaceholderTitle(row.title) ? t('me.embedFallbackTitle') : row.title).replace(/"/g, '&quot;')}"></iframe>`
     : ''
 
   async function run(label: string, fn: () => Promise<void>) {
@@ -992,6 +991,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
            unavailable, and the input sat far below the stats. Put the reason and
            the fix exactly where the toggle would have been. */
         <div className="hako-url-row hako-url-locked">
+          {/* i18n-ok: URLの見本 */}
           <span className="hako-url off">xibit360.art/@…</span>
           <p className="hako-locked-why">{t('me.usernameGate')}</p>
           <div className="field-row">
@@ -1779,7 +1779,7 @@ function AccountCard() {
   return (
     <div className="me-card">
       <label className="me-field">
-        <span>Email — currently {user.email ?? '(none)'}</span>
+        <span>{t('me.accountEmailCurrent', { email: user.email ?? t('me.accountEmailNone') })}</span>
         <div className="field-row" style={{ marginTop: 0 }}>
           <input
             type="email"
@@ -1942,11 +1942,11 @@ function ProfileCard() {
         </label>
       </div>
       <label className="me-field">
-        <span>Username — public URL: /@{username ?? 'username'}</span>
+        <span>{t('me.usernameLabel', { name: username ?? t('me.usernamePlaceholder') })}</span>
         <div className="field-row" style={{ marginTop: 0 }}>
           <input
             type="text"
-            placeholder={username ?? 'username'}
+            placeholder={username ?? t('me.usernamePlaceholder')}
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
           />
@@ -1994,6 +1994,7 @@ function ProfileCard() {
         <span>{t('me.profileWebsite')}</span>
         <input
           type="text"
+          // i18n-ok: URLの見本
           placeholder="yoursite.com"
           value={snsWebsite}
           onChange={(e) => editProfile({ website: e.target.value })}
@@ -2167,7 +2168,7 @@ export default function MePage() {
                   ))}
                   {galleries !== null && galleries.length > 0 && galleries.length < PLAN.galleries && (
                     <p className="me-note">
-                      You can create {PLAN.galleries - galleries.length} more galleries on your plan.
+                      {t('me.moreGalleries', { count: PLAN.galleries - galleries.length })}
                     </p>
                   )}
                   {usage !== null && (

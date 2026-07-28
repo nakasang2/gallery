@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { fetchPublicExhibition, isPlaceholderTitle } from '@/lib/publish'
 import CatalogPrintButton from '@/components/CatalogPrintButton'
 import CatalogDoc from '@/components/CatalogDoc'
+import { getServerT } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,7 @@ export default async function CatalogPage({
 }: {
   params: Promise<{ handle: string; slug: string }>
 }) {
+  const { t } = await getServerT()
   const p = await resolveParams(params)
   if (!p) notFound()
   const ex = await fetchPublicExhibition(p.username, p.slug)
@@ -45,7 +47,7 @@ export default async function CatalogPage({
     <main className="catalog">
       {/* Screen-only toolbar (hidden when printing) */}
       <div className="catalog-toolbar">
-        <Link href={`/@${ex.username}/${ex.slug}`} className="catalog-back">← Back to the gallery</Link>
+        <Link href={`/@${ex.username}/${ex.slug}`} className="catalog-back">{t('catalog.back')}</Link>
         <CatalogPrintButton />
       </div>
       <CatalogDoc exhibition={ex} />

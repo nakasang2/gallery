@@ -123,7 +123,7 @@ export default function ArticlesEditor() {
       )}
 
       {!editing ? (
-        <button className="btn-line btn-gold" onClick={newArticle}>+ New article</button>
+        <button className="btn-line btn-gold" onClick={newArticle}>{t('adminUi.newArticle')}</button>
       ) : (
         <div className="admin-article-editor">
           <label className="me-field">

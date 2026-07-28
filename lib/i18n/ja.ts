@@ -10,6 +10,7 @@ import type { Dictionary } from './en'
 
 export const ja: Dictionary = {
   common: {
+    exhibition: '展示',
     close: '閉じる',
     cancel: 'キャンセル',
     save: '保存',
@@ -118,6 +119,7 @@ export const ja: Dictionary = {
   },
 
   auth: {
+    newPasswordLabel: '新しいパスワード（{min}文字以上）',
     signIn: 'サインイン',
     password2: 'パスワード',
     magicLink: 'かわりにサインイン用リンクをメールで受け取る',
@@ -205,6 +207,16 @@ export const ja: Dictionary = {
     importTitle_other: 'このブラウザに{count}点の作品が保存されています',
     importMove: 'アカウントに移す',
     importNotNow: 'あとで',
+    importBody: 'アカウントに取り込むと、どの端末からも見られるようになり、公開もできます。取り込みますか？',
+    importBody_other: 'アカウントに取り込むと、どの端末からも見られるようになり、公開もできます。取り込みますか？',
+    importing: '取り込み中…',
+    importToAccount: 'アカウントに取り込む',
+    accountEmailCurrent: 'メールアドレス — 現在 {email}',
+    accountEmailNone: '（未設定）',
+    moreGalleries: 'いまのプランでは、あと{count}つ展示を作れます。',
+    moreGalleries_other: 'いまのプランでは、あと{count}つ展示を作れます。',
+    embedFallbackTitle: '展示',
+    usernameLabel: 'ユーザー名 — 公開URL: /@{name}',
     importPartial: '{ok}点を取り込みました。{failed}点は読み込めず（CORSまたは容量上限）、このブラウザに残っています。',
 
     createStep1: '2ステップ中 1',
@@ -377,6 +389,8 @@ export const ja: Dictionary = {
   },
 
   purchase: {
+    optionDesc: 'この部屋に{unit}を{count}つ追加します。買い切りで、ずっと使えます。残り{max}。',
+    optionDesc_other: 'この部屋に{unit}を{count}つ追加します。買い切りで、ずっと使えます。残り{max}。',
     close: '閉じる',
     notLive: 'まだ購入を受け付けていません。開始しだい、ここから購入できるようになります。',
     continueToCheckout: 'お支払いに進む',
@@ -438,6 +452,7 @@ export const ja: Dictionary = {
   },
 
   lp: {
+    genres: 'イラスト · 写真 · 絵画 · 墨 · ジェネラティブ · 3DCG · コラージュ · グラフィック · ',
     navConcept: 'コンセプト',
     navFeatures: 'できること',
     navFlow: '使い方',
@@ -530,6 +545,21 @@ export const ja: Dictionary = {
   },
 
   panel: {
+    igMockNote: '公式連携には Instagram Graph API（ビジネス/クリエイターアカウント）が必要なため、ここでは仮の実装です。下のアップロードか画像URLをお使いください。',
+    videoPassNote: '画像はいつでも無料です。動画（リールなど・40MBまで）には Video Pass が必要です{active}。動画は部屋の中でループ再生され、近づくと音が聞こえます。',
+    videoPassActive: '（このアカウントでは有効です）',
+    matNote: '「額に合わせる」を選ぶと、額ごとの推奨マットが使われます。木枠張り（額：なし）にはマットがありません。',
+    editSpace: '空間を編集',
+    liveAt: '公開中のURL:',
+    perWorkOverrideNote: 'ここでの設定はこの作品にだけ効きます。空間全体の設定と同じ値にすると個別設定が解除され、テーマに従うようになります。',
+    overCapacity: 'この間取りの枠は{slots}つで、{over}点が表示されていません。',
+    overCapacity_other: 'この間取りの枠は{slots}つで、{over}点が表示されていません。',
+    overCapacityOwner: '間取りを変えるか、枠を追加してください。',
+    overCapacityGuest: '間取りを変えるか、サンプル作品を隠してください。',
+    presetNote: 'ここから始めるための組み合わせです。下の各項目で細かく調整できます。',
+    storageNote: '空間の設定はこのブラウザに保存されます。展示中の作品は{where}に保存されます。',
+    storedCloud: 'クラウド',
+    storedLocal: 'このブラウザ',
     close: '閉じる',
     signedInNote: '{email} でサインイン中。飾った作品はクラウドに保存されるので、どの端末でも同じ展示になります。',
     signedOutNote: 'サインインすると、作品をクラウドに保存して公開URLで展示できます。アカウントがなくても、このブラウザの中だけで飾ることはできます。',
@@ -580,6 +610,7 @@ export const ja: Dictionary = {
   },
 
   articles: {
+    ctaAlt: 'まずデモを歩いてみる →',
     title: 'ガイド',
     intro: '歩ける展覧会として作品を見せるための手引きです。最初の部屋の開き方、共有の仕方、人を集める方法まで。',
     empty: 'まだ公開されているガイドはありません。またのぞいてみてください。',
@@ -595,6 +626,21 @@ export const ja: Dictionary = {
   },
 
   adminUi: {
+    exhibitionSpaces: '展示空間（{count}）',
+    packagesNote:
+      '「パッケージ」は各ユーザーが持っているものです（購入したもの、またはここで付与したもの）。取り消すには × を押します。付与すると purchases 台帳に admin_grant・$0 として記録され（売上には数えません）、すぐ使えるようになります。新しい有料テーマ・間取りは自動で一覧に出ます。メールアドレスは Supabase Auth 側にあり、anon キーには公開されません。',
+    newArticle: '+ 記事を追加',
+    ghostSpeedNote:
+      '過去の来場者として歩く人影の速さ（m/s）をモデルごとに設定します。歩くアニメーションはこの速さに追従するので、どの速さでも自然に見えます。',
+    lpHeroNote:
+      'トップページ上部に見える3点の作品です（PC・スマホ共通）。枠ごとに画像をアップロードするか、空のままにすると内蔵のデモ作品が使われます。横長の画像がこの額によく合います。',
+    lpHeroApplyNote:
+      '変更は次にトップページが読み込まれたときから全員に反映されます。画像は公開ストレージから配信されるため、初回は表示までに少し時間がかかることがあります。',
+    spotlightNote: 'Explore の一覧の上に出る特集の並びです。見出しを空にすると非表示になります。展示は{max}件まで。',
+    spotlightHeadingPlaceholder: '例: 夏の展示 / #SummerShow',
+    addGallery: '+ 展示を追加',
+    saving: '保存中…',
+    saveSpotlight: '特集を保存',
     console: '管理コンソール',
     intro: 'サービス全体の状況 — 売上、所有パッケージ、すべての展示。',
     noAccess: 'このアカウントには管理者権限がありません。',
@@ -638,6 +684,7 @@ export const ja: Dictionary = {
   },
 
   catalog: {
+    back: '← 展示に戻る',
     title: '出品目録',
     forSale: '購入できます',
     empty: 'この展示にはまだ作品がありません。',

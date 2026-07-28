@@ -43,11 +43,12 @@ export default async function LegalPage() {
           <p>{t('legal.intro')}</p>
 
           <dl className="legal-table">
-            <Row label={t('legal.rowService')}>Xibit360 (xibit360.art)</Row>
-            <Row label={t('legal.rowOperator')}>Nakamae Yusuke</Row>
+            <Row label={t('legal.rowService')}>Xibit360 (xibit360.art){/* i18n-ok: サービス名 */}</Row>
+            <Row label={t('legal.rowOperator')}>Nakamae Yusuke{/* i18n-ok: 運営者の氏名 */}</Row>
             <Row label={t('legal.rowAddress')}>{t('legal.valAddress')}</Row>
             <Row label={t('legal.rowPhone')}>{t('legal.valPhone')}</Row>
             <Row label={t('legal.rowEmail')}>
+              {/* i18n-ok: メールアドレス */}
               <a href="mailto:support@xibit360.art">support@xibit360.art</a>
             </Row>
             <Row label={t('legal.rowPrice')}>

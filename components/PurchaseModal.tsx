@@ -125,8 +125,7 @@ export default function PurchaseModal({
               <span className="purchase-price">{usd(quantity.unitCents * clampedQty)}</span>
             </div>
             <p className="purchase-option-desc">
-              Adds {clampedQty} more {quantity.unitLabel}
-              {clampedQty > 1 ? 's' : ''} to this room, once, forever. {qtyMax} available.
+              {t('purchase.optionDesc', { count: clampedQty, unit: quantity.unitLabel, max: qtyMax })}
             </p>
           </div>
         ) : (
