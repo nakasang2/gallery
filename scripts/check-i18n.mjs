@@ -53,6 +53,19 @@ const maskStrings = (s) => s.replace(/"[^"\n]*"|'[^'\n]*'|`[^`\n]*`/g, (m) => m[
 // ディレクトリだけ渡して拡張子はJS側で絞る。`git ls-files "app/**/*.tsx"` は
 // pathspec の ** が1階層以上を要求するため app/page.tsx（LP本体）にマッチせず、
 // トップレベルのファイルがまるごと検査対象から漏れていた（2026-07-28）。
+// 例外注記（i18n-ok / state-ok）を探す。その行だけでなく、直前の連続した
+// コメント行もさかのぼる — 理由を複数行で書くのが自然なため。
+const annotated = (lines, i, tag) => {
+  if ((lines[i] ?? '').includes(tag)) return true
+  for (let j = i - 1; j >= 0; j--) {
+    const t = (lines[j] ?? '').trim()
+    // JSXの注記は {/* … */} で始まる
+    if (!/^(\{?\/\*|\/\/|\*)/.test(t)) return false
+    if (t.includes(tag)) return true
+  }
+  return false
+}
+
 const files = execSync('git ls-files app components', { encoding: 'utf8' })
   .split('\n')
   .filter((f) => f.endsWith('.tsx'))
@@ -94,7 +107,7 @@ for (const file of files) {
       mask = mask.slice(0, slash)
     }
     // 例外注記は同じ行でも直前の行でもよい（JSXでは直前にコメント行を置く方が自然）
-    if (!line.trim() || raw.includes('i18n-ok') || (lines[i - 1] ?? '').includes('i18n-ok')) return
+    if (!line.trim() || annotated(lines, i, 'i18n-ok')) return
 
     const report = (kind, text) => findings.push({ file, line: i + 1, kind, text: text.trim() })
 
@@ -126,10 +139,44 @@ for (const file of files) {
   })
 }
 
+// --- 状態を語る定型句の検出 -------------------------------------------------
+// 「課金は未実装」「これはプレビューです」のような"状態"を語る文言は、実装や設定が
+// 進んでも誰かが思い出すまで嘘をつき続ける（LESSONS 2026-07-13 系列 ×3。課金を
+// 有効化した後もLPが Coming soon と言い続けていた）。値と違って定数化では防げない
+// ので、定型句そのものを見張る。i18n化した後はこの文言が辞書側に移るため、
+// lib/i18n/*.ts も対象に含める。
+//
+// 例外の付け方: その行か直前の行に `state-ok` とコメントし、どの変数から導出して
+// いるか（または本当に静的な事実である理由）を書く。
+const STATE_PHRASES =
+  /coming soon|not (yet )?implemented|isn'?t (implemented|live|available) yet|not live yet|work in progress|\bWIP\b|this is a (mock|preview) for now|準備中|近日公開|これはプレビュー|未実装|まだ使えません/i
+
+const stateFiles = execSync('git ls-files app components lib', { encoding: 'utf8' })
+  .split('\n')
+  .filter((f) => f.endsWith('.tsx') || f.endsWith('.ts'))
+const stateFindings = []
+for (const file of stateFiles) {
+  const lines = readFileSync(file, 'utf8').split('\n')
+  lines.forEach((raw, i) => {
+    if (annotated(lines, i, 'state-ok')) return
+    if (/^\s*(\/\/|\*|\/\*)/.test(raw)) return // コメントでの説明は対象外
+    const m = raw.match(STATE_PHRASES)
+    if (m) stateFindings.push({ file, line: i + 1, hit: m[0], text: raw.trim().slice(0, 90) })
+  })
+}
+
+if (stateFindings.length) {
+  console.error(`状態を語る対外文言 ${stateFindings.length} 件（その状態を決めている変数から導出してください）:\n`)
+  for (const f of stateFindings) console.error(`  ${f.file}:${f.line}  [${f.hit}] ${f.text}`)
+  console.error(`\n本当に静的な事実なら、その行か直前の行に state-ok と理由を書いてください。\n`)
+}
+
 if (findings.length) {
   console.error(`UI文言の直書き ${findings.length} 件（辞書 lib/i18n/*.ts を通してください）:\n`)
   for (const f of findings) console.error(`  ${f.file}:${f.line}  [${f.kind}] ${f.text.slice(0, 90)}`)
   console.error(`\n訳す対象でなければ、その行に i18n-ok とコメントを書いてください。`)
   process.exit(1)
 }
+if (stateFindings.length) process.exit(1)
 console.log(`UI文言の直書き: 0 件（${files.length} ファイルを検査）`)
+console.log(`状態を語る対外文言: 0 件（${stateFiles.length} ファイルを検査）`)

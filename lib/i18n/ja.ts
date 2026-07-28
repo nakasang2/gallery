@@ -532,6 +532,8 @@ export const ja: Dictionary = {
     upLayouts: '新しい間取り',
     each: '1つ {price}',
     buyFromGallery: 'ダッシュボードから購入',
+    // state-ok: app/page.tsx が billingLive（!!process.env.STRIPE_SECRET_KEY）で
+    // 分岐して選ぶ。課金が有効になれば自動で buyFromGallery 側に切り替わる。
     comingSoon: '準備中',
     pricingNoteLive: '作ったものはすべてあなたのものです。公開はいつでも無料。アップグレードは一度きりのお支払いで、継続課金も、更新も、解約もありません。',
     pricingNoteSoon: '作ったものはすべてあなたのものです。公開はいつでも無料。アップグレードは一度きりのお支払いで、継続課金はありません。有料のアップグレードはまだ開始していません。',

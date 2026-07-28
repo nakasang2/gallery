@@ -536,6 +536,8 @@ export const en = {
     upLayouts: 'New layouts',
     each: '{price} each',
     buyFromGallery: 'Buy from your gallery',
+    // state-ok: app/page.tsx が billingLive（!!process.env.STRIPE_SECRET_KEY）で
+    // 分岐して選ぶ。課金が有効になれば自動で buyFromGallery 側に切り替わる。
     comingSoon: 'Coming soon',
     pricingNoteLive: 'Everything you make stays yours — publishing is always free. Every upgrade is a one-time purchase: no subscription, nothing to renew, nothing to cancel.',
     pricingNoteSoon: 'Everything you make stays yours — publishing is always free. Every upgrade is a one-time purchase: no subscription, nothing to renew. Paid upgrades are not switched on yet.',
