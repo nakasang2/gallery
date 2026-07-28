@@ -5,11 +5,11 @@
 - **最終更新**: 2026-07-28（**/kaizen で昇格2件（番人の自己テスト `check:gates` ／ `.next` 共有ガードの穴2つ）＋モバイル修正の取り残し `6bc728e` を cherry-pick で出荷（入場ガイド1行化＋レール縦リスト化）＋404ページの新設（`6a5f3c2`、別セッション）＋死んだCSS90件の掃除＝基準線を空配列に（`a15237c`）＋`check:css`をIDセレクタにも広げ空振りの`#stage`を削除（`949f8a3`、本番反映確認済み）**。以下は既存の記録: モバイル6件＋Phase 0（課金・法務）4件＋オンボーディング3件＋通報運用/芳名帳＋CJK組版＋i18n基盤とEN/JA辞書＋B15/B16/B17（タブレット幅・入力欄ズーム・タップ対象）＋**B18（srcset）**＋**UI文言の直書き検出（`npm run check:i18n`）と残っていた英語29箇所の辞書化**をship。辞書は614キーがen/jaで一致。残: support@ の受信設定、実カードE2E、ユーザーが自分の個展を1つ公開する実機QA、**多言語の網羅範囲（どの言語を入れるか）はユーザー判断待ち**、B14は他の改善完了まで待機）
 
 ## 進行中
-- **【ship済・翻訳は継続】多言語SEOの配線と翻訳**（DECISIONS 2026-07-28）。11言語のサブディレクトリURL（`/ja/explore`）、middlewareでの書き換えと307/308、hreflang 12本＋canonical、言語別sitemap、`LocaleLink`、URL遷移する言語切替。辞書は部分辞書＋英語フォールバックなので、未訳のキーは生のキー名ではなく英語で出る。`npm run check:i18n` がカバレッジを毎回表示する。
-  - **カバレッジ: ja 100% / 他9言語 42%（265/626）**。訳し終わった面: `lp` `panel` `artwork` `report` `guestbook` `articles` `common` `hud` `hint` `explore` `footer` `artist` `catalog` `loading` `contextLost` `notFound`。方針は明快さ優先。
-  - **残: `me`（179）`adminUi`（47）`admin`（43）`auth`（34）`design`（18）`legal`（25）**。`legal` 以外は作家・運営だけが見る面。
-  - **【要判断】`legal`（特商法）の扱い**: `/legal` を言語別URLの対象に入れたので `/ko/legal` が英語で出る。特商法は日本の法律で、日本語版が法的に効く版。選択肢は ①9言語に訳して「日本語版が正」の注記を添える ②`/legal` を言語別URLの対象から外し、導線も `ja` のときだけ出す（`/terms` `/privacy` と同じ単一URL扱い）。**②を採るなら、EU向けの事業者情報開示（独 Impressum 等）が別途必要になる可能性を法務で確認する必要がある** — 現在ドイツ語のフッターは `Impressum` と表示しており、特商法ページを指している。
-  - **【要判断】テーマ・間取りの固有名**: `lib/presets.ts` の `label`（`Single Hall` `Corridor` `Center Wall` `Gold frame` 等）は辞書ではなくデータ側にあり、全言語で英語のまま。`White Cube` `Noir` `Chic` は美術の用語なので訳さない方が自然だが、`Single Hall` `Gold frame` は説明語なので訳す余地がある。どこまでを固有名とみなすかの判断が必要。
+- **【ship済】多言語SEOと10言語の翻訳**（DECISIONS 2026-07-28 / 07-29）。11言語のサブディレクトリURL（`/ja/explore`）、middlewareでの書き換えと307/308、hreflang 12本＋canonical、言語別sitemap、`LocaleLink`、URL遷移する言語切替。
+  - **カバレッジ: 10言語すべて 100%（631/631）**。分母から外しているのは、訳さないと決めた `legal.*`（特商法は日本語版が正）・`footer.legal`（導線は ja だけ）・`notFound.code`（"404"）で、`scripts/check-i18n.mjs` の `NOT_TRANSLATED` に理由付きで載せてある。
+  - **英語のまま残しているのは意図的なもののみ**: `metadata` のページタイトル（URLに言語を入れる形にした今は言語別にできるが、`<title>` を訳すと検索結果の見え方が変わるので別途判断が必要）、テーマ名（`Chic` `White Cube` `Noir`）とテンプレート名、`/terms` `/privacy`（英語版が正）。
+  - **残る判断**: ①`metadata` の title / description を言語別にするか ②アラビア語（RTL）を入れるか — 物理CSSプロパティの転換と `textures.ts` の文字方向対応が要る別工事。
+
 - **【待機・他の改善完了後】B14（多言語の残り）**（DECISIONS 2026-07-28）。他の改善が終わるまで着手しない。着手前に「どの言語を網羅するか」を決める（**この判断がユーザー待ち**）。
 - **【ship済・残は実機QA】モバイル6件の本番QA**（下の完了ログ参照）。Claudeが本番で実測できたところまでは確認済み。**ユーザーの実機でしか確認できないものが3つ残っている** — ①ノッチ付きiPhoneでHUD/ボトムシートの下端がホームバーに食い込まないか（プレビューは`env(safe-area-inset-*)`が常に0で再現不可）②遅い回線でローディングが最後まで閉じずに待つか（ローカル・本番ともキャッシュ済みで再現不可）③サインインして作品をアップロードし、画質が上がっているか＋壊れていないか。
 - **【残1件】Phase 0 のユーザー作業**: `support@xibit360.art` の受信設定（Cloudflare Email Routing）。法務3ページすべてに連絡先として記載済みで、届かないとGDPRの権利行使も特商法の開示請求も宙に浮く。**SQL 3本（0019/0028/0031）は2026-07-28に適用完了・検証済み** — `purchases.currency` 存在、`record_capacity_purchase` は6引数版のみ（security definer / owner postgres）、`service_role`=実行可・`anon`=実行不可を `has_function_privilege` で確認。**課金は技術的に完成**（残るは実カードでのE2E）。

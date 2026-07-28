@@ -236,8 +236,26 @@ if (mixed.length) {
 // 入れ子のグループを1行で書くと（`layout: { hall: '…', corridor: '…' },`）
 // 中身が数から漏れ、逆にグループ見出し（`layout: {`）は1件と数えてしまう。
 // 実際に ja が 98% と出て、翻訳漏れではなく計測の穴だった（2026-07-29）。
-const leafCount = (src) =>
-  (src.replace(/^\s*\/\/.*$/gm, '').match(/[a-zA-Z0-9_]+:\s*['"`]/g) || []).length
+// 鍵は「行頭・{ ・, の直後」にしか現れない。この条件を付けないと、文字列の
+// 値の中の `Live at:'` や `Unlock for a user:'` まで鍵として数えてしまい、
+// 英語側の分母が水増しされる（実際に起きた 2026-07-29）。
+const KEY_RE = /(^|[{,])\s*([a-zA-Z0-9_]+):\s*['"`]/gm
+const leafKeys = (src) => {
+  const body = src.replace(/^\s*\/\/.*$/gm, '')
+  return [...body.matchAll(KEY_RE)].map((m) => m[2])
+}
+// 訳さないと決めたもの（DECISIONS 2026-07-29）。分母から外すので、
+// 「全部訳し終わった」を 100% として読める。
+const NOT_TRANSLATED = new Set([
+  // 特商法の表記は日本語版が法的に効く版。単一URLで ja / en だけ持つ
+  'heading', 'intro', 'rowService', 'rowOperator', 'rowAddress', 'valAddress',
+  'rowPhone', 'valPhone', 'rowEmail', 'rowPrice', 'valPrice', 'rowExtra', 'valExtra',
+  'rowPayMethod', 'valPayMethod', 'rowPayTiming', 'valPayTiming', 'rowDelivery',
+  'valDelivery', 'rowReturns', 'valReturns', 'rowAge', 'valAge', 'rowSystem', 'valSystem',
+  'code', // notFound.code = '404'
+  'legal', // footer.legal — 導線は locale === 'ja' のときだけ出す
+])
+const leafCount = (src) => leafKeys(src).filter((k) => !NOT_TRANSLATED.has(k)).length
 const enLeaves = leafCount(readFileSync('lib/i18n/en.ts', 'utf8'))
 const localeFiles = execSync('git ls-files lib/i18n', { encoding: 'utf8' })
   .split('\n')
