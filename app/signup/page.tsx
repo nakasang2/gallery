@@ -17,6 +17,10 @@ export default function SignUpPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
+  // Accepting the terms is part of creating the account, not something buried in
+  // a footer link: this is where the contract is formed, and paid upgrades hang
+  // off it. Gates the Google button too — that path skips the form entirely.
+  const [agreed, setAgreed] = useState(false)
 
   if (!supabase) {
     return (
@@ -29,6 +33,10 @@ export default function SignUpPage() {
   async function signUp(e: FormEvent) {
     e.preventDefault()
     if (busy) return
+    if (!agreed) {
+      setError('Please accept the Terms and Privacy Policy to create an account.')
+      return
+    }
     if (password.length < MIN_PASSWORD) {
       setError(`Password must be at least ${MIN_PASSWORD} characters.`)
       return
@@ -131,15 +139,31 @@ export default function SignUpPage() {
             onChange={(e) => setConfirm(e.target.value)}
           />
         </label>
+        {/* Not a <button>: a labelable element inside <label> would steal the
+            label from the checkbox (LESSONS 2026-07-21) — links are fine. */}
+        <label className="auth-consent">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            aria-describedby="consent-text"
+          />
+          <span id="consent-text">
+            I agree to the <Link href="/terms">Terms of Service</Link> and{' '}
+            <Link href="/privacy">Privacy Policy</Link>, and I am 13 or older.
+          </span>
+        </label>
         {error && <p className="auth-error">{error}</p>}
-        <button className="auth-submit" disabled={busy} type="submit">
+        <button className="auth-submit" disabled={busy || !agreed} type="submit">
           Create account
         </button>
       </form>
       <div className="auth-alt">
         <button
           className="btn-line"
+          disabled={!agreed}
           onClick={() => {
+            if (!agreed) return
             void supabase!.auth
               .signInWithOAuth({ provider: 'google', options: { redirectTo: `${location.origin}/me` } })
               .then(({ error }) => error && setError(error.message))

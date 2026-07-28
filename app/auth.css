@@ -132,3 +132,27 @@
 .auth-legal { font-size: 0.7rem; letter-spacing: 0.1em; color: var(--muted); }
 .auth-legal a { color: inherit; text-decoration: none; }
 .auth-legal a:hover { color: var(--gold); }
+
+/* Terms consent at sign-up. 16px min-height on the box keeps it a real touch
+   target, and the row is left-aligned text so the links stay readable. */
+.auth-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 1.1rem 0 0.2rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--muted);
+  cursor: pointer;
+}
+.auth-consent input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin-top: 0.15em;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+.auth-consent a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+.auth-consent a:hover { color: var(--gold); }
+.auth-alt .btn-line:disabled { opacity: 0.45; cursor: default; }
