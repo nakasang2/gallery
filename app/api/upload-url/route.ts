@@ -57,6 +57,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 type Purpose =
   | 'artwork-display'
+  | 'artwork-card'
   | 'artwork-thumb'
   | 'artwork-video'
   | 'avatar'
@@ -101,6 +102,7 @@ function uuid(id: string): string {
 // against 300MB, so this costs a real user nothing.
 const RULES: Record<Purpose, Rule> = {
   'artwork-display': { key: (u, id) => `${u}/${uuid(id)}/display.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg },
+  'artwork-card': { key: (u, id) => `${u}/${uuid(id)}/card.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg },
   'artwork-thumb': { key: (u, id) => `${u}/${uuid(id)}/thumb.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg },
   'artwork-video': { key: (u, id) => `${u}/${uuid(id)}/video`, maxBytes: PLAN.videoBytes, accepts: video },
   avatar: { key: (u) => `${u}/avatar.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg },

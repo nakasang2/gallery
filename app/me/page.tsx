@@ -1082,7 +1082,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             onClick={() => setNav(art.id)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img crossOrigin="anonymous" className="me-subnav-thumb" src={art.poster ?? art.src} alt="" loading="lazy" />
+            <img crossOrigin="anonymous" className="me-subnav-thumb" src={art.poster ?? art.thumb ?? art.src} alt="" loading="lazy" />
             <span className="me-subnav-tx">
               {art.kind === 'video' ? <><VideoIcon className="works-title-icon" /> {art.title}</> : art.title}
             </span>

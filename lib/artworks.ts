@@ -20,6 +20,11 @@ export interface ArtworkData {
   kind?: 'image' | 'video'
   /** Poster image URL for video (used for list thumbnails, OGP, and the pre-play frame). */
   poster?: string
+  /** 400px derivative — always exists for uploaded works. For list rows and tiles. */
+  thumb?: string
+  /** 800px derivative for cards. Undefined on works uploaded before migration
+   *  0032 (and on videos), so callers must fall back to `src`. */
+  card?: string
   /** Where to buy this specific work (the artist's shop, Etsy, a DM link…). Shown
    *  to visitors on the artwork panel; unset means "not for sale here". */
   purchaseUrl?: string

@@ -193,7 +193,10 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
         slug: g.slug,
         title: g.title,
         statement: g.statement,
-        cover: first ? (first.kind === 'video' ? first.poster ?? null : first.src ?? null) : null,
+        // Cards render ~330px wide; hand them the 800px derivative when the work has
+        // one (migration 0032) instead of the full display image, and fall back to
+        // display.jpg for anything uploaded before that.
+        cover: first ? (first.kind === 'video' ? first.poster ?? null : first.card ?? first.src ?? null) : null,
         workCount: rows.length,
       })
     }
@@ -594,7 +597,7 @@ async function buildFeedItems(rows: FeedGalleryRow[]): Promise<FeedItem[]> {
       ownerAvatar: g.profiles!.avatar_url ?? null,
       slug: g.slug,
       title: g.title,
-      cover: cover ? (cover.kind === 'video' ? cover.poster ?? null : cover.src ?? null) : null,
+      cover: cover ? (cover.kind === 'video' ? cover.poster ?? null : cover.card ?? cover.src ?? null) : null,
       workCount: artworkRows.length,
     }
   })

@@ -29,12 +29,14 @@ interface ArtworkRow {
   width_cm?: number | null
   height_cm?: number | null
   medium?: string | null
+  has_card?: boolean | null
 }
 
 /** Upload purposes the server will sign for (app/api/upload-url/route.ts owns the
  *  matching key layout — a client cannot name its own path). */
 type UploadPurpose =
   | 'artwork-display'
+  | 'artwork-card'
   | 'artwork-thumb'
   | 'artwork-video'
   | 'avatar'
@@ -131,6 +133,11 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
     kind: video ? 'video' : 'image',
     src: publicUrl(`${row.storage_path}/${video ? 'video' : 'display.jpg'}`),
     poster: video ? publicUrl(`${row.storage_path}/thumb.jpg`) : undefined,
+    // Small, always present — safe for list/grid thumbnails at any age.
+    thumb: publicUrl(`${row.storage_path}/thumb.jpg`),
+    // Mid-size, only for rows uploaded after migration 0032; undefined means
+    // "no card.jpg on R2", so callers fall back to `src` rather than 404.
+    card: video || !row.has_card ? undefined : publicUrl(`${row.storage_path}/card.jpg`),
     purchaseUrl: row.purchase_url ?? undefined,
     price: row.price ?? undefined,
     audioUrl: row.audio_url ?? undefined,
@@ -198,6 +205,11 @@ async function insertArtworkRow(row: Record<string, unknown>): Promise<void> {
 // wherever we still have it.
 const DISPLAY_MAX_SIDE = 1600
 const DISPLAY_QUALITY = 0.92
+// Browse surfaces (Explore cards, artist-page covers) render around 330x210 CSS
+// px; 800 covers that on a 2x screen at roughly a quarter of display.jpg's bytes.
+// Card quality can be lower than the work itself — nobody studies a thumbnail.
+const CARD_MAX_SIDE = 800
+const CARD_QUALITY = 0.84
 const THUMB_MAX_SIDE = 400
 const THUMB_QUALITY = 0.8
 
@@ -261,10 +273,12 @@ export async function uploadArtwork(params: {
   // (docs/ARCHITECTURE.md ch. 5) — both encoded from a single decode of the source.
   const img = await decodeSource(source)
   const display = await encodeJpeg(img, DISPLAY_MAX_SIDE, DISPLAY_QUALITY)
+  const card = await encodeJpeg(img, CARD_MAX_SIDE, CARD_QUALITY)
   const thumb = await encodeJpeg(img, THUMB_MAX_SIDE, THUMB_QUALITY)
 
   await putFiles([
     { purpose: 'artwork-display', id, body: display.blob, contentType: 'image/jpeg' },
+    { purpose: 'artwork-card', id, body: card.blob, contentType: 'image/jpeg' },
     { purpose: 'artwork-thumb', id, body: thumb.blob, contentType: 'image/jpeg' },
   ])
 
@@ -276,7 +290,8 @@ export async function uploadArtwork(params: {
       width: params.w ?? display.w,
       height: params.h ?? display.h,
       title: params.title,
-      bytes: display.blob.size + thumb.blob.size,
+      bytes: display.blob.size + card.blob.size + thumb.blob.size,
+      has_card: true,
     })
   } catch (error) {
     // If metadata insertion fails, don't leave the images behind

@@ -11,7 +11,8 @@ import type { ArtworkData } from '@/lib/artworks'
 import type { CustomLayoutParams } from '@/lib/presets'
 
 function thumb(a: ArtworkData): string | undefined {
-  return a.kind === 'video' ? a.poster : a.poster ?? a.src
+  // 56px tiles — the 400px thumb is plenty and always exists
+  return a.kind === 'video' ? a.poster : a.thumb ?? a.src
 }
 
 export default function PlacementEditor({
