@@ -132,6 +132,16 @@ export async function POST(req: NextRequest) {
         },
       ],
       client_reference_id: user.id,
+      // Repeat the acknowledgement the buyer already ticked in our modal, so the
+      // waiver of the 14-day withdrawal right is also on Stripe's own receipt
+      // trail. Plain `custom_text` rather than `consent_collection`, which needs
+      // a Terms URL configured in the Stripe dashboard to work at all.
+      custom_text: {
+        submit: {
+          message:
+            'One-time purchase — nothing renews. It unlocks immediately, so it is non-refundable once unlocked, except where the law requires otherwise.',
+        },
+      },
       metadata: {
         user_id: user.id,
         sku,

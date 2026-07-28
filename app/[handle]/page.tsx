@@ -136,6 +136,7 @@ export default async function ArtistPage({
 
         <footer className="artist-footer">
           <Link href="/terms">Terms</Link>
+          <Link href="/legal">Legal</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href={`/report?about=${encodeURIComponent(`@${p.username}`)}`}>Report a problem</Link>
         </footer>

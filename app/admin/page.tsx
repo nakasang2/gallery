@@ -108,6 +108,7 @@ export default function AdminPage() {
 
         <footer className="artist-footer">
           <Link href="/terms">Terms</Link>
+          <Link href="/legal">Legal</Link>
           <Link href="/privacy">Privacy</Link>
         </footer>
       </div>

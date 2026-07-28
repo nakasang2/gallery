@@ -1761,3 +1761,25 @@ body:not(.gallery-mode) {
   }
   .settings.open { transform: translateY(0); }
 }
+
+/* Immediate-delivery acknowledgement before a purchase (EU/UK 14-day right). */
+.purchase-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 1rem 0 0.2rem;
+  font-size: 0.72rem;
+  line-height: 1.65;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+.purchase-consent input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 0.2em;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+.purchase-cta:disabled { opacity: 0.45; cursor: default; }

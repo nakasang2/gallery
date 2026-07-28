@@ -233,6 +233,7 @@ export default function LandingPage() {
         <div className="footer-meta">
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
+          <Link href="/legal">Legal</Link>
           <span>© 2026 XIBIT360</span>
         </div>
       </footer>

@@ -56,6 +56,7 @@ export default async function ExplorePage() {
         <footer className="artist-footer">
           <Link href="/articles">Guides</Link>
           <Link href="/terms">Terms</Link>
+          <Link href="/legal">Legal</Link>
           <Link href="/privacy">Privacy</Link>
         </footer>
       </div>

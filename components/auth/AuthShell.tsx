@@ -12,7 +12,7 @@ export default function AuthShell({ title, children }: { title: string; children
         {children}
       </section>
       <p className="auth-legal">
-        <Link href="/terms">Terms</Link> · <Link href="/privacy">Privacy</Link>
+        <Link href="/terms">Terms</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/legal">Legal</Link>
       </p>
     </main>
   )

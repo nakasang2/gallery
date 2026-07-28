@@ -40,6 +40,12 @@ export default function PurchaseModal({
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // EU/UK consumers keep a 14-day right to cancel digital content UNLESS they
+  // ask for it immediately and acknowledge losing that right. The upgrade
+  // unlocks the moment the webhook lands, so we have to take that here — and
+  // here rather than in Stripe's own consent_collection, which needs a URL
+  // configured in the dashboard and would break silently if it were missing.
+  const [acknowledged, setAcknowledged] = useState(false)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -57,6 +63,7 @@ export default function PurchaseModal({
       setTried(true)
       return
     }
+    if (!acknowledged) return
     setBusy(true)
     setError(null)
     try {
@@ -148,7 +155,24 @@ export default function PurchaseModal({
           </p>
         ) : (
           <>
-            <button className="purchase-cta" onClick={() => void onCta()} disabled={busy}>
+            {intent && (
+              <label className="purchase-consent">
+                <input
+                  type="checkbox"
+                  checked={acknowledged}
+                  onChange={(e) => setAcknowledged(e.target.checked)}
+                />
+                <span>
+                  Unlock it straight away. I understand that means I give up the 14-day
+                  right to cancel, and that it is non-refundable once unlocked.
+                </span>
+              </label>
+            )}
+            <button
+              className="purchase-cta"
+              onClick={() => void onCta()}
+              disabled={busy || (!!intent && !acknowledged)}
+            >
               {busy ? 'Opening checkout…' : 'Continue to checkout'}
             </button>
             {error ? (

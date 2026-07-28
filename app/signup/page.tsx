@@ -150,7 +150,7 @@ export default function SignUpPage() {
           />
           <span id="consent-text">
             I agree to the <Link href="/terms">Terms of Service</Link> and{' '}
-            <Link href="/privacy">Privacy Policy</Link>, and I am 13 or older.
+            <Link href="/privacy">Privacy Policy</Link>, and I am 18 or older.
           </span>
         </label>
         {error && <p className="auth-error">{error}</p>}

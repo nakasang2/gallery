@@ -1110,6 +1110,32 @@
   color: var(--ink);
   margin: 1.8rem 0 0.7rem;
 }
+.legal-body a { color: var(--ink); text-underline-offset: 2px; }
+.legal-body a:hover { color: var(--gold); }
+.legal-body ul { margin: 0 0 1.1rem 1.1rem; }
+.legal-body li { font-size: 0.86rem; line-height: 2; color: #cdc7bd; }
+
+/* 特商法の表記: 項目名と内容の二列。狭幅では縦積みにする */
+.legal-table { margin-top: 1.6rem; }
+.legal-row {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: 0.4rem 1.4rem;
+  padding: 0.9rem 0;
+  border-top: 1px solid var(--hairline);
+}
+.legal-row dt {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-top: 0.25em;
+}
+.legal-row dd { margin: 0; font-size: 0.86rem; line-height: 1.9; color: #cdc7bd; }
+@media (max-width: 640px) {
+  .legal-row { grid-template-columns: 1fr; gap: 0.3rem; }
+}
 
 /* ---- Manual slot placement (§11.13): top-down room map + work picker ---- */
 .wd-row-block { flex-direction: column; align-items: stretch; gap: 0.6rem; margin-top: 1rem; }

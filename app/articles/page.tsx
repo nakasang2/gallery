@@ -62,6 +62,7 @@ export default async function ArticlesPage() {
         <footer className="artist-footer">
           <Link href="/explore">Explore</Link>
           <Link href="/terms">Terms</Link>
+          <Link href="/legal">Legal</Link>
           <Link href="/privacy">Privacy</Link>
         </footer>
       </div>
