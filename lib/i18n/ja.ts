@@ -487,7 +487,7 @@ export const ja: Dictionary = {
     pricingNoteSoon: '作ったものはすべてあなたのものです。公開はいつでも無料。アップグレードは一度きりのお支払いで、継続課金はありません。有料のアップグレードはまだ開始していません。',
 
     closingEyebrow: 'あなたの番です',
-    closingTitle1: 'あなたの部屋を、',
+    closingTitle1: 'あなたの部屋を',
     closingTitle2: 'ひらく。',
     closingSub: '作品をアップロードし、空間を組み立て、リンクを1本、世界へ。',
     closingCta: '展示を作る — 無料',

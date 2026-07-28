@@ -18,6 +18,29 @@ export const DEFAULT_LOCALE: Locale = 'en'
  *  already in the right language — no flash of English. */
 export const LOCALE_COOKIE = 'xibit360.lang'
 
+/** What a locale needs from the layout, declared with the locale rather than
+ *  hard-coded in CSS.
+ *
+ *  Typography genuinely differs by writing system — full-width scripts read
+ *  larger than Latin at the same pixel size, so display headings need to come
+ *  down a notch. The mistake to avoid is spelling that out per LANGUAGE: adding
+ *  Korean would then mean hunting down every `html[lang='ja']` rule and adding
+ *  `ko` beside it. Declaring the script here means a new locale is one line in
+ *  this table and no CSS at all.
+ *
+ *  `dir` is here for the same reason — it is what makes an RTL locale possible
+ *  later without touching every stylesheet. */
+export interface LocaleMeta {
+  /** Drives `[data-script]` in CSS. Add a value only when it needs different type. */
+  script: 'latin' | 'cjk'
+  dir: 'ltr' | 'rtl'
+}
+
+export const LOCALE_META: Record<Locale, LocaleMeta> = {
+  en: { script: 'latin', dir: 'ltr' },
+  ja: { script: 'cjk', dir: 'ltr' },
+}
+
 const DICTIONARIES: Record<Locale, Dictionary> = { en, ja }
 
 export function isLocale(v: string | undefined | null): v is Locale {

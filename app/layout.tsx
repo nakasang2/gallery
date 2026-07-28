@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { cookies, headers } from 'next/headers'
 import { I18nProvider } from '@/components/I18nProvider'
-import { getDictionary, resolveLocale, LOCALE_COOKIE } from '@/lib/i18n'
+import { getDictionary, resolveLocale, LOCALE_COOKIE, LOCALE_META } from '@/lib/i18n'
 import './landing.css'
 import './gallery.css'
 import './auth.css'
@@ -42,8 +42,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     headerList.get('accept-language'),
   )
   const dictionary = getDictionary(locale)
+  const meta = LOCALE_META[locale]
   return (
-    <html lang={locale}>
+    // `data-script` is what stylesheets key off — never the language itself, so a
+    // new locale needs no CSS (lib/i18n LOCALE_META).
+    <html lang={locale} dir={meta.dir} data-script={meta.script}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
