@@ -196,6 +196,38 @@ if (findings.length) {
   console.error(`\n訳す対象でなければ、その行に i18n-ok とコメントを書いてください。`)
   process.exit(1)
 }
+// --- 他言語の文字が混ざっていないかの点検 -----------------------------------
+// 9言語ぶんを機械的に流し込む作業では、コピー元の言語が数キーだけ残ることが
+// 実際に起きた（韓国語の辞書に日本語の「埋め込み」が2キー残っていた 2026-07-29）。
+// 文字体系は言語ごとに決まっているので、これは機械で見つけられる。
+const SCRIPT_GUARD = [
+  { re: /[ぁ-んァ-ヶ]/, name: 'かな', allow: ['ja'] },
+  { re: /[가-힣]/, name: 'ハングル', allow: ['ko'] },
+]
+const dictFiles = execSync('git ls-files lib/i18n', { encoding: 'utf8' })
+  .split('\n')
+  .filter((f) => f.endsWith('.ts') && !/\/(index|server|metadata)\.ts$/.test(f))
+const mixed = []
+for (const f of dictFiles) {
+  const loc = f.replace('lib/i18n/', '').replace('.ts', '')
+  const dictLines = readFileSync(f, 'utf8').split('\n')
+  dictLines.forEach((raw, i) => {
+    if (/^\s*\/\//.test(raw)) return // コメントでの説明は対象外
+    // 英語の文が日本の法律名を原語で引くような、意図した混在は注記で外す
+    if (annotated(dictLines, i, 'script-ok')) return
+    for (const g of SCRIPT_GUARD) {
+      if (g.allow.includes(loc)) continue
+      if (g.re.test(raw)) mixed.push({ f, line: i + 1, name: g.name, text: raw.trim().slice(0, 70) })
+    }
+  })
+}
+if (mixed.length) {
+  console.error(`辞書に他言語の文字が混ざっています ${mixed.length} 件:\n`)
+  for (const m of mixed) console.error(`  ${m.f}:${m.line}  [${m.name}] ${m.text}`)
+  console.error('')
+  process.exit(1)
+}
+
 // --- 翻訳カバレッジ（ゲートではなく進捗の可視化） ---------------------------
 // 英語以外の辞書は部分辞書で、欠けたキーは英語にフォールバックする
 // （lib/i18n getDictionary）。何%訳せているかを毎回出しておかないと、

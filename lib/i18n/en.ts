@@ -747,6 +747,7 @@ export const en = {
 
   legal: {
     heading: 'Legal',
+    // script-ok: 日本の法律名を原語で示す（英文の中の意図した和文）
     intro: 'Seller information disclosed under the Japanese Act on Specified Commercial Transactions (特定商取引法に基づく表記). Last updated: July 28, 2026.',
     rowService: 'Service',
     rowOperator: 'Operator',
