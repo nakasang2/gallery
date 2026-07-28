@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { fetchArticle } from '@/lib/blog'
 import { renderMarkdown } from '@/lib/markdown'
+import { getServerT } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +43,7 @@ export async function generateMetadata({
 }
 
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { t } = await getServerT()
   const { slug } = await params
   const a = await fetchArticle(slug)
   if (!a) notFound()
@@ -51,7 +53,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
       <div className="article-inner">
         <div className="me-top">
           <Link href="/articles" className="auth-logo">← Guides</Link>
-          <Link href="/signup" className="btn-line btn-gold">Start free</Link>
+          <Link href="/signup" className="btn-line btn-gold">{t('common.startFree')}</Link>
         </div>
 
         <article>
@@ -70,17 +72,17 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
         {/* Funnel CTA — every guide reader is a prospective artist */}
         <section className="article-cta">
-          <h2>Open your own room.</h2>
-          <p>Turn your portfolio into a walkable 3D exhibition — free, no install, one link to share.</p>
-          <Link href="/signup" className="btn btn-gold">Start free</Link>
+          <h2>{t('articles.ctaTitle')}</h2>
+          <p>{t('articles.ctaBody')}</p>
+          <Link href="/signup" className="btn btn-gold">{t('common.startFree')}</Link>
           <p className="article-cta-alt">
             <Link href="/demo">or walk the demo first →</Link>
           </p>
         </section>
 
         <footer className="artist-footer">
-          <Link href="/articles">All guides</Link>
-          <Link href="/explore">Explore</Link>
+          <Link href="/articles">{t('articles.allGuides')}</Link>
+          <Link href="/explore">{t('footer.explore')}</Link>
           <Link href="/">Home</Link>
         </footer>
       </div>

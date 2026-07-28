@@ -580,6 +580,21 @@ export const en = {
     corsFailed: 'Could not load the image. The host may not allow CORS — try uploading the file instead.',
     removeFailed: 'Could not remove the work: {msg}',
   },
+
+  articles: {
+    title: 'Guides',
+    intro: 'Everything about showing your art as a walkable exhibition — opening your first room, sharing it, and drawing a crowd.',
+    empty: 'No guides published yet — check back soon.',
+    allGuides: 'All guides',
+    ctaTitle: 'Open your own room.',
+    ctaBody: 'Turn your portfolio into a walkable 3D exhibition — free, no install, one link to share.',
+  },
+
+  artist: {
+    exhibitions: 'Exhibitions',
+    noExhibitions: 'No public exhibitions yet.',
+    reportProblem: 'Report a problem',
+  },
 } as const
 
 /** Same keys, but values widened from literals to `string` — `as const` above is

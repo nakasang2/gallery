@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { fetchPublishedArticles } from '@/lib/blog'
 import { LanguageSwitcher } from '@/components/I18nProvider'
+import { getServerT } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,7 @@ function fmtDate(iso: string | null): string {
 }
 
 export default async function ArticlesPage() {
+  const { t } = await getServerT()
   const articles = await fetchPublishedArticles()
 
   return (
@@ -30,16 +32,16 @@ export default async function ArticlesPage() {
       <div className="me-inner">
         <div className="me-top">
           <Link href="/" className="auth-logo">XIBIT360</Link>
-          <Link href="/signup" className="btn-line">Start free</Link>
+          <Link href="/signup" className="btn-line">{t('common.startFree')}</Link>
         </div>
 
-        <h1 className="artist-name">Guides</h1>
+        <h1 className="artist-name">{t('articles.title')}</h1>
         <p className="feed-intro">
-          Everything about showing your art as a walkable exhibition — opening your first room, sharing it, and drawing a crowd.
+          {t('articles.intro')}
         </p>
 
         {articles.length === 0 ? (
-          <p className="feed-empty">No guides published yet — check back soon.</p>
+          <p className="feed-empty">{t('articles.empty')}</p>
         ) : (
           <div className="article-list">
             {articles.map((a) => (
@@ -62,10 +64,10 @@ export default async function ArticlesPage() {
 
         <footer className="artist-footer">
           <LanguageSwitcher />
-          <Link href="/explore">Explore</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/legal">Legal</Link>
-          <Link href="/privacy">Privacy</Link>
+          <Link href="/explore">{t('footer.explore')}</Link>
+          <Link href="/terms">{t('footer.terms')}</Link>
+          <Link href="/legal">{t('footer.legal')}</Link>
+          <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>
     </main>

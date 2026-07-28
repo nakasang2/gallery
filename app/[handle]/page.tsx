@@ -10,6 +10,7 @@ import VisitorGallery from '@/components/gallery/VisitorGallery'
 import OwnerPreview from '@/components/gallery/OwnerPreview'
 import SnsLinks from '@/components/SnsLinks'
 import { LanguageSwitcher } from '@/components/I18nProvider'
+import { getServerT } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,6 +68,7 @@ export default async function ArtistPage({
   params: Promise<{ handle: string }>
   searchParams: Promise<{ embed?: string }>
 }) {
+  const { t } = await getServerT()
   const username = await resolveUsername(params)
   if (!username) notFound()
   const p = await fetchPublicProfile(username)
@@ -92,7 +94,7 @@ export default async function ArtistPage({
       <div className="me-inner">
         <div className="me-top">
           <Link href="/" className="auth-logo">XIBIT360</Link>
-          <Link href="/explore" className="btn-line">Explore</Link>
+          <Link href="/explore" className="btn-line">{t('footer.explore')}</Link>
         </div>
 
         <div className="artist-head">
@@ -109,9 +111,9 @@ export default async function ArtistPage({
         {p.bio && <p className="artist-bio">{p.bio}</p>}
 
         <section className="me-section" style={{ marginTop: '2.4rem' }}>
-          <h2>Exhibitions</h2>
+          <h2>{t('artist.exhibitions')}</h2>
           {p.galleries.length === 0 && (
-            <p className="me-note">No public exhibitions yet.</p>
+            <p className="me-note">{t('artist.noExhibitions')}</p>
           )}
           <div className="artist-galleries">
             {p.galleries.map((g) => (
@@ -137,10 +139,10 @@ export default async function ArtistPage({
 
         <footer className="artist-footer">
           <LanguageSwitcher />
-          <Link href="/terms">Terms</Link>
-          <Link href="/legal">Legal</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href={`/report?about=${encodeURIComponent(`@${p.username}`)}`}>Report a problem</Link>
+          <Link href="/terms">{t('footer.terms')}</Link>
+          <Link href="/legal">{t('footer.legal')}</Link>
+          <Link href="/privacy">{t('footer.privacy')}</Link>
+          <Link href={`/report?about=${encodeURIComponent(`@${p.username}`)}`}>{t('artist.reportProblem')}</Link>
         </footer>
       </div>
     </main>
