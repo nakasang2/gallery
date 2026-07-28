@@ -213,6 +213,54 @@ const CARD_QUALITY = 0.84
 const THUMB_MAX_SIDE = 400
 const THUMB_QUALITY = 0.8
 
+/** Intrinsic width of a derivative, given the original's pixel size. */
+function derivedWidth(w: number, h: number, maxSide: number): number {
+  const long = Math.max(w, h)
+  if (!long) return 0
+  return Math.max(1, Math.round(w * Math.min(1, maxSide / long)))
+}
+
+/**
+ * A `srcset` over the three derivatives, so the browser picks by the pixels it
+ * actually needs instead of us guessing one size for every screen.
+ *
+ * The `w` values are the real intrinsic widths (derived from the original pixel
+ * size, and capped at scale 1 like the encoder does) — a wrong `w` is worse than
+ * no srcset at all, because the browser trusts it over the rendered box.
+ *
+ * `maxTier` exists because the right ceiling differs by surface: browse covers
+ * stop at `card`, since letting a 2x phone reach display.jpg would undo the
+ * 141KB→25KB win that adding card.jpg bought (migration 0032). The non-WebGL
+ * flat gallery is the only place some visitors ever see the work, so it goes to
+ * `display`.
+ *
+ * Returns undefined when we can't be honest about the widths — videos, rows
+ * uploaded before 0032 (no card.jpg), or rows with no recorded dimensions — and
+ * callers keep their plain `src`.
+ */
+export function artworkSrcSet(art: ArtworkData, maxTier: 'card' | 'display' = 'display'): string | undefined {
+  if (art.kind === 'video' || !art.card || !art.thumb) return undefined
+  const [w, h] = art.ratio
+  if (!w || !h) return undefined
+  const tiers: [string | undefined, number][] = [
+    [art.thumb, THUMB_MAX_SIDE],
+    [art.card, CARD_MAX_SIDE],
+  ]
+  if (maxTier === 'display') tiers.push([art.src, DISPLAY_MAX_SIDE])
+  const parts: string[] = []
+  let last = 0
+  for (const [url, maxSide] of tiers) {
+    if (!url) continue
+    const dw = derivedWidth(w, h, maxSide)
+    // Skip duplicates: a small original hits scale 1 on every tier, and repeated
+    // widths make the browser's choice arbitrary.
+    if (dw <= last) continue
+    parts.push(`${url} ${dw}w`)
+    last = dw
+  }
+  return parts.length > 1 ? parts.join(', ') : undefined
+}
+
 /** Decode whatever we were handed: the original file, or a data URL for works that
  *  only ever existed as one (guest import, add-by-URL). */
 function decodeSource(src: Blob | string): Promise<HTMLImageElement> {

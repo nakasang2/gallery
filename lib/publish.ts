@@ -1,7 +1,7 @@
 // Publishing a gallery (writing to galleries + placements) and reading it for the public page
 // The read path is used by both the server component (OGP generation) and the client
 import { supabase } from './supabase'
-import { rowToArtwork } from './cloud'
+import { rowToArtwork, artworkSrcSet } from './cloud'
 import type { ArtworkData } from './artworks'
 import {
   normalizeLayoutParams,
@@ -150,6 +150,8 @@ export interface PublicProfile {
     statement: string
     /** Cover image URL (slot 0 work; decision 10.8-7) */
     cover: string | null
+    /** thumb+card srcset for the cover, or null when we can't state widths honestly */
+    coverSrcSet: string | null
     workCount: number
   }[]
 }
@@ -200,6 +202,7 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
         // one (migration 0032) instead of the full display image, and fall back to
         // display.jpg for anything uploaded before that.
         cover: first ? (first.kind === 'video' ? first.poster ?? null : first.card ?? first.src ?? null) : null,
+        coverSrcSet: first ? artworkSrcSet(first, 'card') ?? null : null,
         workCount: rows.length,
       })
     }
@@ -506,6 +509,8 @@ export interface FeedItem {
   title: string
   /** Cover image URL (manually chosen work, else slot 0) */
   cover: string | null
+  /** thumb+card srcset for the cover, or null when we can't state widths honestly */
+  coverSrcSet: string | null
   workCount: number
 }
 
@@ -605,6 +610,7 @@ async function buildFeedItems(rows: FeedGalleryRow[]): Promise<FeedItem[]> {
       slug: g.slug,
       title: g.title,
       cover: cover ? (cover.kind === 'video' ? cover.poster ?? null : cover.card ?? cover.src ?? null) : null,
+      coverSrcSet: cover ? artworkSrcSet(cover, 'card') ?? null : null,
       workCount: artworkRows.length,
     }
   })

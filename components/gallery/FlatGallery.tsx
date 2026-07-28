@@ -4,7 +4,12 @@
 import { useExhibitionList } from '@/lib/exhibition'
 import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
+import { artworkSrcSet } from '@/lib/cloud'
 import { useT } from '@/components/I18nProvider'
+
+// `.flat-work` is max-width 640px inside `.flat-gallery`'s 1.4rem side padding,
+// so the image box is min(640px, 100vw - 2.8rem). 640 + 2.8rem = 684.8px.
+const FLAT_SIZES = '(max-width: 684px) calc(100vw - 2.8rem), 640px'
 
 export default function FlatGallery() {
   const t = useT()
@@ -44,7 +49,16 @@ export default function FlatGallery() {
       {list.map((art, i) => (
         <article className="flat-work" key={art.id}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img crossOrigin="anonymous" src={art.poster ?? art.thumb ?? art.src} alt={`${art.title} — ${art.artist}`} loading="lazy" />
+          <img
+            crossOrigin="anonymous"
+            // Without WebGL this list is the whole exhibition, so the fallback
+            // src is the mid-size card rather than the 400px thumb it used to be.
+            src={art.poster ?? art.card ?? art.thumb ?? art.src}
+            srcSet={artworkSrcSet(art)}
+            sizes={FLAT_SIZES}
+            alt={`${art.title} — ${art.artist}`}
+            loading="lazy"
+          />
           <h2>
             <span className="flat-no">No. {String(i + 1).padStart(2, '0')}</span>
             {art.title}

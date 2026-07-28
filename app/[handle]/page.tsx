@@ -11,6 +11,7 @@ import OwnerPreview from '@/components/gallery/OwnerPreview'
 import SnsLinks from '@/components/SnsLinks'
 import { LanguageSwitcher } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
+import { COVER_SIZES } from '@/components/FeedCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -120,7 +121,14 @@ export default async function ArtistPage({
               <Link key={g.slug} className="artist-gallery-card" href={`/@${p.username}/${g.slug}`}>
                 {g.cover ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img crossOrigin="anonymous" src={g.cover} alt="" className="artist-cover" />
+                  <img
+                    crossOrigin="anonymous"
+                    src={g.cover}
+                    srcSet={g.coverSrcSet ?? undefined}
+                    sizes={COVER_SIZES}
+                    alt=""
+                    className="artist-cover"
+                  />
                 ) : (
                   <div className="artist-cover artist-cover-empty" />
                 )}
