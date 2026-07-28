@@ -1195,3 +1195,14 @@
   position: absolute; top: 2px; right: 2px; font-size: 0.6rem;
   background: var(--ink); color: #14110c; border-radius: 4px; padding: 0 2px; line-height: 1.3;
 }
+
+/* 公開できない理由を、公開トグルがあるべき場所に出す */
+.hako-url-locked { flex-wrap: wrap; align-items: center; }
+.hako-locked-why {
+  flex: 1 1 100%;
+  margin: 0.2rem 0 0.5rem;
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.hako-url-locked .field-row { flex: 1 1 100%; margin: 0; }

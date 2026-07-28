@@ -202,7 +202,7 @@ function Hero() {
               <a href={`/@${username}`} target="_blank" rel="noreferrer">/@{username}</a>
             </>
           ) : (
-            'Set a username to claim your public URL.'
+            'Pick a username below to claim your public URL.'
           )}
         </p>
       </div>
@@ -624,7 +624,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
 
   async function togglePublic() {
     if (!row.is_public && cloudArtworks.length === 0) {
-      alert('Exhibit at least one work before opening to the public (use the editor).')
+      alert('Add at least one work before opening your gallery — use “Hang your first work” in the list on the left.')
       return
     }
     await run(row.is_public ? 'Making private' : 'Publishing', async () =>
@@ -798,7 +798,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     try {
       for (const f of Array.from(files)) {
         if (f.type.startsWith('video/')) {
-          alert(`Videos are uploaded from the 3D preview (“Exhibit your work”) — skipped “${f.name}”.`)
+          alert(`Videos are added from inside the 3D room: open “Walk the room”, then “Edit space”. Skipped “${f.name}”.`)
           continue
         }
         const title = f.name.replace(/\.[^.]+$/, '') || 'Untitled'
@@ -969,7 +969,32 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             </div>
           )}
         </div>
-      ) : null}
+      ) : (
+        /* No username means no public URL, so there is nothing for the switch to
+           switch — but hiding the whole row left no clue about WHY publishing is
+           unavailable, and the input sat far below the stats. Put the reason and
+           the fix exactly where the toggle would have been. */
+        <div className="hako-url-row hako-url-locked">
+          <span className="hako-url off">xibit360.art/@…</span>
+          <p className="hako-locked-why">Pick a username to claim your public URL and open the gallery.</p>
+          <div className="field-row">
+            <input
+              type="text"
+              aria-label="Username"
+              placeholder="your-name"
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
+            />
+            <button
+              className="btn-line"
+              disabled={busy || !usernameInput.trim()}
+              onClick={() => void saveUsernameInline()}
+            >
+              Set
+            </button>
+          </div>
+        </div>
+      )}
       <p className="hako-meta">{row.updated_at ? `Updated ${fmtDate(row.updated_at)}` : ''}</p>
       {/* How the exhibition is doing, at a glance */}
       <div className="stat-row">
@@ -978,20 +1003,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         <div className="stat"><b>{stats ? stats.likes : '–'}</b><span>Likes</span></div>
         <div className="stat"><b>{stats ? stats.guestbook : '–'}</b><span>Guest notes</span></div>
       </div>
-
-      {!username && (
-        <div className="field-row">
-          <input
-            type="text"
-            placeholder="username — needed to publish (/@you)"
-            value={usernameInput}
-            onChange={(e) => setUsernameInput(e.target.value)}
-          />
-          <button className="btn-line" disabled={busy || !usernameInput.trim()} onClick={() => void saveUsernameInline()}>
-            Set
-          </button>
-        </div>
-      )}
 
       {row.is_public && embedCode && showEmbed && (
         <div
@@ -1053,6 +1064,15 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           </span>
           <span className="me-subnav-tx">Room</span>
         </button>
+        {/* The only way back into the 3D editor. Creating a gallery pushes you to
+            /demo, but nothing here linked to it — and two alerts below used to
+            send people to "the editor" with no door to walk through. */}
+        <Link className="me-subnav-item me-subnav-walk" href="/demo">
+          <span className="me-subnav-ic" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 20V9l8-5 8 5v11" /><path d="M9.5 20v-6h5v6" /></svg>
+          </span>
+          <span className="me-subnav-tx">Walk the room</span>
+        </Link>
         <div className="me-subnav-group">Works {cloudArtworks.length} / {row.work_cap}</div>
         {cloudArtworks.map((art) => (
           <button
