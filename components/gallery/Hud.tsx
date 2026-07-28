@@ -11,8 +11,10 @@ import { audioGuide } from '@/lib/guide'
 import { showToast } from '@/lib/toast'
 import { SendIcon } from '@/components/icons'
 import { useWalkRecorder } from './RecordButton'
+import { useT } from '@/components/I18nProvider'
 
 export function HudTop() {
+  const t = useT()
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
   const myGallery = useGallery((s) => s.myGallery)
@@ -37,7 +39,7 @@ export function HudTop() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Open ↗
+          {t('hud.open')}
         </a>
       </header>
     )
@@ -57,7 +59,7 @@ export function HudTop() {
           <span className="hud-identity-main">{untitled ? visitor.ownerName : visitor.title}</span>
           {!untitled && <span className="hud-identity-sub">{visitor.ownerName}</span>}
         </div>
-        <Link className="hud-signup-cta" href="/signup">Start free</Link>
+        <Link className="hud-signup-cta" href="/signup">{t('common.startFree')}</Link>
       </header>
     )
   }
@@ -70,12 +72,12 @@ export function HudTop() {
     return (
       <header className="hud-top">
         <div className="hud-identity">
-          <Link className="hud-identity-home" href="/me">← Dashboard</Link>
+          <Link className="hud-identity-home" href="/me">← {t('common.dashboard')}</Link>
           <span className="hud-identity-main">
-            {untitled ? ownerName || 'Your exhibition' : myGallery.title}
+            {untitled ? ownerName || t('hud.yourExhibition') : myGallery.title}
           </span>
           <span className="hud-identity-sub">
-            Your space · {myGallery.is_public ? 'live — saved edits publish instantly' : 'private draft'}
+            {t('hud.yourSpace')} · {myGallery.is_public ? t('hud.livePublished') : t('hud.privateDraft')}
           </span>
         </div>
       </header>
@@ -86,8 +88,8 @@ export function HudTop() {
     <header className="hud-top">
       <Link className="hud-back" href="/">← XIBIT360</Link>
       <div className="hud-title">
-        <span className="hud-title-main">XIBIT360 COLLECTION</span>
-        <span className="hud-title-sub">A permanent collection — ten works</span>
+        <span className="hud-title-main">{t('hud.houseTitle')}</span>
+        <span className="hud-title-sub">{t('hud.houseSub')}</span>
       </div>
     </header>
   )
@@ -120,6 +122,7 @@ function HudAction({
 }
 
 export function HudActions() {
+  const t = useT()
   const settingsOpen = useGallery((s) => s.settingsOpen)
   const setSettingsOpen = useGallery((s) => s.setSettingsOpen)
   const guestbookOpen = useGallery((s) => s.guestbookOpen)
@@ -166,7 +169,7 @@ export function HudActions() {
     if (typeof navigator !== 'undefined' && navigator.share) {
       void navigator.share({ title, url }).catch(() => {})
     } else {
-      navigator.clipboard?.writeText(url).then(() => showToast('Link copied to clipboard')).catch(() => {})
+      navigator.clipboard?.writeText(url).then(() => showToast(t('hud.linkCopied'))).catch(() => {})
     }
   }
 
@@ -187,20 +190,20 @@ export function HudActions() {
         {hasWorks && (
           <HudAction
             icon={tourActive ? '■' : '▶'}
-            label={tourActive ? 'End tour' : 'Tour'}
+            label={tourActive ? t('hud.endTour') : t('hud.tour')}
             active={tourActive}
             onClick={() => setTourActive(!tourActive)}
           />
         )}
 
-        <HudAction icon="♪" label={audioOn ? 'BGM on' : 'BGM off'} active={audioOn} onClick={toggleAudio} />
+        <HudAction icon="♪" label={audioOn ? t('hud.bgmOn') : t('hud.bgmOff')} active={audioOn} onClick={toggleAudio} />
 
-        {visitor && <HudAction icon={<SendIcon />} label="Share" onClick={share} />}
+        {visitor && <HudAction icon={<SendIcon />} label={t('hud.share')} onClick={share} />}
 
         {visitor ? (
           <HudAction
             icon="✎"
-            label="Guestbook"
+            label={t('hud.guestbook')}
             active={guestbookOpen}
             onClick={() => setGuestbookOpen(!guestbookOpen)}
           />
@@ -208,7 +211,7 @@ export function HudActions() {
           user && (
             <HudAction
               icon="✎"
-              label="Edit space"
+              label={t('hud.editSpace')}
               active={settingsOpen}
               onClick={() => setSettingsOpen(!settingsOpen)}
             />
@@ -225,9 +228,9 @@ export function HudActions() {
                 className="hud-action as-link"
                 role="menuitem"
                 href={`/report?about=${encodeURIComponent(`@${visitor!.username}/${visitor!.slug}`)}`}
-                aria-label="Report this gallery"
+                aria-label={t('hud.reportAria')}
               >
-                <span className="hud-action-label">Report</span>
+                <span className="hud-action-label">{t('hud.report')}</span>
                 <span className="hud-action-icon" aria-hidden="true">⚑</span>
               </Link>
             )}
@@ -236,20 +239,20 @@ export function HudActions() {
                 className={`hud-action${recorder.recording ? ' active' : ''}`}
                 role="menuitem"
                 onClick={recorder.toggle}
-                aria-label={recorder.recording ? 'Stop recording' : 'Record a walkthrough'}
+                aria-label={recorder.recording ? t('hud.stopAria') : t('hud.recordAria')}
               >
-                <span className="hud-action-label">{recorder.recording ? 'Stop' : 'Record'}</span>
+                <span className="hud-action-label">{recorder.recording ? t('hud.stop') : t('hud.record')}</span>
                 <span className="hud-action-icon" aria-hidden="true">{recorder.recording ? '■' : '●'}</span>
               </button>
             )}
           </div>
           <button
             className={`hud-action hud-others-toggle${othersOpen ? ' active' : ''}`}
-            aria-label={othersOpen ? 'Close menu' : 'More actions'}
+            aria-label={othersOpen ? t('common.close') : t('hud.others')}
             aria-expanded={othersOpen}
             onClick={() => setOthersOpen((v) => !v)}
           >
-            <span className="hud-action-label">Others</span>
+            <span className="hud-action-label">{t('hud.others')}</span>
             {/* ⋯ while closed, ✕ while the submenu is showing (hover or open) */}
             <span className="hud-action-icon" aria-hidden="true">
               <span className="others-icon-closed">⋯</span>
@@ -265,6 +268,7 @@ export function HudActions() {
 // Self-paced viewer nav: one tap moves to the next/previous work AND faces it.
 // The guided tour lives here too — it is just the automatic version of the stepper.
 export function HudStepper() {
+  const t = useT()
   const count = useExhibitionList().length
   const focusedIndex = useGallery((s) => s.focusedIndex)
   const settingsOpen = useGallery((s) => s.settingsOpen)
@@ -283,13 +287,13 @@ export function HudStepper() {
       aria-hidden={tucked}
       inert={tucked}
     >
-      <button className="step-btn" aria-label="Previous work" onClick={() => walkRef.current?.focusStep(-1)}>
+      <button className="step-btn" aria-label={t('artwork.previous')} onClick={() => walkRef.current?.focusStep(-1)}>
         ‹
       </button>
       <span className={`step-count${focusedIndex < 0 ? ' idle' : ''}`}>
         {current} <span className="step-sep">/</span> {String(count).padStart(2, '0')}
       </span>
-      <button className="step-btn" aria-label="Next work" onClick={() => walkRef.current?.focusStep(1)}>
+      <button className="step-btn" aria-label={t('artwork.next')} onClick={() => walkRef.current?.focusStep(1)}>
         ›
       </button>
     </div>
@@ -297,6 +301,7 @@ export function HudStepper() {
 }
 
 export function Hint() {
+  const t = useT()
   const [faded, setFaded] = useState(false)
   // Never talk over an open surface — the idle re-show must not float above sheets
   const focusedIndex = useGallery((s) => s.focusedIndex)
@@ -337,9 +342,9 @@ export function Hint() {
 
   return (
     <div id="hint" className={`hint${faded || suppressed ? ' faded' : ''}`}>
-      <div className="hint-row"><b>Drag</b> walk & steer</div>
-      <div className="hint-row"><b>Tap</b> floor to go · a work to view</div>
-      <div className="hint-row"><b>‹ ›</b> next work</div>
+      <div className="hint-row"><b>{t('hint.drag')}</b> {t('hint.dragWhat')}</div>
+      <div className="hint-row"><b>{t('hint.tap')}</b> {t('hint.tapWhat')}</div>
+      <div className="hint-row"><b>‹ ›</b> {t('hint.step')}</div>
     </div>
   )
 }

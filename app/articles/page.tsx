@@ -4,6 +4,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { fetchPublishedArticles } from '@/lib/blog'
+import { LanguageSwitcher } from '@/components/I18nProvider'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,6 +61,7 @@ export default async function ArticlesPage() {
         )}
 
         <footer className="artist-footer">
+          <LanguageSwitcher />
           <Link href="/explore">Explore</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/legal">Legal</Link>

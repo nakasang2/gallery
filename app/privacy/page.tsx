@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { LanguageSwitcher } from '@/components/I18nProvider'
 
 export const metadata: Metadata = { title: 'Privacy Policy — Xibit360' }
 
@@ -62,6 +63,7 @@ export default function PrivacyPage() {
           <p>To report a gallery — for copyright, harassment or illegal content — use the <Link href="/report">report page</Link>. Include enough detail for us to find the work and understand the problem. We review every report and will remove content that breaks the <Link href="/terms">Terms</Link>.</p>
         </div>
         <footer className="artist-footer">
+          <LanguageSwitcher />
           <Link href="/terms">Terms</Link>
           <Link href="/legal">Legal</Link>
           <Link href="/">Home</Link>

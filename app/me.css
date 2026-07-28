@@ -1258,3 +1258,23 @@
   color: var(--ink);
   margin-bottom: 0.2rem;
 }
+
+/* 言語切替。フッターの一部として静かに置く */
+.lang-switch { display: inline-flex; align-items: center; gap: 0.4em; }
+.lang-switch-label {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lang-switch select {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.05);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 0.3em 0.5em;
+  cursor: pointer;
+}

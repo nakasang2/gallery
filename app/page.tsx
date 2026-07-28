@@ -3,6 +3,7 @@ import LandingEffects from '@/components/landing/LandingEffects'
 import HeroCanvas from '@/components/landing/HeroCanvas'
 import { PLAN } from '@/lib/limits'
 import { PRICE_SLOT, PRICE_THEME, PRICE_LAYOUT } from '@/lib/pricing'
+import { LanguageSwitcher } from '@/components/I18nProvider'
 
 export default function LandingPage() {
   // Server component, so we can tell the truth about billing instead of hard-coding
@@ -231,6 +232,7 @@ export default function LandingPage() {
           <Link href="/signup">Create account</Link>
         </nav>
         <div className="footer-meta">
+          <LanguageSwitcher />
           <Link href="/privacy">Privacy</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/legal">Legal</Link>

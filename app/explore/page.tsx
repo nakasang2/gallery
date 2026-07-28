@@ -6,6 +6,7 @@ import { fetchPublicFeed, fetchSpotlightGalleries, EXPLORE_PAGE_SIZE } from '@/l
 import { fetchSpotlight } from '@/lib/siteConfig'
 import ExploreFeed from '@/components/ExploreFeed'
 import FeedCard from '@/components/FeedCard'
+import { LanguageSwitcher } from '@/components/I18nProvider'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,7 @@ export default async function ExplorePage() {
         <ExploreFeed initialItems={items} initialHasMore={hasMore} />
 
         <footer className="artist-footer">
+          <LanguageSwitcher />
           <Link href="/articles">Guides</Link>
           <Link href="/terms">Terms</Link>
           <Link href="/legal">Legal</Link>

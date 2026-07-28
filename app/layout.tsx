@@ -1,4 +1,7 @@
 import type { Metadata, Viewport } from 'next'
+import { cookies, headers } from 'next/headers'
+import { I18nProvider } from '@/components/I18nProvider'
+import { getDictionary, resolveLocale, LOCALE_COOKIE } from '@/lib/i18n'
 import './landing.css'
 import './gallery.css'
 import './auth.css'
@@ -29,9 +32,18 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+// Server-resolved so the first paint is already in the visitor's language —
+// deciding on the client would flash English first, which is exactly the moment
+// a shared link makes its impression.
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const [cookieStore, headerList] = await Promise.all([cookies(), headers()])
+  const locale = resolveLocale(
+    cookieStore.get(LOCALE_COOKIE)?.value,
+    headerList.get('accept-language'),
+  )
+  const dictionary = getDictionary(locale)
   return (
-    <html lang="en">
+    <html lang={locale}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -41,7 +53,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <I18nProvider locale={locale} dictionary={dictionary}>
+          {children}
+        </I18nProvider>
+      </body>
     </html>
   )
 }

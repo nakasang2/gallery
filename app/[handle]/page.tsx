@@ -9,6 +9,7 @@ import { fetchPublicProfile, fetchPublicExhibition, isPlaceholderTitle } from '@
 import VisitorGallery from '@/components/gallery/VisitorGallery'
 import OwnerPreview from '@/components/gallery/OwnerPreview'
 import SnsLinks from '@/components/SnsLinks'
+import { LanguageSwitcher } from '@/components/I18nProvider'
 
 export const dynamic = 'force-dynamic'
 
@@ -135,6 +136,7 @@ export default async function ArtistPage({
         </section>
 
         <footer className="artist-footer">
+          <LanguageSwitcher />
           <Link href="/terms">Terms</Link>
           <Link href="/legal">Legal</Link>
           <Link href="/privacy">Privacy</Link>

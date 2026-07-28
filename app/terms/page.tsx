@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { LanguageSwitcher } from '@/components/I18nProvider'
 
 export const metadata: Metadata = { title: 'Terms of Service — Xibit360' }
 
@@ -50,6 +51,7 @@ export default function TermsPage() {
           <p>These terms are governed by the law of Japan, and the Tokyo District Court is the court of first instance for disputes. If you are a consumer, this does not deprive you of the protection of the mandatory laws of the country where you live, or of the right to bring a claim in your local courts.</p>
         </div>
         <footer className="artist-footer">
+          <LanguageSwitcher />
           <Link href="/privacy">Privacy</Link>
           <Link href="/legal">Legal</Link>
           <Link href="/">Home</Link>

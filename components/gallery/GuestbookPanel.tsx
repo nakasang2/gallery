@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useGallery } from '@/lib/store'
 import { showToast } from '@/lib/toast'
 import { listGuestbook, addGuestbookEntry, type GuestbookEntry } from '@/lib/engagement'
+import { useT } from '@/components/I18nProvider'
 
 function fmtDate(iso: string): string {
   try {
@@ -14,6 +15,7 @@ function fmtDate(iso: string): string {
 }
 
 export default function GuestbookPanel() {
+  const t = useT()
   const visitor = useGallery((s) => s.visitor)
   const open = useGallery((s) => s.guestbookOpen)
   const setOpen = useGallery((s) => s.setGuestbookOpen)
@@ -60,20 +62,20 @@ export default function GuestbookPanel() {
 
   return (
     <aside id="guestbook" className={`panel guestbook${open ? ' open' : ''}`} aria-hidden={!open} inert={!open}>
-      <button className="panel-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
-      <h2 className="panel-title">Guestbook</h2>
-      <p className="gb-sub">Leave a note for {visitor.ownerName}.</p>
+      <button className="panel-close" aria-label={t('common.close')} onClick={() => setOpen(false)}>×</button>
+      <h2 className="panel-title">{t('guestbook.title')}</h2>
+      <p className="gb-sub">{t('guestbook.subtitle', { name: visitor.ownerName })}</p>
 
       {closed ? (
-        <p className="gb-sub">{visitor.ownerName} has closed the guestbook for this exhibition.</p>
+        <p className="gb-sub">{t('guestbook.closed', { name: visitor.ownerName })}</p>
       ) : unavailable ? (
-        <p className="gb-sub">The guestbook is not available for this gallery.</p>
+        <p className="gb-sub">{t('guestbook.unavailable')}</p>
       ) : (
         <>
           <div className="field-row">
             <input
               type="text"
-              placeholder="Name (optional)"
+              placeholder={t('guestbook.namePlaceholder')}
               maxLength={40}
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -82,7 +84,7 @@ export default function GuestbookPanel() {
           <div className="field-row">
             <textarea
               className="gb-input"
-              placeholder="Your impressions…"
+              placeholder={t('guestbook.messagePlaceholder')}
               rows={3}
               maxLength={500}
               value={message}
@@ -90,14 +92,14 @@ export default function GuestbookPanel() {
             />
           </div>
           <button className="btn-line" disabled={busy || !message.trim()} onClick={() => void submit()}>
-            {thanks ? 'Thank you!' : 'Sign the guestbook'}
+            {thanks ? t('guestbook.thanks') : t('guestbook.sign')}
           </button>
 
           <ul className="gb-list" style={{ marginTop: '1.8rem' }}>
             {entries.map((e) => (
               <li key={e.id}>
                 <div className="gb-meta">
-                  <b>{e.name || 'Anonymous'}</b> · {fmtDate(e.created_at)}
+                  <b>{e.name || t('guestbook.anonymous')}</b> · {fmtDate(e.created_at)}
                 </div>
                 <p>{e.message}</p>
               </li>

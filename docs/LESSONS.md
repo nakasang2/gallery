@@ -16,6 +16,7 @@
 ### ビルド・デプロイ（dev環境）
 - 2026-07-23 | git pushしてもVercelの自動デプロイが8分以上起動しないことがあった（同日多数デプロイ後） → **ship時は`npx vercel ls`で新しい行が出ない場合、`npx vercel --prod`で手動デプロイして先に進む（コミット済みクリーンな作業ツリーであることを確認してから）。エイリアス割当は`npx vercel inspect <url>`で確認**
 - 2026-07-23 | devサーバーのモジュール破損が繰り返発生（`main-app.js` 404 / `__webpack_modules__[moduleId] is not a function`）×2 → **devサーバー起動中に `next build` を実行したのが真因**（devとbuildが同じ `.next` を共有していて上書き破壊される） → **push前ビルド検証は必ずdevサーバー（preview）を停止してから実行する。壊れたら `rm -rf .next` → dev再起動で復旧**
+  - **×3（2026-07-28 再発）**: i18n作業中、previewを起動したまま `npm run build` を実行し `Cannot find module './331.js'` で全ページが白画面に。記録済みの手順（dev停止 → `rm -rf .next` → 再起動）で復旧。**記録があっても、検証を急いでいると踏む**。→ ship スキルの「push前ローカル検証」に *preview停止* を明示的な前段として書くべき（3回ルール到達・昇格提案が必要）
 
 ### 品質・レビュー
 - 2026-07-13 | デモ→戻るで環境音が鳴り止まない（ユーザー報告）→ `galleryAudio`がモジュールsingletonで`AudioContext`を停止する手段が無く、`GalleryApp`アンマウント時に何も止めていなかった → **没入体験が使うsingletonの外部リソース（AudioContext等）は体験コンポーネントのアンマウントで明示的にsuspend/停止する。`ctx.suspend()`は非同期で反映に約1秒かかるため、master gainを即0にして即時ミュートを併用する**（`lib/audio.ts`/`lib/videohub.ts`/`GalleryApp`。Playwright+同梱Chromiumで離脱後にsuspendされることを実挙動検証）

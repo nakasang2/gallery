@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PRICE_SLOT, PRICE_THEME, PRICE_LAYOUT } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM } from '@/lib/limits'
+import { LanguageSwitcher } from '@/components/I18nProvider'
 
 export const metadata: Metadata = {
   title: 'Legal — Xibit360',
@@ -79,6 +80,7 @@ export default function LegalPage() {
           </dl>
         </div>
         <footer className="artist-footer">
+          <LanguageSwitcher />
           <Link href="/terms">Terms</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/">Home</Link>
