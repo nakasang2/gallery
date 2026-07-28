@@ -86,7 +86,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         <footer className="artist-footer">
           <LocaleLink href="/articles">{t('articles.allGuides')}</LocaleLink>
           <LocaleLink href="/explore">{t('footer.explore')}</LocaleLink>
-          <LocaleLink href="/">Home</LocaleLink>
+          <LocaleLink href="/">{t('footer.home')}</LocaleLink>
         </footer>
       </div>
     </main>

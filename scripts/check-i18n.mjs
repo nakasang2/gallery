@@ -41,6 +41,9 @@ const looksEnglish = (s) => {
   return words.length >= 2 || /[.?!:]$/.test(t)
 }
 
+// 1語ラベルの検出で、訳す対象でないもの（ブランド名・記号・単位・略語）
+const ONE_WORD_OK = /^(XIBIT360|Xibit360|Stripe|Supabase|WebGL|Cloudflare|Instagram|Chrome|Edge|Safari|Firefox|PDF|JPEG|JPG|PNG|WebP|MP4|GIF|BGM|SNS|URL|CSS|HTML|Noir|Chic)$/
+
 // {…} を落とす（ネストは1段だけ見れば足りる）
 const stripExpr = (s) => s.replace(/\{[^{}]*(\{[^{}]*\}[^{}]*)*\}/g, ' ')
 
@@ -128,6 +131,16 @@ for (const file of files) {
     // 2) 同じ行に閉じているJSXテキスト
     for (const m of stripped.matchAll(/>([^<>\n]+)</g)) {
       if (looksEnglish(m[1])) report('text', m[1])
+    }
+
+    // 2b) 1語だけのラベル（`>Add<`）。looksEnglish は「2語以上」を条件にして
+    //     いるので、ボタンやリンクの短いラベルがまるごと素通りしていた
+    //     （SettingsPanel の "Add" を42%まで訳した後で見つけた 2026-07-29）。
+    //     3〜20文字の英単語1つだけ、というJSXテキストは文言と見て間違いない。
+    for (const m of stripped.matchAll(/>([A-Za-z][A-Za-z'’-]{2,19})</g)) {
+      const w = m[1]
+      if (ONE_WORD_OK.test(w)) continue
+      report('text', w)
     }
 
     // 3) タグをまたぐJSXテキスト。「素の行」だけを見ると import 一覧や

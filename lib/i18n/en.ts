@@ -10,6 +10,8 @@
 // with Intl.PluralRules against the `count` param (see lib/i18n/index).
 export const en = {
   common: {
+    add: 'Add',
+    free: 'free',
     exhibition: 'Exhibition',
     close: 'Close',
     cancel: 'Cancel',

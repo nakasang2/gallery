@@ -251,6 +251,30 @@ gateCase('check:i18n — 目に入る属性（placeholder / aria-label）の直�
   contains: ['Search your exhibitions', 'Close the panel'],
 })
 
+gateCase('check:i18n — 1語だけのラベル（>Add<）も検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // looksEnglish は「2語以上」を条件にしているので、ボタンやリンクの短い
+    // ラベルが素通りしていた（SettingsPanel の "Add" を、9言語を42%まで訳した
+    // 後で見つけた 2026-07-29）。ブランド名や略語は誤検知しないこと。
+    'app/page.tsx': [
+      'export default function P() {',
+      '  return (',
+      '    <div>',
+      '      <button>Add</button>',
+      '      <span>XIBIT360</span>',
+      '      <span>PDF</span>',
+      '    </div>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['Add'],
+  notContains: ['XIBIT360', 'PDF'],
+})
+
 gateCase('check:i18n — タグをまたぐ（行が分かれた）JSXテキストを検出する', {
   gate: 'check-i18n.mjs',
   files: {

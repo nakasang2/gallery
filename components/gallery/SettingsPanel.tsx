@@ -217,7 +217,7 @@ function PublishSection() {
           </button>
           <br />
           Your edits sync to this page automatically. Rename your exhibition in the{' '}
-          <Link href="/me" style={{ color: 'var(--gold)' }}>dashboard</Link>.
+          <Link href="/me" style={{ color: 'var(--gold)' }}>{t('common.dashboard')}</Link>.
         </p>
       )}
     </>
@@ -508,7 +508,7 @@ export default function SettingsPanel() {
         </p>
         <div className="field-row">
           <input ref={urlRef} type="url" placeholder={t('panel.pasteUrl')} />
-          <button className="btn-line" onClick={() => void onAddUrl()}>Add</button>
+          <button className="btn-line" onClick={() => void onAddUrl()}>{t('common.add')}</button>
         </div>
         {ownArtworks.length > 0 && (
           <>

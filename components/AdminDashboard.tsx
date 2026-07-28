@@ -328,7 +328,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                     <td style={cell}>{u.workCount}</td>
                     <td style={cell}>
                       {purchases.length === 0 ? (
-                        <span style={{ color: 'var(--muted)' }}>free</span>
+                        <span style={{ color: 'var(--muted)' }}>{t('common.free')}</span>
                       ) : (
                         <span className="ent-chips">
                           {purchases.map((p) => (

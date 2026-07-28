@@ -27,7 +27,7 @@ export default function ReportForm({ about }: { about: string }) {
       <AuthShell title={t('report.thanksTitle')}>
         <p className="auth-note">
           {t('report.thanksBody')}
-          <Link href="/terms" style={{ color: 'var(--gold)' }}>terms</Link>.
+          <Link href="/terms" style={{ color: 'var(--gold)' }}>{t('footer.terms')}</Link>.
         </p>
         <p className="auth-links">
           <LocaleLink href="/">{t('me.backHome')}</LocaleLink>

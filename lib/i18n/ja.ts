@@ -10,6 +10,8 @@ import type { Dictionary } from './en'
 
 export const ja: Dictionary = {
   common: {
+    add: '追加',
+    free: '無料',
     exhibition: '展示',
     close: '閉じる',
     cancel: 'キャンセル',
