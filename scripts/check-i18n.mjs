@@ -13,6 +13,7 @@
 // ファイル単位の例外は ALLOW に理由付きで足す。
 import { readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import { assertNoUntracked } from './untracked-guard.mjs'
 
 // 英語のままにすると決めた面（DECISIONS 2026-07-28: 準拠法として英語版が正）
 const ALLOW = new Set([
@@ -65,6 +66,11 @@ const annotated = (lines, i, tag) => {
   }
   return false
 }
+
+assertNoUntracked(
+  (f) => /^(app|components|lib)\//.test(f) && (f.endsWith('.tsx') || f.endsWith('.ts')),
+  'コードファイル',
+)
 
 const files = execSync('git ls-files app components', { encoding: 'utf8' })
   .split('\n')

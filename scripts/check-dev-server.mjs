@@ -4,8 +4,16 @@
 //
 // 判定は .claude/launch.json のポートに接続できるかどうか。CI/Vercel では
 // そもそも動いていないが、無駄な待ちを作らないよう明示的に飛ばす。
+//
+// ただしポートを見るだけでは worktree を区別できず、**別セッションがメイン
+// チェックアウトで dev を動かしているだけで worktree 側の build が打てなくなる**
+// （.next は別ディレクトリなので実際には衝突していない。LESSONS 2026-07-28 の副作用）。
+// そこで listen しているプロセスの cwd を見て、**この作業ツリーの中で動いている
+// dev だけ**を止める理由にする。cwd が取れない環境では従来どおりポートで止める
+// （安全側）。
 import { existsSync, readFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
+import { execFileSync } from 'node:child_process'
 
 if (process.env.CI || process.env.VERCEL) process.exit(0)
 
@@ -32,8 +40,39 @@ const inUse = (port) =>
 
 const busy = (await Promise.all(ports.map(inUse))).filter(Boolean)
 
-if (busy.length) {
-  console.error(`\nプレビュー(devサーバー)が動いたままです: ポート ${busy.join(', ')}`)
+// そのポートを listen しているプロセスの cwd が、この作業ツリーの中かどうか。
+// 判定できなければ null を返し、呼び出し側は「危ないので止める」に倒す。
+const inThisTree = (port) => {
+  try {
+    const pids = execFileSync('lsof', ['-t', `-iTCP:${port}`, '-sTCP:LISTEN'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .split('\n')
+      .filter(Boolean)
+    if (!pids.length) return null
+    return pids.some((pid) => {
+      const out = execFileSync('lsof', ['-a', '-p', pid, '-d', 'cwd', '-Fn'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+      const cwd = out.split('\n').find((l) => l.startsWith('n'))?.slice(1)
+      return !!cwd && (cwd === process.cwd() || cwd.startsWith(`${process.cwd()}/`))
+    })
+  } catch {
+    return null // lsof が無い/権限が無い環境では判定不能
+  }
+}
+
+const blocking = busy.filter((p) => inThisTree(p) !== false)
+const elsewhere = busy.filter((p) => inThisTree(p) === false)
+
+if (elsewhere.length) {
+  console.log(`ポート ${elsewhere.join(', ')} は別の作業ツリーの dev です（.next は別なので続行します）。`)
+}
+
+if (blocking.length) {
+  console.error(`\nプレビュー(devサーバー)がこの作業ツリーで動いたままです: ポート ${blocking.join(', ')}`)
   console.error('この状態で build すると .next を両方が触り、全ページが白画面になります。')
   console.error('次の順で進めてください:')
   console.error('  1. preview_stop でサーバーを止める（またはプロセスを終了する）')

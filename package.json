@@ -8,6 +8,8 @@
     "start": "next start",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:css": "node scripts/check-css.mjs",
+    "check:gates": "node scripts/check-gates.mjs",
+    "predev": "node scripts/check-stale-next.mjs",
     "prebuild": "node scripts/check-dev-server.mjs"
   },
   "dependencies": {

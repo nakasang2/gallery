@@ -20,6 +20,7 @@
 // 例外の付け方: そのCSS行か直前の行に `css-ok` とコメントを書く（理由も添える）。
 import { readFileSync, existsSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import { assertNoUntracked } from './untracked-guard.mjs'
 
 // 既知の「死んでいるCSS」の基準線。ラチェットとして使う: ここに無いものが出たら
 // 落ちる（=新しく書いたルールが効いていない、という×4の失敗を確実に捕まえる）。
@@ -30,9 +31,13 @@ const BASELINE_PATH = 'scripts/css-dead-baseline.json'
 // 照合先はリポジトリ全体の .ts/.tsx。クラス名を組み立てているのが lib/ の
 // マークダウン描画や classList 操作であることもあるため、app/components に
 // 絞ると生きているクラスを「死んでいる」と誤判定する。
+const isCss = (f) => f.endsWith('.css') && (f.startsWith('app/') || f.startsWith('components/'))
+const isCode = (f) => f.endsWith('.tsx') || f.endsWith('.ts')
+assertNoUntracked((f) => isCss(f) || isCode(f), 'CSS/コードファイル')
+
 const files = execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(Boolean)
-const cssFiles = files.filter((f) => f.endsWith('.css') && (f.startsWith('app/') || f.startsWith('components/')))
-const codeFiles = files.filter((f) => f.endsWith('.tsx') || f.endsWith('.ts'))
+const cssFiles = files.filter(isCss)
+const codeFiles = files.filter(isCode)
 
 // マークアップ側の全文（クラス名が語として現れるかだけ見る）
 const code = codeFiles.map((f) => readFileSync(f, 'utf8')).join('\n')
