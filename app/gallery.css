@@ -1803,3 +1803,28 @@ body:not(.gallery-mode) {
   cursor: pointer;
 }
 .purchase-cta:disabled { opacity: 0.45; cursor: default; }
+
+/* Shown when the browser takes the GPU context away (iOS does this on app
+   switch / memory pressure). Sits above the canvas but below nothing else —
+   the HUD is meaningless while the room is gone. */
+.ctx-lost {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.6rem calc(2rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(11, 10, 9, 0.94);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.ctx-lost-inner { max-width: 22rem; text-align: center; }
+.ctx-lost-title {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: var(--ink);
+  margin-bottom: 0.6rem;
+}
+.ctx-lost-sub { font-size: 0.8rem; line-height: 1.7; color: var(--muted); margin-bottom: 1.4rem; }

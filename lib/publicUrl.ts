@@ -45,6 +45,14 @@ export function publicUrl(key: string): string {
  * URL — then re-run `scripts/upload-static-assets.mjs` (it reads this constant, so
  * the two cannot drift).
  */
+/** Absolute origin of the SITE (not the CDN). Used where a fully-qualified URL is
+ *  required and there is no request to read it from — robots.txt and the sitemap.
+ *  Falls back to production so a build without the env var still emits real URLs
+ *  rather than relative ones search engines would reject. */
+export function siteUrl(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.xibit360.art').replace(/\/+$/, '')
+}
+
 export const STATIC_VERSION = 'v1'
 
 /**

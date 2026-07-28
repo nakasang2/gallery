@@ -1,6 +1,6 @@
 'use client'
 // 3D gallery core: R3F Canvas + HUD/panels + guided tour
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { PerformanceMonitor, useProgress } from '@react-three/drei'
@@ -54,6 +54,38 @@ function AdaptiveFov() {
     cam.fov = fov
     cam.updateProjectionMatrix()
   }, [camera, width, height])
+  return null
+}
+
+/** Watches for the GPU context going away and coming back.
+ *
+ *  Lives inside the Canvas on purpose. The obvious places both failed: a parent
+ *  effect runs before R3F has built the canvas (it saw a null ref and attached
+ *  nothing), and `onCreated` turned out never to fire here at all — verified by
+ *  the `touchAction` it is supposed to set still being unset on the live canvas.
+ *  `useThree` is the one path that is guaranteed to see a real renderer.
+ *
+ *  preventDefault() is what actually buys the recovery: the default action for
+ *  `webglcontextlost` is to never restore the context, and iOS Safari drops it
+ *  routinely on app switch or memory pressure. Without this the room simply
+ *  stays black — and because the initial WebGL probe succeeded, it never falls
+ *  back to the 2D list either. */
+function ContextGuard({ onLost, onRestored }: { onLost: () => void; onRestored: () => void }) {
+  const gl = useThree((s) => s.gl)
+  useEffect(() => {
+    const el = gl.domElement
+    const lost = (e: Event) => {
+      e.preventDefault()
+      onLost()
+    }
+    const restored = () => onRestored()
+    el.addEventListener('webglcontextlost', lost)
+    el.addEventListener('webglcontextrestored', restored)
+    return () => {
+      el.removeEventListener('webglcontextlost', lost)
+      el.removeEventListener('webglcontextrestored', restored)
+    }
+  }, [gl, onLost, onRestored])
   return null
 }
 
@@ -145,6 +177,18 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
     return () => useGallery.getState().setDemoMode(false)
   }, [demo])
   const [loadingDone, setLoadingDone] = useState(false)
+  // iOS Safari drops the WebGL context aggressively — switch apps, take a call,
+  // open a few tabs, and the room comes back black. There was no handler at all,
+  // and the initial `webgl` probe already succeeded, so it never fell through to
+  // FlatGallery either: the visitor just sat in front of nothing until they
+  // thought to reload. `canvasKey` rebuilds the scene against a fresh context.
+  const [canvasKey, setCanvasKey] = useState(0)
+  const [contextLost, setContextLost] = useState(false)
+  const handleContextLost = useCallback(() => setContextLost(true), [])
+  const handleContextRestored = useCallback(() => {
+    setContextLost(false)
+    setCanvasKey((k) => k + 1) // rebuild the scene against the new context
+  }, [])
   // Settings hydrated + canvas fonts ready. Used to be the whole story, which is
   // why the door opened on a timer while the room was still empty.
   const [hydrated, setHydrated] = useState(false)
@@ -266,6 +310,7 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
     <>
       {ready && webgl && (
         <Canvas
+          key={canvasKey}
           className="stage-root"
           gl={{ antialias: true }}
           // Shadows MUST be declared here, not set manually in onCreated: R3F
@@ -305,6 +350,10 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
             />
           )}
           <AdaptiveFov />
+          <ContextGuard
+            onLost={handleContextLost}
+            onRestored={handleContextRestored}
+          />
           <GalleryScene />
         </Canvas>
       )}
@@ -324,6 +373,27 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
       <SettingsPanel />
       <GuestbookPanel />
       <Toast />
+      {/* The browser took the GPU away. Some devices hand it straight back (we
+          rebuild automatically); iOS often waits until the page is interacted
+          with, so give the visitor a way to ask. */}
+      {contextLost && (
+        <div className="ctx-lost" role="alert">
+          <div className="ctx-lost-inner">
+            <p className="ctx-lost-title">The room lost its connection to the graphics card.</p>
+            <p className="ctx-lost-sub">This can happen when the phone is low on memory or you switch apps.</p>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setContextLost(false)
+                setCanvasKey((k) => k + 1)
+              }}
+            >
+              Rebuild the room
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Personalised for a public gallery (visitor mode), house-branded on /demo */}
       <LoadingScreen exhibition={visitor} done={loadingDone} progress={assetsTotal > 0 ? loadPct : undefined} />
     </>
