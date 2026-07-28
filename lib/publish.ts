@@ -53,6 +53,9 @@ export interface PublicExhibition {
   coverArtworkId: string | null
   /** Looping ambient BGM track URL (§P3-12) — null when the owner set none */
   bgmUrl: string | null
+  /** False when the artist has closed the guestbook (migration 0033). Defaults to
+   *  true so rooms on a DB without 0033 behave exactly as before. */
+  guestbookEnabled: boolean
   frameOverrides: Record<string, string>
   matOverrides: Record<string, string>
   hangingOverrides: Record<string, string>
@@ -235,7 +238,7 @@ async function fetchPublicExhibitionInner(
   let gRes = await supabase!
     .from('galleries')
     .select(
-      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides, bgm_url'
+      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides, bgm_url, guestbook_enabled'
     )
     .eq('owner_id', profile.id)
     .eq('slug', slug)
@@ -374,6 +377,8 @@ async function fetchPublicExhibitionInner(
     caption: gallery.caption_default ?? 'side',
     coverArtworkId: gallery.cover_artwork_id ?? null,
     bgmUrl: gallery.bgm_url ?? null,
+    // Absent column (pre-0033) means the guestbook was always open — keep that.
+    guestbookEnabled: gallery.guestbook_enabled !== false,
     workCap: gallery.work_cap ?? PLAN.worksPerGallery,
     designOverrides: normalizeDesignOverrides(gallery.design_overrides),
     arrangement,
@@ -412,7 +417,7 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
     const { data: gallery, error: gErr } = await supabase
       .from('galleries')
       .select(
-        'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides, bgm_url'
+        'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides, bgm_url, guestbook_enabled'
       )
       .eq('owner_id', uid)
       .eq('is_public', false) // public galleries are already shown by the server page
@@ -473,6 +478,8 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       caption: gallery.caption_default ?? 'side',
       coverArtworkId: gallery.cover_artwork_id ?? null,
       bgmUrl: gallery.bgm_url ?? null,
+      // Absent column (pre-0033) means the guestbook was always open — keep that.
+      guestbookEnabled: gallery.guestbook_enabled !== false,
       workCap: gallery.work_cap ?? PLAN.worksPerGallery,
       designOverrides: normalizeDesignOverrides(gallery.design_overrides),
       arrangement,

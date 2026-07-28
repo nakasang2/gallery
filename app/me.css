@@ -1206,3 +1206,55 @@
   color: var(--muted);
 }
 .hako-url-locked .field-row { flex: 1 1 100%; margin: 0; }
+
+/* ---- Admin: report queue ---- */
+.report-list { display: flex; flex-direction: column; gap: 0.9rem; }
+.report-item {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+}
+.report-item.open { border-color: rgba(212, 162, 78, 0.45); }
+.report-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.5rem; }
+.report-status {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.2em 0.6em;
+  border-radius: 100px;
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+}
+.report-status.is-open { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
+.report-when { font-size: 0.68rem; color: var(--muted); }
+.report-about { font-size: 0.84rem; margin-bottom: 0.35rem; }
+.report-about a { color: var(--gold); }
+.report-flag { color: var(--muted); font-size: 0.74rem; }
+.report-reason {
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: #cdc7bd;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.report-contact { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; }
+.report-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.7rem; }
+.btn-line.danger { border-color: rgba(240, 132, 124, 0.5); color: #f0847c; }
+
+/* 芳名帳の開閉（作家が閉じられる） */
+.gb-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding-bottom: 1rem;
+  margin-bottom: 0.6rem;
+  border-bottom: 1px solid var(--hairline);
+}
+.gb-toggle-label {
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  margin-bottom: 0.2rem;
+}

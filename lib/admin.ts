@@ -42,6 +42,20 @@ export interface AdminPurchaseRow {
   createdAt: string
 }
 
+export interface AdminReportRow {
+  id: string
+  /** Free text from the reporter — a URL or @handle, not a resolved gallery id. */
+  about: string
+  reason: string
+  contact: string
+  status: 'open' | 'actioned' | 'dismissed'
+  handledNote: string
+  createdAt: string
+  /** Resolved from `about` when it names a gallery we can find, so the queue can
+   *  offer a one-click takedown instead of a copy-paste hunt. */
+  match: { galleryId: string; username: string; slug: string; isPublic: boolean } | null
+}
+
 export interface AdminOverview {
   users: AdminUserRow[]
   galleries: AdminGalleryRow[]
@@ -52,7 +66,9 @@ export interface AdminOverview {
     publicGalleries: number
     works: number
     reports: number
+    openReports: number
   }
+  reports: AdminReportRow[]
   /** One total per currency actually charged. Summing across currencies would
    *  be meaningless, so the UI shows them side by side (migration 0031). */
   revenueByCurrency: { currency: string; amount: number; count: number }[]
@@ -70,6 +86,35 @@ export async function grantEntitlement(userId: string, kind: string, itemKey = '
 /** Admin: remove a previously-granted (or purchased) entitlement from a user. */
 export async function revokeEntitlement(userId: string, kind: string, itemKey = ''): Promise<void> {
   const { error } = await supabase!.rpc('revoke_entitlement', { p_user: userId, p_kind: kind, p_item_key: itemKey })
+  if (error) throw error
+}
+
+/** Admin: close out a report. The row is never deleted — a handled report is the
+ *  record that a decision was made, which is what a takedown dispute needs. */
+export async function setReportStatus(
+  id: string,
+  status: 'open' | 'actioned' | 'dismissed',
+  note = '',
+): Promise<void> {
+  const { error } = await supabase!
+    .from('reports')
+    .update({
+      status,
+      handled_note: note,
+      handled_at: status === 'open' ? null : new Date().toISOString(),
+    })
+    .eq('id', id)
+  if (error) throw error
+}
+
+/** Admin: take a gallery down (or put it back). Goes through the 0033 RPC rather
+ *  than a cross-user UPDATE policy, so this is the only thing an admin can change
+ *  about someone else's room. */
+export async function setGalleryPublic(galleryId: string, isPublic: boolean): Promise<void> {
+  const { error } = await supabase!.rpc('admin_set_gallery_public', {
+    p_gallery: galleryId,
+    p_public: isPublic,
+  })
   if (error) throw error
 }
 
@@ -126,6 +171,16 @@ async function fetchAll<T>(table: string, columns: string): Promise<T[]> {
   return out
 }
 
+type ReportRaw = {
+  id: string
+  about: string
+  reason: string
+  contact: string
+  status?: string | null
+  handled_note?: string | null
+  created_at: string
+}
+
 type PurchaseRaw = {
   user_id: string
   kind: string
@@ -144,7 +199,8 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
     users: [],
     galleries: [],
     purchases: [],
-    totals: { users: 0, galleries: 0, publicGalleries: 0, works: 0, reports: 0 },
+    totals: { users: 0, galleries: 0, publicGalleries: 0, works: 0, reports: 0, openReports: 0 },
+    reports: [],
     revenueByCurrency: [],
     revenueByKind: [],
   }
@@ -157,7 +213,9 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
     fetchAll<{ id: string; owner_id: string }>('artworks', 'id, owner_id'),
     fetchAll<PurchaseRaw>('purchases', 'user_id, kind, item_key, sku, amount_jpy, currency, created_at'),
     fetchAll<{ gallery_id: string }>('visits', 'gallery_id'),
-    fetchAll<{ id: string }>('reports', 'id'),
+    // 0017 has granted admins SELECT on reports all along; the console just never
+    // asked for anything but a row count.
+    fetchAll<ReportRaw>('reports', 'id, about, reason, contact, status, handled_note, created_at'),
   ])
 
   // Tallies keyed by id
@@ -252,6 +310,47 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
   const revenueByKind = [...byKind.values()].sort((a, b) => b.amount - a.amount)
   const revenueByCurrency = [...byCurrency.values()].sort((a, b) => b.amount - a.amount)
 
+  // Reports name their target in free text ("@me/room", a full URL, sometimes just
+  // a title). Resolve what we can to a real gallery so the queue can act on it.
+  const galleryByPath = new Map<string, GalleryRow>()
+  for (const g of galleries) {
+    const owner = nameById.get(g.owner_id)
+    if (owner?.username) galleryByPath.set(`${owner.username}/${g.slug}`.toLowerCase(), g)
+  }
+  const reportRows: AdminReportRow[] = reports
+    .map((r) => {
+      const path = (r.about.match(/@([a-z0-9_]{3,20})\/([a-z0-9-]{1,40})/i) ?? [])
+        .slice(1)
+        .join('/')
+        .toLowerCase()
+      const g = path ? galleryByPath.get(path) : undefined
+      const owner = g ? nameById.get(g.owner_id) : undefined
+      return {
+        id: r.id,
+        about: r.about,
+        reason: r.reason,
+        contact: r.contact,
+        status: (r.status === 'actioned' || r.status === 'dismissed' ? r.status : 'open') as
+          | 'open'
+          | 'actioned'
+          | 'dismissed',
+        handledNote: r.handled_note ?? '',
+        createdAt: r.created_at,
+        match:
+          g && owner?.username
+            ? { galleryId: g.id, username: owner.username, slug: g.slug, isPublic: g.is_public }
+            : null,
+      }
+    })
+    // Unhandled first, then newest
+    .sort((a, b) =>
+      a.status === b.status
+        ? b.createdAt.localeCompare(a.createdAt)
+        : a.status === 'open'
+          ? -1
+          : 1,
+    )
+
   return {
     users: userRows,
     galleries: galleryRows,
@@ -262,7 +361,9 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
       publicGalleries: galleries.filter((g) => g.is_public).length,
       works: artworks.length,
       reports: reports.length,
+      openReports: reportRows.filter((r) => r.status === 'open').length,
     },
+    reports: reportRows,
     revenueByCurrency,
     revenueByKind,
   }

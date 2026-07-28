@@ -26,6 +26,9 @@ export default function GuestbookPanel() {
   const [thanks, setThanks] = useState(false)
 
   const galleryId = visitor?.galleryId
+  // The artist can close the guestbook (migration 0033). Entries already left
+  // stay readable — closing stops new ones, it does not erase the past.
+  const closed = visitor?.guestbookEnabled === false
 
   useEffect(() => {
     if (!open || !galleryId) return
@@ -61,7 +64,9 @@ export default function GuestbookPanel() {
       <h2 className="panel-title">Guestbook</h2>
       <p className="gb-sub">Leave a note for {visitor.ownerName}.</p>
 
-      {unavailable ? (
+      {closed ? (
+        <p className="gb-sub">{visitor.ownerName} has closed the guestbook for this exhibition.</p>
+      ) : unavailable ? (
         <p className="gb-sub">The guestbook is not available for this gallery.</p>
       ) : (
         <>

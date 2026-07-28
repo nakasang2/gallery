@@ -6,7 +6,13 @@ import { useMemo, useState } from 'react'
 import { money } from '@/lib/pricing'
 import { THEMES, LAYOUTS } from '@/lib/presets'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
-import { grantEntitlement, revokeEntitlement, type AdminOverview } from '@/lib/admin'
+import {
+  grantEntitlement,
+  revokeEntitlement,
+  setReportStatus,
+  setGalleryPublic,
+  type AdminOverview,
+} from '@/lib/admin'
 
 /** Encode a product as "kind|itemKey" for the <select> value. */
 function productKey(kind: string, itemKey: string): string {
@@ -110,8 +116,102 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
         ) : (
           <div className="stat"><b style={{ fontSize: '0.9rem' }}>{revenueLines.join(' · ')}</b><span>Revenue</span></div>
         )}
-        <div className="stat"><b>{data.totals.reports}</b><span>Reports</span></div>
+        <div className="stat">
+          <b style={data.totals.openReports > 0 ? { color: 'var(--gold)' } : undefined}>
+            {data.totals.openReports}
+          </b>
+          <span>Open reports</span>
+        </div>
       </div>
+
+      {/* Reports — the operator queue. Admins have been able to READ these since
+          0017; there was simply nowhere to see them and no way to act, so a
+          takedown meant opening the SQL Editor. */}
+      <section className="me-section">
+        <h2>Reports</h2>
+        <div className="me-card">
+          {data.reports.length === 0 ? (
+            <p className="me-note" style={{ margin: 0 }}>No reports. (Anyone can file one from the report link on a public gallery.)</p>
+          ) : (
+            <div className="report-list">
+              {data.reports.map((r) => (
+                <article key={r.id} className={`report-item${r.status === 'open' ? ' open' : ''}`}>
+                  <div className="report-head">
+                    <span className={`report-status is-${r.status}`}>{r.status}</span>
+                    <span className="report-when">{fmtDate(r.createdAt)}</span>
+                  </div>
+                  <p className="report-about">
+                    {r.match ? (
+                      <a href={`/@${r.match.username}/${r.match.slug}`} target="_blank" rel="noreferrer">
+                        @{r.match.username}/{r.match.slug}
+                      </a>
+                    ) : (
+                      <span title="Could not be matched to a gallery — handle by hand">{r.about || '(no target given)'}</span>
+                    )}
+                    {r.match && !r.match.isPublic && <span className="report-flag"> · already private</span>}
+                  </p>
+                  <p className="report-reason">{r.reason}</p>
+                  {r.contact && <p className="report-contact">Reporter: {r.contact}</p>}
+                  {r.handledNote && <p className="report-contact">Note: {r.handledNote}</p>}
+                  <div className="report-actions">
+                    {r.match && r.match.isPublic && (
+                      <button
+                        className="btn-line danger"
+                        disabled={busy}
+                        onClick={() =>
+                          void mutate(async () => {
+                            const why = window.prompt('Why is this being taken down? (kept on the report)')
+                            if (why === null) return
+                            await setGalleryPublic(r.match!.galleryId, false)
+                            await setReportStatus(r.id, 'actioned', why)
+                          })
+                        }
+                      >
+                        Take down
+                      </button>
+                    )}
+                    {r.match && !r.match.isPublic && (
+                      <button
+                        className="btn-line"
+                        disabled={busy}
+                        onClick={() => void mutate(() => setGalleryPublic(r.match!.galleryId, true))}
+                      >
+                        Restore
+                      </button>
+                    )}
+                    {r.status === 'open' ? (
+                      <>
+                        <button
+                          className="btn-line"
+                          disabled={busy}
+                          onClick={() => void mutate(() => setReportStatus(r.id, 'dismissed', 'no action needed'))}
+                        >
+                          Dismiss
+                        </button>
+                        <button
+                          className="btn-line"
+                          disabled={busy}
+                          onClick={() => void mutate(() => setReportStatus(r.id, 'actioned', 'handled outside the console'))}
+                        >
+                          Mark handled
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="btn-line"
+                        disabled={busy}
+                        onClick={() => void mutate(() => setReportStatus(r.id, 'open', ''))}
+                      >
+                        Reopen
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Revenue */}
       <section className="me-section">

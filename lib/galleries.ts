@@ -39,13 +39,17 @@ export interface GalleryRow {
   arrangement: unknown
   /** Looping ambient BGM track URL (§P3-12), text — null/absent on pre-0027 rows */
   bgm_url?: string | null
+  /** Whether visitors may sign the guestbook — absent on pre-0033 rows, where the
+   *  guestbook was always on and could not be closed. */
+  guestbook_enabled?: boolean | null
 }
 
 const COLS =
-  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url'
-// Post-0023/pre-0027 shape (no bgm_url column yet) — bgm_url is the newest column, so it's
-// the first to drop when degrading against a DB that hasn't applied 0027.
-const COLS_NO_BGM = COLS.replace(', bgm_url', '')
+  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url, guestbook_enabled'
+// Newest column first when degrading against a DB that hasn't applied 0033.
+const COLS_NO_GB = COLS.replace(', guestbook_enabled', '')
+// Post-0023/pre-0027 shape (no bgm_url column yet)
+const COLS_NO_BGM = COLS_NO_GB.replace(', bgm_url', '')
 // Post-0014/pre-0023 shape (no arrangement column yet)
 const COLS_NO_ARR = COLS_NO_BGM.replace(', arrangement', '')
 // Post-0013/pre-0014 shape (no design_overrides column yet)
@@ -257,6 +261,17 @@ export async function saveGalleryBgm(id: string, url: string | null): Promise<vo
   const { error } = await supabase!.from('galleries').update({ bgm_url: url }).eq('id', id)
   if (error && missingOverrideColumns(error)) {
     throw new Error('BGM needs migration 0027 (galleries.bgm_url) applied first.')
+  }
+  if (error) throw error
+}
+
+/** Open or close this room's guestbook (migration 0033). Closing stops new
+ *  entries — it does not remove the ones already left. Enforced by RLS, not just
+ *  by hiding the form. */
+export async function saveGuestbookEnabled(id: string, enabled: boolean): Promise<void> {
+  const { error } = await supabase!.from('galleries').update({ guestbook_enabled: enabled }).eq('id', id)
+  if (error && missingOverrideColumns(error)) {
+    throw new Error('Closing the guestbook needs migration 0033 applied first.')
   }
   if (error) throw error
 }

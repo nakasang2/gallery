@@ -35,6 +35,7 @@ import {
   saveGallerySpace,
   saveDesignOverrides,
   saveGalleryBgm,
+  saveGuestbookEnabled,
   rebuildPlacements,
   fetchPlacementOverrides,
   rowToSettings,
@@ -1656,8 +1657,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
 }
 
 // Guestbook moderation: read what visitors wrote, delete spam
-function GuestbookCard({ galleryId }: { galleryId: string }) {
+function GuestbookCard({ galleryId, enabled }: { galleryId: string; enabled: boolean }) {
   const [entries, setEntries] = useState<GuestbookEntry[] | null>(null)
+  // Visitors could always write, and the artist could only delete afterwards.
+  const [open, setOpen] = useState(enabled)
+  const [busy, setBusy] = useState(false)
 
   const load = useCallback(() => {
     listGuestbook(galleryId, 30)
@@ -1669,11 +1673,39 @@ function GuestbookCard({ galleryId }: { galleryId: string }) {
     load()
   }, [load])
 
+  async function toggle() {
+    const next = !open
+    setBusy(true)
+    setOpen(next) // optimistic — the switch should never feel laggy
+    try {
+      await saveGuestbookEnabled(galleryId, next)
+    } catch (e) {
+      setOpen(!next)
+      alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (entries === null) return null // migration 0008 not applied (or fetch failed) — hide quietly
   return (
     <div className="me-card" style={{ marginTop: '1rem' }}>
+      <div className="gb-toggle-row">
+        <label className="switch" title={open ? 'Visitors can sign your guestbook' : 'Closed — visitors can read, not write'}>
+          <input type="checkbox" checked={open} disabled={busy} onChange={() => void toggle()} />
+          <span className="knob" aria-hidden="true" />
+        </label>
+        <div>
+          <div className="gb-toggle-label">{open ? 'Open to visitors' : 'Closed'}</div>
+          <p className="me-note" style={{ margin: 0 }}>
+            {open
+              ? 'Anyone visiting your gallery can leave a note. You can delete any of them below.'
+              : 'Notes already left stay visible. No new ones can be added.'}
+          </p>
+        </div>
+      </div>
       {entries.length === 0 && (
-        <p className="me-note" style={{ marginTop: 0 }}>No guestbook entries yet.</p>
+        <p className="me-note">No guestbook entries yet.</p>
       )}
       <ul className="gb-list">
         {entries.map((e) => (
@@ -2148,7 +2180,7 @@ export default function MePage() {
               <section className="me-section">
                 <h2>Guestbook</h2>
                 {galleries !== null && galleries.length > 0 ? (
-                  <GuestbookCard galleryId={galleries[0].id} />
+                  <GuestbookCard galleryId={galleries[0].id} enabled={galleries[0].guestbook_enabled !== false} />
                 ) : (
                   <p className="me-note">
                     Create your gallery first — the guestbook collects what visitors write in your room.
