@@ -18,6 +18,7 @@ import {
   type FrameMaterial,
 } from '@/lib/presets'
 import { HangingIcon, CaptionIcon } from '@/components/SpacePreviews'
+import { useT } from '@/components/I18nProvider'
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
 // Mat swatches: 'auto' wears the frame's own recommended colour (dashed ring)
@@ -42,6 +43,7 @@ export default function WorkDesign({
   onHanging: (key: string) => void
   onCaption: (key: string) => void
 }) {
+  const t = useT()
   const spec = frameSpecFor(frameKey)
   // Remember the last framed look so switching the frame off and on restores it
   const lastFramed = useRef(spec.framed ? frameKey : 'black')
@@ -56,7 +58,7 @@ export default function WorkDesign({
     <div className="work-design">
       <div className="wd-group">
         <div className="wd-title">
-          <span>Frame</span>
+          <span>{t('design.frame')}</span>
           <label className="switch" title={spec.framed ? 'Framed' : 'No frame (stretched canvas)'}>
             <input
               type="checkbox"
@@ -69,8 +71,8 @@ export default function WorkDesign({
         {spec.framed ? (
           <>
             <div className="wd-row">
-              <span className="wd-label">Material</span>
-              <div className="seg" role="group" aria-label="Frame material">
+              <span className="wd-label">{t('design.material')}</span>
+              <div className="seg" role="group" aria-label={t('design.frameMaterial')}>
                 {(Object.entries(FRAME_MATERIALS) as [FrameMaterial, { label: string }][]).map(([key, m]) => (
                   <button
                     key={key}
@@ -84,8 +86,8 @@ export default function WorkDesign({
               </div>
             </div>
             <div className="wd-row">
-              <span className="wd-label">Color</span>
-              <div className="swatches" role="group" aria-label="Frame color">
+              <span className="wd-label">{t('design.color')}</span>
+              <div className="swatches" role="group" aria-label={t('design.frameColor')}>
                 {FRAME_COLORS.map((c) => (
                   <button
                     key={c.key}
@@ -100,7 +102,7 @@ export default function WorkDesign({
               </div>
             </div>
             <div className="wd-row">
-              <span className="wd-label">Thickness</span>
+              <span className="wd-label">{t('design.thickness')}</span>
               <div className="wd-slider">
                 <input
                   type="range"
@@ -108,14 +110,14 @@ export default function WorkDesign({
                   max={FRAME_BAR_MM.max}
                   step={5}
                   value={spec.barMm}
-                  aria-label="Frame thickness"
+                  aria-label={t('design.frameThickness')}
                   onChange={(e) => set({ barMm: Number(e.target.value) })}
                 />
                 <span className="wd-value">{(spec.barMm / 10).toFixed(1)}cm</span>
               </div>
             </div>
             <div className="wd-row">
-              <span className="wd-label">Mat</span>
+              <span className="wd-label">{t('design.mat')}</span>
               <label className="switch" title={matKey === 'none' ? 'No mat' : 'With mat'}>
                 <input
                   type="checkbox"
@@ -125,7 +127,7 @@ export default function WorkDesign({
                 <span className="knob" aria-hidden="true" />
               </label>
               {matKey !== 'none' && (
-                <div className="swatches" role="group" aria-label="Mat color">
+                <div className="swatches" role="group" aria-label={t('design.matColor')}>
                   {MAT_SWATCHES.map((key) => (
                     <button
                       key={key}
@@ -142,14 +144,14 @@ export default function WorkDesign({
             </div>
           </>
         ) : (
-          <p className="wd-note">Stretched canvas — the work hangs bare, gallery-style.</p>
+          <p className="wd-note">{t('design.bareCanvasNote')}</p>
         )}
       </div>
 
       <div className="wd-group">
-        <div className="wd-title"><span>Display</span></div>
+        <div className="wd-title"><span>{t('design.display')}</span></div>
         <div className="wd-row">
-          <span className="wd-label">Hanging</span>
+          <span className="wd-label">{t('design.hanging')}</span>
           <div className="chips">
             {Object.entries(HANGINGS).map(([key, def]) => (
               <button
@@ -165,7 +167,7 @@ export default function WorkDesign({
           </div>
         </div>
         <div className="wd-row">
-          <span className="wd-label">Caption</span>
+          <span className="wd-label">{t('design.caption')}</span>
           <div className="chips">
             {Object.entries(CAPTIONS).map(([key, def]) => (
               <button

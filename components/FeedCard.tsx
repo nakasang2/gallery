@@ -2,8 +2,10 @@
 // both read identically. Server-safe (no hooks) — just a link.
 import Link from 'next/link'
 import { isPlaceholderTitle, type FeedItem } from '@/lib/publish'
+import { useT } from '@/components/I18nProvider'
 
 export default function FeedCard({ g }: { g: FeedItem }) {
+  const t = useT()
   return (
     <Link className="artist-gallery-card" href={`/@${g.username}/${g.slug}`}>
       {g.cover ? (
@@ -24,7 +26,7 @@ export default function FeedCard({ g }: { g: FeedItem }) {
       <div className="artist-gallery-meta">
         <span className="artist-gallery-title">{isPlaceholderTitle(g.title) ? g.ownerName : g.title}</span>
         <span className="artist-gallery-sub">
-          {g.workCount} work{g.workCount === 1 ? '' : 's'} · walk through in 3D →
+          {t('explore.walkThrough', { count: g.workCount })}
         </span>
       </div>
     </Link>

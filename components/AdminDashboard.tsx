@@ -13,6 +13,7 @@ import {
   setGalleryPublic,
   type AdminOverview,
 } from '@/lib/admin'
+import { useT } from '@/components/I18nProvider'
 
 /** Encode a product as "kind|itemKey" for the <select> value. */
 function productKey(kind: string, itemKey: string): string {
@@ -63,6 +64,7 @@ function Table({ head, children }: { head: React.ReactNode; children: React.Reac
 }
 
 export default function AdminDashboard({ data, onReload }: { data: AdminOverview; onReload?: () => void | Promise<void> }) {
+  const t = useT()
   const products = useGrantableProducts()
   // One figure per currency — a cross-currency sum would be a fiction (0031)
   const revenueLines = data.revenueByCurrency.map((r) => money(r.amount, r.currency))
@@ -107,20 +109,20 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
     <>
       {/* KPIs */}
       <div className="stat-row" style={{ marginTop: '1rem' }}>
-        <div className="stat"><b>{data.totals.users}</b><span>Users</span></div>
-        <div className="stat"><b>{data.totals.galleries}</b><span>Galleries</span></div>
-        <div className="stat"><b>{data.totals.publicGalleries}</b><span>Public</span></div>
-        <div className="stat"><b>{data.totals.works}</b><span>Works</span></div>
+        <div className="stat"><b>{data.totals.users}</b><span>{t('admin.users')}</span></div>
+        <div className="stat"><b>{data.totals.galleries}</b><span>{t('admin.galleries')}</span></div>
+        <div className="stat"><b>{data.totals.publicGalleries}</b><span>{t('admin.public')}</span></div>
+        <div className="stat"><b>{data.totals.works}</b><span>{t('admin.works')}</span></div>
         {revenueLines.length <= 1 ? (
-          <div className="stat"><b>{revenueLines[0] ?? money(0, 'usd')}</b><span>Revenue</span></div>
+          <div className="stat"><b>{revenueLines[0] ?? money(0, 'usd')}</b><span>{t('admin.revenue')}</span></div>
         ) : (
-          <div className="stat"><b style={{ fontSize: '0.9rem' }}>{revenueLines.join(' · ')}</b><span>Revenue</span></div>
+          <div className="stat"><b style={{ fontSize: '0.9rem' }}>{revenueLines.join(' · ')}</b><span>{t('admin.revenue')}</span></div>
         )}
         <div className="stat">
           <b style={data.totals.openReports > 0 ? { color: 'var(--gold)' } : undefined}>
             {data.totals.openReports}
           </b>
-          <span>Open reports</span>
+          <span>{t('admin.openReports')}</span>
         </div>
       </div>
 
@@ -128,10 +130,10 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
           0017; there was simply nowhere to see them and no way to act, so a
           takedown meant opening the SQL Editor. */}
       <section className="me-section">
-        <h2>Reports</h2>
+        <h2>{t('admin.reports')}</h2>
         <div className="me-card">
           {data.reports.length === 0 ? (
-            <p className="me-note" style={{ margin: 0 }}>No reports. (Anyone can file one from the report link on a public gallery.)</p>
+            <p className="me-note" style={{ margin: 0 }}>{t('admin.noReports')}</p>
           ) : (
             <div className="report-list">
               {data.reports.map((r) => (
@@ -146,13 +148,13 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                         @{r.match.username}/{r.match.slug}
                       </a>
                     ) : (
-                      <span title="Could not be matched to a gallery — handle by hand">{r.about || '(no target given)'}</span>
+                      <span title={t('admin.unmatched')}>{r.about || t('admin.noTarget')}</span>
                     )}
-                    {r.match && !r.match.isPublic && <span className="report-flag"> · already private</span>}
+                    {r.match && !r.match.isPublic && <span className="report-flag"> · {t('admin.alreadyPrivate')}</span>}
                   </p>
                   <p className="report-reason">{r.reason}</p>
-                  {r.contact && <p className="report-contact">Reporter: {r.contact}</p>}
-                  {r.handledNote && <p className="report-contact">Note: {r.handledNote}</p>}
+                  {r.contact && <p className="report-contact">{t('admin.reporter', { contact: r.contact })}</p>}
+                  {r.handledNote && <p className="report-contact">{t('admin.note', { note: r.handledNote })}</p>}
                   <div className="report-actions">
                     {r.match && r.match.isPublic && (
                       <button
@@ -160,14 +162,14 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                         disabled={busy}
                         onClick={() =>
                           void mutate(async () => {
-                            const why = window.prompt('Why is this being taken down? (kept on the report)')
+                            const why = window.prompt(t('admin.takeDownWhy'))
                             if (why === null) return
                             await setGalleryPublic(r.match!.galleryId, false)
                             await setReportStatus(r.id, 'actioned', why)
                           })
                         }
                       >
-                        Take down
+                        {t('admin.takeDown')}
                       </button>
                     )}
                     {r.match && !r.match.isPublic && (
@@ -176,7 +178,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                         disabled={busy}
                         onClick={() => void mutate(() => setGalleryPublic(r.match!.galleryId, true))}
                       >
-                        Restore
+                        {t('admin.restore')}
                       </button>
                     )}
                     {r.status === 'open' ? (
@@ -184,16 +186,16 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                         <button
                           className="btn-line"
                           disabled={busy}
-                          onClick={() => void mutate(() => setReportStatus(r.id, 'dismissed', 'no action needed'))}
+                          onClick={() => void mutate(() => setReportStatus(r.id, 'dismissed', t('admin.noActionNeeded')))}
                         >
-                          Dismiss
+                          {t('admin.dismiss')}
                         </button>
                         <button
                           className="btn-line"
                           disabled={busy}
-                          onClick={() => void mutate(() => setReportStatus(r.id, 'actioned', 'handled outside the console'))}
+                          onClick={() => void mutate(() => setReportStatus(r.id, 'actioned', t('admin.handledElsewhere')))}
                         >
-                          Mark handled
+                          {t('admin.markHandled')}
                         </button>
                       </>
                     ) : (
@@ -202,7 +204,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                         disabled={busy}
                         onClick={() => void mutate(() => setReportStatus(r.id, 'open', ''))}
                       >
-                        Reopen
+                        {t('admin.reopen')}
                       </button>
                     )}
                   </div>
@@ -215,27 +217,27 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
 
       {/* Revenue */}
       <section className="me-section">
-        <h2>Revenue</h2>
+        <h2>{t('admin.revenue')}</h2>
         <div className="me-card">
           <p className="me-note" style={{ marginTop: 0 }}>
-            Total charged: <b style={{ color: 'var(--ink)' }}>{revenueLines.join(' · ') || money(0, 'usd')}</b>{' '}
-            across {data.purchases.length} purchase{data.purchases.length === 1 ? '' : 's'}.
-            {data.revenueByCurrency.length > 1 && ' Currencies are listed separately — they are not comparable.'}
+            {t('admin.totalCharged', {
+              amount: revenueLines.join(' · ') || money(0, 'usd'),
+              count: data.purchases.length,
+            })}
+            {data.revenueByCurrency.length > 1 && t('admin.currenciesSeparate')}
           </p>
           {data.purchases.length === 0 ? (
             <p className="me-note">
-              No purchases recorded yet. Amounts are stored in the smallest unit of
-              <code> purchases.currency</code> (¥500 is 500, $5.00 is also 500) in the
-              <code> amount_jpy</code> column — a legacy name kept from the JPY era.
+              {t('admin.noPurchases')}
             </p>
           ) : (
             <Table
               head={
                 <>
-                  <th style={th}>SKU / kind</th>
-                  <th style={th}>Currency</th>
-                  <th style={th}>Count</th>
-                  <th style={th}>Amount</th>
+                  <th style={th}>{t('admin.skuKind')}</th>
+                  <th style={th}>{t('admin.currency')}</th>
+                  <th style={th}>{t('admin.count')}</th>
+                  <th style={th}>{t('admin.amount')}</th>
                 </>
               }
             >
@@ -257,18 +259,18 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
         <h2>Exhibition spaces ({data.galleries.length})</h2>
         <div className="me-card">
           {data.galleries.length === 0 ? (
-            <p className="me-note" style={{ marginTop: 0 }}>No galleries yet.</p>
+            <p className="me-note" style={{ marginTop: 0 }}>{t('admin.noGalleries')}</p>
           ) : (
             <Table
               head={
                 <>
-                  <th style={th}>Title</th>
-                  <th style={th}>Artist</th>
-                  <th style={th}>State</th>
-                  <th style={th}>Works</th>
-                  <th style={th}>Visits</th>
-                  <th style={th}>Theme</th>
-                  <th style={th}>Updated</th>
+                  <th style={th}>{t('admin.colTitle')}</th>
+                  <th style={th}>{t('admin.colArtist')}</th>
+                  <th style={th}>{t('admin.colState')}</th>
+                  <th style={th}>{t('admin.works')}</th>
+                  <th style={th}>{t('admin.colVisits')}</th>
+                  <th style={th}>{t('admin.colTheme')}</th>
+                  <th style={th}>{t('admin.colUpdated')}</th>
                 </>
               }
             >
@@ -303,16 +305,16 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
         <h2>Users ({data.users.length})</h2>
         <div className="me-card">
           {data.users.length === 0 ? (
-            <p className="me-note" style={{ marginTop: 0 }}>No users yet.</p>
+            <p className="me-note" style={{ marginTop: 0 }}>{t('admin.noUsers')}</p>
           ) : (
             <Table
               head={
                 <>
-                  <th style={th}>Artist</th>
-                  <th style={th}>Username</th>
-                  <th style={th}>Galleries</th>
-                  <th style={th}>Works</th>
-                  <th style={th}>Packages</th>
+                  <th style={th}>{t('admin.colArtist')}</th>
+                  <th style={th}>{t('admin.colUsername')}</th>
+                  <th style={th}>{t('admin.galleries')}</th>
+                  <th style={th}>{t('admin.works')}</th>
+                  <th style={th}>{t('admin.colPackages')}</th>
                 </>
               }
             >
@@ -353,9 +355,9 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
 
           {/* Grant a paid item to a specific user (admin-only RPC, migration 0022) */}
           <div className="ent-grant">
-            <span className="ent-grant-label">Unlock for a user:</span>
+            <span className="ent-grant-label">{t('admin.unlockFor')}</span>
             <select className="ent-select" value={grantUser} onChange={(e) => setGrantUser(e.target.value)}>
-              <option value="">Select user…</option>
+              <option value="">{t('admin.selectUser')}</option>
               {data.users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.displayName}{u.username ? ` (@${u.username})` : ''}

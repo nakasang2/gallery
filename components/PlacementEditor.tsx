@@ -9,6 +9,7 @@ import { placeWorks, balancedFillOrder } from '@/lib/arrangement'
 import { VideoIcon } from '@/components/icons'
 import type { ArtworkData } from '@/lib/artworks'
 import type { CustomLayoutParams } from '@/lib/presets'
+import { useT } from '@/components/I18nProvider'
 
 function thumb(a: ArtworkData): string | undefined {
   // 56px tiles — the 400px thumb is plenty and always exists
@@ -32,6 +33,7 @@ export default function PlacementEditor({
   onChange: (next: (string | null)[]) => void
   disabled?: boolean
 }) {
+  const t = useT()
   const def = useMemo(() => resolveLayout(layoutKey, layoutParams), [layoutKey, layoutParams])
   const n = effectiveSlotCount(def.slots.length, workCap)
   const [sel, setSel] = useState<number | null>(null)
@@ -82,7 +84,7 @@ export default function PlacementEditor({
 
   return (
     <div className="place-editor">
-      <svg className="place-map" viewBox={`${-def.hw - pad} ${-def.hd - pad} ${w} ${h}`} role="group" aria-label="Room placement map">
+      <svg className="place-map" viewBox={`${-def.hw - pad} ${-def.hd - pad} ${w} ${h}`} role="group" aria-label={t('design.placementMap')}>
         <rect className="lp-room" x={-def.hw} y={-def.hd} width={def.hw * 2} height={def.hd * 2} rx={0.6} />
         {def.partitions.map((p, i) => (
           <rect key={`p${i}`} className="lp-part" x={p.x - p.w / 2} y={p.z - p.t / 2} width={p.w} height={Math.max(p.t, 0.6)} />
@@ -130,17 +132,17 @@ export default function PlacementEditor({
         <div className="place-picker">
           <div className="place-picker-head">
             <span>Spot {usable.indexOf(sel) >= 0 ? usable.indexOf(sel) + 1 : '–'}{selWork ? ` — ${selWork.title || 'Untitled'}` : ' — empty'}</span>
-            <button className="btn-line" onClick={() => setSel(null)}>Done</button>
+            <button className="btn-line" onClick={() => setSel(null)}>{t('design.placementDone')}</button>
           </div>
           <div className="place-picker-strip">
             <button
               className={`place-pick empty${!selWork ? ' active' : ''}`}
               disabled={disabled}
               onClick={() => clear(sel)}
-              title="Leave this spot empty"
+              title={t('design.placementEmpty')}
             >
               <span aria-hidden="true">∅</span>
-              <small>Empty</small>
+              <small>{t('design.empty')}</small>
             </button>
             {works.map((art) => {
               const src = thumb(art)

@@ -3,6 +3,7 @@
 // gallery greets you with THAT artist's card — avatar, exhibition title, name —
 // so the wait is part of arriving at their show, not a generic spinner.
 import { isPlaceholderTitle } from '@/lib/publish'
+import { useT } from '@/components/I18nProvider'
 
 export interface LoadingExhibition {
   title: string
@@ -33,6 +34,7 @@ export default function LoadingScreen({
   /** 0–100 across three's loading manager; omitted while nothing is in flight. */
   progress?: number
 }) {
+  const t = useT()
   if (exhibition) {
     const untitled = isPlaceholderTitle(exhibition.title)
     const title = untitled ? exhibition.ownerName : exhibition.title
@@ -45,12 +47,12 @@ export default function LoadingScreen({
           ) : (
             <div className="loading-avatar empty">{(exhibition.ownerName || '•').slice(0, 1).toUpperCase()}</div>
           )}
-          <div className="loading-eyebrow">Now showing</div>
+          <div className="loading-eyebrow">{t('loading.nowShowing')}</div>
           <div className="loading-title">{title}</div>
           {/* Just the artist's name — the title already carries it when untitled */}
           {!untitled && <div className="loading-by">{exhibition.ownerName}</div>}
           <Bar progress={progress} />
-          <div className="loading-text">Opening the doors…</div>
+          <div className="loading-text">{t('loading.openingDoors')}</div>
         </div>
       </div>
     )
@@ -60,7 +62,7 @@ export default function LoadingScreen({
       <div className="loading-inner">
         <div className="loading-logo">XIBIT360</div>
         <Bar progress={progress} />
-        <div className="loading-text">Preparing the gallery…</div>
+        <div className="loading-text">{t('loading.preparing')}</div>
       </div>
     </div>
   )

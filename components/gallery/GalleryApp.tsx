@@ -22,6 +22,7 @@ import InfoPanel from './InfoPanel'
 import SettingsPanel from './SettingsPanel'
 import GuestbookPanel from './GuestbookPanel'
 import LoadingScreen from './LoadingScreen'
+import { useT } from '@/components/I18nProvider'
 
 // three's `fov` is the VERTICAL angle, so a portrait phone keeps the 60° height
 // and pays for it in width: 390×844 sees only 29.9° horizontally where a laptop
@@ -134,6 +135,7 @@ function useTour() {
 }
 
 export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { onShellReady?: () => void; demoTheme?: string | null; demo?: boolean }) {
+  const t = useT()
   const ready = useGallery((s) => s.ready)
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
@@ -384,8 +386,8 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
       {contextLost && (
         <div className="ctx-lost" role="alert">
           <div className="ctx-lost-inner">
-            <p className="ctx-lost-title">The room lost its connection to the graphics card.</p>
-            <p className="ctx-lost-sub">This can happen when the phone is low on memory or you switch apps.</p>
+            <p className="ctx-lost-title">{t('contextLost.title')}</p>
+            <p className="ctx-lost-sub">{t('contextLost.body')}</p>
             <button
               className="btn btn-primary"
               onClick={() => {
@@ -393,7 +395,7 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
                 setCanvasKey((k) => k + 1)
               }}
             >
-              Rebuild the room
+              {t('contextLost.rebuild')}
             </button>
           </div>
         </div>

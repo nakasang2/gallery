@@ -7,6 +7,7 @@ import { fetchSpotlight } from '@/lib/siteConfig'
 import ExploreFeed from '@/components/ExploreFeed'
 import FeedCard from '@/components/FeedCard'
 import { LanguageSwitcher } from '@/components/I18nProvider'
+import { getServerT } from '@/lib/i18n/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
 }
 
 export default async function ExplorePage() {
+  const { t } = await getServerT()
   // The curated spotlight (企画展 / 特集) and the first feed page load together
   const [{ items, hasMore }, spotlight] = await Promise.all([
     fetchPublicFeed(0, EXPLORE_PAGE_SIZE),
@@ -32,9 +34,9 @@ export default async function ExplorePage() {
           <Link href="/signup" className="btn-line">Start free</Link>
         </div>
 
-        <h1 className="artist-name">Explore</h1>
+        <h1 className="artist-name">{t('explore.title')}</h1>
         <p className="feed-intro">
-          Every public gallery on the platform, newest-edited first. Walk in — each room opens in 3D, right in your browser.
+          {t('explore.intro')}
         </p>
 
         {spotlightItems.length > 0 && (
@@ -56,10 +58,10 @@ export default async function ExplorePage() {
 
         <footer className="artist-footer">
           <LanguageSwitcher />
-          <Link href="/articles">Guides</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/legal">Legal</Link>
-          <Link href="/privacy">Privacy</Link>
+          <Link href="/articles">{t('footer.guides')}</Link>
+          <Link href="/terms">{t('footer.terms')}</Link>
+          <Link href="/legal">{t('footer.legal')}</Link>
+          <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>
     </main>

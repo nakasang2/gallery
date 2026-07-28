@@ -9,6 +9,7 @@ import { useGallery, useSettings } from '@/lib/store'
 import { addLike, hasLiked, likeCount } from '@/lib/engagement'
 import { audioGuide, useGuidePlaying, guideSourceFor, type GuideSource } from '@/lib/guide'
 import WorkDesign from '@/components/WorkDesign'
+import { useT } from '@/components/I18nProvider'
 
 // The 3D preview pulls in three.js — load it only when a visitor opens it.
 const ArtworkPreview3D = dynamic(() => import('./ArtworkPreview3D'), { ssr: false })
@@ -16,8 +17,9 @@ const ArtworkPreview3D = dynamic(() => import('./ArtworkPreview3D'), { ssr: fals
 // Play/pause control for a work's audio guide — plays an uploaded narration, or
 // reads the caption aloud (src.kind === 'tts') when there's no recording.
 function AudioGuideButton({ source }: { source: GuideSource }) {
+  const t = useT()
   const playing = useGuidePlaying(source.key)
-  const label = source.kind === 'tts' ? 'Read aloud' : 'Audio guide'
+  const label = t('artwork.readAloud')
   return (
     <button
       className={`panel-guide${playing ? ' playing' : ''}`}
@@ -73,6 +75,7 @@ function LikeButton({ galleryId, artworkId }: { galleryId: string; artworkId: st
 }
 
 export default function ArtworkPanel() {
+  const t = useT()
   const focusedIndex = useGallery((s) => s.focusedIndex)
   const setFocused = useGallery((s) => s.setFocused)
   const setTourActive = useGallery((s) => s.setTourActive)
@@ -192,7 +195,7 @@ export default function ArtworkPanel() {
           {guide && <AudioGuideButton source={guide} />}
           {art.purchaseUrl ? (
             <a className="panel-buy" href={toHref(art.purchaseUrl)} target="_blank" rel="noopener noreferrer">
-              {art.price ? `${art.price} · ` : ''}Available for purchase ↗
+              {art.price ? `${art.price} · ` : ''}{t('artwork.forSale')}
             </a>
           ) : (
             art.price && <div className="panel-price">{art.price}</div>

@@ -24,7 +24,7 @@ import {
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
-import { PLAN, MAX_WORKS_PER_ROOM } from '@/lib/limits'
+import { PLAN, MAX_WORKS_PER_ROOM, GALLERY_BGM_MAX_BYTES } from '@/lib/limits'
 import {
   listMyGalleries,
   createGallery,
@@ -65,6 +65,7 @@ import {
 import { loadImage } from '@/lib/upload'
 import type { ArtworkData } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
+import { useT } from '@/components/I18nProvider'
 
 // The works preview is the REAL renderer (three.js), loaded only when needed;
 // until the chunk arrives the flat CSS preview holds the same footprint
@@ -98,6 +99,7 @@ function GalleryPreview({
   emptyNote: string
   mode?: 'work' | 'room'
 }) {
+  const t = useT()
   return (
     <div className="we-left">
       {art && src ? (
@@ -160,6 +162,7 @@ const DESIGN_TOOLS_VISIBLE = false as boolean
 // bubble beside it — hover on desktop, tap (focus) on touch. Keeps the form scannable
 // instead of every input carrying a sentence. `hint` is the explanatory text.
 function FieldLabel({ children, hint }: { children: string; hint: string }) {
+  const t = useT()
   return (
     <span className="me-field-label">
       {children}
@@ -185,13 +188,15 @@ function useToast() {
 
 // The first thing a signed-in artist sees: their own face and name, not a form
 function Hero() {
+  const t = useT()
   const user = useGallery((s) => s.user)!
   const displayName = useGallery((s) => s.profileDisplayName)
   const avatarUrl = useGallery((s) => s.profileAvatarUrl)
   const username = useGallery((s) => s.profileUsername)
   const name = displayName || user.displayName
   const h = new Date().getHours()
-  const greet = h < 5 ? 'Working late' : h < 11 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+  const greet =
+    h < 5 ? t('me.greetLate') : h < 11 ? t('me.greetMorning') : h < 18 ? t('me.greetAfternoon') : t('me.greetEvening')
   return (
     <div className="me-hero">
       {avatarUrl ? (
@@ -205,11 +210,11 @@ function Hero() {
         <p className="me-hero-sub">
           {username ? (
             <>
-              Your gallery lives at{' '}
+              {t('me.livesAt')}{' '}
               <a href={`/@${username}`} target="_blank" rel="noreferrer">/@{username}</a>
             </>
           ) : (
-            'Pick a username below to claim your public URL.'
+            t('me.pickUsernameHint')
           )}
         </p>
       </div>
@@ -219,6 +224,7 @@ function Hero() {
 
 // Guest migration (REQUIREMENTS 10.1): offer to move this browser's local works into the account
 function GuestImportCard() {
+  const t = useT()
   const user = useGallery((s) => s.user)!
   const localArtworks = useGallery((s) => s.artworks)
   const updateSettings = useGallery((s) => s.updateSettings)
@@ -280,13 +286,13 @@ function GuestImportCard() {
     setBusy(false)
     // Full success: the card hides itself because the local list is empty — do NOT set the
     // dismiss flag, so works added as a guest later can still be imported
-    if (failed) alert(`Imported ${ok} work${ok === 1 ? '' : 's'}; ${failed} could not be read (CORS or storage limit) and stayed local.`)
+    if (failed) alert(t('me.importPartial', { ok, failed }))
   }
 
   return (
     <div className="me-card" style={{ marginBottom: '1rem' }}>
       <p className="me-note" style={{ marginTop: 0 }}>
-        You have <b>{localArtworks.length}</b> work{localArtworks.length === 1 ? '' : 's'} exhibited as a guest
+        {t('me.importTitle', { count: localArtworks.length })}
         in this browser. Import {localArtworks.length === 1 ? 'it' : 'them'} into your account so they appear on
         every device and can be published?
       </p>
@@ -294,7 +300,7 @@ function GuestImportCard() {
         <button className="btn-line" disabled={busy} onClick={() => void importAll()}>
           {busy ? 'Importing…' : 'Import to my account'}
         </button>
-        <button className="btn-line" disabled={busy} onClick={dismiss}>Not now</button>
+        <button className="btn-line" disabled={busy} onClick={dismiss}>{t('me.importNotNow')}</button>
       </div>
     </div>
   )
@@ -303,6 +309,7 @@ function GuestImportCard() {
 // Create a gallery as a two-step wizard: SEE the template first, then name it,
 // and land straight in the editor with the themed room around you (REQUIREMENTS 10.2)
 function CreateCard({ onCreated }: { onCreated: () => void }) {
+  const t = useT()
   const user = useGallery((s) => s.user)!
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const updateSettings = useGallery((s) => s.updateSettings)
@@ -350,7 +357,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
       onCreated()
       router.push('/demo') // straight into the room — the result is the feedback
     } catch (e) {
-      alert(`Could not create the gallery: ${e instanceof Error ? e.message : e}`)
+      alert(t('me.createFailed', { msg: String(e instanceof Error ? e.message : e) }))
       setBusy(false)
     }
   }
@@ -359,7 +366,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
     return (
       <div className="me-card">
         <p className="me-note" style={{ marginTop: 0 }}>
-          <b style={{ color: 'var(--ink)' }}>Step 1 of 2</b> — pick the room you&apos;ll start from.
+          <b style={{ color: 'var(--ink)' }}>{t('me.createStep1')}</b> — pick the room you&apos;ll start from.
           Colours, floor plan and framing are all shown; everything can be changed later.
         </p>
         {/* One preview per card (the card top IS the wall preview) — no duplicate block */}
@@ -385,12 +392,12 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
               </span>
             </button>
             <p className="me-note" style={{ marginTop: '0.5rem' }}>
-              This template uses a paid theme or layout. Start from a free template now — you can buy and switch to it anytime after.
+              {t('me.createLocked')}
             </p>
           </>
         ) : (
           <button className="btn-line" onClick={() => setStep(2)}>
-            Continue with {TEMPLATES[templateId]?.label} →
+            {t('me.createContinue')} — {TEMPLATES[templateId]?.label} →
           </button>
         )}
       </div>
@@ -400,14 +407,14 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   return (
     <div className="me-card">
       <p className="me-note" style={{ marginTop: 0 }}>
-        <b style={{ color: 'var(--ink)' }}>Step 2 of 2</b> — name your gallery. This is the exhibition
+        <b style={{ color: 'var(--ink)' }}>{t('me.createStep2')}</b> — name your gallery. This is the exhibition
         title visitors will see; leave it blank and your artist name leads instead.
       </p>
       <label className="me-field">
-        <span>Exhibition title (optional)</span>
+        <span>{t('me.titleOptional')}</span>
         <input
           type="text"
-          placeholder="e.g. Blue Hours"
+          placeholder={t('me.titlePlaceholder')}
           maxLength={TITLE_MAX}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -415,19 +422,19 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
         />
       </label>
       <label className="me-field">
-        <span>Concept / intro (optional) — shown on the board at the back of your room</span>
+        <span>{t('me.statementOptional')}</span>
         <textarea
           rows={3}
           maxLength={200}
-          placeholder="What is this exhibition about? Who are you?"
+          placeholder={t('me.statementPlaceholder')}
           value={statement}
           onChange={(e) => setStatement(e.target.value)}
         />
       </label>
       <div className="hako-actions">
-        <button className="btn-line" disabled={busy} onClick={() => setStep(1)}>← Back</button>
+        <button className="btn-line" disabled={busy} onClick={() => setStep(1)}>← {t('me.createBack')}</button>
         <button className="btn-line" disabled={busy} onClick={() => void create()}>
-          {busy ? 'Creating…' : 'Create & open the editor'}
+          {busy ? t('common.saving') : t('me.createOpen')}
         </button>
       </div>
     </div>
@@ -438,6 +445,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
 // works library on the left and the real-3D preview with every design control —
 // per-work title/caption/frame and the room-wide theme/layout — on the right.
 function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => void }) {
+  const t = useT()
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
@@ -574,7 +582,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           toast()
         })
         .catch((e) => {
-          alert(`Could not save the details: ${e instanceof Error ? e.message : e}`)
+          alert(t('me.saveDetailsFailed', { msg: String(e instanceof Error ? e.message : e) }))
           setDetailsState('idle')
         })
     }, 900)
@@ -612,7 +620,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       onChanged()
       toast()
     } catch (e) {
-      alert(`${label} failed: ${e instanceof Error ? e.message : e}`)
+      alert(t('me.actionFailed', { label, msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setBusy(false)
     }
@@ -632,7 +640,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
 
   async function togglePublic() {
     if (!row.is_public && cloudArtworks.length === 0) {
-      alert('Add at least one work before opening your gallery — use “Hang your first work” in the list on the left.')
+      alert(t('me.needWorkAlert'))
       return
     }
     await run(row.is_public ? 'Making private' : 'Publishing', async () =>
@@ -663,7 +671,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           void refreshMyGallery()
           toast()
         })
-        .catch((e) => alert(`Could not save design: ${e instanceof Error ? e.message : e}`))
+        .catch((e) => alert(t('me.saveDesignFailed', { msg: String(e instanceof Error ? e.message : e) })))
     }, 500)
   }
   useEffect(() => () => {
@@ -692,7 +700,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           onChanged()
           toast()
         } catch (e) {
-          alert(`Could not save placement: ${e instanceof Error ? e.message : e}`)
+          alert(t('me.savePlacementFailed', { msg: String(e instanceof Error ? e.message : e) }))
         }
       })()
     }, 700)
@@ -723,7 +731,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           onChanged()
           toast()
         } catch (e) {
-          alert(`Could not save the layout: ${e instanceof Error ? e.message : e}`)
+          alert(t('me.saveLayoutFailed', { msg: String(e instanceof Error ? e.message : e) }))
         }
       })()
     }, 500)
@@ -739,7 +747,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       const url = await uploadLogo(user.id, row.id, file)
       editDesign({ logoUrl: url })
     } catch (e) {
-      alert(`Logo upload failed: ${e instanceof Error ? e.message : e}`)
+      alert(t('me.logoUploadFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setLogoUploading(false)
     }
@@ -755,7 +763,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       onChanged()
       toast()
     } catch (e) {
-      alert(`BGM upload failed: ${e instanceof Error ? e.message : e}`)
+      alert(t('me.bgmUploadFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setBgmBusy(false)
     }
@@ -769,7 +777,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       onChanged()
       toast()
     } catch (e) {
-      alert(`Could not remove BGM: ${e instanceof Error ? e.message : e}`)
+      alert(t('me.bgmRemoveFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setBgmBusy(false)
     }
@@ -779,7 +787,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   async function saveUsernameInline() {
     const name = usernameInput.trim().toLowerCase()
     if (!USERNAME_RE.test(name)) {
-      alert('Usernames are 3–20 characters: lowercase letters, digits and _')
+      alert(t('me.usernameRules'))
       return
     }
     setBusy(true)
@@ -806,7 +814,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     try {
       for (const f of Array.from(files)) {
         if (f.type.startsWith('video/')) {
-          alert(`Videos are added from inside the 3D room: open “Walk the room”, then “Edit space”. Skipped “${f.name}”.`)
+          alert(t('me.videoFromRoom', { name: f.name }))
           continue
         }
         const title = f.name.replace(/\.[^.]+$/, '') || 'Untitled'
@@ -815,7 +823,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       }
       await refreshCloud()
     } catch (e) {
-      alert(`Upload failed: ${e instanceof Error ? e.message : e}`)
+      alert(t('me.uploadFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setUploading(false)
     }
@@ -835,7 +843,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       await deleteArtwork(user.id, art.id)
       await refreshCloud()
     } catch (e) {
-      alert(`Could not remove the work: ${e instanceof Error ? e.message : e}`)
+      alert(t('me.workRemoveFailed', { msg: String(e instanceof Error ? e.message : e) }))
     }
   }
 
@@ -876,7 +884,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           toast()
         })
         .catch((e) => {
-          alert(`Could not save the work details: ${e instanceof Error ? e.message : e}`)
+          alert(t('me.workSaveFailed', { msg: String(e instanceof Error ? e.message : e) }))
           setWorkState('idle')
         })
     }, 900)
@@ -890,7 +898,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   return (
     <>
     <div className="me-section-head">
-      <h2>My gallery</h2>
+      <h2>{t('me.myGallery')}</h2>
     </div>
     <div className="me-card">
       {/* The room's own colours, as a ribbon — this card IS that room */}
@@ -907,8 +915,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           type="text"
           maxLength={TITLE_MAX}
           value={nameInput}
-          placeholder="Untitled exhibition — name it"
-          aria-label="Exhibition title"
+          placeholder={t('me.untitledPlaceholder')}
+          aria-label={t('me.exhibitionTitle')}
           onChange={(e) => editDetails({ title: e.target.value })}
         />
         {detailsState !== 'idle' && (
@@ -919,8 +927,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         className="hako-statement-input"
         rows={2}
         maxLength={200}
-        placeholder="Concept / intro — shown on the board at the back of your room"
-        aria-label="Exhibition statement"
+        placeholder={t('me.statementBoardPlaceholder')}
+        aria-label={t('me.exhibitionStatement')}
         value={statementInput}
         onChange={(e) => editDetails({ statement: e.target.value })}
       />
@@ -937,8 +945,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           {row.is_public && publicUrl && (
             <button
               className="hako-url-copy"
-              title={copied ? 'Copied' : 'Copy URL'}
-              aria-label={copied ? 'Copied' : 'Copy URL'}
+              title={copied ? t('me.copied') : t('me.copyUrl')}
+              aria-label={copied ? t('me.copied') : t('me.copyUrl')}
               onClick={() => {
                 void navigator.clipboard.writeText(publicUrl).then(() => {
                   setCopied(true)
@@ -953,26 +961,26 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             className="switch"
             title={
               row.is_public
-                ? 'Open — anyone with the URL can visit'
+                ? t('me.openHint')
                 : cloudArtworks.length
-                  ? 'Private — flip to open your gallery to the public'
-                  : 'Exhibit at least one work before opening'
+                  ? t('me.privateHint')
+                  : t('me.needWorkHint')
             }
           >
             <input type="checkbox" checked={row.is_public} disabled={busy} onChange={() => void togglePublic()} />
             <span className="knob" aria-hidden="true" />
           </label>
-          <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? 'OPEN' : 'PRIVATE'}</span>
+          <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? t('me.open') : t('me.private')}</span>
           {row.is_public && (embedCode || username) && (
             <div className="hako-url-actions">
               {embedCode && (
                 <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
-                  {showEmbed ? 'Hide embed' : 'Embed'}
+                  {showEmbed ? t('me.embedHide') : t('me.embed')}
                 </button>
               )}
               {username && (
                 <a className="btn-line" href={`/@${username}/${row.slug}/catalog`} target="_blank" rel="noreferrer">
-                  Catalog (PDF)
+                  {t('me.catalog')}
                 </a>
               )}
             </div>
@@ -985,12 +993,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
            the fix exactly where the toggle would have been. */
         <div className="hako-url-row hako-url-locked">
           <span className="hako-url off">xibit360.art/@…</span>
-          <p className="hako-locked-why">Pick a username to claim your public URL and open the gallery.</p>
+          <p className="hako-locked-why">{t('me.usernameGate')}</p>
           <div className="field-row">
             <input
               type="text"
-              aria-label="Username"
-              placeholder="your-name"
+              aria-label={t('me.username')}
+              placeholder={t('me.usernamePlaceholder')}
               value={usernameInput}
               onChange={(e) => setUsernameInput(e.target.value)}
             />
@@ -999,18 +1007,18 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               disabled={busy || !usernameInput.trim()}
               onClick={() => void saveUsernameInline()}
             >
-              Set
+              {t('me.usernameSet')}
             </button>
           </div>
         </div>
       )}
-      <p className="hako-meta">{row.updated_at ? `Updated ${fmtDate(row.updated_at)}` : ''}</p>
+      <p className="hako-meta">{row.updated_at ? t('me.updatedAt', { date: fmtDate(row.updated_at) }) : ''}</p>
       {/* How the exhibition is doing, at a glance */}
       <div className="stat-row">
-        <div className="stat"><b>{cloudArtworks.length}</b><span>Works</span></div>
-        <div className="stat"><b>{stats ? stats.visits : '–'}</b><span>Visits</span></div>
-        <div className="stat"><b>{stats ? stats.likes : '–'}</b><span>Likes</span></div>
-        <div className="stat"><b>{stats ? stats.guestbook : '–'}</b><span>Guest notes</span></div>
+        <div className="stat"><b>{cloudArtworks.length}</b><span>{t('me.statWorks')}</span></div>
+        <div className="stat"><b>{stats ? stats.visits : '–'}</b><span>{t('me.statVisits')}</span></div>
+        <div className="stat"><b>{stats ? stats.likes : '–'}</b><span>{t('me.statLikes')}</span></div>
+        <div className="stat"><b>{stats ? stats.guestbook : '–'}</b><span>{t('me.statGuestNotes')}</span></div>
       </div>
 
       {row.is_public && embedCode && showEmbed && (
@@ -1018,16 +1026,16 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           className="me-modal-overlay"
           role="dialog"
           aria-modal="true"
-          aria-label="Embed code"
+          aria-label={t('me.embedCode')}
           onClick={() => setShowEmbed(false)}
         >
           <div className="me-modal embed-modal" onClick={(e) => e.stopPropagation()}>
             <div className="me-modal-head">
-              <h3>Embed this gallery</h3>
-              <button className="me-modal-close" aria-label="Close" onClick={() => setShowEmbed(false)}>✕</button>
+              <h3>{t('me.embedTitle')}</h3>
+              <button className="me-modal-close" aria-label={t('common.close')} onClick={() => setShowEmbed(false)}>✕</button>
             </div>
             <p className="me-note" style={{ marginTop: 0 }}>
-              Paste this where you want the walkable gallery to appear — a blog post, a portfolio site, a Notion page.
+              {t('me.embedBody')}
             </p>
             <code className="embed-code">{embedCode}</code>
             <button
@@ -1050,11 +1058,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           className="danger"
           disabled={busy}
           onClick={() => {
-            if (!confirm(`Delete “${isPlaceholderTitle(row.title) ? 'your gallery' : row.title}”? Your works stay in the library, but the room and its public page are removed.`)) return
-            void run('Delete', () => deleteGallery(row.id))
+            if (!confirm(t('me.deleteGalleryConfirm', { name: isPlaceholderTitle(row.title) ? t('me.myGallery') : row.title }))) return
+            void run(t('me.deleteGallery'), () => deleteGallery(row.id))
           }}
         >
-          Delete
+          {t('me.deleteGallery')}
         </button>
       </div>
     </div>
@@ -1062,7 +1070,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     {/* Second-level rail (outside the card): the room, then every work as its own
         entry. Vertical on desktop, a horizontal scroller on phones. */}
     <div className="me-gallery-body">
-      <nav className="me-subnav" aria-label="Gallery sections">
+      <nav className="me-subnav" aria-label={t('me.navSections')}>
         <button
           type="button"
           className={`me-subnav-item${nav === 'room' ? ' active' : ''}`}
@@ -1071,7 +1079,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           <span className="me-subnav-ic" aria-hidden="true">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3.5" y="5" width="17" height="14" rx="1" /><path d="M3.5 9.5h17" /></svg>
           </span>
-          <span className="me-subnav-tx">Room</span>
+          <span className="me-subnav-tx">{t('me.navRoom')}</span>
         </button>
         {/* The only way back into the 3D editor. Creating a gallery pushes you to
             /demo, but nothing here linked to it — and two alerts below used to
@@ -1080,9 +1088,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           <span className="me-subnav-ic" aria-hidden="true">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 20V9l8-5 8 5v11" /><path d="M9.5 20v-6h5v6" /></svg>
           </span>
-          <span className="me-subnav-tx">Walk the room</span>
+          <span className="me-subnav-tx">{t('me.navWalk')}</span>
         </Link>
-        <div className="me-subnav-group">Works {cloudArtworks.length} / {row.work_cap}</div>
+        <div className="me-subnav-group">{t('me.navWorksCount', { count: cloudArtworks.length, cap: row.work_cap })}</div>
         {cloudArtworks.map((art) => (
           <button
             type="button"
@@ -1095,13 +1103,13 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             <span className="me-subnav-tx">
               {art.kind === 'video' ? <><VideoIcon className="works-title-icon" /> {art.title}</> : art.title}
             </span>
-            {row.cover_artwork_id === art.id && <span className="me-subnav-star" title="Share cover">★</span>}
+            {row.cover_artwork_id === art.id && <span className="me-subnav-star" title={t('me.shareCover')}>★</span>}
           </button>
         ))}
         {cloudArtworks.length < row.work_cap && (
           <label className={`me-subnav-add${uploading ? ' busy' : ''}`} aria-disabled={uploading}>
             <span className="me-subnav-ic" aria-hidden="true">{uploading ? '…' : '+'}</span>
-            <span className="me-subnav-tx">{cloudArtworks.length === 0 ? 'Hang your first work' : 'Add work'}</span>
+            <span className="me-subnav-tx">{cloudArtworks.length === 0 ? t('me.addFirstWork') : t('me.addWork')}</span>
             <input
               type="file"
               accept="image/*"
@@ -1122,13 +1130,13 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: 'Add work slots' })}
           title={
             row.work_cap >= MAX_WORKS_PER_ROOM
-              ? 'This room is already at the maximum'
-              : `Add more work slots (${PRICE_SLOT} each)`
+              ? t('me.roomFullHint')
+              : t('me.addSlotsHint', { price: PRICE_SLOT })
           }
         >
           <span className="me-subnav-ic" aria-hidden="true"><LockIcon /></span>
           <span className="me-subnav-tx">
-            {row.work_cap >= MAX_WORKS_PER_ROOM ? 'Room full' : 'Add slots'}
+            {row.work_cap >= MAX_WORKS_PER_ROOM ? t('me.roomFull') : t('me.addSlots')}
           </span>
         </button>
       </nav>
@@ -1147,7 +1155,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           hangingKey={row.hanging_default}
           captionKey={row.caption_default}
           designOverrides={design}
-          emptyNote="Upload a work to see your theme's atmosphere."
+          emptyNote={t('me.emptyRoomNote')}
           mode="room"
         />
 
@@ -1155,9 +1163,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           {/* Section 1 — the room's look: theme + layout. The 3D preview on the left
               recolours live as you switch theme. (Design Tools hidden for now.) */}
           <div className="wd-group wd-group--flush">
-            <div className="wd-title"><span>Theme &amp; layout</span></div>
+            <div className="wd-title"><span>{t('me.themeAndLayout')}</span></div>
             <div className="wd-row">
-              <span className="wd-label">Theme</span>
+              <span className="wd-label">{t('me.theme')}</span>
               <div className="chips">
                 {Object.entries(THEMES).map(([key, def]) => {
                   const unlocked = isThemeUnlocked(key, entitlements)
@@ -1180,7 +1188,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               </div>
             </div>
             <div className="wd-row">
-              <span className="wd-label">Layout</span>
+              <span className="wd-label">{t('me.layout')}</span>
               <div className="chips">
                 {Object.entries(LAYOUTS).map(([key, def]) => {
                   const unlocked = isLayoutUnlocked(key, entitlements)
@@ -1207,12 +1215,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   onClick={() => void setSpace({ layout: 'custom' })}
                 >
                   <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
-                  Custom
+                  {t('me.custom')}
                 </button>
               </div>
             </div>
             <div className="wd-row">
-              <span className="wd-label">Lighting</span>
+              <span className="wd-label">{t('me.lighting')}</span>
               <div className="chips">
                 {([
                   ['ceiling', 'Ceiling'],
@@ -1231,7 +1239,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             </div>
             {row.layout === 'custom' && (
               <div className="wd-row wd-row-block">
-                <span className="wd-label">Custom size</span>
+                <span className="wd-label">{t('me.customSize')}</span>
                 <div className="wd-block-body custom-size">
                   <label className="slider-row">
                     <span>Width {Math.round(custom.hw * 2)}m</span>
@@ -1252,7 +1260,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                       type="checkbox" checked={custom.island} disabled={busy}
                       onChange={(e) => editCustom({ island: e.target.checked })}
                     />
-                    Centre wall (4 extra slots)
+                    {t('me.centreWall')}
                   </label>
                 </div>
               </div>
@@ -1260,16 +1268,16 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             {cloudArtworks.length > 0 && (
               <div className="wd-row wd-row-block">
                 <span className="wd-label me-field-label">
-                  Placement
+                  {t('me.placement')}
                   <span
                     className="field-hint"
                     tabIndex={0}
                     role="note"
-                    aria-label="Choose which work hangs on each spot: tap a spot on the map to pick its work. Leave gaps to space a small show out."
+                    aria-label={t('me.placementHint')}
                   >
                     <InfoIcon />
                     <span className="field-hint-pop" role="tooltip">
-                      Choose which work hangs on each spot: tap a spot on the map to pick its work. Leave gaps to space a small show out.
+                      {t('me.placementHint')}
                     </span>
                   </span>
                 </span>
@@ -1288,16 +1296,16 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             )}
             <div className="wd-row wd-row-block">
               <span className="wd-label me-field-label">
-                Ambience
+                {t('me.ambience')}
                 <span
                   className="field-hint"
                   tabIndex={0}
                   role="note"
-                  aria-label="A looping background track for visitors walking your room; they can mute it with the ♪ button. MP3/M4A up to 15MB — upload only audio you have the rights to."
+                  aria-label={t('me.ambienceHint', { max: Math.floor(GALLERY_BGM_MAX_BYTES / 1024 / 1024) })}
                 >
                   <InfoIcon />
                   <span className="field-hint-pop" role="tooltip">
-                    A looping background track for visitors walking your room; they can mute it with the ♪ button. MP3/M4A up to 15MB — upload only audio you have the rights to.
+                    {t('me.ambienceHint', { max: Math.floor(GALLERY_BGM_MAX_BYTES / 1024 / 1024) })}
                   </span>
                 </span>
               </span>
@@ -1315,7 +1323,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   </label>
                   {bgmUrl && (
                     <button className="btn-line" disabled={bgmBusy} onClick={() => void removeBgm()}>
-                      Remove
+                      {t('me.remove')}
                     </button>
                   )}
                 </div>
@@ -1329,11 +1337,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               theme: recolour walls/floor, tune the light mood, add a small logo mark.
               Hidden for now via DESIGN_TOOLS_VISIBLE. */}
           <div className="wd-group">
-            <div className="wd-title"><span>Design Tools</span></div>
+            <div className="wd-title"><span>{t('me.designTools')}</span></div>
             {/* Design Tools is free for everyone now (docs/DECISIONS 2026-07-24) */}
             <>
                 <div className="wd-row">
-                  <span className="wd-label">Wall colour</span>
+                  <span className="wd-label">{t('me.wallColour')}</span>
                   <div className="design-controls">
                     <input
                       type="color"
@@ -1341,12 +1349,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                       onChange={(e) => editDesign({ wall: e.target.value })}
                     />
                     {design.wall && (
-                      <button className="btn-line" onClick={() => editDesign({ wall: null })}>Reset</button>
+                      <button className="btn-line" onClick={() => editDesign({ wall: null })}>{t('me.reset')}</button>
                     )}
                   </div>
                 </div>
                 <div className="wd-row">
-                  <span className="wd-label">Floor colour</span>
+                  <span className="wd-label">{t('me.floorColour')}</span>
                   <div className="design-controls">
                     <input
                       type="color"
@@ -1354,12 +1362,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                       onChange={(e) => editDesign({ floor: e.target.value })}
                     />
                     {design.floor && (
-                      <button className="btn-line" onClick={() => editDesign({ floor: null })}>Reset</button>
+                      <button className="btn-line" onClick={() => editDesign({ floor: null })}>{t('me.reset')}</button>
                     )}
                   </div>
                 </div>
                 <div className="wd-row">
-                  <span className="wd-label">Light colour</span>
+                  <span className="wd-label">{t('me.lightColour')}</span>
                   <div className="design-controls">
                     <input
                       type="color"
@@ -1367,12 +1375,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                       onChange={(e) => editDesign({ lightColor: e.target.value })}
                     />
                     {design.lightColor && (
-                      <button className="btn-line" onClick={() => editDesign({ lightColor: null })}>Reset</button>
+                      <button className="btn-line" onClick={() => editDesign({ lightColor: null })}>{t('me.reset')}</button>
                     )}
                   </div>
                 </div>
                 <div className="wd-row">
-                  <span className="wd-label">Light mood</span>
+                  <span className="wd-label">{t('me.lightMood')}</span>
                   <div className="design-controls">
                     <input
                       type="range"
@@ -1384,12 +1392,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                     />
                     <span className="design-value">{Math.round((design.lightIntensity ?? 1) * 100)}%</span>
                     {design.lightIntensity != null && (
-                      <button className="btn-line" onClick={() => editDesign({ lightIntensity: null })}>Reset</button>
+                      <button className="btn-line" onClick={() => editDesign({ lightIntensity: null })}>{t('me.reset')}</button>
                     )}
                   </div>
                 </div>
                 <div className="wd-row">
-                  <span className="wd-label">Logo</span>
+                  <span className="wd-label">{t('me.logo')}</span>
                   <div className="design-controls">
                     {design.logoUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -1409,12 +1417,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                       />
                     </label>
                     {design.logoUrl && (
-                      <button className="btn-line" onClick={() => editDesign({ logoUrl: null })}>Remove</button>
+                      <button className="btn-line" onClick={() => editDesign({ logoUrl: null })}>{t('me.remove')}</button>
                     )}
                   </div>
                 </div>
                 <p className="me-note" style={{ marginTop: '0.3rem' }}>
-                  These sit on top of your theme — switching themes later keeps every override here.
+                  {t('me.designToolsNote')}
                 </p>
               </>
           </div>
@@ -1435,7 +1443,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               hangingKey={hanging}
               captionKey={captionKey}
               designOverrides={design}
-              emptyNote="Pick a work above to preview it framed on your wall."
+              emptyNote={t('me.pickWorkNote')}
             />
             <div className="we-right">
               {/* Per-work housekeeping the rail used to carry: share cover + remove */}
@@ -1443,7 +1451,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 <button
                   type="button"
                   className={`btn-line${row.cover_artwork_id === selected.id ? ' active' : ''}`}
-                  title="Use as share cover (OGP)"
+                  title={t('me.useAsCover')}
                   onClick={() => void toggleCover(selected)}
                 >
                   {row.cover_artwork_id === selected.id ? '★ Share cover' : '☆ Set as cover'}
@@ -1453,7 +1461,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   className="btn-line danger"
                   onClick={() => void removeWork(selected)}
                 >
-                  Remove work
+                  {t('me.workRemove')}
                 </button>
                 {workState !== 'idle' && (
                   <span className="hako-save-state">{workState === 'saving' ? 'saving…' : 'saved'}</span>
@@ -1462,9 +1470,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               {/* The name plate's text: title + caption, straight onto the plate above.
                   Flush (no top divider) — it's the first thing in the settings column now. */}
               <div className="wd-group wd-group--flush">
-                <div className="wd-title"><span>Title &amp; caption</span></div>
+                <div className="wd-title"><span>{t('me.titleAndCaption')}</span></div>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>Title</span>
+                  <span>{t('me.workTitle')}</span>
                   <input
                     type="text"
                     maxLength={TITLE_MAX}
@@ -1473,36 +1481,36 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <FieldLabel hint="Shown on the name plate beside the work.">Caption</FieldLabel>
+                  <FieldLabel hint={t('me.captionHint')}>{t('me.caption')}</FieldLabel>
                   <textarea
                     rows={2}
                     maxLength={140}
-                    placeholder="A line about this work (year, medium, a thought…)"
+                    placeholder={t('me.captionPlaceholder')}
                     value={captionInput}
                     onChange={(e) => editWork({ caption: e.target.value })}
                   />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <FieldLabel hint="Shown to visitors as you type it — include the currency (e.g. $500). Leave blank to hide.">Price</FieldLabel>
+                  <FieldLabel hint={t('me.priceHint')}>{t('me.price')}</FieldLabel>
                   <input
                     type="text"
-                    placeholder="e.g. $500 (leave blank to hide)"
+                    placeholder={t('me.pricePlaceholder')}
                     value={priceInput}
                     onChange={(e) => editWork({ price: e.target.value })}
                   />
                 </label>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <FieldLabel hint="Where the “Available for purchase” button sends buyers. Leave blank if it’s not for sale.">Purchase link</FieldLabel>
+                  <FieldLabel hint={t('me.purchaseLinkHint')}>{t('me.purchaseLink')}</FieldLabel>
                   <input
                     type="text"
                     inputMode="url"
-                    placeholder="yourshop.com/this-piece (leave blank if not for sale)"
+                    placeholder={t('me.purchaseLinkPlaceholder')}
                     value={purchaseUrlInput}
                     onChange={(e) => editWork({ purchaseUrl: e.target.value })}
                   />
                 </label>
                 <div className="wd-row" style={{ margin: '0.45rem 0' }}>
-                  <span className="wd-label">Size</span>
+                  <span className="wd-label">{t('me.size')}</span>
                   <div className="design-controls" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
                     {/* Pick a standard size (号 / A / B), or "Custom" to type cm. The W×H
                         fields only appear in custom mode; a preset shows just the ⇄ swap. */}
@@ -1515,11 +1523,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                           editWork({ width: String(p.w), height: String(p.h) })
                           setSizeCustom(false)
                         } else {
-                          setSizeCustom(true) // "Custom / other…" — reveal the cm fields
+                          setSizeCustom(true) // "{t('me.sizeCustom')}" — reveal the cm fields
                         }
                       }}
                     >
-                      <option value="custom">Custom / other…</option>
+                      <option value="custom">{t('me.sizeCustom')}</option>
                       {SIZE_GROUPS.map((g) => (
                         <optgroup key={g.label} label={g.label}>
                           {g.options.map((o) => (
@@ -1558,7 +1566,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                       <button
                         type="button"
                         className="btn-line"
-                        title="Swap width and height (portrait ⇄ landscape)"
+                        title={t('me.swapSize')}
                         style={{ padding: '0.35em 0.6em' }}
                         onClick={() => editWork({ width: heightInput, height: widthInput })}
                       >
@@ -1568,10 +1576,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   </div>
                 </div>
                 <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <FieldLabel hint="The materials, e.g. “Oil on canvas”, “Giclée print”. Optional.">Medium</FieldLabel>
+                  <FieldLabel hint={t('me.mediumHint')}>{t('me.medium')}</FieldLabel>
                   <input
                     type="text"
-                    placeholder="Medium (optional)"
+                    placeholder={t('me.mediumPlaceholder')}
                     value={mediumInput}
                     onChange={(e) => editWork({ medium: e.target.value })}
                   />
@@ -1658,6 +1666,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
 
 // Guestbook moderation: read what visitors wrote, delete spam
 function GuestbookCard({ galleryId, enabled }: { galleryId: string; enabled: boolean }) {
+  const t = useT()
   const [entries, setEntries] = useState<GuestbookEntry[] | null>(null)
   // Visitors could always write, and the artist could only delete afterwards.
   const [open, setOpen] = useState(enabled)
@@ -1691,21 +1700,21 @@ function GuestbookCard({ galleryId, enabled }: { galleryId: string; enabled: boo
   return (
     <div className="me-card" style={{ marginTop: '1rem' }}>
       <div className="gb-toggle-row">
-        <label className="switch" title={open ? 'Visitors can sign your guestbook' : 'Closed — visitors can read, not write'}>
+        <label className="switch" title={open ? t('me.guestbookOpenHint') : t('me.guestbookClosedHint')}>
           <input type="checkbox" checked={open} disabled={busy} onChange={() => void toggle()} />
           <span className="knob" aria-hidden="true" />
         </label>
         <div>
-          <div className="gb-toggle-label">{open ? 'Open to visitors' : 'Closed'}</div>
+          <div className="gb-toggle-label">{open ? t('me.guestbookOpenLabel') : t('me.guestbookClosedLabel')}</div>
           <p className="me-note" style={{ margin: 0 }}>
             {open
-              ? 'Anyone visiting your gallery can leave a note. You can delete any of them below.'
-              : 'Notes already left stay visible. No new ones can be added.'}
+              ? t('me.guestbookOpenNote')
+              : t('me.guestbookClosedNote')}
           </p>
         </div>
       </div>
       {entries.length === 0 && (
-        <p className="me-note">No guestbook entries yet.</p>
+        <p className="me-note">{t('me.guestbookNone')}</p>
       )}
       <ul className="gb-list">
         {entries.map((e) => (
@@ -1713,9 +1722,9 @@ function GuestbookCard({ galleryId, enabled }: { galleryId: string; enabled: boo
             <div className="gb-meta">
               <b>{e.name || 'Anonymous'}</b> · {fmtDate(e.created_at)}
               <button
-                aria-label="Delete entry"
+                aria-label={t('me.deleteEntry')}
                 onClick={() => {
-                  if (!confirm('Delete this guestbook entry?')) return
+                  if (!confirm(t('me.deleteEntryConfirm'))) return
                   void deleteGuestbookEntry(e.id).then(load)
                 }}
               >
@@ -1732,6 +1741,7 @@ function GuestbookCard({ galleryId, enabled }: { galleryId: string; enabled: boo
 
 // Account operations (REQUIREMENTS 10.1): email change, password change, deletion
 function AccountCard() {
+  const t = useT()
   const user = useGallery((s) => s.user)!
   const [newEmail, setNewEmail] = useState('')
   const [busy, setBusy] = useState(false)
@@ -1746,27 +1756,22 @@ function AccountCard() {
       if (error) throw error
       setEmailSent(true)
     } catch (e) {
-      alert(`Could not start the email change: ${e instanceof Error ? e.message : e}`)
+      alert(t('me.accountEmailFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setBusy(false)
     }
   }
 
   async function removeAccount() {
-    if (
-      !confirm(
-        'Delete your account? Your gallery, its public page, and every uploaded work will be permanently removed.'
-      )
-    )
-      return
-    if (!confirm('This cannot be undone. Really delete everything?')) return
+    if (!confirm(t('me.accountDeleteConfirm1'))) return
+    if (!confirm(t('me.accountDeleteConfirm2'))) return
     setBusy(true)
     try {
       await deleteMyAccount(user.id)
       location.href = '/'
     } catch (e) {
       console.error('account deletion failed (is 0007_delete_account.sql applied?):', e)
-      alert(`Account deletion failed — nothing was removed. ${e instanceof Error ? e.message : e}`)
+      alert(t('me.accountDeleteFailed', { msg: String(e instanceof Error ? e.message : e) }))
       setBusy(false)
     }
   }
@@ -1778,24 +1783,24 @@ function AccountCard() {
         <div className="field-row" style={{ marginTop: 0 }}>
           <input
             type="email"
-            placeholder="new@email.com"
+            placeholder={t('me.accountEmailPlaceholder')}
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
           />
           <button className="btn-line" disabled={busy || !newEmail.trim()} onClick={() => void changeEmail()}>
-            Change
+            {t('me.accountChange')}
           </button>
         </div>
       </label>
       {emailSent && (
         <p className="me-note">
-          Confirmation link(s) sent — open them to complete the change.
+          {t('me.accountEmailSent')}
         </p>
       )}
       <div className="hako-actions">
-        <Link className="btn-line" href="/reset">Change password</Link>
+        <Link className="btn-line" href="/reset">{t('me.accountPassword')}</Link>
         <button className="btn-line hako-danger" disabled={busy} onClick={() => void removeAccount()}>
-          Delete account
+          {t('me.accountDelete')}
         </button>
       </div>
     </div>
@@ -1803,6 +1808,7 @@ function AccountCard() {
 }
 
 function ProfileCard() {
+  const t = useT()
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
@@ -1844,7 +1850,7 @@ function ProfileCard() {
       setAvatarUrl(await uploadAvatar(user.id, file))
       toast()
     } catch (e) {
-      alert(`Avatar upload failed: ${e instanceof Error ? e.message : e}`)
+      alert(t('me.avatarUploadFailed', { msg: String(e instanceof Error ? e.message : e) }))
     } finally {
       setBusy(false)
     }
@@ -1853,7 +1859,7 @@ function ProfileCard() {
   async function saveUsername() {
     const name = nameInput.trim().toLowerCase()
     if (!USERNAME_RE.test(name)) {
-      alert('Usernames are 3–20 characters: lowercase letters, digits and _')
+      alert(t('me.usernameRules'))
       return
     }
     setBusy(true)
@@ -1898,7 +1904,7 @@ function ProfileCard() {
           toast()
         })
         .catch((e) => {
-          alert(`Could not save your profile: ${e instanceof Error ? e.message : e}`)
+          alert(t('me.profileSaveFailed', { msg: String(e instanceof Error ? e.message : e) }))
           setProfileState('idle')
         })
     }, 900)
@@ -1910,7 +1916,7 @@ function ProfileCard() {
   return (
     <>
     <div className="me-section-head">
-      <h2>Profile</h2>
+      <h2>{t('me.tabProfile')}</h2>
       {profileState === 'saving' && <span className="hako-save-state">saving…</span>}
     </div>
     <div className="me-card">
@@ -1950,18 +1956,18 @@ function ProfileCard() {
         </div>
       </label>
       <label className="me-field">
-        <span>Display name (artist name)</span>
+        <span>{t('me.profileName')}</span>
         <input type="text" value={displayName} onChange={(e) => editProfile({ displayName: e.target.value })} />
       </label>
       <label className="me-field">
-        <span>Bio / statement</span>
+        <span>{t('me.profileBio')}</span>
         <textarea rows={3} value={bio} onChange={(e) => editProfile({ bio: e.target.value })} />
       </label>
       <p className="me-field-group-label">
-        Link your SNS — shown on your public page and while visitors walk your room, so they can follow you elsewhere.
+        {t('me.profileSnsNote')}
       </p>
       <label className="me-field">
-        <span>X (Twitter) handle</span>
+        <span>{t('me.profileX')}</span>
         <div className="field-row" style={{ marginTop: 0 }}>
           <span className="field-prefix">@</span>
           <input
@@ -1973,7 +1979,7 @@ function ProfileCard() {
         </div>
       </label>
       <label className="me-field">
-        <span>Instagram handle</span>
+        <span>{t('me.profileInstagram')}</span>
         <div className="field-row" style={{ marginTop: 0 }}>
           <span className="field-prefix">@</span>
           <input
@@ -1985,7 +1991,7 @@ function ProfileCard() {
         </div>
       </label>
       <label className="me-field">
-        <span>Website / portfolio</span>
+        <span>{t('me.profileWebsite')}</span>
         <input
           type="text"
           placeholder="yoursite.com"
@@ -1999,15 +2005,13 @@ function ProfileCard() {
 }
 
 // Dashboard menus: gallery editing and profile/account editing are separate concerns
-const ME_TABS = [
-  ['gallery', 'Gallery'],
-  ['guestbook', 'Guestbook'],
-  ['profile', 'Profile'],
-  ['account', 'Account'],
-] as const
-type MeTab = (typeof ME_TABS)[number][0]
+// Ids only — the labels are translated where they are rendered, since a module
+// constant cannot call a hook.
+const ME_TABS = ['gallery', 'guestbook', 'profile', 'account'] as const
+type MeTab = (typeof ME_TABS)[number]
 
 export default function MePage() {
+  const t = useT()
   const user = useGallery((s) => s.user)
   const initAuth = useGallery((s) => s.initAuth)
   const hydrate = useGallery((s) => s.hydrate)
@@ -2056,7 +2060,7 @@ export default function MePage() {
       setLoadErr('')
     } catch (e) {
       console.error('could not load galleries (are supabase/migrations applied?):', e)
-      setLoadErr('Could not load your galleries — please retry in a moment.')
+      setLoadErr(t('me.loadFailed'))
       setGalleries([])
     }
     try {
@@ -2081,10 +2085,10 @@ export default function MePage() {
 
   if (!supabase) {
     return (
-      <AuthShell title="Dashboard">
-        <p className="auth-note">Cloud features are not configured (Supabase keys required in .env.local).</p>
+      <AuthShell title={t('me.dashboard')}>
+        <p className="auth-note">{t('me.notConfigured')}</p>
         <p className="auth-links">
-          <Link href="/">Back to XIBIT360</Link>
+          <Link href="/">{t('me.backHome')}</Link>
         </p>
       </AuthShell>
     )
@@ -2100,22 +2104,22 @@ export default function MePage() {
         <div className="me-top">
           <Link href="/" className="auth-logo">XIBIT360</Link>
           <div className="me-top-actions">
-            <Link className="btn-line" href="/explore">Explore</Link>
+            <Link className="btn-line" href="/explore">{t('me.explore')}</Link>
             {isAdmin && (
-              <Link className="btn-line btn-gold" href="/admin">Admin</Link>
+              <Link className="btn-line btn-gold" href="/admin">{t('me.admin')}</Link>
             )}
             {user && (
-              <button className="btn-line" onClick={() => void signOut()}>Sign out</button>
+              <button className="btn-line" onClick={() => void signOut()}>{t('me.signOut')}</button>
             )}
           </div>
         </div>
 
         {!user && checked && (
           <div className="me-card">
-            <p className="me-note" style={{ marginTop: 0 }}>You are not signed in.</p>
+            <p className="me-note" style={{ marginTop: 0 }}>{t('me.notSignedIn')}</p>
             <div className="hako-actions">
-              <Link className="btn-line" href="/signin">Sign in</Link>
-              <Link className="btn-line" href="/signup">Create account</Link>
+              <Link className="btn-line" href="/signin">{t('common.signIn')}</Link>
+              <Link className="btn-line" href="/signup">{t('me.createAccount')}</Link>
             </div>
           </div>
         )}
@@ -2127,21 +2131,21 @@ export default function MePage() {
               <div className={`me-card purchase-return${purchaseReturn === 'success' ? ' ok' : ''}`} role="status">
                 <p className="me-note" style={{ margin: 0 }}>
                   {purchaseReturn === 'success'
-                    ? 'Payment received — your upgrade unlocks in a few seconds. If it doesn’t appear, refresh this page.'
-                    : 'Checkout cancelled — nothing was charged.'}
+                    ? t('me.purchaseSuccess')
+                    : t('me.purchaseCancelled')}
                 </p>
-                <button className="btn-line" onClick={() => setPurchaseReturn(null)}>Dismiss</button>
+                <button className="btn-line" onClick={() => setPurchaseReturn(null)}>{t('me.dismiss')}</button>
               </div>
             )}
-            <nav className="me-tabs" aria-label="Dashboard sections">
-              {ME_TABS.map(([key, label]) => (
+            <nav className="me-tabs" aria-label={t('me.sections')}>
+              {ME_TABS.map((key) => (
                 <button
                   key={key}
                   className={`me-tab${tab === key ? ' active' : ''}`}
                   aria-current={tab === key ? 'page' : undefined}
                   onClick={() => setTab(key)}
                 >
-                  {label}
+                  {t(`me.tab${key.charAt(0).toUpperCase()}${key.slice(1)}`)}
                 </button>
               ))}
             </nav>
@@ -2152,9 +2156,9 @@ export default function MePage() {
                 <section className="me-section">
                   {/* The GalleryCard renders its own "My gallery" header (with the Save action);
                       only show a bare heading while there's no card yet (loading / empty). */}
-                  {(galleries === null || galleries.length === 0) && <h2>My gallery</h2>}
+                  {(galleries === null || galleries.length === 0) && <h2>{t('me.myGallery')}</h2>}
                   {loadErr && <p className="me-error">{loadErr}</p>}
-                  {galleries === null && !loadErr && <p className="me-note">Loading your gallery…</p>}
+                  {galleries === null && !loadErr && <p className="me-note">{t('me.loading')}</p>}
                   {galleries !== null && !loadErr && galleries.length === 0 && (
                     <CreateCard onCreated={() => void reload()} />
                   )}
@@ -2168,8 +2172,10 @@ export default function MePage() {
                   )}
                   {usage !== null && (
                     <p className="me-note">
-                      Storage: {(usage / 1024 / 1024).toFixed(1)} MB of{' '}
-                      {Math.round(PLAN.storageBytes / 1024 / 1024)} MB used
+                      {t('me.storage', {
+                        used: `${(usage / 1024 / 1024).toFixed(1)} MB`,
+                        total: `${Math.round(PLAN.storageBytes / 1024 / 1024)} MB`,
+                      })}
                     </p>
                   )}
                 </section>
@@ -2178,12 +2184,12 @@ export default function MePage() {
 
             {tab === 'guestbook' && (
               <section className="me-section">
-                <h2>Guestbook</h2>
+                <h2>{t('me.tabGuestbook')}</h2>
                 {galleries !== null && galleries.length > 0 ? (
                   <GuestbookCard galleryId={galleries[0].id} enabled={galleries[0].guestbook_enabled !== false} />
                 ) : (
                   <p className="me-note">
-                    Create your gallery first — the guestbook collects what visitors write in your room.
+                    {t('me.guestbookNeedGallery')}
                   </p>
                 )}
               </section>
@@ -2197,7 +2203,7 @@ export default function MePage() {
 
             {tab === 'account' && (
               <section className="me-section">
-                <h2>Account</h2>
+                <h2>{t('me.tabAccount')}</h2>
                 <AccountCard />
               </section>
             )}
@@ -2205,9 +2211,9 @@ export default function MePage() {
         )}
 
         <footer className="artist-footer">
-          <Link href="/terms">Terms</Link>
-          <Link href="/legal">Legal</Link>
-          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">{t('footer.terms')}</Link>
+          <Link href="/legal">{t('footer.legal')}</Link>
+          <Link href="/privacy">{t('footer.privacy')}</Link>
         </footer>
       </div>
     </main>

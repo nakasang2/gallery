@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { fetchPublicFeed, EXPLORE_PAGE_SIZE, type FeedItem } from '@/lib/publish'
 import FeedCard from '@/components/FeedCard'
+import { useT } from '@/components/I18nProvider'
 
 export default function ExploreFeed({
   initialItems,
@@ -13,6 +14,7 @@ export default function ExploreFeed({
   initialItems: FeedItem[]
   initialHasMore: boolean
 }) {
+  const t = useT()
   const [items, setItems] = useState(initialItems)
   const [hasMore, setHasMore] = useState(initialHasMore)
   const [loading, setLoading] = useState(false)
@@ -30,7 +32,7 @@ export default function ExploreFeed({
   }
 
   if (items.length === 0) {
-    return <p className="feed-empty">No public exhibitions yet — be the first.</p>
+    return <p className="feed-empty">{t('explore.emptyState')}</p>
   }
 
   return (
@@ -43,7 +45,7 @@ export default function ExploreFeed({
       {hasMore && (
         <div className="feed-load-more">
           <button className="btn-line" onClick={() => void loadMore()} disabled={loading}>
-            {loading ? 'Loading…' : 'Load more'}
+            {loading ? t('common.saving') : t('explore.loadMore')}
           </button>
         </div>
       )}

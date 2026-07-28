@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react'
 import { usd, type PurchaseOption } from '@/lib/pricing'
 import { startCheckout, type PurchaseIntent } from '@/lib/checkout'
+import { useT } from '@/components/I18nProvider'
 
 export default function PurchaseModal({
   itemLabel,
@@ -35,6 +36,7 @@ export default function PurchaseModal({
   previewNote?: string
   onClose: () => void
 }) {
+  const t = useT()
   const [selected, setSelected] = useState(options[0]?.key ?? '')
   const [qty, setQty] = useState(1)
   const [tried, setTried] = useState(false)
@@ -74,7 +76,7 @@ export default function PurchaseModal({
       }
       setTried(true) // billing not configured / signed out — honest note, not a fake buy
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Checkout failed — please try again.')
+      setError(e instanceof Error ? e.message : t('purchase.failed'))
     } finally {
       setBusy(false)
     }
@@ -89,7 +91,7 @@ export default function PurchaseModal({
         aria-label={`Buy ${itemLabel}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="purchase-close" aria-label="Close" onClick={onClose}>×</button>
+        <button className="purchase-close" aria-label={t('purchase.close')} onClick={onClose}>×</button>
         {preview && <div className="purchase-preview">{preview}</div>}
         {eyebrow && <p className="purchase-eyebrow">{eyebrow}</p>}
         <h3 className="purchase-title">{itemLabel}</h3>
@@ -97,7 +99,7 @@ export default function PurchaseModal({
         {quantity ? (
           <div className="purchase-qty">
             <div className="purchase-qty-row">
-              <span className="purchase-qty-label">How many {quantity.unitLabel}s?</span>
+              <span className="purchase-qty-label">{t('purchase.howMany', { unit: quantity.unitLabel })}</span>
               <div className="purchase-stepper">
                 <button
                   type="button"
@@ -151,7 +153,7 @@ export default function PurchaseModal({
 
         {tried ? (
           <p className="purchase-note purchase-note-active">
-            Checkout isn&apos;t live yet — you&apos;ll be able to buy this the moment it ships.
+            {t('purchase.notLive')}
           </p>
         ) : (
           <>
@@ -163,8 +165,7 @@ export default function PurchaseModal({
                   onChange={(e) => setAcknowledged(e.target.checked)}
                 />
                 <span>
-                  Unlock it straight away. I understand that means I give up the 14-day
-                  right to cancel, and that it is non-refundable once unlocked.
+                  {t('purchase.consent')}
                 </span>
               </label>
             )}
@@ -173,7 +174,7 @@ export default function PurchaseModal({
               onClick={() => void onCta()}
               disabled={busy || (!!intent && !acknowledged)}
             >
-              {busy ? 'Opening checkout…' : 'Continue to checkout'}
+              {busy ? t('purchase.opening') : t('purchase.continueToCheckout')}
             </button>
             {error ? (
               <p className="purchase-note purchase-note-active">{error}</p>

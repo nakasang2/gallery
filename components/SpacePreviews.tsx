@@ -18,6 +18,7 @@ import {
 } from '@/lib/presets'
 import { effectiveSlotCount } from '@/lib/limits'
 import { LockIcon } from '@/components/icons'
+import { useT } from '@/components/I18nProvider'
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
 
@@ -257,6 +258,8 @@ export function TemplateCard({
   locked?: boolean
   onClick: () => void
 }) {
+  // `t` is already taken here (the TemplateDef), so the translator is `tr`
+  const tr = useT()
   const t = TEMPLATES[templateId]
   if (!t) return null
   return (
@@ -273,7 +276,7 @@ export function TemplateCard({
       </span>
       {locked && (
         <span className="tpl-lock" aria-hidden="true">
-          <LockIcon /> Premium
+          <LockIcon /> {tr('design.premium')}
         </span>
       )}
       <span className="tpl-name">{t.label}</span>

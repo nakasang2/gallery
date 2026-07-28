@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
+import { useT } from '@/components/I18nProvider'
 
 const MIN_PASSWORD = 8
 
 export default function SignUpPage() {
+  const t = useT()
   const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -24,8 +26,8 @@ export default function SignUpPage() {
 
   if (!supabase) {
     return (
-      <AuthShell title="Create an account">
-        <p className="auth-note">Cloud features are not configured (Supabase keys required in .env.local).</p>
+      <AuthShell title={t('auth.createAccount')}>
+        <p className="auth-note">{t('auth.notConfigured')}</p>
       </AuthShell>
     )
   }
@@ -34,15 +36,15 @@ export default function SignUpPage() {
     e.preventDefault()
     if (busy) return
     if (!agreed) {
-      setError('Please accept the Terms and Privacy Policy to create an account.')
+      setError(t('auth.consentRequired'))
       return
     }
     if (password.length < MIN_PASSWORD) {
-      setError(`Password must be at least ${MIN_PASSWORD} characters.`)
+      setError(t('auth.passwordTooShort', { min: MIN_PASSWORD }))
       return
     }
     if (password !== confirm) {
-      setError('Passwords do not match.')
+      setError(t('auth.passwordMismatch'))
       return
     }
     setBusy(true)
@@ -77,39 +79,39 @@ export default function SignUpPage() {
 
   if (sent) {
     return (
-      <AuthShell title="Check your inbox">
+      <AuthShell title={t('auth.checkInbox')}>
         <p className="auth-note">
           We sent a confirmation link to <b>{email.trim()}</b>. Open it and you&apos;ll land in your
           dashboard, signed in.
         </p>
         <div className="auth-alt">
           <button className="btn-line" disabled={busy} onClick={() => void resend()}>
-            Resend the email
+            {t('auth.resend')}
           </button>
         </div>
         {error && <p className="auth-error">{error}</p>}
         <p className="auth-links">
-          <Link href="/signin">Back to sign in</Link>
+          <Link href="/signin">{t('auth.backToSignIn')}</Link>
         </p>
       </AuthShell>
     )
   }
 
   return (
-    <AuthShell title="Create an account">
+    <AuthShell title={t('auth.createAccount')}>
       <form onSubmit={(e) => void signUp(e)}>
         <label className="auth-field">
-          <span>Display name (optional)</span>
+          <span>{t('auth.displayName')}</span>
           <input
             type="text"
             autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Shown as the artist name"
+            placeholder={t('auth.displayNameHint')}
           />
         </label>
         <label className="auth-field">
-          <span>Email</span>
+          <span>{t('auth.email')}</span>
           <input
             type="email"
             autoComplete="email"
@@ -119,7 +121,7 @@ export default function SignUpPage() {
           />
         </label>
         <label className="auth-field">
-          <span>Password (min {MIN_PASSWORD} characters)</span>
+          <span>{t('auth.password', { min: MIN_PASSWORD })}</span>
           <input
             type="password"
             autoComplete="new-password"
@@ -130,7 +132,7 @@ export default function SignUpPage() {
           />
         </label>
         <label className="auth-field">
-          <span>Confirm password</span>
+          <span>{t('auth.confirmPassword')}</span>
           <input
             type="password"
             autoComplete="new-password"
@@ -149,13 +151,12 @@ export default function SignUpPage() {
             aria-describedby="consent-text"
           />
           <span id="consent-text">
-            I agree to the <Link href="/terms">Terms of Service</Link> and{' '}
-            <Link href="/privacy">Privacy Policy</Link>, and I am 18 or older.
+            {t('auth.consent')}
           </span>
         </label>
         {error && <p className="auth-error">{error}</p>}
         <button className="auth-submit" disabled={busy || !agreed} type="submit">
-          Create account
+          {t('me.createAccount')}
         </button>
       </form>
       <div className="auth-alt">
@@ -169,11 +170,11 @@ export default function SignUpPage() {
               .then(({ error }) => error && setError(error.message))
           }}
         >
-          Continue with Google
+          {t('auth.continueWithGoogle')}
         </button>
       </div>
       <p className="auth-links">
-        <Link href="/signin">Already have an account? Sign in</Link>
+        <Link href="/signin">{t('auth.haveAccount')}</Link>
       </p>
     </AuthShell>
   )

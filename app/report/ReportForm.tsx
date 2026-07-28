@@ -4,8 +4,10 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { submitReport } from '@/lib/engagement'
 import AuthShell from '@/components/auth/AuthShell'
+import { useT } from '@/components/I18nProvider'
 
 export default function ReportForm({ about }: { about: string }) {
+  const t = useT()
   const [aboutInput, setAboutInput] = useState(about)
   const [reason, setReason] = useState('')
   const [contact, setContact] = useState('')
@@ -14,17 +16,17 @@ export default function ReportForm({ about }: { about: string }) {
 
   if (!supabase) {
     return (
-      <AuthShell title="Report a problem">
-        <p className="auth-note">Reporting is not available (Supabase is not configured).</p>
+      <AuthShell title={t('report.title')}>
+        <p className="auth-note">{t('report.unavailable')}</p>
       </AuthShell>
     )
   }
 
   if (done) {
     return (
-      <AuthShell title="Thank you">
+      <AuthShell title={t('report.thanksTitle')}>
         <p className="auth-note">
-          Your report has been received. We review reports and take down content that violates the{' '}
+          {t('report.thanksBody')}
           <Link href="/terms" style={{ color: 'var(--gold)' }}>terms</Link>.
         </p>
         <p className="auth-links">
@@ -50,20 +52,20 @@ export default function ReportForm({ about }: { about: string }) {
   }
 
   return (
-    <AuthShell title="Report a problem">
+    <AuthShell title={t('report.title')}>
       <form onSubmit={(e) => void submit(e)}>
         <label className="auth-field">
-          <span>What are you reporting?</span>
+          <span>{t('report.whatLabel')}</span>
           <input
             type="text"
-            placeholder="@username/gallery or a URL"
+            placeholder={t('report.whatPlaceholder')}
             required
             value={aboutInput}
             onChange={(e) => setAboutInput(e.target.value)}
           />
         </label>
         <label className="auth-field">
-          <span>Why? (copyright, harassment, illegal content…)</span>
+          <span>{t('report.whyLabel')}</span>
           <textarea
             className="auth-textarea"
             rows={5}
@@ -74,16 +76,16 @@ export default function ReportForm({ about }: { about: string }) {
           />
         </label>
         <label className="auth-field">
-          <span>Your contact (optional, for follow-up)</span>
+          <span>{t('report.contactLabel')}</span>
           <input
             type="text"
-            placeholder="email or handle"
+            placeholder={t('report.contactPlaceholder')}
             value={contact}
             onChange={(e) => setContact(e.target.value)}
           />
         </label>
         <button className="auth-submit" disabled={busy || !reason.trim()} type="submit">
-          Send report
+          {t('report.send')}
         </button>
       </form>
     </AuthShell>
