@@ -43,11 +43,13 @@ for (const sig of ['SIGINT', 'SIGTERM']) {
   })
 }
 
-const run = ({ files, gate, add = true }) => {
+const run = ({ files, gate, add = true, setup }) => {
   const dir = mkdtempSync(join(tmpdir(), 'gate-'))
   madeDirs.add(dir)
   try {
-    execFileSync('git', ['init', '-q'], { cwd: dir })
+    // `-b main` は必須: 既定のブランチ名は git の設定次第（master のこともある）で、
+    // check:ship-ready は origin/main と比べるので、ここが揺れるとケースが嘘になる。
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir })
     // 番人が読む定型のファイル（基準線は空配列＝ラチェットの現在値）
     const base = { 'scripts/css-dead-baseline.json': '[]', ...files }
     for (const [rel, body] of Object.entries(base)) {
@@ -55,7 +57,16 @@ const run = ({ files, gate, add = true }) => {
       writeFileSync(join(dir, rel), body)
     }
     if (add) execFileSync('git', ['add', '-A'], { cwd: dir })
-    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', gate)], { cwd: dir, encoding: 'utf8' })
+    // git の履歴/リモートまで作らないと試せない番人（check:ship-ready）用のフック。
+    // 合成リポジトリの中だけで完結させる（ネットワークには出ない）。
+    if (setup) setup(dir, (...args) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' }))
+    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', gate)], {
+      cwd: dir,
+      encoding: 'utf8',
+      // 本番の番人は CI/Vercel では自分を飛ばす。自己テストでその分岐に入ると
+      // 「落ちるべき入力が通った」が全部見逃しになるので、明示的に外す。
+      env: { ...process.env, CI: '', VERCEL: '', SKIP_SHIP_READY: '' },
+    })
     // status が null なのはシグナルで死んだとき。番人の「検出」と区別する。
     return {
       code: r.status,
@@ -432,6 +443,65 @@ gateCase('check:css — 死んだクラス（IDではない従来の検出）も
   },
   expectFail: true,
   reported: ['.ghost-cls'],
+})
+
+// -------------------------------------------------------------- check:ship-ready
+// 並行セッション起因の手戻りを止める番人（/kaizen 昇格 2026-07-29、×6）。
+// 合成リポジトリに「ローカルの origin」を作って、base が動いている状態などを再現する。
+const shipRepo = (opts = {}) => (dir, git) => {
+  git('config', 'user.email', 'gate@example.com')
+  git('config', 'user.name', 'gate')
+  git('commit', '-qm', 'base')
+  // ベアリポジトリを origin にして push（ネットワークに出ずに remote-tracking を作る）。
+  // **作業ツリーの外**に置く: 中に作ると未追跡ファイルとして番人に見え、
+  // 「クリーンなら通す」の負の対照が自分の仕掛けのせいで落ちる（実際に踏んだ）。
+  const remote = mkdtempSync(join(tmpdir(), 'gate-origin-'))
+  madeDirs.add(remote)
+  execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
+  git('remote', 'add', 'origin', remote)
+  git('push', '-q', 'origin', 'main')
+  if (opts.remoteAhead) {
+    // origin だけを1コミット進める（= 別セッションが push した状態）
+    git('commit', '-qm', 'theirs', '--allow-empty')
+    git('push', '-q', 'origin', 'main')
+    git('reset', '-q', '--hard', 'HEAD~1')
+  }
+  if (opts.dirty) writeFileSync(join(dir, 'app/dirty.tsx'), 'export const x = 1\n')
+  if (opts.untracked) writeFileSync(join(dir, 'app/brand-new.tsx'), 'export const y = 2\n')
+}
+
+const SHIP_FILES = { 'app/page.tsx': 'export default function P() { return null }\n' }
+
+gateCase('check:ship-ready — 早送り可能でクリーンなら通す（負の対照）', {
+  gate: 'check-ship-ready.mjs',
+  files: SHIP_FILES,
+  setup: shipRepo(),
+  expectFail: false,
+  contains: ['push 前の確認: OK'],
+})
+
+gateCase('check:ship-ready — origin/main が進んでいたら止める（検証やり直しが必要）', {
+  gate: 'check-ship-ready.mjs',
+  files: SHIP_FILES,
+  setup: shipRepo({ remoteAhead: true }),
+  expectFail: true,
+  contains: ['origin/main が進んでいます', 'rebase'],
+})
+
+gateCase('check:ship-ready — 未コミットの変更が残っていたら止める（別セッションの巻き込み）', {
+  gate: 'check-ship-ready.mjs',
+  files: SHIP_FILES,
+  setup: shipRepo({ dirty: true }),
+  expectFail: true,
+  contains: ['未コミット'],
+})
+
+gateCase('check:ship-ready — 未追跡ファイルだけでも止める（検証対象から漏れる）', {
+  gate: 'check-ship-ready.mjs',
+  files: SHIP_FILES,
+  setup: shipRepo({ untracked: true }),
+  expectFail: true,
+  contains: ['未コミット'],
 })
 
 // --------------------------------------------------------------------- 実行
