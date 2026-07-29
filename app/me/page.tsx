@@ -17,7 +17,7 @@ import PlacementEditor from '@/components/PlacementEditor'
 import TopActions from '@/components/TopActions'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, type PaidKind } from '@/lib/pricing'
-import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked } from '@/lib/entitlements'
+import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
 import { PLAN, MAX_WORKS_PER_ROOM, GALLERY_BGM_MAX_BYTES } from '@/lib/limits'
@@ -366,7 +366,10 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
         </p>
         {/* One preview per card (the card top IS the wall preview) — no duplicate block */}
         <div className="tpl-grid">
-          {Object.keys(TEMPLATES).map((key) => {
+          {unlockedFirst(Object.keys(TEMPLATES), (key) => {
+            const tpl = TEMPLATES[key]
+            return !tpl || isTemplateUnlocked(tpl, entitlements)
+          }).map((key) => {
             const t = TEMPLATES[key]
             return (
               <TemplateCard
@@ -1242,7 +1245,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             <div className="wd-row">
               <span className="wd-label">{t('me.theme')}</span>
               <div className="chips">
-                {Object.entries(THEMES).map(([key, def]) => {
+                {unlockedFirst(Object.entries(THEMES), ([key]) => isThemeUnlocked(key, entitlements)).map(([key, def]) => {
                   const unlocked = isThemeUnlocked(key, entitlements)
                   return (
                     <button
@@ -1265,7 +1268,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             <div className="wd-row">
               <span className="wd-label">{t('me.layout')}</span>
               <div className="chips">
-                {Object.entries(LAYOUTS).map(([key, def]) => {
+                {unlockedFirst(Object.entries(LAYOUTS), ([key]) => isLayoutUnlocked(key, entitlements)).map(([key, def]) => {
                   const unlocked = isLayoutUnlocked(key, entitlements)
                   return (
                     <button

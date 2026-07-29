@@ -13,7 +13,7 @@ import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
 import { getProfile, saveProfile } from '@/lib/publish'
 import { setGalleryPublic } from '@/lib/galleries'
 import { walkRef } from '@/lib/controller'
-import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isFrameUnlocked } from '@/lib/entitlements'
+import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isFrameUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import PurchaseModal from '@/components/PurchaseModal'
 import { LockIcon, VideoIcon } from '@/components/icons'
@@ -574,23 +574,42 @@ export default function SettingsPanel() {
 
       <section className="settings-section">
         <h3>{t('panel.template')}</h3>
-        {/* A template sets every axis below in one go — shown as pictures, not names */}
+        {/* A template sets every axis below in one go — shown as pictures, not names.
+            It also has to respect the same locks the axes do: a template carries a
+            theme AND a layout, so applying "Classic Salon" here used to hand over a
+            paid theme (chic) and a paid layout (hall) for free — the chips right
+            below it were gated but this shortcut past them was not. Sells whichever
+            axis is locked, the theme first (it is the bigger visual change). */}
         <div className="tpl-grid">
-          {Object.keys(TEMPLATES).map((key) => (
+          {unlockedFirst(
+            Object.keys(TEMPLATES),
+            (key) => !TEMPLATES[key] || isTemplateUnlocked(TEMPLATES[key], entitlements)
+          ).map((key) => (
             <TemplateCard
               key={key}
               templateId={key}
               active={key === activeTemplate}
+              locked={!!TEMPLATES[key] && !isTemplateUnlocked(TEMPLATES[key], entitlements)}
               onClick={() => {
+                // `tpl`, not `t` — `t` is the dictionary lookup this file uses everywhere
+                const tpl = TEMPLATES[key]
+                if (!tpl) return
+                if (!isTemplateUnlocked(tpl, entitlements)) {
+                  setPurchaseItem(
+                    !isThemeUnlocked(tpl.theme, entitlements)
+                      ? { kind: 'theme', key: tpl.theme, label: THEMES[tpl.theme]?.label ?? tpl.theme }
+                      : { kind: 'layout', key: tpl.layout, label: t(`presets.layout.${tpl.layout}`) }
+                  )
+                  return
+                }
                 if (!confirmOverrideReset(...allOverrideMaps)) return
-                const t = TEMPLATES[key]
                 updateSettings({
-                  theme: t.theme,
-                  layout: t.layout,
-                  frame: t.frame,
+                  theme: tpl.theme,
+                  layout: tpl.layout,
+                  frame: tpl.frame,
                   mat: 'auto',
-                  hanging: t.hanging,
-                  caption: t.caption,
+                  hanging: tpl.hanging,
+                  caption: tpl.caption,
                   frameOverrides: {},
                   matOverrides: {},
                   hangingOverrides: {},
@@ -607,7 +626,7 @@ export default function SettingsPanel() {
         <h3>{t('panel.theme')}</h3>
         {/* Wall / floor / light colours shown right on the chip */}
         <div className="chips">
-          {Object.entries(THEMES).map(([key, def]) => {
+          {unlockedFirst(Object.entries(THEMES), ([key]) => isThemeUnlocked(key, entitlements)).map(([key, def]) => {
             const unlocked = isThemeUnlocked(key, entitlements)
             return (
               <button
@@ -641,7 +660,7 @@ export default function SettingsPanel() {
         <h3>{t('panel.layout')}</h3>
         {/* Floor plans generated from the real layout data: room, hanging spots, benches */}
         <div className="chips">
-          {Object.entries(LAYOUTS).map(([key, def]) => {
+          {unlockedFirst(Object.entries(LAYOUTS), ([key]) => isLayoutUnlocked(key, entitlements)).map(([key, def]) => {
             const unlocked = isLayoutUnlocked(key, entitlements)
             return (
               <button
@@ -750,7 +769,7 @@ export default function SettingsPanel() {
             Every frame shipped so far is free; a frame added from here on is paid and
             locks itself (lib/entitlements → FOREVER_FREE_FRAME_IDS). */}
         <div className="chips">
-          {Object.keys(FRAMES).map((key) => {
+          {unlockedFirst(Object.keys(FRAMES), (key) => isFrameUnlocked(key, entitlements)).map((key) => {
             const unlocked = isFrameUnlocked(key, entitlements)
             return (
               <button

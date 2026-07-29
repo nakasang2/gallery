@@ -122,6 +122,22 @@ export function isTemplateUnlocked(
   return isThemeUnlocked(tpl.theme, ent) && isLayoutUnlocked(tpl.layout, ent)
 }
 
+/**
+ * Order a list of options so the ones the viewer can use right now come first,
+ * keeping the catalogue's own order inside each group (ユーザー判断 2026-07-29:
+ * 「初期状態ですでに無料開放されてるものは、全部左に表示してほしい」).
+ *
+ * Free-by-default options are always unlocked, so they always lead — and a
+ * purchase moves that item up to join them instead of leaving the owner hunting
+ * for what they paid for among the locks.
+ */
+export function unlockedFirst<T>(items: T[], isUnlocked: (item: T) => boolean): T[] {
+  const open: T[] = []
+  const locked: T[] = []
+  for (const item of items) (isUnlocked(item) ? open : locked).push(item)
+  return [...open, ...locked]
+}
+
 /* ================= The paid catalog ================= */
 // Everything in the presets that isn't forever-free is, by definition, for sale.
 // Derived (not a second hand-written list), so a theme added to THEMES is
