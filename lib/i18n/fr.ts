@@ -25,6 +25,7 @@ export const fr: PartialDictionary = {
     heroCtaArrow: 'Parcourir la démo →',
     heroAlt: 'ou créez la vôtre — gratuitement →',
     heroScroll: 'Faites défiler pour entrer',
+    hudRoom: 'La salle', hudRoomWork: 'Construite autour d’une seule œuvre.', hudRoomWalk: 'On la parcourt, on ne la fait pas défiler.', hudFeatures: 'Fonctions · {n}',
 
     featuresCue: 'Traversez la salle — six choses que cet espace sait faire, accrochées au mur.',
     featuresTitle: 'Ce que la salle sait faire.',
@@ -506,6 +507,7 @@ export const fr: PartialDictionary = {
     moveUp: 'Monter', moveDown: 'Descendre', remove: 'Retirer',
 
     lpHero: 'Œuvres en tête de la page d’accueil', demoDefault: 'Démo par défaut', clear: 'Effacer',
+    slotCenter: 'Centre', slotLeft: 'Gauche', slotRight: 'Droite', upload: 'Importer', replace: 'Remplacer', saved: 'Enregistré',
     uploadFailed: 'L’import a échoué : {msg}', saveFailed: 'Enregistrement impossible : {msg}',
 
     ghostSpeed: 'Vitesse des silhouettes', resetDefault: 'Revenir au réglage par défaut',

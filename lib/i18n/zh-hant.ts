@@ -24,6 +24,7 @@ export const zhHant: PartialDictionary = {
     heroCtaArrow: '走進範例展場 →',
     heroAlt: '或做一個自己的 — 免費 →',
     heroScroll: '向下捲動進入',
+    hudRoom: '這個空間', hudRoomWork: '為一件作品而建的空間。', hudRoomWalk: '不是滑動，而是行走。', hudFeatures: '功能 · {n}',
 
     featuresCue: '在展場裡走一圈 — 六件這個空間能做的事，掛在牆上。',
     featuresTitle: '這個空間能做什麼。',
@@ -505,6 +506,7 @@ export const zhHant: PartialDictionary = {
     moveUp: '上移', moveDown: '下移', remove: '移除',
 
     lpHero: '首頁的主視覺作品', demoDefault: '預設範例', clear: '清除',
+    slotCenter: '中間', slotLeft: '左側', slotRight: '右側', upload: '上傳', replace: '更換', saved: '已儲存',
     uploadFailed: '上傳失敗：{msg}', saveFailed: '沒能儲存：{msg}',
 
     ghostSpeed: '人影行走速度', resetDefault: '恢復預設',

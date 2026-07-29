@@ -521,6 +521,11 @@ export const ja: Dictionary = {
     heroAlt: '自分の展示を作る — 無料 →',
     heroScroll: 'スクロールして入る',
 
+    hudRoom: 'この部屋',
+    hudRoomWork: '一点のためにつくられた部屋。',
+    hudRoomWalk: 'スクロールではなく、歩く。',
+    hudFeatures: 'できること · {n}',
+
     featuresCue: '廊下を歩いてください。この部屋にできること、6つを壁に掛けています。',
     featuresTitle: 'この部屋にできること。',
     f1Title: 'ブラウザの中の、個展',
@@ -729,6 +734,12 @@ export const ja: Dictionary = {
     lpHero: 'トップページのヒーロー画像',
     demoDefault: 'デモの既定',
     clear: 'クリア',
+    slotCenter: '中央',
+    slotLeft: '左',
+    slotRight: '右',
+    upload: 'アップロード',
+    replace: '差し替え',
+    saved: '保存しました',
     uploadFailed: 'アップロードできませんでした：{msg}',
     saveFailed: '保存できませんでした：{msg}',
 

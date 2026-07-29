@@ -25,6 +25,7 @@ export const ptBr: PartialDictionary = {
     heroCtaArrow: 'Percorrer a demo →',
     heroAlt: 'ou crie a sua — de graça →',
     heroScroll: 'Role para entrar',
+    hudRoom: 'A sala', hudRoomWork: 'Construída em torno de uma única obra.', hudRoomWalk: 'Você caminha, não rola a tela.', hudFeatures: 'Recursos · {n}',
 
     featuresCue: 'Atravesse a sala — seis coisas que este espaço sabe fazer, penduradas na parede.',
     featuresTitle: 'O que a sala sabe fazer.',
@@ -506,6 +507,7 @@ export const ptBr: PartialDictionary = {
     moveUp: 'Subir', moveDown: 'Descer', remove: 'Remover',
 
     lpHero: 'Obras do topo da página inicial', demoDefault: 'Demonstração padrão', clear: 'Limpar',
+    slotCenter: 'Centro', slotLeft: 'Esquerda', slotRight: 'Direita', upload: 'Enviar', replace: 'Substituir', saved: 'Salvo',
     uploadFailed: 'O envio falhou: {msg}', saveFailed: 'Não foi possível salvar: {msg}',
 
     ghostSpeed: 'Velocidade das silhuetas', resetDefault: 'Voltar ao padrão',

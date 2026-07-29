@@ -29,6 +29,16 @@ interface I18nValue {
 // the provider (tests, a stray portal) working instead of blanking the page.
 const I18nContext = createContext<I18nValue | null>(null)
 
+// One module-level object, not a fresh one per call: `t` is used as a useMemo
+// dependency by callers that build expensive things from it (the LP wall textures
+// are baked into canvases keyed on it). A new identity on every render would
+// rebuild them on every scroll tick.
+const FALLBACK: I18nValue = {
+  locale: DEFAULT_LOCALE,
+  t: (key, params) => translate(en, DEFAULT_LOCALE, key, params),
+  setLocale: () => {},
+}
+
 export function I18nProvider({
   locale,
   dictionary,
@@ -70,13 +80,7 @@ export function I18nProvider({
 }
 
 export function useI18n(): I18nValue {
-  const ctx = useContext(I18nContext)
-  if (ctx) return ctx
-  return {
-    locale: DEFAULT_LOCALE,
-    t: (key, params) => translate(en, DEFAULT_LOCALE, key, params),
-    setLocale: () => {},
-  }
+  return useContext(I18nContext) ?? FALLBACK
 }
 
 /** The common case — just the translate function. */

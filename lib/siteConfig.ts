@@ -15,7 +15,14 @@ export type LpHeroSlot = LpHeroImage | null
 
 // center / left / right — the three works visible at the LP entrance
 export const LP_HERO_SLOTS = 3
-export const LP_HERO_SLOT_LABELS = ['Center', 'Left', 'Right'] as const
+/** 枠のラベルは辞書のキーで持つ。表示文字列をここに置くと、`lib/` は
+ *  `npm run check:i18n` の検査対象外なので英語のまま静かに残る（実際に残っていた）。
+ *  解決するのは呼び出し側（components/LpHeroEditor）。 */
+export const LP_HERO_SLOT_LABEL_KEYS = [
+  'adminUi.slotCenter',
+  'adminUi.slotLeft',
+  'adminUi.slotRight',
+] as const
 
 function normalize(value: unknown): LpHeroSlot[] {
   const raw = value as { slots?: unknown } | unknown[] | null

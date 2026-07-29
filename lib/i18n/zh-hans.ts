@@ -26,6 +26,7 @@ export const zhHans: PartialDictionary = {
     heroCtaArrow: '走进示例展厅 →',
     heroAlt: '或者做一个自己的 — 免费 →',
     heroScroll: '向下滚动进入',
+    hudRoom: '这个空间', hudRoomWork: '为一件作品而建的空间。', hudRoomWalk: '不是滑动，而是行走。', hudFeatures: '功能 · {n}',
 
     featuresCue: '在展厅里走一圈 — 六件这个空间能做的事，挂在墙上。',
     featuresTitle: '这个空间能做什么。',
@@ -507,6 +508,7 @@ export const zhHans: PartialDictionary = {
     moveUp: '上移', moveDown: '下移', remove: '移除',
 
     lpHero: '首页的主视觉作品', demoDefault: '默认示例', clear: '清除',
+    slotCenter: '中间', slotLeft: '左侧', slotRight: '右侧', upload: '上传', replace: '替换', saved: '已保存',
     uploadFailed: '上传失败：{msg}', saveFailed: '没能保存：{msg}',
 
     ghostSpeed: '人影行走速度', resetDefault: '恢复默认',

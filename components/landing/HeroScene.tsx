@@ -12,6 +12,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
 import { fetchLpHero, LP_HERO_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
+import { useT } from '@/components/I18nProvider'
 
 /** LP hook: the configured hero images (null per slot = fall back to the demo art).
  *  Lives here (its only caller) so lib/siteConfig stays hook-free and server-importable. */
@@ -54,15 +55,24 @@ const HERO_SLOTS: { idx: number; z: number; scale: number }[] = [
   { idx: 6, z: 9.2, scale: 1.3 }, // right
 ]
 
-// 左壁の機能パネル 01〜06
-const PANELS: { n: string; h: string; b: string; z: number }[] = [
-  { n: '01', h: 'A solo show in the browser', b: 'No apps, no plugins. One link opens the gallery, and visitors walk it on desktop or phone.', z: -6 },
-  { n: '02', h: 'Hang works by drag & drop', b: 'Upload an image and place it on a wall. Height, spacing and sightlines snap to the template.', z: -11 },
-  { n: '03', h: 'Light and stage every piece', b: 'Spotlights, wall colour and flooring set the mood. Each work gets its own presentation.', z: -16 },
-  { n: '04', h: 'One address, open worldwide', b: 'xibit360.art/@you — a permanent URL for your practice, made for any bio or portfolio.', z: -21 },
-  { n: '05', h: 'Captions that carry the story', b: 'Title, year and statement are mounted beside each work, the way a museum label would be.', z: -26 },
-  { n: '06', h: 'Guestbook & reactions', b: 'Footprints, notes, quiet appreciation — feedback that behaves like an exhibition, not a comment feed.', z: -31 },
+// i18n-ok: URLの見本。ブランドのドメインなので訳さない（LPの Features 一覧と同じ形）
+const HANDLE_SAMPLE = 'xibit360.art/@you'
+
+// 左壁の機能パネル 01〜06。ここに持つのは番号と位置だけで、文言は辞書から引く
+// （`lp.f1Title` … `lp.f6Body`）。壁のパネルと Features セクションは同じ6項目なので、
+// キーを共有して「壁と一覧で言っていることが違う」状態を作らない。
+const PANEL_SPOTS: { n: string; z: number; k: string; pre?: string }[] = [
+  { n: '01', z: -6, k: 'f1' },
+  { n: '02', z: -11, k: 'f2' },
+  { n: '03', z: -16, k: 'f3' },
+  // 04 の本文はURLの見本に続く一文（辞書側も同じ形）
+  { n: '04', z: -21, k: 'f4', pre: HANDLE_SAMPLE },
+  { n: '05', z: -26, k: 'f5' },
+  { n: '06', z: -31, k: 'f6' },
 ]
+
+/** 壁に焼く1枚ぶんの文言（辞書解決済み）＋その位置 */
+type PanelText = { n: string; h: string; b: string; z: number }
 
 // 大部屋の作品配置
 // 遠壁(camera を向く +z 面) [idx, x, y, w]
@@ -80,29 +90,120 @@ const HALL_SIDES: [number, number, number, 'L' | 'R'][] = [
 ]
 
 type Hud = { eyebrow: string; title: string; body?: string }
-const CORRIDOR_HUD: Hud[] = [
-  { eyebrow: 'The room', title: 'Built around a single work.' },
-  { eyebrow: 'The room', title: 'Walked, not scrolled.' },
-  // Body copy rides along in the DOM HUD — the wall textures alone are unreadable
-  // on portrait phones and invisible to screen readers
-  ...PANELS.map((p) => ({ eyebrow: `Features · ${p.n}`, title: p.h, body: p.b })),
-]
 
-function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lh: number) {
-  const words = text.split(' ')
-  let line = ''
-  let yy = y
-  for (const w of words) {
-    const test = line ? line + ' ' + w : w
-    if (ctx.measureText(test).width > maxW && line) {
-      ctx.fillText(line, x, yy)
-      line = w
-      yy += lh
-    } else line = test
-  }
-  if (line) ctx.fillText(line, x, yy)
-  return yy
+/** カメラの止まり位置ごとの見出し（入口の2つ ＋ パネル6枚）。
+ *  Body copy rides along in the DOM HUD — the wall textures alone are unreadable
+ *  on portrait phones and invisible to screen readers. */
+function buildHud(t: (key: string, params?: Record<string, string | number>) => string, panels: PanelText[]): Hud[] {
+  return [
+    { eyebrow: t('lp.hudRoom'), title: t('lp.hudRoomWork') },
+    { eyebrow: t('lp.hudRoom'), title: t('lp.hudRoomWalk') },
+    ...panels.map((p) => ({ eyebrow: t('lp.hudFeatures', { n: p.n }), title: p.h, body: p.b })),
+  ]
 }
+
+// ---- canvas の折り返し ----
+// 折り返せる場所は文字体系ごとに違う。ラテン文字とハングルは語間に空白があるので
+// 空白で切れるが、日本語・中国語には空白が無く、語で切ると「1行＝全文」になって
+// 壁の外まで伸びる（10言語を入れた時点でLPの3D壁がこれで溢れた）。
+// 切れる単位だけを文字体系で分け、あとは共通の貪欲詰めで処理する。
+//
+// 記号/句読点・かな・カタカナ・漢字（拡張A含む）・互換漢字・互換形・全角形。
+// ハングル（AC00-D7AF）は語間に空白があるので入れない = ラテンと同じ扱いでよい。
+const CJK_BREAKABLE =
+  /[　-〿぀-ヿㇰ-ㇿ㐀-䶿一-鿿豈-﫿︰-﹏＀-｠￠-￦]/
+// 行頭禁則（終わり括弧・句読点・小書き仮名・長音）。日本語で行頭に「、」が来ると
+// 一目で素人組みに見えるので、直前の1トークンを一緒に次の行へ送る。
+const NO_LINE_START = /^[、。，．・：；？！゛゜ヽヾゝゞ々ーぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮ」』）］｝〕〉》〟’”,.:;?!)\]}%]/
+
+/** 折り返しの最小単位。`sep` はこのトークンの直前にあった区切り（空白か無し）。 */
+type Token = { s: string; sep: string }
+
+function tokenize(text: string): Token[] {
+  const out: Token[] = []
+  let sep = ''
+  let buf = ''
+  const flush = () => {
+    if (!buf) return
+    out.push({ s: buf, sep })
+    buf = ''
+    sep = ''
+  }
+  for (const ch of text.replace(/\s+/g, ' ').trim()) {
+    if (ch === ' ') {
+      flush()
+      sep = ' '
+    } else if (CJK_BREAKABLE.test(ch)) {
+      flush()
+      out.push({ s: ch, sep })
+      sep = ''
+    } else buf += ch
+  }
+  flush()
+  return out
+}
+
+const renderLine = (toks: Token[]) => toks.map((tk, i) => (i ? tk.sep + tk.s : tk.s)).join('')
+
+function layoutLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const lines: string[] = []
+  // 1トークンが幅を超えるとき（長いURLやドイツ語の複合語）だけ、最後の手段として
+  // 文字で割る。返すのは割り切れなかった末尾。
+  const hardSplit = (s: string): string => {
+    let cur = ''
+    for (const ch of s) {
+      if (cur && ctx.measureText(cur + ch).width > maxW) {
+        lines.push(cur)
+        cur = ch
+      } else cur += ch
+    }
+    return cur
+  }
+  // 改行しているのは体裁ではなく番人のため: `=>` と `<=` を同じ行に置くと、
+  // check:i18n がその間を「タグに挟まれたJSXテキスト」と読んで誤検知する。
+  // i18n-ok で黙らせるとこの行が恒久的に検査対象外になるので、行を分ける方を採る。
+  const fits = (toks: Token[]) =>
+    ctx.measureText(renderLine(toks)).width <= maxW
+  // 新しい行の先頭に置く。**行頭に置くときが唯一「1トークン単体が幅を超える」かを
+  // 見られる場所**なので、行の途中で溢れて折り返すときも必ずここを通す。
+  const openLine = (tk: Token): Token[] => (fits([tk]) ? [tk] : [{ s: hardSplit(tk.s), sep: '' }])
+
+  let cur: Token[] = []
+  for (const tk of tokenize(text)) {
+    if (!cur.length) {
+      cur = openLine(tk)
+      continue
+    }
+    if (fits([...cur, tk])) {
+      cur.push(tk)
+      continue
+    }
+    // 行を確定する。禁則: 行頭に来られない字なら直前の1トークンを一緒に次の行へ送る。
+    // 送った2つで幅を超えるなら送らない（禁則より溢れない方を優先する）。
+    // 直前が行の唯一のトークンのときも送らない — 空の行ができてしまう。
+    const pair: Token[] = [cur[cur.length - 1], tk]
+    if (!tk.sep && cur.length > 1 && NO_LINE_START.test(tk.s) && fits(pair)) {
+      lines.push(renderLine(cur.slice(0, -1)))
+      cur = pair
+    } else {
+      lines.push(renderLine(cur))
+      cur = openLine(tk)
+    }
+  }
+  if (cur.length) lines.push(renderLine(cur))
+  return lines
+}
+
+/** 折り返して描き、最後の行のベースラインyを返す（次のブロックの起点になる）。 */
+function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lh: number) {
+  const lines = layoutLines(ctx, text, maxW)
+  lines.forEach((line, i) => ctx.fillText(line, x, y + i * lh))
+  return y + Math.max(0, lines.length - 1) * lh
+}
+
+// パネルの文字が入る範囲（左70 / 右70 / 最後の行のベースラインはここまで）
+const PANEL_TEXT_W = 770
+const PANEL_TEXT_BOTTOM = 1110
 
 function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasTexture {
   const c = document.createElement('canvas')
@@ -117,10 +218,23 @@ function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasT
   ctx.fillText(p.n, 70, 372)
   ctx.fillStyle = '#191917'
   ctx.font = '600 62px "Geist", sans-serif'
-  const hy = wrapText(ctx, p.h, 70, 580, 770, 76)
+  const hy = wrapText(ctx, p.h, 70, 580, PANEL_TEXT_W, 76)
   ctx.fillStyle = '#5a584f'
-  ctx.font = '400 38px "Geist", sans-serif'
-  wrapText(ctx, p.b, 70, hy + 96, 770, 56)
+  // 本文の長さは言語で倍近く変わる（CJKは1字が全角、独語は語が長い）。行数が増えて
+  // 板の下に落ちるときは、文字サイズを1段ずつ落として収める — textures.ts の名板が
+  // CJKのタイトルに対してやっているのと同じ手当て。
+  const bodyTop = hy + 96
+  const sizes = [38, 34, 30, 26]
+  for (const px of sizes) {
+    ctx.font = `400 ${px}px "Geist", sans-serif`
+    const lh = Math.round(px * 1.47)
+    const lines = layoutLines(ctx, p.b, PANEL_TEXT_W)
+    const last = bodyTop + (lines.length - 1) * lh
+    if (last <= PANEL_TEXT_BOTTOM || px === sizes[sizes.length - 1]) {
+      lines.forEach((line, i) => ctx.fillText(line, 70, bodyTop + i * lh))
+      break
+    }
+  }
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   tex.anisotropy = 8
@@ -141,7 +255,7 @@ function Spot({ pos, target, color = '#ffeed6', intensity = 120, angle = 0.55, d
   )
 }
 
-function Panel({ p }: { p: { n: string; h: string; b: string; z: number } }) {
+function Panel({ p }: { p: PanelText }) {
   const tex = useMemo(() => makePanelTexture(p), [p])
   useEffect(() => () => tex.dispose(), [tex])
   const w = 1.7
@@ -397,7 +511,7 @@ function buildAnchors(corEnd: number, revealTop: number, footTop: number): Ancho
   // 入口の右壁アート
   for (const [, z] of HERO_ART) walk.push({ pos: v(-1.7, 1.66, z + 1.4), look: v(WALL_X, 1.5, z) })
   // 左壁のパネル
-  for (const p of PANELS) walk.push({ pos: v(1.9, 1.6, p.z + 0.9), look: v(-WALL_X + 0.3, 1.5, p.z) })
+  for (const p of PANEL_SPOTS) walk.push({ pos: v(1.9, 1.6, p.z + 0.9), look: v(-WALL_X + 0.3, 1.5, p.z) })
 
   const list: Anchor[] = []
   const walkSpan = Math.max(1, corEnd * 0.82)
@@ -465,7 +579,7 @@ function Rig() {
   return <pointLight ref={fill} intensity={12} distance={9} decay={1.4} color="#efe6d4" />
 }
 
-function Scene({ heroImages }: { heroImages: LpHeroSlot[] }) {
+function Scene({ heroImages, panels }: { heroImages: LpHeroSlot[]; panels: PanelText[] }) {
   return (
     <>
       {/* ローポリを暗さで隠す: フォグを手前に寄せ、環境光は弱く、スポット主体の陰影に */}
@@ -527,7 +641,7 @@ function Scene({ heroImages }: { heroImages: LpHeroSlot[] }) {
       {APPROACH_ART.map(([idx, z, side], k) => (
         <CorridorArt key={`ap${k}`} idx={idx} z={z} side={side} scale={1.15} />
       ))}
-      {PANELS.map((p) => (
+      {panels.map((p) => (
         <Panel key={p.n} p={p} />
       ))}
       <Hall />
@@ -548,6 +662,18 @@ export default function HeroScene() {
   const [fontsReady, setFontsReady] = useState(false)
   // Admin-configured hero images (migration 0018); nulls fall back to the demo art
   const heroImages = useLpHero()
+  // 文言は辞書から。壁のテクスチャは1枚ずつ canvas に焼くので、配列そのものを
+  // memo して同一性を保つ（スクロールごとの再描画で焼き直させない）。
+  const t = useT()
+  const panels = useMemo<PanelText[]>(
+    () =>
+      PANEL_SPOTS.map((s) => {
+        const body = t(`lp.${s.k}Body`)
+        return { n: s.n, z: s.z, h: t(`lp.${s.k}Title`), b: s.pre ? `${s.pre} ${body}` : body }
+      }),
+    [t],
+  )
+  const hudStops = useMemo(() => buildHud(t, panels), [t, panels])
 
   useEffect(() => {
     const onVis = () => setHalted(document.hidden)
@@ -579,13 +705,13 @@ export default function HeroScene() {
     }
     let dims = recompute()
 
-    const walkLen = HERO_ART.length + PANELS.length
+    const walkLen = HERO_ART.length + PANEL_SPOTS.length
     const onScroll = () => {
       const y = window.scrollY
       const walkSpan = dims.corEnd * 0.82
       if (y < walkSpan) {
         const idx = Math.min(walkLen - 1, Math.max(0, Math.round((y / Math.max(1, walkSpan)) * (walkLen - 1))))
-        setHud(CORRIDOR_HUD[idx])
+        setHud(hudStops[idx])
         setHudOn(y > dims.vh * 0.55)
       } else {
         setHudOn(false) // 通路〜大部屋は見出しを出さない(作品を主役に)
@@ -602,7 +728,7 @@ export default function HeroScene() {
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onResize)
     }
-  }, [])
+  }, [hudStops])
 
   return (
     <div className="hero-canvas" aria-hidden="true">
@@ -616,7 +742,7 @@ export default function HeroScene() {
           gl.toneMappingExposure = 1.3
         }}
       >
-        {fontsReady && <Scene heroImages={heroImages} />}
+        {fontsReady && <Scene heroImages={heroImages} panels={panels} />}
       </Canvas>
       <div className="hero-grade" aria-hidden="true" />
       <div className={`journey-hud${hudOn ? ' on' : ''}`}>

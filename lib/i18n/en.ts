@@ -549,6 +549,13 @@ export const en = {
     heroAlt: 'or create your own — free →',
     heroScroll: 'Scroll to enter',
 
+    // 3Dヒーローの見出し（components/landing/HeroScene）。スクロールに合わせて
+    // カメラの止まり位置ごとに出る。パネル6枚ぶんは下の f1〜f6 を共有する。
+    hudRoom: 'The room',
+    hudRoomWork: 'Built around a single work.',
+    hudRoomWalk: 'Walked, not scrolled.',
+    hudFeatures: 'Features · {n}',
+
     featuresCue: 'Walk the hall — six things the room can do, hung along the wall.',
     featuresTitle: 'What the room can do.',
     f1Title: 'A solo show in the browser',
@@ -558,7 +565,9 @@ export const en = {
     f3Title: 'Light and stage every piece',
     f3Body: 'Spotlights, wall colour and flooring set the mood. Each work gets its own presentation.',
     f4Title: 'One address, open worldwide',
-    f4Body: 'a permanent URL for your practice, made for any bio or portfolio.',
+    // URLの見本のあとに続く一文（LPのFeatures一覧と3Dヒーローの壁で共有）。
+    // 日本語と同じく区切りの — を訳文側に持つ: 語順と区切りは言語に委ねる。
+    f4Body: '— a permanent URL for your practice, made for any bio or portfolio.',
     f5Title: 'Captions that carry the story',
     f5Body: 'Title, year and statement are mounted beside each work, the way a museum label would be.',
     f6Title: 'Guestbook & reactions',
@@ -759,6 +768,13 @@ export const en = {
     lpHero: 'Landing page hero',
     demoDefault: 'Demo default',
     clear: 'Clear',
+    // ヒーローの3枠（lib/siteConfig の LP_HERO_SLOT_LABEL_KEYS が指す）
+    slotCenter: 'Center',
+    slotLeft: 'Left',
+    slotRight: 'Right',
+    upload: 'Upload',
+    replace: 'Replace',
+    saved: 'Saved',
     uploadFailed: 'Upload failed: {msg}',
     saveFailed: 'Could not save: {msg}',
 

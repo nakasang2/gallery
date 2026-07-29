@@ -25,6 +25,7 @@ export const id: PartialDictionary = {
     heroCtaArrow: 'Jelajahi demo →',
     heroAlt: 'atau buat milikmu — gratis →',
     heroScroll: 'Gulir untuk masuk',
+    hudRoom: 'Ruangan ini', hudRoomWork: 'Dibangun untuk satu karya.', hudRoomWalk: 'Dijelajahi dengan berjalan, bukan digulir.', hudFeatures: 'Fitur · {n}',
 
     featuresCue: 'Jelajahi ruangnya — enam hal yang bisa dilakukan ruang ini, tergantung di dinding.',
     featuresTitle: 'Apa yang bisa dilakukan ruang ini.',
@@ -506,6 +507,7 @@ export const id: PartialDictionary = {
     moveUp: 'Naikkan', moveDown: 'Turunkan', remove: 'Hapus',
 
     lpHero: 'Karya di bagian atas halaman depan', demoDefault: 'Contoh bawaan', clear: 'Kosongkan',
+    slotCenter: 'Tengah', slotLeft: 'Kiri', slotRight: 'Kanan', upload: 'Unggah', replace: 'Ganti', saved: 'Tersimpan',
     uploadFailed: 'Gagal mengunggah: {msg}', saveFailed: 'Tidak bisa disimpan: {msg}',
 
     ghostSpeed: 'Kecepatan siluet berjalan', resetDefault: 'Kembalikan ke bawaan',

@@ -25,6 +25,7 @@ export const de: PartialDictionary = {
     heroCtaArrow: 'Durch die Demo gehen →',
     heroAlt: 'oder deine eigene anlegen — kostenlos →',
     heroScroll: 'Scrollen zum Eintreten',
+    hudRoom: 'Der Raum', hudRoomWork: 'Um ein einzelnes Werk herum gebaut.', hudRoomWalk: 'Man geht hindurch, statt zu scrollen.', hudFeatures: 'Funktionen · {n}',
 
     featuresCue: 'Geh durch den Saal — sechs Dinge, die dieser Raum kann, an der Wand aufgehängt.',
     featuresTitle: 'Was der Raum kann.',
@@ -506,6 +507,7 @@ export const de: PartialDictionary = {
     moveUp: 'Nach oben', moveDown: 'Nach unten', remove: 'Entfernen',
 
     lpHero: 'Werke am Kopf der Startseite', demoDefault: 'Demo-Standard', clear: 'Leeren',
+    slotCenter: 'Mitte', slotLeft: 'Links', slotRight: 'Rechts', upload: 'Hochladen', replace: 'Ersetzen', saved: 'Gespeichert',
     uploadFailed: 'Upload fehlgeschlagen: {msg}', saveFailed: 'Konnte nicht gespeichert werden: {msg}',
 
     ghostSpeed: 'Gehgeschwindigkeit der Silhouetten', resetDefault: 'Auf Standard zurücksetzen',

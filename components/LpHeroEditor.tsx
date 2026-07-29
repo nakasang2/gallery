@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGallery } from '@/lib/store'
 import { uploadLpImage } from '@/lib/cloud'
-import { fetchLpHero, saveLpHero, LP_HERO_SLOTS, LP_HERO_SLOT_LABELS, type LpHeroSlot } from '@/lib/siteConfig'
+import { fetchLpHero, saveLpHero, LP_HERO_SLOTS, LP_HERO_SLOT_LABEL_KEYS, type LpHeroSlot } from '@/lib/siteConfig'
 import { useT } from '@/components/I18nProvider'
 
 export default function LpHeroEditor() {
@@ -83,7 +83,8 @@ export default function LpHeroEditor() {
             return (
               <div key={i} style={{ border: '1px solid var(--hairline)', borderRadius: 8, padding: '0.8rem' }}>
                 <div style={{ fontFamily: 'var(--mono)', fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '0.6rem' }}>
-                  {LP_HERO_SLOT_LABELS[i] ?? `Slot ${i + 1}`}
+                  {/* i18n-ok: 枠が増えたときの控え。番号だけなので訳す対象ではない */}
+                  {LP_HERO_SLOT_LABEL_KEYS[i] ? t(LP_HERO_SLOT_LABEL_KEYS[i]) : `#${i + 1}`}
                 </div>
                 <div style={{ aspectRatio: '4 / 3', background: '#0d0c0b', border: '1px solid var(--hairline)', borderRadius: 4, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {s ? (
@@ -95,7 +96,7 @@ export default function LpHeroEditor() {
                 </div>
                 <div className="hako-actions" style={{ marginTop: '0.6rem' }}>
                   <label className="btn-line file-btn" aria-disabled={busy === i} style={{ marginTop: 0 }}>
-                    {busy === i ? 'Uploading…' : s ? 'Replace' : 'Upload'}
+                    {busy === i ? t('me.uploading') : s ? t('adminUi.replace') : t('adminUi.upload')}
                     <input
                       type="file"
                       accept="image/*"
@@ -119,7 +120,7 @@ export default function LpHeroEditor() {
         </div>
         <div className="hako-actions" style={{ marginTop: '1rem' }}>
           <button className="btn-line btn-gold" disabled={!loaded || busy !== null || !dirty} onClick={() => void save()}>
-            {saved ? 'Saved' : busy === -1 ? 'Saving…' : 'Save'}
+            {saved ? t('adminUi.saved') : busy === -1 ? t('adminUi.saving') : t('common.save')}
           </button>
         </div>
         <p className="me-note">
