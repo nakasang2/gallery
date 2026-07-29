@@ -456,6 +456,8 @@ export const en = {
     optionDesc_other: 'Adds {count} more {unit}s to this room, once, forever. {max} available.',
     close: 'Close',
     notLive: 'Checkout isn’t live yet — you’ll be able to buy this the moment it ships.',
+    signedOut: 'Your sign-in has expired — please sign in again, then this purchase will go through.',
+    needsConsent: 'Please tick the box above first — we need your go-ahead before unlocking it.',
     continueToCheckout: 'Continue to checkout',
     opening: 'Opening checkout…',
     howMany: 'How many {unit}s?',

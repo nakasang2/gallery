@@ -278,6 +278,8 @@ export const ko: PartialDictionary = {
     optionDesc_other: '이 전시장에 {unit}을 {count}개 추가합니다. 한 번 구입하면 계속 사용합니다. 남은 수 {max}.',
     close: '닫기',
     notLive: '결제는 아직 시작하지 않았습니다 — 준비되는 대로 구입할 수 있게 됩니다.',
+    signedOut: '로그인이 만료되었습니다 — 다시 로그인하면 이 구입을 계속할 수 있습니다.',
+    needsConsent: '먼저 위의 체크박스를 선택해 주세요 — 바로 사용할 수 있게 하려면 동의가 필요합니다.',
     continueToCheckout: '결제로 진행',
     opening: '결제 화면을 여는 중…',
     howMany: '{unit}을 몇 개 추가할까요?',

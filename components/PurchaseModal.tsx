@@ -12,6 +12,7 @@
 // `check:i18n` does not scan — so the paywall, of all screens, was English in all
 // eleven languages (docs/LESSONS 2026-07-29).
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { itemPriceCents, usd, type PaidKind } from '@/lib/pricing'
 import { startCheckout, type PurchaseIntent } from '@/lib/checkout'
 import { useT } from '@/components/I18nProvider'
@@ -51,9 +52,16 @@ export default function PurchaseModal({
 }) {
   const t = useT()
   const [qty, setQty] = useState(1)
-  const [tried, setTried] = useState(false)
+  // Why the buy never started. 'signed-out' is kept apart from 'not-live'
+  // because they need opposite things from the buyer — one can act, the other
+  // can only wait (docs/DECISIONS 2026-07-29).
+  const [blocked, setBlocked] = useState<'not-live' | 'signed-out' | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The CTA used to be `disabled` until this was ticked, so tapping it did
+  // nothing at all and said nothing — on a phone the checkbox is 16px of grey
+  // fine print, easy to miss. The button stays live and explains instead.
+  const [consentMissing, setConsentMissing] = useState(false)
   // EU/UK consumers keep a 14-day right to cancel digital content UNLESS they
   // ask for it immediately and acknowledge losing that right. The upgrade
   // unlocks the moment the webhook lands, so we have to take that here — and
@@ -74,10 +82,13 @@ export default function PurchaseModal({
 
   async function onCta() {
     if (!intent) {
-      setTried(true)
+      setBlocked('not-live')
       return
     }
-    if (!acknowledged) return
+    if (!acknowledged) {
+      setConsentMissing(true)
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -86,7 +97,7 @@ export default function PurchaseModal({
         window.location.assign(start.url)
         return // keep the button disabled while the browser navigates
       }
-      setTried(true) // billing not configured / signed out — honest note, not a fake buy
+      setBlocked(start.kind === 'signed-out' ? 'signed-out' : 'not-live')
     } catch (e) {
       setError(e instanceof Error ? e.message : t('purchase.failed'))
     } finally {
@@ -158,33 +169,43 @@ export default function PurchaseModal({
           </div>
         ) : null}
 
-        {tried ? (
+        {blocked === 'signed-out' ? (
+          /* The sign-in lapsed — the one dead end the buyer can actually clear.
+             /signin returns to /me, which is where every purchase starts. */
+          <>
+            <p className="purchase-note purchase-note-active">{t('purchase.signedOut')}</p>
+            <Link className="btn-line purchase-signin" href="/signin">
+              {t('common.signIn')}
+            </Link>
+          </>
+        ) : blocked === 'not-live' ? (
           <p className="purchase-note purchase-note-active">
             {t('purchase.notLive')}
           </p>
         ) : (
           <>
             {intent && (
-              <label className="purchase-consent">
+              <label className={`purchase-consent${consentMissing ? ' needs-consent' : ''}`}>
                 <input
                   type="checkbox"
                   checked={acknowledged}
-                  onChange={(e) => setAcknowledged(e.target.checked)}
+                  onChange={(e) => {
+                    setAcknowledged(e.target.checked)
+                    if (e.target.checked) setConsentMissing(false)
+                  }}
                 />
                 <span>
                   {t('purchase.consent')}
                 </span>
               </label>
             )}
-            <button
-              className="purchase-cta"
-              onClick={() => void onCta()}
-              disabled={busy || (!!intent && !acknowledged)}
-            >
+            <button className="purchase-cta" onClick={() => void onCta()} disabled={busy}>
               {busy ? t('purchase.opening') : t('purchase.continueToCheckout')}
             </button>
             {error ? (
               <p className="purchase-note purchase-note-active">{error}</p>
+            ) : consentMissing ? (
+              <p className="purchase-note purchase-note-active">{t('purchase.needsConsent')}</p>
             ) : (
               /* Capacity buys slots that stay with the room; everything else is a
                  one-off unlock. Both sentences were already in the dictionary —

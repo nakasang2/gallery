@@ -277,6 +277,8 @@ export const es: PartialDictionary = {
     optionDesc_other: 'Añade {count} {unit}s a esta sala, una vez, para siempre. Quedan {max}.',
     close: 'Cerrar',
     notLive: 'El pago todavía no está activo — podrás comprar esto en cuanto se abra.',
+    signedOut: 'Tu sesión ha caducado — vuelve a iniciar sesión y la compra saldrá adelante.',
+    needsConsent: 'Marca primero la casilla de arriba — necesitamos tu consentimiento antes de activarlo.',
     continueToCheckout: 'Ir al pago',
     opening: 'Abriendo el pago…',
     howMany: '¿Cuántos {unit}s?',

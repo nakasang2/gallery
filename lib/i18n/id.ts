@@ -277,6 +277,8 @@ export const id: PartialDictionary = {
     optionDesc_other: 'Menambah {count} {unit} di ruang ini, sekali beli, selamanya. Tersisa {max}.',
     close: 'Tutup',
     notLive: 'Pembayaran belum dibuka — begitu jalan, kamu bisa membelinya.',
+    signedOut: 'Sesi masuk kamu sudah kedaluwarsa — masuk lagi, lalu pembelian ini bisa lanjut.',
+    needsConsent: 'Centang dulu kotak di atas — kami butuh persetujuanmu sebelum membukanya.',
     continueToCheckout: 'Lanjut ke pembayaran',
     opening: 'Membuka pembayaran…',
     howMany: 'Berapa {unit}?',

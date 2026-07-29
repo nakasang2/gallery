@@ -276,6 +276,8 @@ export const zhHant: PartialDictionary = {
     optionDesc_other: '為這個展場增加 {count} 個{unit}，買一次就一直用。剩餘 {max}。',
     close: '關閉',
     notLive: '付款還沒有開放 — 一上線你就能買到。',
+    signedOut: '登入已過期 — 請重新登入，然後就能完成這筆購買。',
+    needsConsent: '請先勾選上面的方框 — 立即解鎖需要您的同意。',
     continueToCheckout: '前往付款',
     opening: '正在開啟付款頁面…',
     howMany: '要加幾個{unit}？',

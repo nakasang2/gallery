@@ -277,6 +277,8 @@ export const de: PartialDictionary = {
     optionDesc_other: 'Gibt diesem Raum {count} {unit} mehr — einmal gekauft, dauerhaft. {max} verfügbar.',
     close: 'Schließen',
     notLive: 'Der Kauf ist noch nicht freigeschaltet — sobald er läuft, kannst du das hier kaufen.',
+    signedOut: 'Deine Anmeldung ist abgelaufen — melde dich bitte erneut an, dann klappt der Kauf.',
+    needsConsent: 'Bitte kreuze zuerst das Feld oben an — ohne dein Einverständnis können wir es nicht freischalten.',
     continueToCheckout: 'Weiter zur Kasse',
     opening: 'Kasse wird geöffnet…',
     howMany: 'Wie viele {unit}?',

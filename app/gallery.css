@@ -1716,7 +1716,17 @@ body:not(.gallery-mode) {
   accent-color: var(--gold);
   cursor: pointer;
 }
+/* Only "opening checkout…" disables the CTA now. Waiting on the acknowledgement
+   used to disable it too, which made a tap do nothing and say nothing
+   (DECISIONS 2026-07-29) — .needs-consent is what points at the reason. */
 .purchase-cta:disabled { opacity: 0.45; cursor: default; }
+.purchase-consent.needs-consent { color: var(--gold); }
+.purchase-consent.needs-consent input[type='checkbox'] {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+/* Sign in again, from inside the modal, when the session lapsed mid-purchase. */
+.purchase-signin { display: block; margin-top: 0.9rem; text-align: center; }
 
 /* Shown when the browser takes the GPU context away (iOS does this on app
    switch / memory pressure). Sits above the canvas but below nothing else —

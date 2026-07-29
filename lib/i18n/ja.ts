@@ -430,6 +430,8 @@ export const ja: Dictionary = {
     optionDesc_other: 'この部屋に{unit}を{count}つ追加します。買い切りで、ずっと使えます。残り{max}。',
     close: '閉じる',
     notLive: 'まだ購入を受け付けていません。開始しだい、ここから購入できるようになります。',
+    signedOut: 'ログインの有効期限が切れました。もう一度サインインすると、この購入を続けられます。',
+    needsConsent: '先に上のチェックを入れてください。すぐに利用できるようにするため、ご同意が必要です。',
     continueToCheckout: 'お支払いに進む',
     opening: 'お支払い画面を開いています…',
     howMany: '{unit}をいくつ追加しますか',
