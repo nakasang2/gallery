@@ -474,16 +474,15 @@ export const en = {
   },
 
   purchase: {
-    optionDesc: 'Adds {count} more {unit} to this room, once, forever. {max} available.',
-    optionDesc_other: 'Adds {count} more {unit}s to this room, once, forever. {max} available.',
+    optionDesc: 'Adds {count} more slot to this room, once, forever. {max} available.',
+    optionDesc_other: 'Adds {count} more slots to this room, once, forever. {max} available.',
     close: 'Close',
     notLive: 'Checkout isn’t live yet — you’ll be able to buy this the moment it ships.',
     signedOut: 'Your sign-in has expired — please sign in again, then this purchase will go through.',
     needsConsent: 'Please tick the box above first — we need your go-ahead before unlocking it.',
     continueToCheckout: 'Continue to checkout',
     opening: 'Opening checkout…',
-    howMany: 'How many {unit}s?',
-    slot: 'slot',
+    howMany: 'How many slots?',
     consent: 'Unlock it straight away. I understand that means I give up the 14-day right to cancel, and that it is non-refundable once unlocked.',
     oneTimeNote: 'A one-time purchase — yours for good. No subscription, nothing to renew.',
     oneTimeSlots: 'A one-time purchase — these slots stay on this room for good. No subscription.',
@@ -497,8 +496,8 @@ export const en = {
     unlocksLayout: 'Unlocks just this layout, once, forever.',
     unlocksFrame: 'Unlocks just this frame, once, forever.',
     buyAria: 'Buy {name}',
-    fewerAria: 'Fewer {unit}s',
-    moreAria: 'More {unit}s',
+    fewerAria: 'Fewer slots',
+    moreAria: 'More slots',
   },
 
   admin: {

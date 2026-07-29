@@ -448,16 +448,17 @@ export const ja: Dictionary = {
   },
 
   purchase: {
-    optionDesc: 'この部屋に{unit}を{count}つ追加します。買い切りで、ずっと使えます。残り{max}。',
-    optionDesc_other: 'この部屋に{unit}を{count}つ追加します。買い切りで、ずっと使えます。残り{max}。',
+    // 助数詞は「枠」そのものを使う。和語の「つ」は1〜9までしか使えず、上限の
+    // 10枠まで買える以上「10つ」という非文が出る（{unit} 版から続く不具合）。
+    optionDesc: 'この部屋に{count}枠を追加します。買い切りで、ずっと使えます。残り{max}。',
+    optionDesc_other: 'この部屋に{count}枠を追加します。買い切りで、ずっと使えます。残り{max}。',
     close: '閉じる',
     notLive: 'まだ購入を受け付けていません。開始しだい、ここから購入できるようになります。',
     signedOut: 'ログインの有効期限が切れました。もう一度サインインすると、この購入を続けられます。',
     needsConsent: '先に上のチェックを入れてください。すぐに利用できるようにするため、ご同意が必要です。',
     continueToCheckout: 'お支払いに進む',
     opening: 'お支払い画面を開いています…',
-    howMany: '{unit}をいくつ追加しますか',
-    slot: '枠',
+    howMany: '枠をいくつ追加しますか',
     consent: 'すぐに使えるようにします。14日間の返品・解約の権利を放棄し、有効化後は返金されないことを理解しました。',
     oneTimeNote: '一度きりのお支払いです。ずっとあなたのものになります。継続課金はありません。',
     oneTimeSlots: '一度きりのお支払いです。追加した枠はこの部屋にずっと残ります。継続課金はありません。',
@@ -471,8 +472,8 @@ export const ja: Dictionary = {
     unlocksLayout: 'この間取りだけを使えるようにします。一度きりのお支払いで、ずっと使えます。',
     unlocksFrame: 'この額縁だけを使えるようにします。一度きりのお支払いで、ずっと使えます。',
     buyAria: '{name} を購入',
-    fewerAria: '{unit}を減らす',
-    moreAria: '{unit}を増やす',
+    fewerAria: '枠を減らす',
+    moreAria: '枠を増やす',
   },
 
   admin: {

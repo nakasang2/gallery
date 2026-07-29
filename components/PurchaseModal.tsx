@@ -44,8 +44,13 @@ export default function PurchaseModal({
    *  Omit when using `quantity`. */
   item?: { kind: PaidKind; itemKey: string }
   preview?: React.ReactNode
-  /** Quantity-picker mode (capacity): pay for N units in one checkout. */
-  quantity?: { unitCents: number; max: number; unitLabel: string }
+  /** Quantity-picker mode (capacity): pay for N units in one checkout.
+   *  The unit is always a work slot, so its name is written into each language's
+   *  sentence rather than interpolated — a noun dropped into `{unit}` cannot
+   *  carry the plural and particle agreement the sentence needs (German wants
+   *  Platz/Plätze, Spanish lugar/lugares, Korean 를 after a vowel). If a second
+   *  kind of unit ever ships, give it its own keys instead of a placeholder. */
+  quantity?: { unitCents: number; max: number }
   /** What checkout should buy — omit to keep the modal preview-only */
   intent?: PurchaseIntent
   onClose: () => void
@@ -122,11 +127,11 @@ export default function PurchaseModal({
         {quantity ? (
           <div className="purchase-qty">
             <div className="purchase-qty-row">
-              <span className="purchase-qty-label">{t('purchase.howMany', { unit: quantity.unitLabel })}</span>
+              <span className="purchase-qty-label">{t('purchase.howMany')}</span>
               <div className="purchase-stepper">
                 <button
                   type="button"
-                  aria-label={t('purchase.fewerAria', { unit: quantity.unitLabel })}
+                  aria-label={t('purchase.fewerAria')}
                   disabled={clampedQty <= 1}
                   onClick={() => setQty((n) => Math.max(1, n - 1))}
                 >
@@ -135,7 +140,7 @@ export default function PurchaseModal({
                 <span className="purchase-qty-value">{clampedQty}</span>
                 <button
                   type="button"
-                  aria-label={t('purchase.moreAria', { unit: quantity.unitLabel })}
+                  aria-label={t('purchase.moreAria')}
                   disabled={clampedQty >= qtyMax}
                   onClick={() => setQty((n) => Math.min(qtyMax, n + 1))}
                 >
@@ -148,7 +153,7 @@ export default function PurchaseModal({
               <span className="purchase-price">{usd(quantity.unitCents * clampedQty)}</span>
             </div>
             <p className="purchase-option-desc">
-              {t('purchase.optionDesc', { count: clampedQty, unit: quantity.unitLabel, max: qtyMax })}
+              {t('purchase.optionDesc', { count: clampedQty, max: qtyMax })}
             </p>
           </div>
         ) : item ? (

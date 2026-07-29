@@ -1736,7 +1736,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               ? {
                   unitCents: PRICE_PER_SLOT_CENTS,
                   max: MAX_WORKS_PER_ROOM - row.work_cap,
-                  unitLabel: t('purchase.slot'),
                 }
               : undefined
           }
