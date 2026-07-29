@@ -1716,6 +1716,23 @@ body:not(.gallery-mode) {
   accent-color: var(--gold);
   cursor: pointer;
 }
+/* Where the rest of the policy went when the tick box was cut down to the two
+   things the law needs it to say. Lined up with the label text, not the box
+   (16px + the 0.55rem gap above), so the two read as one block. */
+.purchase-consent-more {
+  margin: 0 0 0.2rem;
+  padding-left: calc(16px + 0.55rem);
+  font-size: 0.66rem;
+  line-height: 1.6;
+  text-align: left;
+}
+.purchase-consent-more a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.purchase-consent-more a:hover { color: var(--gold); }
+
 /* Only "opening checkout…" disables the CTA now. Waiting on the acknowledgement
    used to disable it too, which made a tap do nothing and say nothing
    (DECISIONS 2026-07-29) — .needs-consent is what points at the reason. */

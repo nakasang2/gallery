@@ -210,6 +210,17 @@ export default function PurchaseModal({
                 </span>
               </label>
             )}
+            {intent && (
+              /* The rest of the policy lives in the Terms, so the tick box can
+                 stay down to the two things the law needs it to say. Outside the
+                 <label> on purpose — a link inside it would toggle the box — and
+                 a new tab, so opening it doesn't throw away the purchase. */
+              <p className="purchase-consent-more">
+                <Link href="/terms" target="_blank" rel="noopener noreferrer">
+                  {t('purchase.termsLink')}
+                </Link>
+              </p>
+            )}
             <button className="purchase-cta" onClick={() => void onCta()} disabled={busy}>
               {busy ? t('purchase.opening') : t('purchase.continueToCheckout')}
             </button>
