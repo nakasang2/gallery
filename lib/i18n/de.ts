@@ -87,6 +87,7 @@ export const de: PartialDictionary = {
     upThemes: 'Neue Themen',
     upLayouts: 'Neue Anordnungen',
     each: 'je {price}',
+    priceRange: '{min}–{max}',
     buyFromGallery: 'Aus deiner Galerie kaufen',
     comingSoon: 'Bald',
     pricingNoteLive: 'Alles, was du machst, bleibt deins, und Veröffentlichen ist immer kostenlos. Jede Erweiterung ist ein einmaliger Kauf: kein Abo, nichts zu verlängern, nichts zu kündigen.',

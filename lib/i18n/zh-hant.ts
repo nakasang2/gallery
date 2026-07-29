@@ -86,6 +86,7 @@ export const zhHant: PartialDictionary = {
     upThemes: '新主題',
     upLayouts: '新版面',
     each: '每個 {price}',
+    priceRange: '{min}–{max}',
     buyFromGallery: '在你的展場裡購買',
     comingSoon: '即將推出',
     pricingNoteLive: '你做的一切都屬於你，公開永遠免費。所有升級都是一次性購買 — 沒有訂閱，不必續約，也不必取消。',

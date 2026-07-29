@@ -88,6 +88,7 @@ export const ko: PartialDictionary = {
     upThemes: '새 테마',
     upLayouts: '새 레이아웃',
     each: '개당 {price}',
+    priceRange: '{min}~{max}',
     buyFromGallery: '내 전시장에서 구입',
     comingSoon: '준비 중',
     pricingNoteLive: '만든 것은 모두 당신의 것이고, 공개는 언제나 무료입니다. 업그레이드는 모두 한 번만 사면 끝 — 정기 결제도, 갱신도, 해지도 없습니다.',

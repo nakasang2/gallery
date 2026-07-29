@@ -88,6 +88,7 @@ export const zhHans: PartialDictionary = {
     upThemes: '新主题',
     upLayouts: '新布局',
     each: '每个 {price}',
+    priceRange: '{min}–{max}',
     buyFromGallery: '在你的展厅里购买',
     comingSoon: '即将推出',
     pricingNoteLive: '你做的一切都属于你，公开永远免费。所有升级都是一次性购买 — 没有订阅，不用续费，也不必取消。',

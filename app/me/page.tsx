@@ -1719,7 +1719,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             ) : undefined
           }
           options={
-            purchaseItem.kind === 'capacity' ? [] : purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)
+            purchaseItem.kind === 'capacity'
+              ? []
+              : purchaseOptionsFor(purchaseItem.kind, purchaseItem.label, purchaseItem.key)
           }
           quantity={
             purchaseItem.kind === 'capacity'

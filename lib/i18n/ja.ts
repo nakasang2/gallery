@@ -569,6 +569,7 @@ export const ja: Dictionary = {
     upThemes: '新しいテーマ',
     upLayouts: '新しい間取り',
     each: '1つ {price}',
+    priceRange: '{min}〜{max}',
     buyFromGallery: 'ダッシュボードから購入',
     // state-ok: app/page.tsx が billingLive（!!process.env.STRIPE_SECRET_KEY）で
     // 分岐して選ぶ。課金が有効になれば自動で buyFromGallery 側に切り替わる。

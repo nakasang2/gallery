@@ -597,6 +597,9 @@ export const en = {
     upThemes: 'New themes',
     upLayouts: 'New layouts',
     each: '{price} each',
+    // 値段が1点ごとに違うときだけ出る「$8〜$12」の形。区切りは言語によって違う
+    // （日本語は〜、韓国語は~）ので辞書に置く。使うのは料金カードと特商法ページ。
+    priceRange: '{min}–{max}',
     buyFromGallery: 'Buy from your gallery',
     // state-ok: app/page.tsx が billingLive（!!process.env.STRIPE_SECRET_KEY）で
     // 分岐して選ぶ。課金が有効になれば自動で buyFromGallery 側に切り替わる。

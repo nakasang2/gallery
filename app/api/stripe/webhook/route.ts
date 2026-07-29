@@ -8,8 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { type Sku } from '@/lib/pricing'
-import { getEntitlements, isThemeUnlocked } from '@/lib/entitlements'
-import { THEMES } from '@/lib/presets'
+import { paidThemeIds } from '@/lib/entitlements'
 
 export const runtime = 'nodejs'
 
@@ -103,12 +102,10 @@ export async function POST(req: NextRequest) {
         })
         if (marker === 'duplicate') break
         // The collection grants every PAID theme (those not in FOREVER_FREE).
-        // Empty today because no paid theme has shipped yet; it fills in
-        // automatically the moment one is added to THEMES (FOREVER_FREE is now a
+        // Reads the same paid catalog checkout sells from, so it fills in
+        // automatically the moment a theme is added to THEMES (FOREVER_FREE is a
         // fixed snapshot, so new themes are gatable — lib/entitlements).
-        const noOwnership = getEntitlements(null)
-        const paidThemeIds = Object.keys(THEMES).filter((id) => !isThemeUnlocked(id, noOwnership))
-        for (const id of paidThemeIds) {
+        for (const id of paidThemeIds()) {
           // per-theme conflicts are fine — the buyer may already own one singly
           await insertPurchase(db, { user_id: userId, kind: 'theme', item_key: id, sku, amount_jpy: null, currency })
         }

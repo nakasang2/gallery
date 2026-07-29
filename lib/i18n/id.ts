@@ -87,6 +87,7 @@ export const id: PartialDictionary = {
     upThemes: 'Tema baru',
     upLayouts: 'Tata letak baru',
     each: '{price} per buah',
+    priceRange: '{min}–{max}',
     buyFromGallery: 'Beli dari galerimu',
     comingSoon: 'Segera',
     pricingNoteLive: 'Semua yang kamu buat tetap milikmu, dan menerbitkan selalu gratis. Setiap tambahan dibeli sekali saja: tanpa langganan, tidak ada yang perlu diperpanjang atau dibatalkan.',

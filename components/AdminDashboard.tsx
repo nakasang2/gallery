@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react'
 import { money } from '@/lib/pricing'
 import { THEMES, LAYOUTS } from '@/lib/presets'
-import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
+import { paidThemeIds, paidLayoutIds } from '@/lib/entitlements'
 import {
   grantEntitlement,
   revokeEntitlement,
@@ -21,21 +21,16 @@ function productKey(kind: string, itemKey: string): string {
 }
 
 /** The paid items an admin can grant — fixed capabilities plus every theme/layout
- *  that isn't free by default. Reads the live presets, so a future paid theme or
- *  layout shows up here automatically with no code change. */
+ *  on sale. Reads the same paid catalog checkout sells from (lib/entitlements), so
+ *  a future paid theme or layout shows up here automatically with no code change. */
 function useGrantableProducts() {
   return useMemo(() => {
-    const free = getEntitlements(null)
     const list: { kind: string; itemKey: string; label: string }[] = [
       { kind: 'design_tools', itemKey: '', label: 'Design Tools' },
       { kind: 'video_pass', itemKey: '', label: 'Video Pass' },
     ]
-    for (const id of Object.keys(THEMES)) {
-      if (!isThemeUnlocked(id, free)) list.push({ kind: 'theme', itemKey: id, label: `Theme · ${THEMES[id].label}` })
-    }
-    for (const id of [...Object.keys(LAYOUTS), 'custom']) {
-      if (!isLayoutUnlocked(id, free)) list.push({ kind: 'layout', itemKey: id, label: `Layout · ${LAYOUTS[id]?.label ?? id}` })
-    }
+    for (const id of paidThemeIds()) list.push({ kind: 'theme', itemKey: id, label: `Theme · ${THEMES[id].label}` })
+    for (const id of paidLayoutIds()) list.push({ kind: 'layout', itemKey: id, label: `Layout · ${LAYOUTS[id]?.label ?? id}` })
     return list
   }, [])
 }

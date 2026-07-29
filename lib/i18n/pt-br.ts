@@ -87,6 +87,7 @@ export const ptBr: PartialDictionary = {
     upThemes: 'Temas novos',
     upLayouts: 'Layouts novos',
     each: '{price} cada',
+    priceRange: '{min}–{max}',
     buyFromGallery: 'Comprar pela sua galeria',
     comingSoon: 'Em breve',
     pricingNoteLive: 'Tudo o que você faz continua seu, e publicar é sempre de graça. Cada melhoria é uma compra única: sem assinatura, nada para renovar, nada para cancelar.',

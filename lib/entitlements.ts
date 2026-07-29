@@ -92,3 +92,20 @@ export function isTemplateUnlocked(
 ): boolean {
   return isThemeUnlocked(tpl.theme, ent) && isLayoutUnlocked(tpl.layout, ent)
 }
+
+/* ================= The paid catalog ================= */
+// Everything in the presets that isn't forever-free is, by definition, for sale.
+// Derived (not a second hand-written list), so a theme added to THEMES is
+// sellable the moment it lands. THE single answer to "what do we sell?", read by
+// lib/pricing (per-item amount + the public price range), /api/checkout (which
+// refuses an id that is free or doesn't exist) and /admin (the grantable list).
+
+export function paidThemeIds(): string[] {
+  return Object.keys(THEMES).filter((id) => !isThemeUnlocked(id, FREE_TIER_ENTITLEMENTS))
+}
+
+/** 'custom' is sellable even though it has no LAYOUTS row — it is generated from
+ *  parameters (buildCustomLayout) rather than a preset table. */
+export function paidLayoutIds(): string[] {
+  return [...Object.keys(LAYOUTS), 'custom'].filter((id) => !isLayoutUnlocked(id, FREE_TIER_ENTITLEMENTS))
+}

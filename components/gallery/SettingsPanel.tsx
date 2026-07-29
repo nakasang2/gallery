@@ -683,7 +683,7 @@ export default function SettingsPanel() {
                 <LayoutPlan layoutKey={purchaseItem.key} className="purchase-plan-preview" />
               )
             }
-            options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label)}
+            options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label, purchaseItem.key)}
             intent={{ kind: purchaseItem.kind, itemKey: purchaseItem.key }}
             onClose={() => setPurchaseItem(null)}
           />

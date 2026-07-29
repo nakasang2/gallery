@@ -87,6 +87,7 @@ export const es: PartialDictionary = {
     upThemes: 'Temas nuevos',
     upLayouts: 'Distribuciones nuevas',
     each: '{price} cada uno',
+    priceRange: '{min}–{max}',
     buyFromGallery: 'Comprar desde tu galería',
     comingSoon: 'Muy pronto',
     pricingNoteLive: 'Todo lo que haces sigue siendo tuyo, y publicar es siempre gratis. Cada mejora es una compra única: sin suscripción, nada que renovar, nada que cancelar.',

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import LandingEffects from '@/components/landing/LandingEffects'
 import HeroCanvas from '@/components/landing/HeroCanvas'
 import { PLAN } from '@/lib/limits'
-import { PRICE_SLOT, PRICE_THEME, PRICE_LAYOUT } from '@/lib/pricing'
+import { PRICE_SLOT, priceRangeLabel } from '@/lib/pricing'
 import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
 import { localeAlternates } from '@/lib/i18n/metadata'
@@ -202,8 +202,10 @@ export default async function LandingPage() {
             <div className="price"><b>{t('lp.upgradesPrice')}</b><span>{t('lp.upgradesNoSub')}</span></div>
             <ul>
               <li>{t('lp.upSlots')}<span className="amt">{t('lp.each', { price: PRICE_SLOT })}</span></li>
-              <li>{t('lp.upThemes')}<span className="amt">{t('lp.each', { price: PRICE_THEME })}</span></li>
-              <li>{t('lp.upLayouts')}<span className="amt">{t('lp.each', { price: PRICE_LAYOUT })}</span></li>
+              {/* One price while every theme costs the same, a range once one doesn't
+                  — priceRangeLabel derives it from the price table (AGENTS.md 5.3) */}
+              <li>{t('lp.upThemes')}<span className="amt">{t('lp.each', { price: priceRangeLabel('theme', t('lp.priceRange')) })}</span></li>
+              <li>{t('lp.upLayouts')}<span className="amt">{t('lp.each', { price: priceRangeLabel('layout', t('lp.priceRange')) })}</span></li>
             </ul>
             {billingLive ? (
               <Link className="btn btn-small price-cta" href="/me">{t('lp.buyFromGallery')}</Link>
