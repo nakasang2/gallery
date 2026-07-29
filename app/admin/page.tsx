@@ -14,6 +14,7 @@ import ArticlesEditor from '@/components/ArticlesEditor'
 import DemoLookEditor from '@/components/DemoLookEditor'
 import GhostSpeedEditor from '@/components/GhostSpeedEditor'
 import AuthShell from '@/components/auth/AuthShell'
+import TopActions from '@/components/TopActions'
 import { LegalLink, LocaleLink, useT } from '@/components/I18nProvider'
 
 export default function AdminPage() {
@@ -80,13 +81,13 @@ export default function AdminPage() {
       <div className="me-inner">
         <div className="me-top">
           <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
-          <div className="me-top-actions">
+          <TopActions>
             <Link className="btn-line" href="/me">{t('common.dashboard')}</Link>
             <button className="btn-line" onClick={() => void load()} disabled={loading}>
               {loading ? 'Refreshing…' : 'Refresh'}
             </button>
             <button className="btn-line" onClick={() => void signOut()}>{t('me.signOut')}</button>
-          </div>
+          </TopActions>
         </div>
 
         <div className="me-hero">

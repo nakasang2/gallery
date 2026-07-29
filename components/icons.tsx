@@ -21,6 +21,27 @@ export function LockIcon({ className }: { className?: string }) {
   )
 }
 
+// 三本線。狭い幅でダッシュボード上部の行き先をひとつに畳むボタン用（app/me/page.tsx）
+export function MenuIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    >
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  )
+}
+
 export function VideoIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" className={className}>

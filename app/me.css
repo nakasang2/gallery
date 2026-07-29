@@ -49,7 +49,51 @@
   margin-bottom: 2.6rem;
 }
 .me-top .auth-logo { font-size: 0.95rem; }
+.me-top-nav { position: relative; display: flex; align-items: center; }
 .me-top-actions { display: flex; gap: 0.5rem; }
+/* 広い幅では畳む必要がないので、ハンバーガーは出さない（640px以下で出す） */
+.me-top-burger { display: none; }
+
+@media (max-width: 640px) {
+  .me-top-burger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    font-size: 1.15rem; /* 1em のアイコンの大きさを決める */
+    line-height: 0;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .me-top-burger:hover,
+  .me-top-burger[aria-expanded='true'] { border-color: var(--gold); color: var(--gold); }
+  .me-top-burger:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  /* 畳んだ中身。ロゴの行を押し広げないよう、行の外（絶対配置）に出す */
+  .me-top-actions {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: 40;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 11rem;
+    padding: 0.4rem;
+    background: #14120f;
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  }
+  .me-top-actions.open { display: flex; }
+  /* メニューの中では枠付きボタンを3つ積むより、行として読ませたほうが静か */
+  .me-top-actions .btn-line { border-color: transparent; justify-content: flex-start; }
+}
 
 .me-h1 {
   font-family: var(--serif);
@@ -491,6 +535,9 @@
 @media (max-width: 640px) {
   .me-page { padding-top: 1.4rem; }
   .hako-actions .btn-line { flex: 1 1 44%; }
+  /* 環境音のように設定行の中で使い回している .hako-actions では、半分幅を強いると
+     「音源をアップロード」が2行に折れる。ここは内容の幅でよい。 */
+  .wd-block-body .hako-actions .btn-line { flex: 0 1 auto; }
 }
 
 /* 作品ワークベンチ: 設定カラム内に Room → 選択作品の詳細 と縦に流れる
@@ -708,6 +755,12 @@
   }
   .me-subnav-toggle .me-subnav-caret { margin-left: auto; }
   .me-subnav-tx { max-width: none; }
+  /* 見出しは必ず1行目、選択肢は2行目に。統一のための指定である: 選択肢が多い行
+     （テーマ・間取り）は 72px の見出しの横に入り切らず勝手に折り返るのに、選択肢が
+     2つの「照明」だけは見出しと同じ行に並び、同じ設定群に行の形が2種類あった
+     （375px実測、ユーザー指摘 2026-07-29）。3D側の作品パネルは狭いボトムシートで
+     縦を惜しむので、ダッシュボード(.me-page)の中だけに当てる。 */
+  .me-page .wd-row > .wd-label { width: 100%; }
 }
 
 /* 指で押す端末では、レールの行も目安の44pxまで広げる */
@@ -904,16 +957,22 @@
 .feed-load-more { display: flex; justify-content: center; margin-top: 2rem; }
 .artist-gallery-sub { font-size: 0.7rem; letter-spacing: 0.08em; color: var(--muted); }
 
+/* 折り返しと nowrap は見た目の好みではない: 言語切替(166px)を足したことで、375px では
+   1行に収まらなくなり、nowrap のまま5項目がリンクを幅13pxまで押し潰して「ガ/イ/ド」と
+   縦1文字組みになっていた（実測でフッターの高さ148px）。行を折り返し、リンク自身は
+   折らない。行ごとの中央揃えは、背の高い言語切替と並んだリンクが上に浮かないため。 */
 .artist-footer {
   display: flex;
-  gap: 1.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem 1.4rem;
   margin-top: 3rem;
   padding-top: 1.4rem;
   border-top: 1px solid var(--hairline);
   font-size: 0.72rem;
   letter-spacing: 0.1em;
 }
-.artist-footer a { color: var(--muted); text-decoration: none; }
+.artist-footer a { color: var(--muted); text-decoration: none; white-space: nowrap; }
 .artist-footer a:hover { color: var(--gold); }
 
 .legal-page .me-inner { max-width: 680px; } /* 本文幅に合わせて中央に */
@@ -1075,8 +1134,9 @@
 }
 
 /* 言語切替。フッターの一部として静かに置く */
-.lang-switch { display: inline-flex; align-items: center; gap: 0.4em; }
+.lang-switch { display: inline-flex; align-items: center; gap: 0.4em; flex: none; }
 .lang-switch-label {
+  white-space: nowrap; /* 幅を削られると「言/語」と縦に割れる */
   font-family: var(--mono);
   font-size: 0.6rem;
   letter-spacing: 0.14em;

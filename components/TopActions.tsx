@@ -1,0 +1,52 @@
+'use client'
+// ダッシュボード上部（/me・/admin）の行き先をまとめる帯。
+//
+// 広い幅では今までどおり横並びのボタン列。狭い幅ではハンバーガー1つに畳む:
+// 375px では3つのボタンが1つずつ2行に折れ、ロゴのすぐ横まで詰まっていた
+// （実測: 行の高さ59px、3つとも2行。ユーザー指摘 2026-07-29）。
+//
+// 中身は呼び出し側から渡す。/me は「展示をさがす / 管理 / サインアウト」、
+// /admin は「ダッシュボード / 再読み込み / サインアウト」で、並びが違う。
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { MenuIcon } from '@/components/icons'
+import { useT } from '@/components/I18nProvider'
+
+export default function TopActions({ children }: { children: ReactNode }) {
+  const t = useT()
+  const [open, setOpen] = useState(false)
+  const wrap = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    // 外側を押す / Escape で閉じる（開いたまま本文を触ってしまうのを防ぐ）
+    const onDown = (e: PointerEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+  return (
+    <div className="me-top-nav" ref={wrap}>
+      <button
+        className="me-top-burger"
+        aria-label={t('me.menu')}
+        aria-expanded={open}
+        aria-controls="me-top-actions"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <MenuIcon />
+      </button>
+      {/* 項目を押したら閉じる。遷移する項目でも、戻ってきたときに開いたままにしない。
+          キーボードの Enter/Space はその項目自身の click を通るので、ここで拾える。 */}
+      <div id="me-top-actions" className={`me-top-actions${open ? ' open' : ''}`} onClick={() => setOpen(false)}>
+        {children}
+      </div>
+    </div>
+  )
+}

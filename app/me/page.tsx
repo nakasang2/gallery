@@ -14,6 +14,7 @@ import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components
 import WorkDesign from '@/components/WorkDesign'
 import PurchaseModal from '@/components/PurchaseModal'
 import PlacementEditor from '@/components/PlacementEditor'
+import TopActions from '@/components/TopActions'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import {
   purchaseOptionsFor,
@@ -1302,16 +1303,16 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               <span className="wd-label">{t('me.lighting')}</span>
               <div className="chips">
                 {([
-                  ['ceiling', 'Ceiling'],
-                  ['overhead', 'Above work'],
-                ] as const).map(([key, label]) => (
+                  ['ceiling', 'me.lightCeiling'],
+                  ['overhead', 'me.lightOverhead'],
+                ] as const).map(([key, labelKey]) => (
                   <button
                     key={key}
                     className={`chip${(design.lightMode ?? 'ceiling') === key ? ' active' : ''}`}
                     disabled={busy}
                     onClick={() => editDesign({ lightMode: key })}
                   >
-                    {label}
+                    {t(labelKey)}
                   </button>
                 ))}
               </div>
@@ -1389,9 +1390,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 </span>
               </span>
               <div className="wd-block-body">
-                <div className="hako-actions" style={{ alignItems: 'center' }}>
+                {/* .hako-actions はカードの本文の下に置く前提で margin-top: 1.2rem を持っており、
+                    そのまま block-body に入れると見出しとボタンの間が29px空いた（他の行は約10px）。
+                    この行では行間は .wd-block-body の gap が決めるので、上マージンは殺す。 */}
+                <div className="hako-actions" style={{ alignItems: 'center', marginTop: 0 }}>
                   <label className="btn-line file-btn" aria-disabled={bgmBusy} style={{ marginTop: 0 }}>
-                    {bgmBusy ? 'Uploading…' : bgmUrl ? 'Replace track' : 'Upload track'}
+                    {bgmBusy ? t('me.uploading') : bgmUrl ? t('me.replaceTrack') : t('me.uploadTrack')}
                     <input
                       type="file"
                       accept="audio/*"
@@ -2183,7 +2187,7 @@ export default function MePage() {
       <div className="me-inner">
         <div className="me-top">
           <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
-          <div className="me-top-actions">
+          <TopActions>
             <LocaleLink className="btn-line" href="/explore">{t('me.explore')}</LocaleLink>
             {isAdmin && (
               <Link className="btn-line btn-gold" href="/admin">{t('me.admin')}</Link>
@@ -2191,7 +2195,7 @@ export default function MePage() {
             {user && (
               <button className="btn-line" onClick={() => void signOut()}>{t('me.signOut')}</button>
             )}
-          </div>
+          </TopActions>
         </div>
 
         {!user && checked && (

@@ -1487,11 +1487,21 @@ body:not(.gallery-mode) {
   margin-top: 0.7rem;
 }
 
+/* inline-flex で中央寄せなのは装飾ではない: このクラスは <button> だけでなく <a> と
+   <label> にも付く（19箇所）。ブラウザが中身を勝手に縦中央へ置くのは <button> だけなので、
+   min-height（粗いポインタの44px）や flex の stretch で箱が伸びると、隣り合った
+   a / label だけ文字が上に寄って並びが崩れる（375pxで実測3.4px、行が伸びるほど拡大）。 */
 .btn-line {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none; /* also used on <a> (auth page links etc.) */
   text-align: center;
   font-family: var(--sans);
+  /* ブラウザは <button> にだけ line-height: normal を当てるので、同じ見た目のはずの
+     <a>/<label> が本文の行間(1.8)を継いで4px背が高くなり、並べると段差になっていた
+     （環境音の「音源をアップロード」と「削除」で実測 38px と 34px）。 */
+  line-height: normal;
   font-size: 0.74rem;
   letter-spacing: 0.1em;
   color: var(--ink);
@@ -1654,7 +1664,13 @@ body:not(.gallery-mode) {
     transform: translateY(100%);
   }
   .panel.open { transform: translateY(0); }
-  .panel-close { top: 0.8rem; right: 0.9rem; }
+  /* 閉じるは前後ボタンと同じ行に揃える。以前は top: 0.8rem の絶対配置で、ボトムシートでは
+     ナビ行の「›」(34px)が閉じる(44px)の矩形にほぼ丸ごと内包され、次の作品へ進むタップが
+     閉じるに奪われていた（375pxで実測 34x31px の重なり）。閉じるの上端をシートの内容
+     上端(padding-top: 1.6rem)に合わせ、行の高さを閉じると同じ44pxにして、右端には
+     閉じる1個分(44px)の場所を空ける。 */
+  .panel-close { top: 1.6rem; right: 0.9rem; }
+  .panel-nav { min-height: 44px; padding-right: 44px; }
   .panel-title { font-size: 1.45rem; }
   /* Was written as `.hud-actions`, a class no element has ever carried — the
      bottom-right group is `.hud-cluster` (components/gallery/Hud.tsx). The rule
