@@ -98,14 +98,17 @@ export default function PurchaseModal({
       const start = await startCheckout(intent, clampedQty)
       if (start.kind === 'redirect') {
         window.location.assign(start.url)
-        return // keep the button disabled while the browser navigates
+        // Stay busy while the browser navigates. This used to be a `return` with
+        // `setBusy(false)` in a `finally`, which runs on the way out anyway — the
+        // button came straight back to life mid-navigation, and a second tap made
+        // a second Checkout session (no double charge, but a stray session).
+        return
       }
       setBlocked(start.kind === 'signed-out' ? 'signed-out' : 'not-live')
     } catch (e) {
       setError(e instanceof Error ? e.message : t('purchase.failed'))
-    } finally {
-      setBusy(false)
     }
+    setBusy(false)
   }
 
   return (

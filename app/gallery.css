@@ -1696,7 +1696,6 @@ body:not(.gallery-mode) {
   .settings.open { transform: translateY(0); }
 }
 
-/* Immediate-delivery acknowledgement before a purchase (EU/UK 14-day right). */
 /* The Terms notice under the CTA — where the tick box used to be (DECISIONS
    2026-07-29). Quieter than the note above it: this is the fine print, not
    something the buyer has to act on. */
