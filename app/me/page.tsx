@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { TEMPLATES, THEMES, LAYOUTS, normalizeDesignOverrides, normalizeLayoutParams, normalizeArrangement, type DesignOverrides, type CustomLayoutParams } from '@/lib/presets'
+import { TEMPLATES, THEMES, LAYOUTS, CUSTOM_LAYOUT_RELEASED, normalizeDesignOverrides, normalizeLayoutParams, normalizeArrangement, type DesignOverrides, type CustomLayoutParams } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
 import { SIZE_GROUPS, matchPreset, presetByLabel } from '@/lib/artSizes'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
@@ -1288,15 +1288,29 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                     </button>
                   )
                 })}
-                {/* layout_params survive preset switches (saveGallerySpace preserves them) */}
-                <button
-                  className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}`}
-                  disabled={busy}
-                  onClick={() => void setSpace({ layout: 'custom' })}
-                >
-                  <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
-                  {t('me.custom')}
-                </button>
+                {/* Not released yet, so no chip offers it to a new room (lib/presets →
+                    CUSTOM_LAYOUT_RELEASED). A room already ON 'custom' keeps the chip and
+                    its size sliders — it renders as before and can still come back to its
+                    own shape. Once released, the chip goes through the same lock/purchase
+                    path as the presets: free access was the bug, not the feature.
+                    layout_params survive preset switches (saveGallerySpace preserves them). */}
+                {(CUSTOM_LAYOUT_RELEASED || row.layout === 'custom') && (() => {
+                  const unlocked = row.layout === 'custom' || isLayoutUnlocked('custom', entitlements)
+                  return (
+                    <button
+                      className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      disabled={busy}
+                      onClick={() => {
+                        if (!unlocked) { setPurchaseItem({ kind: 'layout', key: 'custom', label: t('me.custom') }); return }
+                        void setSpace({ layout: 'custom' })
+                      }}
+                    >
+                      <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
+                      {t('me.custom')}
+                      {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
+                    </button>
+                  )
+                })()}
               </div>
             </div>
             <div className="wd-row">

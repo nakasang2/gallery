@@ -456,6 +456,22 @@ export interface CustomLayoutParams {
 
 export const CUSTOM_LAYOUT_DEFAULTS: CustomLayoutParams = { hw: 12, hd: 7, island: false }
 
+/**
+ * Whether the parametric layout is offered to owners yet (ユーザー判断 2026-07-29:
+ * 「一旦リリースしない形として」). It is built and renders correctly — what isn't
+ * decided is whether a room you size yourself is free or paid, and it was being
+ * handed out free while every preset layout costs $5.
+ *
+ * false = no chip offers it and it is not in the paid catalog (lib/entitlements),
+ * so it can be neither bought nor granted. Rooms ALREADY saved with layout
+ * 'custom' keep rendering from their layout_params either way — resolveLayout
+ * never consults this flag, so nobody's room changes shape.
+ *
+ * Flipping this to true releases it as a normal paid layout (the chip carries the
+ * same lock/purchase path as the presets, priced through ITEM_PRICE_CENTS).
+ */
+export const CUSTOM_LAYOUT_RELEASED = false
+
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 export function normalizeLayoutParams(p?: Partial<CustomLayoutParams> | null): CustomLayoutParams {

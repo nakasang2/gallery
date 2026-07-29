@@ -3,7 +3,7 @@
 // Where works are exhibited depends on sign-in state: guest = localStorage / signed in = Supabase
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { THEMES, LAYOUTS, FRAMES, MATS, HANGINGS, CAPTIONS, TEMPLATES } from '@/lib/presets'
+import { THEMES, LAYOUTS, FRAMES, MATS, HANGINGS, CAPTIONS, TEMPLATES, CUSTOM_LAYOUT_RELEASED } from '@/lib/presets'
 import { buildPlacement, overflowCount, slotCount, useOwnArtworks, useIsOwnerEditing } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { showToast } from '@/lib/toast'
@@ -656,13 +656,26 @@ export default function SettingsPanel() {
               </button>
             )
           })}
-          <button
-            className={`chip chip-visual${settings.layout === 'custom' ? ' active' : ''}`}
-            onClick={() => updateSettings({ layout: 'custom' })}
-          >
-            <LayoutPlan layoutKey="custom" params={settings.layoutParams} className="chip-plan" />
-            {t('panel.custom')}
-          </button>
+          {/* Unreleased — see lib/presets → CUSTOM_LAYOUT_RELEASED. A room ALREADY on
+              'custom' still gets the chip (otherwise no layout looks selected and it
+              could never come back to the shape it is on) and keeps it unlocked; once
+              released the chip locks and sells like any other layout. */}
+          {(CUSTOM_LAYOUT_RELEASED || settings.layout === 'custom') && (() => {
+            const unlocked = settings.layout === 'custom' || isLayoutUnlocked('custom', entitlements)
+            return (
+              <button
+                className={`chip chip-visual${settings.layout === 'custom' ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                onClick={() => {
+                  if (!unlocked) { setPurchaseItem({ kind: 'layout', key: 'custom', label: t('panel.custom') }); return }
+                  updateSettings({ layout: 'custom' })
+                }}
+              >
+                <LayoutPlan layoutKey="custom" params={settings.layoutParams} className="chip-plan" />
+                {t('panel.custom')}
+                {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
+              </button>
+            )
+          })()}
         </div>
         {purchaseItem && (
           <PurchaseModal

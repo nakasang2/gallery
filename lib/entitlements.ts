@@ -3,7 +3,7 @@
 // ledger (lib/purchases.ts): the free tier locks Video Pass and Design Tools
 // until purchased; forever-free themes/layouts (below) stay open to everyone.
 // This is the intended release base — buying is what unlocks these.
-import { THEMES, LAYOUTS } from './presets'
+import { THEMES, LAYOUTS, CUSTOM_LAYOUT_RELEASED } from './presets'
 
 export interface Entitlements {
   /** ① Video Pass (subscription) — video exhibits enabled */
@@ -104,8 +104,10 @@ export function paidThemeIds(): string[] {
   return Object.keys(THEMES).filter((id) => !isThemeUnlocked(id, FREE_TIER_ENTITLEMENTS))
 }
 
-/** 'custom' is sellable even though it has no LAYOUTS row — it is generated from
- *  parameters (buildCustomLayout) rather than a preset table. */
+/** 'custom' has no LAYOUTS row (it is generated from parameters) and is only on
+ *  sale once released — until then it must not be buyable or grantable, or we
+ *  would be selling something no chip can select. */
 export function paidLayoutIds(): string[] {
-  return [...Object.keys(LAYOUTS), 'custom'].filter((id) => !isLayoutUnlocked(id, FREE_TIER_ENTITLEMENTS))
+  const ids = CUSTOM_LAYOUT_RELEASED ? [...Object.keys(LAYOUTS), 'custom'] : Object.keys(LAYOUTS)
+  return ids.filter((id) => !isLayoutUnlocked(id, FREE_TIER_ENTITLEMENTS))
 }
