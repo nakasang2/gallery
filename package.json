@@ -8,6 +8,7 @@
     "start": "next start",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:css": "node scripts/check-css.mjs",
+    "check:schema": "node scripts/check-schema-sync.mjs",
     "check:gates": "node scripts/check-gates.mjs",
     "check:ship-ready": "node scripts/check-ship-ready.mjs",
     "predev": "node scripts/check-stale-next.mjs",

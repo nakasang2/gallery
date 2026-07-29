@@ -504,6 +504,245 @@ gateCase('check:ship-ready — 未追跡ファイルだけでも止める（検�
   contains: ['未コミット'],
 })
 
+// -------------------------------------------------------------- check:schema
+// schema.sql（統合スナップショット）が migrations から取り残されるのを見る番人。
+// 実際に 0025〜0034 の10本が入っていない状態で放置され、ユーザーの指摘で判明した
+// （2026-07-29）。ここでは「入れ忘れた入力で落ちる」「揃っている入力では落ちない」を
+// 軸に、ルール（ヘッダ／本文の部分列／README §1／取り残しヘッダ／前文の統合範囲）を
+// 1つずつ守る。SQLは実行しないので合成入力はごく小さくてよい。
+const MIG_A = ['-- 最初のテーブル', 'create table if not exists public.a (', '  id uuid primary key', ');'].join('\n')
+const MIG_B = ['-- b列を足す', 'alter table public.a', '  add column if not exists b text;'].join('\n')
+
+// 前文の「migrations 0001〜NNNN を統合」は、最新番号と合っていないと別途落ちる。
+// ルールを1つずつ切り分けたいので、既定では最新に合わせておく。
+const schemaOf = (sections, { claim = '0002' } = {}) =>
+  [`-- Xibit360 全スキーマ統合ファイル(migrations 0001〜${claim} を統合)`, '', ...sections].join('\n')
+
+const section = (name, body) => [`-- # ${name}`, body].join('\n')
+
+const readmeOf = (items) =>
+  [
+    '# Supabase セットアップ手順',
+    '',
+    '## 1. スキーマの適用(必須・1回だけ)',
+    '',
+    '1. SQL Editor を開く',
+    '2. `supabase/migrations/` のSQLを**番号順に**貼って Run',
+    ...items.map((i) => `   - ${i}`),
+    '',
+    '## 2. 認証の設定',
+    '',
+    'メールで動く。',
+    '',
+  ].join('\n')
+
+const READY_README = readmeOf(['`0001_a.sql` — 初期スキーマ', '`0002_b.sql` — b列'])
+const MIGS = { 'supabase/migrations/0001_a.sql': MIG_A, 'supabase/migrations/0002_b.sql': MIG_B }
+
+gateCase('check:schema — migration を足して schema.sql に入れ忘れた入力で落ちる', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    // 0002 を足したのに統合スナップショットが 0001 のままという、今回そのままの形
+    'supabase/schema.sql': schemaOf([section('0001_a.sql', MIG_A)]),
+    'supabase/README.md': READY_README,
+  },
+  expectFail: true,
+  contains: ['0002_b.sql', '節が無い'],
+})
+
+gateCase('check:schema — 揃っている入力では落ちない', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    'supabase/schema.sql': schemaOf([section('0001_a.sql', MIG_A), section('0002_b.sql', MIG_B)]),
+    'supabase/README.md': READY_README,
+  },
+  expectFail: false,
+  contains: ['0 件', 'migration 2 本を照合'],
+})
+
+gateCase('check:schema — 節はあるが本文が入っていない入力で落ちる', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    // 見出しだけコピーして中身を忘れる（手で統合するときに最も起きやすい）
+    'supabase/schema.sql': schemaOf([
+      section('0001_a.sql', MIG_A),
+      section('0002_b.sql', '-- b列を足す'),
+    ]),
+    'supabase/README.md': READY_README,
+  },
+  expectFail: true,
+  contains: ['0002_b.sql', '中身が schema.sql に入っていない'],
+})
+
+gateCase('check:schema — 本文の順序が入れ替わっていたら落ちる（部分列は順序を見る）', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    // 行は両方あるが順序が逆。alter より先に add column が来ても通るなら、
+    // 「部分列」ではなく「集合」を見ていることになる。
+    'supabase/schema.sql': schemaOf([
+      section('0001_a.sql', MIG_A),
+      section('0002_b.sql', ['  add column if not exists b text;', 'alter table public.a'].join('\n')),
+    ]),
+    'supabase/README.md': READY_README,
+  },
+  expectFail: true,
+  contains: ['0002_b.sql'],
+})
+
+gateCase('check:schema — 本文が自分のヘッダより前にしか無いなら落ちる', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    // 0002 の本文は schema.sql に「ある」が、置かれているのは 0001 の節の中で、
+    // 0002 の節は空。照合を「どこかにあればよい」にすると通ってしまう。
+    // migration どうしは `);` や grant 行のような同じ行を大量に共有するので、
+    // 下限を外すと**別の節の行で新しい節の中身が満たされたことになる**。
+    // 変異テストで見つけた穴（この下限を外すと自己テストが緑のままだった 2026-07-29）。
+    'supabase/schema.sql': schemaOf([
+      section('0001_a.sql', [MIG_A, 'alter table public.a', '  add column if not exists b text;'].join('\n')),
+      section('0002_b.sql', '-- 中身を入れ忘れた'),
+    ]),
+    'supabase/README.md': READY_README,
+  },
+  expectFail: true,
+  contains: ['0002_b.sql', '中身が schema.sql に入っていない'],
+})
+
+gateCase('check:schema — README §1 の一覧に無い migration を検出する', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    'supabase/schema.sql': schemaOf([section('0001_a.sql', MIG_A), section('0002_b.sql', MIG_B)]),
+    'supabase/README.md': readmeOf(['`0001_a.sql` — 初期スキーマ']),
+  },
+  expectFail: true,
+  contains: ['0002_b.sql', 'README'],
+})
+
+gateCase('check:schema — README の範囲表記（`0001`〜`0002`）は一覧として認める', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    'supabase/schema.sql': schemaOf([section('0001_a.sql', MIG_A), section('0002_b.sql', MIG_B)]),
+    // README は実際に `0011`〜`0015` とまとめている。これを未記載と言い出すと
+    // 番人が既存の書き方を否定してしまう（＝誤検知でpushが止まる）。
+    'supabase/README.md': readmeOf(['`0001`〜`0002` — 初期スキーマとb列']),
+  },
+  expectFail: false,
+})
+
+gateCase('check:schema — §1 の地の文の範囲表記は一覧のカバーと認めない', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    'supabase/schema.sql': schemaOf([section('0001_a.sql', MIG_A), section('0002_b.sql', MIG_B)]),
+    // 一覧には 0001 しか無いが、地の文が「下の 0001〜0002 が一括で適用されます」と
+    // 言っている。地の文まで範囲として数えると、この一言で一覧の照合がまるごと
+    // 空振りになる（実際にこの番人を入れた作業でREADMEにこの一文を書いて踏んだ）。
+    'supabase/README.md': [
+      '# Supabase セットアップ手順',
+      '',
+      '## 1. スキーマの適用(必須・1回だけ)',
+      '',
+      '`supabase/schema.sql` を貼り付けて Run すれば、下の 0001〜0002 が一括で適用されます。',
+      '',
+      '1. SQL Editor を開く',
+      '   - `0001_a.sql` — 初期スキーマ',
+      '',
+      '## 2. 認証の設定',
+      '',
+    ].join('\n'),
+  },
+  expectFail: true,
+  contains: ['0002_b.sql', 'README'],
+})
+
+gateCase('check:schema — コメント・インデント・空行の違いを誤検知しない', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    // 統合するときに説明コメントを書き換える／インデントを揃えるのは普通の作業。
+    // これで落ちるなら番人が使われなくなる。照合するのはコード行だけ。
+    'supabase/schema.sql': schemaOf([
+      section('0001_a.sql', MIG_A),
+      section(
+        '0002_b.sql',
+        [
+          '-- 統合側では説明を書き換えている',
+          '/* 複数行の',
+          '   ブロックコメント */',
+          '',
+          'alter    table   public.a',
+          '    add column if not exists b text;',
+        ].join('\n'),
+      ),
+    ]),
+    'supabase/README.md': READY_README,
+  },
+  expectFail: false,
+  contains: ['0 件'],
+})
+
+gateCase('check:schema — 文字列リテラルの中の `--` をコメントと読まない', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    'supabase/migrations/0001_a.sql': ["insert into public.a (note) values ('a--b');"].join('\n'),
+    // `--` を素朴に切ると migration 側の行が `insert into public.a (note) values ('a`
+    // になり、schema.sql 側と同じように壊れるので**両方壊れて通ってしまう**。
+    // schema.sql 側だけ後半を落として、切り方が間違っていれば落ちるようにする。
+    'supabase/schema.sql': schemaOf([section('0001_a.sql', "insert into public.a (note) values ('a")], {
+      claim: '0001',
+    }),
+    'supabase/README.md': readmeOf(['`0001_a.sql` — 初期スキーマ']),
+  },
+  expectFail: true,
+  contains: ['0001_a.sql'],
+})
+
+gateCase('check:schema — migration が存在しない取り残しヘッダを検出する', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    'supabase/schema.sql': schemaOf([
+      section('0001_a.sql', MIG_A),
+      section('0002_b.sql', MIG_B),
+      section('0003_gone.sql', 'select 1;'),
+    ]),
+    'supabase/README.md': READY_README,
+  },
+  expectFail: true,
+  contains: ['0003_gone.sql', '取り残し'],
+})
+
+gateCase('check:schema — 前文が名乗る統合範囲が古い入力で落ちる', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    // 中身は揃っているが「0001〜0001 を統合」と名乗っている。実際に schema.sql は
+    // 「0001〜0022 を統合」と言いながら 0024 まで入っていた。
+    'supabase/schema.sql': schemaOf([section('0001_a.sql', MIG_A), section('0002_b.sql', MIG_B)], { claim: '0001' }),
+    'supabase/README.md': READY_README,
+  },
+  expectFail: true,
+  contains: ['統合範囲'],
+})
+
+gateCase('check:schema — 未追跡の migration を見落とさず落ちる（git add 前の新規ファイル）', {
+  gate: 'check-schema-sync.mjs',
+  files: {
+    ...MIGS,
+    'supabase/schema.sql': schemaOf([section('0001_a.sql', MIG_A), section('0002_b.sql', MIG_B)]),
+    'supabase/README.md': READY_README,
+  },
+  add: false,
+  expectFail: true,
+  contains: ['未追跡'],
+})
+
 // --------------------------------------------------------------------- 実行
 let failed = 0
 for (const c of cases) {
