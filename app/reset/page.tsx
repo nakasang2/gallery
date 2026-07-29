@@ -6,7 +6,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
-import { useT } from '@/components/I18nProvider'
+import { TextWithSlot, useT } from '@/components/I18nProvider'
 
 const MIN_PASSWORD = 8
 
@@ -57,7 +57,8 @@ export default function ResetPage() {
     e.preventDefault()
     if (busy) return
     if (password.length < MIN_PASSWORD) {
-      setError(`Password must be at least ${MIN_PASSWORD} characters.`)
+      // 同じ文のキーが既にある（辞書を通っていない写しだった）
+      setError(t('auth.passwordTooShort', { min: MIN_PASSWORD }))
       return
     }
     setBusy(true)
@@ -107,8 +108,10 @@ export default function ResetPage() {
     <AuthShell title={t('auth.resetTitle')}>
       {sent ? (
         <p className="auth-note">
-          {t('auth.resetSentIfExists')} <b>{email.trim()}</b>, a reset link is on its way. Open it and
-          you will land back here to set a new password.
+          {/* 文はひとつのキー。太字にするアドレスの位置は訳文が決める（TextWithSlot） */}
+          <TextWithSlot text={t('auth.resetSent')} slot="email">
+            <b>{email.trim()}</b>
+          </TextWithSlot>
         </p>
       ) : (
         <form onSubmit={(e) => void requestLink(e)}>

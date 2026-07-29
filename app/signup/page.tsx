@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
-import { useT } from '@/components/I18nProvider'
+import { TextWithSlot, useT } from '@/components/I18nProvider'
 
 const MIN_PASSWORD = 8
 
@@ -81,8 +81,10 @@ export default function SignUpPage() {
     return (
       <AuthShell title={t('auth.checkInbox')}>
         <p className="auth-note">
-          {t('artwork.confirmSentTo')} <b>{email.trim()}</b>. Open it and you&apos;ll land in your
-          dashboard, signed in.
+          {/* 文はひとつのキー。太字にするアドレスの位置は訳文が決める（TextWithSlot） */}
+          <TextWithSlot text={t('auth.confirmSent')} slot="email">
+            <b>{email.trim()}</b>
+          </TextWithSlot>
         </p>
         <div className="auth-alt">
           <button className="btn-line" disabled={busy} onClick={() => void resend()}>

@@ -361,8 +361,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
     return (
       <div className="me-card">
         <p className="me-note" style={{ marginTop: 0 }}>
-          <b style={{ color: 'var(--ink)' }}>{t('me.createStep1')}</b> — pick the room you&apos;ll start from.
-          Colours, floor plan and framing are all shown; everything can be changed later.
+          <b style={{ color: 'var(--ink)' }}>{t('me.createStep1')}</b> {t('me.createStep1Note')}
         </p>
         {/* One preview per card (the card top IS the wall preview) — no duplicate block */}
         <div className="tpl-grid">
@@ -386,7 +385,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
           <>
             <button className="btn-line" disabled aria-disabled="true">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35em' }}>
-                {TEMPLATES[templateId]?.label} is premium <LockIcon />
+                {t('me.createTemplatePremium', { name: TEMPLATES[templateId]?.label ?? '' })} <LockIcon />
               </span>
             </button>
             <p className="me-note" style={{ marginTop: '0.5rem' }}>
@@ -405,8 +404,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   return (
     <div className="me-card">
       <p className="me-note" style={{ marginTop: 0 }}>
-        <b style={{ color: 'var(--ink)' }}>{t('me.createStep2')}</b> — name your gallery. This is the exhibition
-        title visitors will see; leave it blank and your artist name leads instead.
+        <b style={{ color: 'var(--ink)' }}>{t('me.createStep2')}</b> {t('me.createStep2Note')}
       </p>
       <label className="me-field">
         <span>{t('me.titleOptional')}</span>

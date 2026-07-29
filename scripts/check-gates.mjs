@@ -346,6 +346,32 @@ gateCase('check:i18n — 対になっている複数形キーを誤検知しな�
   expectFail: false,
 })
 
+gateCase('check:i18n — 訳文でプレースホルダが落ちているのを検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // 訳文が `{email}` を持たないと、差し込むはずの値が文から消える（アドレスの
+    // 出ない「リンクを送りました」）。太字を差し込む TextWithSlot はこの
+    // プレースホルダで文を割るので、前半だけになる。
+    'lib/i18n/en.ts': ['export const en = {', '  auth: {', "    sent: 'A link is on its way to {email}.',", '  },', '}', ''].join('\n'),
+    'lib/i18n/ja.ts': ['export const ja = {', '  auth: {', "    sent: 'リンクを送りました。',", '  },', '}', ''].join('\n'),
+  },
+  expectFail: true,
+  contains: ['{email}', 'auth.sent'],
+})
+
+gateCase('check:i18n — 語順が違うだけの訳文は誤検知しない（プレースホルダの点検）', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // 位置は言語が決めてよい。数と名前が同じなら通る。英語に無いキー（訳文だけの
+    // 残骸）も、ここでは無視する（負の対照）
+    'lib/i18n/en.ts': ['export const en = {', '  auth: {', "    sent: 'A link is on its way to {email}.',", '  },', '}', ''].join('\n'),
+    // 残骸のキーには**プレースホルダを持たせてある** — 英語に無いキーを照合して
+    // しまうと「英語は(なし)なのにこちらは {count}」と誤検知する形にしておく
+    'lib/i18n/ja.ts': ['export const ja = {', '  auth: {', "    sent: '{email} にリンクを送りました。',", "    onlyHere: '{count} 件（訳文だけにあるキー）',", '  },', '}', ''].join('\n'),
+  },
+  expectFail: false,
+})
+
 gateCase('check:i18n — 複数行コメントの後ろでも行番号が合っている', {
   gate: 'check-i18n.mjs',
   files: {
@@ -569,6 +595,63 @@ gateCase('check:i18n — 開きタグの `>` が単独行でも中身を検査�
   },
   expectFail: true,
   contains: ['Copy embed code'],
+})
+
+gateCase('check:i18n — タグや式と同じ行に始まり、行末まで続く地の文を検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // ルール2は `>text<`、ルール3は「タグの無い素の行」しか見ないので、**同じ行に
+    // タグや式があり、地の文が行末まで続く**形がどちらにも当たらず素通りしていた。
+    // 新規作家が最初に見る「最初の部屋を選ぶ」カードで2件（ユーザー指摘 2026-07-29）。
+    // 2行目は「式の直後」で、`>` を持たないためルール2では拾えない形。
+    // 負の対照を同じ入力に混ぜてある: 型引数（`useState<string | null>(null)`）を
+    // タグと読むと `(null)` を1語ラベルとして報告する（実際にやった）。
+    'app/page.tsx': [
+      "import { useState } from 'react'",
+      'export default function P({ label }: { label: string }) {',
+      '  const [value, setValue] = useState<string | null>(null)',
+      '  return (',
+      '    <div onClick={() => setValue(label)}>',
+      '      <p>',
+      "        <b>{t('me.createStep1')}</b> — pick the room you will start from.",
+      '      </p>',
+      '      <span>',
+      '        {label} is premium <i />',
+      '      </span>',
+      '      <span>{value}</span>',
+      '    </div>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['pick the room', 'is premium'],
+  notContains: ['(null)'],
+})
+
+gateCase('check:i18n — 文字列リテラルの中身を地の文と読まない（シェーダ・正規表現）', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // 上のルールを足した直後、**タグを含む行の文字列リテラルの中身**を地の文として
+    // 報告した（GLSLの `#include <fog_vertex>\n\tgl_PointSize = …` と、JSXの中の
+    // `.replace(/^https?:\/\//, '')`）。判定は伏せ字側で行う — JSXの地の文は
+    // クォートの中に無いので、失うものが無い。
+    'app/page.tsx': [
+      'export default function P({ url }: { url: string }) {',
+      '  const patch = (src: string) =>',
+      "    src.replace('#include <fog_vertex>', '#include <fog_vertex>\\n\\tgl_PointSize = min(gl_PointSize, 9.0);')",
+      '  return (',
+      '    <div>',
+      "      <span>{patch(url).replace(/^https?:\\/\\//, '')}</span>",
+      "      <span>{t('common.save')}</span>",
+      '    </div>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: false,
 })
 
 gateCase('check:i18n — 自己閉じタグ（<br />）の直後のテキストも検査する', {

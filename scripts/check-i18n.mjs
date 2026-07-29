@@ -273,6 +273,42 @@ for (const file of files) {
     //    条件にしていたため、ボタンやリンクの短いラベルがまるごと素通りしていた
     //    （SettingsPanel の "Add" を42%まで訳した後で見つけた 2026-07-29）。
 
+    // 2b) 同じ行で閉じない（次の行へ続く）JSXテキスト。ルール2は `>text<` の形しか
+    //     見ず、ルール3は「タグの無い素の行」しか見ないので、**タグや式と同じ行に
+    //     始まって行末まで続く地の文**がどちらにも当たらず素通りしていた
+    //     （`</b> — pick the room you’ll start from.` と
+    //     `{TEMPLATES[id]?.label} is premium <LockIcon />` の2件。新規作家が最初に
+    //     見る「最初の部屋を選ぶ」カードで、ユーザー指摘 2026-07-29）。
+    //
+    //     JSXのタグがある行に限り、`>` または式の跡から始まって `<` か行末で終わる
+    //     区間を見る。式の跡から始まる形を見るのが要点で、`{式} text` はルール2の
+    //     `>` を持たない。アロー関数の `=>` はここでは除いていない（除いても実
+    //     リポジトリの結果は変わらず＝守れているものが無い。`() => <p>…` の `>` の
+    //     直後は空文字で、そもそも区間にならない）。
+    //
+    //     誤検知を止めているのは2つの絞り込みで、**どちらも単独で効いている**
+    //     （片方を消せば `check:gates` が落ちることを変異テストで確かめてある）:
+    //     ①**型引数はタグと数えない** — `<` の直前が識別子の文字なら型引数
+    //     （`useState<Foo | null>` `Promise<void>` `ComponentProps<typeof Link>`）。
+    //     これを入れないと `useState<Foo | null>(null)` の `(null)` を1語ラベルとして
+    //     報告した（この節を書いた直後に37件出た）。JSXのタグの `<` は行頭・空白・
+    //     `(`・`{`・`>`・`,` の後に来る。
+    //     ②**文字列リテラルの中身は見ない** — 判定は伏せ字側（`mask`）で行う。JSXの
+    //     地の文はクォートの中に無いので失うものが無く、代わりにシェーダのソース
+    //     （`Dust.tsx` のGLSL）やテンプレート文字列の中の正規表現を読まなくなる。
+    //
+    //     「2語以上に限る」も一度入れたが**外した**: ①があれば実リポジトリの誤検知は
+    //     0件のままで（外して測った）、代わりに `</span> total` のような1語の
+    //     ラベルまで見えなくなる。効いていない絞り込みは、変異テストでも
+    //     「消しても落ちない」＝守れているものが無いと出る。
+    const TAGGISH = new RegExp(`(^|[^A-Za-z0-9_$.])<\\/?[A-Za-z][^<>${PH}]*\\/?>`)
+    const strippedMask = stripExpr(mask)
+    if (TAGGISH.test(strippedMask)) {
+      for (const m of strippedMask.matchAll(new RegExp(`(?:>|${PH})([^<>${PH}\\n]+)(?=<|$)`, 'g'))) {
+        if (looksEnglish(m[1])) report('text', m[1])
+      }
+    }
+
     // 3) タグをまたぐJSXテキスト。「素の行」だけを見ると import 一覧や
     //    オブジェクトリテラルまで拾ってしまうので、直前の行がJSXの開きタグで
     //    終わっている（= 要素の中身にいる）ことを条件にする。
@@ -400,6 +436,33 @@ if (mixed.length) {
 //
 // 数え方は check:i18n のカバレッジと違って**入れ子の道筋まで見る**。`artwork.foo_other`
 // の相方は `artwork.foo` であって、別のグループの同名 `panel.foo` ではない。
+// 辞書の葉を「入れ子の道筋 → 値」で拾う。`pluralKeys` と同じ走査だが値も持つ
+// （プレースホルダの点検に使う）。伏せ字は長さを保つので、`body` で見つけた位置は
+// そのまま `src` の位置として使える。
+const leafValues = (src) => {
+  const body = maskStrings(src)
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/\/\/[^\n]*/g, (m) => ' '.repeat(m.length))
+  const TOKEN = /([a-zA-Z0-9_]+)\s*:\s*\{|([a-zA-Z0-9_]+)\s*:\s*(['"`])|\{|\}/g
+  const stack = []
+  const found = new Map()
+  for (const m of body.matchAll(TOKEN)) {
+    if (m[1]) stack.push(m[1])
+    else if (m[2]) {
+      const q = m.index + m[0].length - 1 // 開きクォートの位置
+      let j = q + 1
+      while (j < src.length && src[j] !== m[3]) {
+        if (src[j] === '\\') j++
+        j++
+      }
+      const path = [...stack, m[2]].filter(Boolean).join('.')
+      if (!found.has(path)) found.set(path, { value: src.slice(q + 1, j), at: q })
+    } else if (m[0] === '{') stack.push(null)
+    else stack.pop()
+  }
+  return found
+}
+
 const pluralKeys = (src) => {
   // 文字列の中の { } を波括弧として数えないよう伏せ字にしてからコメントを落とす
   // （値には `{count} works` のように波括弧が入る）。**長さと行数は保つ** —
@@ -456,6 +519,38 @@ if (pairIssues.length) {
   process.exit(1)
 }
 
+// --- プレースホルダの取り違えの点検 -----------------------------------------
+// 値に差し込む位置（`{email}` `{count}` `{max}`）は、訳文が持っていなければ
+// **その値が文から消える**。`translate()` は渡されなかった名前をそのまま残すので
+// 綴り違い（`{mail}`）なら画面に `{mail}` と出るが、名前ごと落ちている訳文は
+// 静かに情報だけを失う（アドレスが出ない「リンクを送りました」）。
+// 太字などを差し込む `TextWithSlot`（components/I18nProvider）は、訳文にその
+// プレースホルダがあることを前提に文を割るので、ここが崩れると前半だけになる。
+// 英語を基準に、同じキーを持つ訳文のプレースホルダ集合が一致するかを見る。
+const phSet = (s) => [...new Set(s.match(/\{\w+\}/g) ?? [])].sort().join(' ')
+const enLeaves2 = leafValues(readFileSync('lib/i18n/en.ts', 'utf8'))
+const phIssues = []
+for (const f of dictFiles) {
+  if (f.endsWith('/en.ts')) continue
+  const src = readFileSync(f, 'utf8')
+  const lineOf = (at) => src.slice(0, at).split('\n').length
+  for (const [key, { value, at }] of leafValues(src)) {
+    const en = enLeaves2.get(key)
+    if (!en) continue // 英語に無いキー（訳文だけの残骸）はカバレッジ側の話
+    const want = phSet(en.value)
+    const got = phSet(value)
+    if (want !== got) phIssues.push({ f, line: lineOf(at), key, want, got })
+  }
+}
+if (phIssues.length) {
+  console.error(`プレースホルダが英語と違うもの ${phIssues.length} 件（差し込む値が文から消えます）:\n`)
+  for (const p of phIssues) {
+    console.error(`  ${p.f}:${p.line}  ${p.key}  英語: ${p.want || '(なし)'} → こちら: ${p.got || '(なし)'}`)
+  }
+  console.error('\n訳し方で語順は変えて構いませんが、{…} は英語と同じ名前を同じ数だけ残してください。\n')
+  process.exit(1)
+}
+
 // --- 翻訳カバレッジ（ゲートではなく進捗の可視化） ---------------------------
 // 英語以外の辞書は部分辞書で、欠けたキーは英語にフォールバックする
 // （lib/i18n getDictionary）。何%訳せているかを毎回出しておかないと、
@@ -501,6 +596,7 @@ if (stateFindings.length) process.exit(1)
 console.log(`UI文言の直書き: 0 件（${files.length} ファイルを検査）`)
 console.log(`状態を語る対外文言: 0 件（${stateFiles.length} ファイルを検査）`)
 console.log(`複数形キーの相方が無いもの: 0 件（${dictFiles.length} 辞書を検査）`)
+console.log(`プレースホルダの取り違え: 0 件（英語の ${enLeaves2.size} キーと照合）`)
 console.log(`\n翻訳カバレッジ（英語 ${enLeaves} キーに対して。欠けた分は英語で表示される）:`)
 for (const c of coverage) {
   const bar = '█'.repeat(Math.round(c.pct / 5)).padEnd(20, '·')

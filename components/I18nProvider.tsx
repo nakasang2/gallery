@@ -110,6 +110,34 @@ export function LegalLink({ before }: { before?: React.ReactNode }) {
   )
 }
 
+/** 文の中の一箇所だけを要素（太字など）に差し替えて描く。
+ *
+ *  値を挟む文は**ひとつのキー**に収めるのが決まりで（語順・助詞・語形変化は言語側に
+ *  委ねる。LESSONS 2026-07-29 の `{unit}` と `presets.frameOf`）、素朴にやると
+ *  「文の前半キー ＋ <b>値</b> ＋ 文の後半キー」という連結に戻ってしまう。
+ *
+ *  そこで `t()` に**パラメータを渡さず**受け取り（`translate()` は渡されなかった
+ *  プレースホルダをそのまま残す）、その位置で割って要素を挟む。訳文がその
+ *  プレースホルダを持たない言語でも、前半だけが描かれて文は途切れない。 */
+export function TextWithSlot({
+  text,
+  slot,
+  children,
+}: {
+  text: string
+  slot: string
+  children: React.ReactNode
+}) {
+  const [before, after] = text.split(`{${slot}}`)
+  return (
+    <>
+      {before}
+      {children}
+      {after ?? ''}
+    </>
+  )
+}
+
 /** `next/link` that keeps the visitor in their language.
  *
  *  Links to a page we author (`/explore`, `/articles/…`) need the locale prefix:
