@@ -61,6 +61,8 @@
 ### 決済（Stripe）
 - 2026-07-27 | 本番でcheckoutが502（実カード投入前・セッション作成で失敗）→ Stripeログにエラー: 「the product tax code is missing. **Managed Payments**, which is enabled by default on your account, requires an eligible tax code」→ 新しめのStripeアカウントは**Managed Payments（Stripeが販売者=MoRとして世界の税を代行）が既定でオン**で、`price_data.product_data`に`tax_code`が無いと400 → **`product_data.tax_code`を付与**（デジタルサービスは`txcd_10000000`）。回避策は`managed_payments[enabled]=false`でも可。**502の切り分けはStripeダッシュボードのDevelopers→Logsのレスポンス本文が最短**（うちのcatchは詳細を握り潰し502に丸めるため）。
 
+- 2026-07-29 | **↑と同じ Managed Payments 由来で×2**。本番で購入が400（Stripeログ: 「**custom_text cannot be used with Managed Payments**, which is enabled by default on your account」）。支払いボタン上に出していた「一度きり・即時解放なので返金不可」の一文が丸ごと拒否されていた。前回は「足りないものを足す」（tax_code）だったが、今回は「**足したものが許されない**」で、`consent_collection` も逃げ道にならない（ダッシュボードに規約URLの設定が要る） → **Managed Payments は "Stripe が販売者" である以上、決済ページの見た目・文言に関わるオプションを軒並み拒否する。`checkout.sessions.create` に UI 系のオプション（`custom_text`・`consent_collection`・`custom_fields` など）を足すときは、実装前に Managed Payments 対応可否を確認する。法的な承諾は Stripe 画面に頼らず自分のモーダルで取り、Stripe には `metadata`（制約の対象外）で事実だけ残す**。回避策の `managed_payments[enabled]=false` は世界の税の代行から外れる＝税務を自前で負うので、文言のために選ぶ判断ではない（ユーザー判断でA案＝文言を外す）。切り分けは前回同様 **Stripe ダッシュボード → Developers → Logs のレスポンス本文が最短**（`app/api/checkout/route.ts`）
+
 ### 品質・レビュー（課金）
 - 2026-07-24 | スロット従量課金の導入で、checkoutは「セッション作成時のwork_cap」で残枠をクランプするが、加算RPC(`record_capacity_purchase`)が上限を持たず加算のみ → **同一部屋への並行チェックアウトが両方通ると work_cap が最大(15)を超え得る**（別視点レビューで検出）。超過分は「飾れないのに課金」＋作品がどこにも表示されない不整合 → **原子的な上限クランプは"最終の書き込み地点"(RPC/SQL)に置く。アプリ側の読み取り時クランプは並行実行で破れる**。`update ... set work_cap = least(work_cap + n, MAX)`（migration 0028）。金額はサーバー計算・数量はクライアント値を`min(want, remaining)`で必ず絞る。
 
