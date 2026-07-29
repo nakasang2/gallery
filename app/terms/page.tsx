@@ -35,7 +35,7 @@ export default function TermsPage() {
 
           <h2>5. Paid upgrades, and refunds</h2>
           <p>Publishing is free. Optional upgrades — extra work slots, layouts and themes — are <strong>one-time purchases</strong>. There is no subscription, nothing renews, and nothing is charged again. Payments are handled by Stripe; we never see your card details.</p>
-          <p>Because upgrades are digital and unlock the moment your payment clears, they are <strong>not refundable</strong> once unlocked, except where the law requires otherwise. When you buy, you are asked to confirm that you want immediate access and understand that this ends any statutory right to cancel that would otherwise apply — consumers in the EU and UK, please note this is the acknowledgement required for digital content supplied immediately. If you were charged and the upgrade did not unlock, write to us: we will fix it or refund you in full.</p>
+          <p>Because upgrades are digital and unlock the moment your payment clears, they are <strong>not refundable</strong> once unlocked, except where the law requires otherwise. By agreeing to these terms at checkout you ask us to supply the upgrade immediately, and you accept that it unlocks before any statutory cancellation period would have ended — consumers in the EU and UK, that is the period this concerns. If you were charged and the upgrade did not unlock, write to us: we will fix it or refund you in full.</p>
           <p>Prices may change, but a change never affects something you already bought.</p>
 
           <h2>6. Your account, and ending it</h2>

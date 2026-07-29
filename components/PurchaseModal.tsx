@@ -70,11 +70,14 @@ export default function PurchaseModal({
   // nothing at all and said nothing — on a phone the checkbox is 16px of grey
   // fine print, easy to miss. The button stays live and explains instead.
   const [consentMissing, setConsentMissing] = useState(false)
-  // EU/UK consumers keep a 14-day right to cancel digital content UNLESS they
-  // ask for it immediately and acknowledge losing that right. The upgrade
-  // unlocks the moment the webhook lands, so we have to take that here — and
-  // here rather than in Stripe's own consent_collection, which needs a URL
-  // configured in the dashboard and would break silently if it were missing.
+  // Agreement to the Terms, taken here because Stripe's own consent_collection
+  // needs a URL configured in the dashboard and would break silently without it.
+  //
+  // This box used to carry the express waiver EU/UK law wants for digital content
+  // supplied immediately ("I give up the 14-day right to cancel"). The user chose
+  // the shorter wording instead and accepted that trade knowingly, so the detail
+  // lives in the Terms (§5) and this is a plain agreement to them
+  // (docs/DECISIONS 2026-07-29). Don't quietly re-lengthen it.
   const [acknowledged, setAcknowledged] = useState(false)
 
   useEffect(() => {
@@ -211,10 +214,10 @@ export default function PurchaseModal({
               </label>
             )}
             {intent && (
-              /* The rest of the policy lives in the Terms, so the tick box can
-                 stay down to the two things the law needs it to say. Outside the
-                 <label> on purpose — a link inside it would toggle the box — and
-                 a new tab, so opening it doesn't throw away the purchase. */
+              /* What the box agrees to has to be readable before ticking it.
+                 Outside the <label> on purpose — a link inside it would toggle
+                 the box — and a new tab, so reading the Terms doesn't throw
+                 away the purchase. */
               <p className="purchase-consent-more">
                 <Link href="/terms" target="_blank" rel="noopener noreferrer">
                   {t('purchase.termsLink')}

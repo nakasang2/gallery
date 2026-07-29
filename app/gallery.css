@@ -1716,9 +1716,9 @@ body:not(.gallery-mode) {
   accent-color: var(--gold);
   cursor: pointer;
 }
-/* Where the rest of the policy went when the tick box was cut down to the two
-   things the law needs it to say. Lined up with the label text, not the box
-   (16px + the 0.55rem gap above), so the two read as one block. */
+/* The way to read the Terms the tick box agrees to. Lined up with the label
+   text, not the box (16px + the 0.55rem gap above), so the two read as one
+   block. */
 .purchase-consent-more {
   margin: 0 0 0.2rem;
   padding-left: calc(16px + 0.55rem);

@@ -150,9 +150,9 @@ export async function POST(req: NextRequest) {
       // cannot be used with Managed Payments"), and Stripe's own checkout page is
       // theirs to word once they are the merchant of record. `consent_collection`
       // is no way out either — it needs a Terms URL set in the dashboard. So the
-      // waiver of the 14-day withdrawal right is taken in our modal (the tick box
-      // gates the CTA) and the fact of it rides along in metadata below, which
-      // Managed Payments does allow (docs/LESSONS 2026-07-29).
+      // buyer's agreement is taken in our modal (the tick box gates the CTA) and
+      // the fact of it rides along in metadata below, which Managed Payments does
+      // allow (docs/LESSONS 2026-07-29).
       metadata: {
         user_id: user.id,
         sku,
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
         slot_count: sku === 'capacity_addon' ? String(quantity) : '',
         // Which acknowledgement the buyer passed through, not free prose: the
         // wording itself lives in lib/i18n (`purchase.consent`) and the Terms.
-        consent: 'immediate-access-waiver', // i18n-ok: 対人文言ではなくStripeの記録用の識別子
+        consent: 'terms-accepted', // i18n-ok: 対人文言ではなくStripeの記録用の識別子
       },
       success_url: `${origin}/me?purchase=success`,
       cancel_url: `${origin}/me?purchase=cancelled`,
