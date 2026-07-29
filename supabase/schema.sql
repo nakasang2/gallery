@@ -2,11 +2,18 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0022 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0034 を統合)。
 --
--- ・再実行しても安全(if not exists / create or replace / drop policy if exists でガード)
+-- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
 -- ・個別ファイル(supabase/migrations/*.sql)と同一内容。管理はそちらでも可
+-- ・後の番号が前の番号を上書きする箇所があります(番号順に流すことが前提):
+--     purchases_kind_check        0019 → 0034('frame' 追加版が残る)
+--     record_capacity_purchase    0019 → 0028 → 0031(6引数・通貨版だけが残る)
+--     grant_entitlement           0022 → 0034('frame' 追加版が残る)
+--     guestbook_insert_public     0008 → 0033(guestbook_enabled を見る版が残る)
+-- ・0029 だけはスキーマ変更ではなくデータ移行(旧Storage URLの書き換え)です。
+--   新規環境では0行で空振りします。詳細はその節のコメント参照。
 --
 -- 適用後にやること(README §4/§5 参照):
 --   1) 自分を管理者に登録して /admin を有効化:
@@ -838,3 +845,576 @@ as $$
 $$;
 revoke all on function public.public_visit_count(uuid) from public;
 grant execute on function public.public_visit_count(uuid) to anon, authenticated;
+
+-- ============================================================================
+-- # 0025_artwork_dimensions.sql — 実寸(cm)と技法
+-- ============================================================================
+-- Physical dimensions and medium for artworks. The pixel width/height columns
+-- stay as-is (they drive the image ratio); these are the artist-declared
+-- real-world size (cm) and medium, shown on the label and used to size the piece
+-- to its true proportions/scale in 3D.
+alter table public.artworks add column if not exists width_cm real;
+alter table public.artworks add column if not exists height_cm real;
+alter table public.artworks add column if not exists medium text;
+
+-- ============================================================================
+-- # 0026_artwork_price.sql — 表示価格(§11.28)
+-- ============================================================================
+-- Free text as the artist typed it (e.g. "¥50,000", "$500", "Ask") — Xibit360
+-- doesn't process the sale, it just shows the price next to the artist's own
+-- purchase link on the artwork panel.
+alter table public.artworks add column if not exists price text;
+
+-- ============================================================================
+-- # 0027_gallery_bgm.sql — 空間BGM(STRATEGY P3-12)
+-- ============================================================================
+-- The owner uploads one audio track that loops as spatial background music while
+-- visitors walk the room. The file lives in the artworks storage bucket
+-- ({owner}/{gallery}/bgm); this column holds its public URL. Nullable — a gallery
+-- with no track just keeps the generated room tone (silent BGM).
+alter table public.galleries add column if not exists bgm_url text;
+
+-- ============================================================================
+-- # 0028_capacity_clamp.sql — キャパ購入を物理上限で止める
+-- ============================================================================
+-- Clamp capacity purchases to the room's physical max (docs/DECISIONS 2026-07-24).
+-- The checkout route already clamps quantity against work_cap read at session
+-- creation, but two in-flight checkouts on the same room could each pass that
+-- check and sum past the max. record_capacity_purchase adds unconditionally, so
+-- we cap the result here — the single atomic, race-proof gate. 15 = every
+-- layout's slot count (lib/limits MAX_WORKS_PER_ROOM); keep the two in step.
+--
+-- NOTE (統合ファイル): この5引数版は下の 0031 で drop され、通貨引数を足した
+-- 6引数版に置き換わる。最終状態に残るのは 0031 の版だけ。ここは履歴として
+-- 個別ファイルと同じ順序で並べてある。
+create or replace function public.record_capacity_purchase(
+  p_session text,
+  p_user uuid,
+  p_gallery uuid,
+  p_amount int,
+  p_amount_jpy int
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_updated int;
+begin
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'record_capacity_purchase: amount must be positive';
+  end if;
+
+  -- The ledger row is the durable record of the charge. Its unique
+  -- (user_id, kind, item_key=session) makes redelivery a no-op.
+  insert into public.purchases (user_id, kind, item_key, sku, amount_jpy)
+  values (p_user, 'capacity', p_session, 'capacity_addon', p_amount_jpy)
+  on conflict (user_id, kind, item_key) do nothing;
+
+  if not found then
+    return 'duplicate';
+  end if;
+
+  -- Same transaction as the insert. Clamp to 15 so concurrent checkouts can
+  -- never raise the cap past what any layout can physically display.
+  update public.galleries
+     set work_cap = least(work_cap + p_amount, 15)
+   where id = p_gallery
+     and owner_id = p_user;
+  get diagnostics v_updated = row_count;
+
+  if v_updated = 0 then
+    return 'no_gallery';
+  end if;
+  return 'applied';
+end;
+$$;
+
+revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int) from public;
+revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int) from anon;
+revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int) from authenticated;
+grant execute on function public.record_capacity_purchase(text, uuid, uuid, int, int) to service_role;
+
+-- ============================================================================
+-- # 0029_r2_urls.sql — 保存済みURLを Cloudflare R2 に向け直す(データ移行)
+-- ============================================================================
+-- docs/DECISIONS.md 2026-07-27。**新しい環境ではこの節は空振りする**(まだ行が
+-- 1つも無いので、下のUPDATEはすべて0行)。既存のSupabase Storage時代のデータを
+-- 抱えた環境で使う場合は、統合ファイルではなく個別の
+-- supabase/migrations/0029_r2_urls.sql を、**ファイルの移送を終えてから**単独で
+-- 実行すること(移送前だと、まだ存在しないR2のURLを指す時間ができる)。
+--
+-- Most files need no change here: `artworks.storage_path` holds a RELATIVE key
+-- ({uid}/{artworkId}) and the app builds the absolute URL at read time, so those
+-- followed the base-URL switch automatically. The columns below are the ones that
+-- were saved as ABSOLUTE Supabase Storage URLs and have to be rewritten once.
+--
+-- 配信ドメインが cdn.xibit360.art 以外なら、下の 'https://cdn.xibit360.art/' を
+-- すべて置き換えてから実行する。
+--
+-- The old public prefix, matched loosely so any project ref works:
+--   https://<ref>.supabase.co/storage/v1/object/public/artworks/<key>
+-- Cache-busting suffixes (?v=…) are preserved. 再実行は安全(すでに書き換わった
+-- 行はパターンに一致しないので何も起きない)。
+
+-- Profile avatars (0001)
+update public.profiles
+set avatar_url = regexp_replace(
+  avatar_url,
+  '^https://[a-z0-9]+\.supabase\.co/storage/v1/object/public/artworks/',
+  'https://cdn.xibit360.art/'
+)
+where avatar_url like 'https://%.supabase.co/storage/v1/object/public/artworks/%';
+
+-- Per-work audio guides (0021)
+update public.artworks
+set audio_url = regexp_replace(
+  audio_url,
+  '^https://[a-z0-9]+\.supabase\.co/storage/v1/object/public/artworks/',
+  'https://cdn.xibit360.art/'
+)
+where audio_url like 'https://%.supabase.co/storage/v1/object/public/artworks/%';
+
+-- Gallery BGM (0027) and the Design Tools logo inside design_overrides (0014).
+--
+-- ⚠️ 注意: galleries には updated_at を自動更新する BEFORE UPDATE トリガ
+-- (galleries_touch, 0005) があり、/explore は updated_at の降順で並ぶ
+-- (lib/publish.ts)。下の2文が1行でも書き換えると、そのギャラリーが「最近更新」の
+-- 先頭に浮上する。URL書き換えは作家による編集ではないので望ましくないが、
+-- **これを避ける手段は ALTER TABLE か DDL しかない**:
+--   - `set updated_at = updated_at` は効かない（BEFOREトリガが後から上書きする）
+--   - 後から別UPDATEで戻すのも効かない（そのUPDATE自体がトリガを発火させる）
+--   - `alter table ... disable trigger` は**テーブル所有者権限が必要**で、権限が
+--     足りないと Supabase SQL Editor は貼り付けた全体を1トランザクションで
+--     実行するため**スクリプト全体がロールバックし「1行も変わらない」**。
+--     実際にこのプロジェクトではそれが起きたため、その方式は採らない
+--     (docs/LESSONS.md 2026-07-27)。
+-- Xibit360本番では BGM もロゴも0件だったため下の2文は空振りで、並び順への影響は
+-- なかった。他環境で該当行がある場合は、実行前に updated_at を控えておき、
+-- 必要なら手で戻すこと。
+update public.galleries
+set bgm_url = regexp_replace(
+  bgm_url,
+  '^https://[a-z0-9]+\.supabase\.co/storage/v1/object/public/artworks/',
+  'https://cdn.xibit360.art/'
+)
+where bgm_url like 'https://%.supabase.co/storage/v1/object/public/artworks/%';
+
+update public.galleries
+set design_overrides = regexp_replace(
+  design_overrides::text,
+  'https://[a-z0-9]+\.supabase\.co/storage/v1/object/public/artworks/',
+  'https://cdn.xibit360.art/',
+  'g'
+)::jsonb
+where design_overrides::text like '%.supabase.co/storage/v1/object/public/artworks/%';
+
+-- Article cover images (0020)
+update public.articles
+set cover_url = regexp_replace(
+  cover_url,
+  '^https://[a-z0-9]+\.supabase\.co/storage/v1/object/public/artworks/',
+  'https://cdn.xibit360.art/'
+)
+where cover_url like 'https://%.supabase.co/storage/v1/object/public/artworks/%';
+
+-- Landing-page hero images, stored inside site_config.value jsonb (0018).
+-- Rewritten as text and cast back ('g' = every occurrence), so any key holding
+-- such a URL is covered no matter how many there are.
+update public.site_config
+set value = regexp_replace(
+  value::text,
+  'https://[a-z0-9]+\.supabase\.co/storage/v1/object/public/artworks/',
+  'https://cdn.xibit360.art/',
+  'g'
+)::jsonb,
+  updated_at = now()
+where value::text like '%.supabase.co/storage/v1/object/public/artworks/%';
+
+-- Verification: every query below should return 0 rows after this runs.
+--   select id, avatar_url from public.profiles where avatar_url like '%supabase.co/storage%';
+--   select id, audio_url  from public.artworks where audio_url  like '%supabase.co/storage%';
+--   select id, bgm_url    from public.galleries where bgm_url    like '%supabase.co/storage%';
+--   select id, cover_url  from public.articles  where cover_url  like '%supabase.co/storage%';
+--   select id from public.galleries  where design_overrides::text like '%supabase.co/storage%';
+--   select key from public.site_config where value::text like '%supabase.co/storage%';
+
+-- ============================================================================
+-- # 0030_storage_reservations.sql — 署名済みアップロードの「予約」台帳
+-- ============================================================================
+-- 容量制限(1人300MB)の穴を塞ぐ。
+--
+-- 背景
+--   容量制限の判定は、これまで artworks.bytes の合計だった。この値は
+--   ブラウザの言い値で、しかも作品ファイルは「行を作る前」にアップロードされる。
+--   つまり行を作らなければ何MB上げても記録が残らず、毎回新しいidにすれば無制限に
+--   書き込めた。音声ガイドとBGMに至っては、そもそもどこにも記録されていなかった。
+--
+-- 0030以降の考え方(docs/DECISIONS.md 2026-07-27「容量制限の実測化」)
+--   使用量の正は **R2に実在するバイト数**。サーバーが署名のたびに {uid}/ 配下を
+--   実測する。クライアントの申告値は一切使わないので、artworks.bytes を偽っても、
+--   行を作らずに上げても、音声を上げても、すべて同じ1つの数字に反映される。
+--
+--   実測だけで足りないのは同時実行のとき。何本も同時に署名を要求されると全部が
+--   「アップロード前」の同じ数字を見てしまう。そこで署名した分をこのテーブルへ
+--   短時間(署名URLの有効期限と同じ10分)だけ積み、実測値＋予約分で判定する。
+--   ファイルがR2に着けば実測値に含まれ、予約は期限切れで消える。
+--
+--   定期実行(cron)は要らない。期限切れの行は、次に誰かが署名を要求したついでに
+--   まとめて消える。
+
+create table if not exists public.storage_reservations (
+  id bigint generated always as identity primary key,
+  uid uuid not null references public.profiles (id) on delete cascade,
+  -- R2のオブジェクトキー。用途とidから決まる固定パスなので、同じファイルを
+  -- 上げ直しても行は増えない(unique で1本にまとまる)。
+  key text not null,
+  bytes bigint not null check (bytes > 0),
+  expires_at timestamptz not null,
+  unique (uid, key)
+);
+
+-- 期限切れの一括削除用。行の寿命が10分なのでテーブルは常に小さい。
+create index if not exists storage_reservations_expiry_idx
+  on public.storage_reservations (expires_at);
+
+alter table public.storage_reservations enable row level security;
+-- ポリシーを1つも作らない = anon/authenticated からは直接読み書きできない。
+-- 出入口は下の security definer 関数だけ。
+
+/* ================= 予約と容量判定 ================= */
+--
+-- 引数のうち p_listed_bytes(R2の実測合計)と p_limit_bytes はサーバー(APIルート)が
+-- 決めて渡す。この関数自体は authenticated から直接呼べてしまうが、そこで嘘の
+-- 実測値を渡しても得はしない:
+--   - 通っても増えるのは「自分の予約」だけで、署名付きURLは1本も手に入らない
+--     (URLを発行するのは app/api/upload-url/route.ts だけで、そちらは自分でR2を実測する)
+--   - 既存の予約は greatest() で増える方向にしか更新できないので、
+--     予約を消して枠を空けることはできない
+-- つまり、細工してできるのは自分の枠を自分で狭めることだけ。
+-- 返り値の型を変えるときは create or replace では置き換えられないので、先に落とす
+drop function if exists public.reserve_storage(text[], bigint[], bigint, bigint, int);
+
+create or replace function public.reserve_storage(
+  p_keys text[],
+  p_bytes bigint[],
+  p_listed_bytes bigint,
+  p_limit_bytes bigint,
+  p_ttl_seconds int
+) returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_n int := coalesce(array_length(p_keys, 1), 0);
+  v_new bigint;
+  v_pending bigint;
+  v_used bigint;
+begin
+  if v_uid is null then
+    raise exception 'not authenticated';
+  end if;
+  -- 1リクエストのファイル数はAPIルート側と揃えて最大4本
+  if v_n = 0 or v_n > 4 or v_n is distinct from coalesce(array_length(p_bytes, 1), 0) then
+    raise exception 'bad reservation batch';
+  end if;
+  if exists (select 1 from unnest(p_keys) as t(k) where k is null or k = '') then
+    raise exception 'bad reservation key';
+  end if;
+  if exists (select 1 from unnest(p_bytes) as t(b) where b is null or b <= 0) then
+    raise exception 'bad reservation size';
+  end if;
+  if p_listed_bytes is null or p_listed_bytes < 0
+     or p_limit_bytes is null or p_limit_bytes <= 0
+     or p_ttl_seconds is null or p_ttl_seconds < 1 or p_ttl_seconds > 3600 then
+    raise exception 'bad reservation arguments';
+  end if;
+
+  -- 期限切れの掃除。これが cron の代わり(署名要求のついでに片付く)。
+  -- skip locked = 他のセッションが触っている行は飛ばす。全ユーザー分を無条件に
+  -- 消すと、2人が同時に呼んだときお互いの行ロックを待ち合ってデッドロックし得る。
+  -- 取りこぼしても下の集計が expires_at で弾くので、掃除は純粋な後片付けでよい。
+  delete from public.storage_reservations
+   where ctid in (
+     select ctid from public.storage_reservations
+      where expires_at < now()
+      order by expires_at
+      limit 1000
+      for update skip locked
+   );
+
+  -- 同じユーザーの同時リクエストを直列化する。これが無いと2本が互いの予約が
+  -- 入る前に残量を読み、どちらも通ってしまう(＝制限を一瞬だけ踏み越えられる)。
+  -- トランザクション終了で自動的に外れる。
+  perform pg_advisory_xact_lock(hashtextextended(v_uid::text, 0));
+
+  -- 今回と同じキーの予約は下の upsert で置き換わるので、二重に数えない。
+  -- expires_at で絞るので、上の掃除が取りこぼした行があっても正しい。
+  select coalesce(sum(bytes), 0) into v_pending
+    from public.storage_reservations
+   where uid = v_uid and expires_at > now() and not (key = any (p_keys));
+
+  -- 同一キーが1バッチに複数入っていても1本として数える(下の upsert と揃える)
+  select coalesce(sum(mb), 0) into v_new
+    from (select max(b) as mb from unnest(p_keys, p_bytes) as t(k, b) group by k) d;
+
+  v_used := p_listed_bytes + v_pending;
+  if v_used + v_new > p_limit_bytes then
+    -- 溢れるときは1行も入れない。失敗した試行が枠を食い続けないようにするため。
+    return jsonb_build_object('ok', false, 'used', v_used);
+  end if;
+
+  -- greatest() で増える方向にしか更新しない。予約を小さく上書きして枠を空ける、
+  -- という抜け道を残さないため(この関数は authenticated から直接も呼べる)。
+  insert into public.storage_reservations as sr (uid, key, bytes, expires_at)
+  select v_uid, k, max(b), now() + make_interval(secs => p_ttl_seconds)
+    from unnest(p_keys, p_bytes) as t(k, b)
+   group by k
+  on conflict (uid, key) do update
+    set bytes = greatest(sr.bytes, excluded.bytes),
+        expires_at = greatest(sr.expires_at, excluded.expires_at);
+
+  return jsonb_build_object('ok', true, 'used', v_used + v_new);
+end;
+$$;
+
+revoke all on function public.reserve_storage(text[], bigint[], bigint, bigint, int) from public;
+grant execute on function public.reserve_storage(text[], bigint[], bigint, bigint, int) to authenticated;
+
+/* ================= 確認クエリ ================= */
+-- 実行後、残っている予約(通常は0〜数件、10分で自然に消える):
+--   select uid, key, bytes, expires_at from public.storage_reservations order by expires_at;
+
+-- ============================================================================
+-- # 0031_purchase_currency.sql — 購入をどの通貨で課金したか記録する
+-- ============================================================================
+-- Why this must land before the first sale: the ledger stores only
+-- `amount_jpy` (a legacy column name that has held USD *cents* since the
+-- 2026-07-24 USD switch), and the webhook throws `session.currency` away.
+-- Stripe Managed Payments / Adaptive Pricing can present the buyer their local
+-- currency, in which case `amount_total` comes back in THAT currency's smallest
+-- unit — ¥500 and $5.00 both arrive as the integer 500. Mixed into one column
+-- with no currency, the admin revenue total silently becomes meaningless, and
+-- there is no way to separate the rows afterwards.
+--
+-- 前提: 0019_checkout.sql と 0028_capacity_clamp.sql が上に並んでいること
+-- (この統合ファイルではその順序になっている)。
+
+/* ================= 1. purchases.currency ================= */
+-- ISO-4217, lowercase, as Stripe reports it. Existing rows (if any) predate
+-- multi-currency and were all charged in USD.
+alter table public.purchases
+  add column if not exists currency text not null default 'usd';
+
+/* ================= 2. RPC に通貨を通す ================= */
+-- The 5-argument version is dropped rather than left alongside: an overload
+-- that silently ignores the currency is exactly the bug this migration exists
+-- to remove. これが 0019/0028 の5引数版を最終状態から取り除く1行。
+drop function if exists public.record_capacity_purchase(text, uuid, uuid, int, int);
+
+create or replace function public.record_capacity_purchase(
+  p_session text,
+  p_user uuid,
+  p_gallery uuid,
+  p_amount int,
+  p_amount_jpy int,
+  p_currency text
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_updated int;
+begin
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'record_capacity_purchase: amount must be positive';
+  end if;
+
+  -- The ledger row is the durable record of the charge. Its unique
+  -- (user_id, kind, item_key=session) makes redelivery a no-op.
+  insert into public.purchases (user_id, kind, item_key, sku, amount_jpy, currency)
+  values (p_user, 'capacity', p_session, 'capacity_addon', p_amount_jpy,
+          coalesce(nullif(lower(trim(p_currency)), ''), 'usd'))
+  on conflict (user_id, kind, item_key) do nothing;
+
+  if not found then
+    return 'duplicate';
+  end if;
+
+  -- Same transaction as the insert. Clamp to 15 so concurrent checkouts can
+  -- never raise the cap past what any layout can physically display.
+  update public.galleries
+     set work_cap = least(work_cap + p_amount, 15)
+   where id = p_gallery
+     and owner_id = p_user;
+  get diagnostics v_updated = row_count;
+
+  if v_updated = 0 then
+    return 'no_gallery';
+  end if;
+  return 'applied';
+end;
+$$;
+
+revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) from public;
+revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) from anon;
+revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) from authenticated;
+grant execute on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) to service_role;
+
+-- ============================================================================
+-- # 0032_artwork_card.sql — 一覧用の中間サイズ(card.jpg)
+-- ============================================================================
+-- A mid-size derivative for browse surfaces (Explore cards, artist-page covers).
+--
+-- Why: those cards render around 330x210 CSS px, but they were being handed
+-- `display.jpg` — up to 1600px on the long edge (measured: 141 KB for one card
+-- on a real gallery). The 400px `thumb.jpg` we already generate is too small to
+-- cover a card on a 2x screen without going soft, so neither existing size fits.
+-- 800px does, at roughly a quarter of the bytes.
+--
+-- This column exists because the file cannot be assumed: every artwork uploaded
+-- before this change has no card.jpg, and pointing an <img> at a 404 would break
+-- the very surface we are trying to speed up. `false` simply means "fall back to
+-- display.jpg", which is exactly today's behaviour — so old rows keep working
+-- untouched and no backfill is required.
+
+alter table public.artworks
+  add column if not exists has_card boolean not null default false;
+
+comment on column public.artworks.has_card is
+  'True when {storage_path}/card.jpg (long edge 800) exists. False = use display.jpg.';
+
+-- ============================================================================
+-- # 0033_moderation.sql — 通報を「対応できる」ものにする＋芳名帳のON/OFF
+-- ============================================================================
+-- Reports were already readable by admins (0017 `reports_select_admin`) but there
+-- was nowhere to record what was done about one, and no way to take a gallery
+-- down short of the SQL Editor. The /admin page showed a count and nothing else.
+--
+-- Guestbooks were anonymous, unmoderated, and could not be switched off — the
+-- owner could only delete entries after they appeared.
+
+/* ================= 1. 通報に対応状態を持たせる ================= */
+alter table public.reports
+  add column if not exists status text not null default 'open';
+alter table public.reports
+  drop constraint if exists reports_status_check;
+alter table public.reports
+  add constraint reports_status_check check (status in ('open', 'actioned', 'dismissed'));
+alter table public.reports
+  add column if not exists handled_at timestamptz;
+-- What the operator decided, for the audit trail a takedown dispute would need.
+alter table public.reports
+  add column if not exists handled_note text not null default '';
+
+create index if not exists reports_open_idx on public.reports (created_at desc) where status = 'open';
+
+-- Admins may work the queue. Still no delete policy: a handled report is the
+-- record that the decision was made, so it stays.
+drop policy if exists "reports_update_admin" on public.reports;
+create policy "reports_update_admin" on public.reports
+  for update using (public.is_admin()) with check (public.is_admin());
+
+/* ================= 2. 管理者による非公開化 ================= */
+-- A function rather than a blanket admin UPDATE policy on galleries: taking a
+-- gallery down is the ONE cross-user write an admin needs, and this is the only
+-- thing it can do. Everything else about someone else's room stays untouchable.
+create or replace function public.admin_set_gallery_public(p_gallery uuid, p_public boolean)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_updated int;
+begin
+  if not public.is_admin() then
+    raise exception 'admin_set_gallery_public: not authorised';
+  end if;
+  update public.galleries set is_public = p_public where id = p_gallery;
+  get diagnostics v_updated = row_count;
+  return v_updated > 0;
+end;
+$$;
+
+revoke all on function public.admin_set_gallery_public(uuid, boolean) from public;
+revoke all on function public.admin_set_gallery_public(uuid, boolean) from anon;
+grant execute on function public.admin_set_gallery_public(uuid, boolean) to authenticated;
+
+/* ================= 3. 芳名帳のON/OFF ================= */
+-- Defaults to true so nothing changes for existing rooms.
+alter table public.galleries
+  add column if not exists guestbook_enabled boolean not null default true;
+
+-- Enforced in the policy, not just the UI: hiding the form would still leave the
+-- table writable by anyone who can craft a request.
+-- 同名ポリシー(0008 の guestbook_insert_public)をここで置き換えるので、
+-- 統合ファイルを通しで実行しても最終状態は guestbook_enabled を見る版だけになる。
+drop policy if exists "guestbook_insert_public" on public.guestbook;
+create policy "guestbook_insert_public"
+  on public.guestbook for insert
+  with check (
+    exists (
+      select 1 from public.galleries g
+      where g.id = gallery_id and g.is_public and g.guestbook_enabled
+    )
+  );
+
+-- ============================================================================
+-- # 0034_frame_purchases.sql — 額(フレーム)を売れるようにする
+-- ============================================================================
+-- docs/DECISIONS 2026-07-29。
+--
+-- Themes and layouts could be sold since 0016/0019; frames could not — the
+-- ledger's `kind` constraint had no value for them, so a frame purchase would
+-- have been rejected by the database even though every other layer was ready.
+-- Two places carry that vocabulary and BOTH have to learn 'frame', or the
+-- webhook records nothing and the admin grant raises 'unknown entitlement kind':
+--   1. purchases.kind — the check constraint (last set by 0019)
+--   2. grant_entitlement() — its own hardcoded list (0022)
+--
+-- Nothing becomes paid by applying this. Every frame that exists today stays
+-- free forever (lib/entitlements → FOREVER_FREE_FRAME_IDS); this only opens the
+-- door for frames added later.
+
+/* ================= 1. purchases.kind に 'frame' を足す ================= */
+-- 上の 0019 が張った同名の制約を落として張り替える。統合ファイルを通しで
+-- 実行したときに残るのは、この 'frame' 入りの版。
+alter table public.purchases drop constraint if exists purchases_kind_check;
+alter table public.purchases add constraint purchases_kind_check
+  check (kind in ('theme', 'layout', 'frame', 'theme_collection', 'design_tools', 'video_pass', 'capacity', 'room'));
+
+/* ================= 2. 管理者の手動付与も 'frame' を受ける ================= */
+-- Same body as 0022 with 'frame' added to the accepted kinds. Kept as a full
+-- create-or-replace (not an ALTER) because that is the only way to change a
+-- plpgsql function, and re-running it is safe. 引数の型が 0022 と同じなので、
+-- 統合ファイルでは 0022 の版がこれに置き換わる(重複して残らない)。
+create or replace function public.grant_entitlement(p_user uuid, p_kind text, p_item_key text default '')
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized';
+  end if;
+  if p_kind not in ('theme', 'layout', 'frame', 'theme_collection', 'design_tools', 'video_pass', 'capacity', 'room') then
+    raise exception 'unknown entitlement kind: %', p_kind;
+  end if;
+  insert into public.purchases (user_id, kind, item_key, sku, amount_jpy)
+  values (p_user, p_kind, coalesce(p_item_key, ''), 'admin_grant', null)
+  on conflict (user_id, kind, item_key) do nothing;
+end;
+$$;
+
+-- 0022 already granted execute to authenticated (the is_admin() check inside is
+-- what actually gates it); create or replace keeps those grants, and repeating
+-- them is harmless.
+revoke all on function public.grant_entitlement(uuid, text, text) from public;
+grant execute on function public.grant_entitlement(uuid, text, text) to authenticated;

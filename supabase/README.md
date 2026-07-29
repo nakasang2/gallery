@@ -6,9 +6,21 @@
 
 ### かんたん(推奨): 一発適用
 
-**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0021 が
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0034 が
 一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
-Postgres 16 で全文実行 + 二重実行してエラーゼロを確認済み。
+
+Postgres 16.14 で検証済み(2026-07-29、0034まで):
+
+- 空のDBへ全文実行 → エラーゼロ。続けて2回目・3回目を実行してもエラーゼロ(冪等)
+- **`schema.sql` で作ったDBと、`migrations/` を0001から順に個別適用したDBの
+  スキーマが完全一致**(`pg_dump --schema-only` の差分ゼロ)。つまりどちらの経路でも
+  同じDBができる
+- 行が入っているDBに再実行してもデータは失われない(各表1行を入れて確認)
+
+検証はSupabase固有の前提(`auth.users` / `auth.uid()` / `storage.*` / anon・
+authenticated・service_role の3ロール)を最小限スタブした素のPostgresで行った。
+確認したのは構文・実行順序・冪等性・制約と関数の張り替え。**実際のJWTでRLSがどう
+効くか、Storageの実挙動は範囲外**。
 
 ### 個別(履歴・差分を追いたい場合)
 
@@ -34,7 +46,21 @@ Postgres 16 で全文実行 + 二重実行してエラーゼロを確認済み�
    - `0022_admin_grant.sql` — admin手動アンロック(`grant_entitlement`/`revoke_entitlement` RPC。admin限定・`/admin`のUsersから付与/剥奪)
    - `0023_arrangement.sql` — 手動スロット配置(`galleries.arrangement` jsonb。作品をどの壁枠に飾るか・空き枠を残すか。未設定は0番から詰める従来動作)
    - `0024_public_visit_count.sql` — 公開ギャラリーの累計訪問数を anon に返す集計専用RPC(`public_visit_count`。過去来場者の“気配”シルエット表示に使用。個票は返さない・非公開は0)
+   - `0025_artwork_dimensions.sql` — 作品の実寸と技法(`width_cm`/`height_cm`/`medium`。ラベル表示と3D空間での実寸スケール)
+   - `0026_artwork_price.sql` — 作品の表示価格(`artworks.price`。作家が打った自由文。決済はXibit360を通らない)
+   - `0027_gallery_bgm.sql` — 空間BGM(`galleries.bgm_url`。1曲をループ再生。未設定なら生成音のみ)
+   - `0028_capacity_clamp.sql` — キャパ購入を物理上限15枠でクランプ(`record_capacity_purchase` を置き換え。同時決済で上限を超えるのを防ぐ)
+   - `0029_r2_urls.sql` — 保存済みURLを Cloudflare R2 に向け直す**データ移行**(スキーマ変更なし。新規環境では0行で空振り。既存データがある環境では**ファイル移送後に**実行)
+   - `0030_storage_reservations.sql` — 署名済みアップロードの予約台帳(`storage_reservations` + `reserve_storage` RPC。容量制限をR2の実測値ベースにする)
+   - `0031_purchase_currency.sql` — 購入通貨の記録(`purchases.currency`。`record_capacity_purchase` を6引数版に置き換え。0019/0028の5引数版は削除される)
+   - `0032_artwork_card.sql` — 一覧用の中間サイズ(`artworks.has_card`。card.jpg=長辺800があるかの旗。falseならdisplay.jpgにフォールバック)
+   - `0033_moderation.sql` — 通報の対応状態(`reports.status`/`handled_at`/`handled_note`)+ 管理者による非公開化RPC(`admin_set_gallery_public`)+ 芳名帳のON/OFF(`galleries.guestbook_enabled`。0008のinsertポリシーを置き換え)
+   - `0034_frame_purchases.sql` — 額(フレーム)を販売可能にする(`purchases_kind_check` に `frame` を追加 + `grant_entitlement` を置き換え。既存の額は無料のまま)
 3. 「Success. No rows returned」が出れば完了
+
+**番号順に流すこと**が前提です。後の番号が前の番号を上書きする箇所があります —
+`purchases_kind_check`(0019→0034)、`record_capacity_purchase`(0019→0028→0031)、
+`grant_entitlement`(0022→0034)、`guestbook_insert_public`(0008→0033)。
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、
 `artworks` ストレージバケット、サインアップ時のプロフィール自動作成トリガー。
