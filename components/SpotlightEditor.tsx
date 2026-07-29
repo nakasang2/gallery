@@ -111,16 +111,18 @@ export default function SpotlightEditor() {
             <input
               className="text-input"
               value={it.username}
+              // i18n-ok: 入力する値そのものの見本（ユーザー名・スラッグはASCII）
               placeholder="username"
-              aria-label={`Gallery ${i + 1} username`}
+              aria-label={t('adminUi.spotlightUsernameAria', { n: i + 1 })}
               onChange={(e) => setItem(i, { username: e.target.value })}
             />
             <span className="spotlight-row-sep">/</span>
             <input
               className="text-input spotlight-row-slug"
               value={it.slug}
+              // i18n-ok: 入力する値そのものの見本（ユーザー名・スラッグはASCII）
               placeholder="main"
-              aria-label={`Gallery ${i + 1} slug`}
+              aria-label={t('adminUi.spotlightSlugAria', { n: i + 1 })}
               onChange={(e) => setItem(i, { slug: e.target.value })}
             />
             <button className="btn-line" onClick={() => move(i, -1)} disabled={i === 0} aria-label={t('adminUi.moveUp')}>↑</button>

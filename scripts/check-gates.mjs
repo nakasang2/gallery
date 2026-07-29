@@ -435,6 +435,214 @@ gateCase('check:css — 同じ行に前ルールの } が残っても16進カラ
   notReported: ['#ff0000', '#ff'],
 })
 
+// --- {式} の中のリテラル（2026-07-29 に足したルール） ----------------------
+// テキストと属性の直書きだけを見ていた頃、`{busy ? 'Uploading…' : 'Upload'}` の形が
+// まるごと素通りし、サインインした作家・管理者にだけ見える英語が30箇所以上
+// 残っていた。**誤検知させないための線引き**（相対深さ0・三項/論理のオペランド
+// 位置・JSXの子か目に入る属性だけ）も、ここで負の対照として押さえる。
+
+gateCase('check:i18n — JSXの子に置いた {式} の中のリテラルを検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    'app/page.tsx': [
+      'export default function P({ busy }: { busy: boolean }) {',
+      '  return (',
+      '    <div>',
+      '      <button>',
+      "        {busy ? 'Uploading…' : 'Upload avatar'}",
+      '      </button>',
+      "      <b>{name || 'Anonymous'}</b>",
+      '    </div>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['Uploading…', 'Upload avatar', 'Anonymous'],
+})
+
+gateCase('check:i18n — 目に入る属性の {式} の中のリテラルを検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // className の三項は文言ではない（負の対照）。見るのは目に入る4属性だけ
+    'app/page.tsx': [
+      'export default function P({ framed }: { framed: boolean }) {',
+      '  return (',
+      "    <label className={framed ? 'is-framed' : 'is-bare'} title={framed ? 'Framed' : 'No frame'}>",
+      "      {t('design.frame')}",
+      '    </label>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['Framed', 'No frame'],
+  notContains: ['is-framed', 'is-bare'],
+})
+
+gateCase('check:i18n — テンプレート文字列の地の文を検出し、${…} だけの行は見逃す', {
+  gate: 'check-i18n.mjs',
+  files: {
+    'app/page.tsx': [
+      'export default function P({ art }: { art: { title: string; artist: string } }) {',
+      '  return (',
+      '    <div>',
+      '      <button aria-label={`Move ${art.title} up`} />',
+      '      <img alt={`${art.title} — ${art.artist}`} />',
+      '    </div>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['Move {…} up'],
+  // 中身が式と記号だけの文字列は文言ではない。ここが落ちると作品タイトルの
+  // 組み立てを毎回 i18n-ok で黙らせることになる
+  notContains: ['{…} — {…}'],
+})
+
+gateCase('check:i18n — プレースホルダを挟んで1語になるJSXテキストを検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // `Width {…}m` は「2語以上」でも「1語だけ」でもないので、どちらの条件にも
+    // 引っかからず素通りしていた（スライダーの見出し 2026-07-29）
+    'app/page.tsx': [
+      'export default function P({ n, i, total }: { n: number; i: number; total: number }) {',
+      '  return (',
+      '    <div>',
+      '      <span>Width {n}m</span>',
+      '      <span>{i}/{total}</span>',
+      '      <span>{n} · XIBIT360</span>',
+      '    </div>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['Width'],
+  notContains: ['XIBIT360'],
+})
+
+gateCase('check:i18n — UIラベルのオブジェクトキー（label:）を検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // 購入モーダルの見出しが `label:` 経由で渡されていた。同じ行の `kind:` /
+    // `key:` は内部の識別子なので見ない（負の対照）
+    'app/page.tsx': [
+      'export default function P({ open }: { open: (x: unknown) => void }) {',
+      '  return (',
+      "    <button onClick={() => open({ kind: 'capacity', key: 'work-slots', label: 'Add work slots' })}>",
+      "      {t('common.add')}",
+      '    </button>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['Add work slots'],
+  notContains: ['work-slots'],
+})
+
+gateCase('check:i18n — 開きタグの `>` が単独行でも中身を検査する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // 属性を複数行に分けて書くと最後が `>` だけの行になる。ここを「要素の中」と
+    // 数えないと、その中身が丸ごと検査から外れる（埋め込みコードのボタン 2026-07-29）
+    'app/page.tsx': [
+      'export default function P({ copied }: { copied: boolean }) {',
+      '  return (',
+      '    <button',
+      '      type="button"',
+      '      disabled={copied}',
+      '    >',
+      "      {copied ? 'Copied ✓' : 'Copy embed code'}",
+      '    </button>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['Copy embed code'],
+})
+
+gateCase('check:i18n — 自己閉じタグ（<br />）の直後のテキストも検査する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // `/>` を「タグの終わりではない」と扱っていたため、その次の行の案内文が
+    // 検査から外れていた（作家パネルの同期の説明文 2026-07-29）
+    'app/page.tsx': [
+      'export default function P() {',
+      '  return (',
+      '    <p>',
+      "      {t('common.save')}",
+      '      <br />',
+      '      Your edits sync to this page automatically.',
+      '    </p>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['Your edits sync'],
+})
+
+gateCase('check:i18n — 括弧や記号で飾った1語ラベルも検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // `(untitled)` `Copied ✓` は「2語以上」でも「素の1語」でもないため、
+    // 1語判定を入れた後も素通りしていた（管理画面で2件 2026-07-29）。
+    // 記号だけ・番号だけのものは文言ではないので誤検知しないこと。
+    'app/page.tsx': [
+      'export default function P({ g, done }: { g: { title: string }; done: boolean }) {',
+      '  return (',
+      '    <div>',
+      "      <span>{g.title || '(untitled)'}</span>",
+      "      <span>{done ? 'Copied ✓' : '…'}</span>",
+      '      <span>{done ? \'—\' : \'·\'}</span>',
+      '    </div>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: true,
+  contains: ['(untitled)', 'Copied ✓'],
+})
+
+gateCase('check:i18n — 三項・論理のオペランド以外のリテラルは誤検知しない', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // 「オペランド位置だけ見る」を外すと、リポジトリ中の 56 箇所がいきなり報告され
+    // pushが止まる（実測 2026-07-29）。その代表形をそのまま置く:
+    //   ① `{err && <p className="me-error">…}` の**クラス名**
+    //   ② `{state === 'saving' && …}` の**比較の右辺**
+    //   ③ `fmt(d, 'en-US')` の**引数**
+    // `=> Promise<void>` は `=>` の `>` をJSXの開きタグと誤読した実例。
+    'app/page.tsx': [
+      'export default function P({ err, state, d }: { err: string; state: string; d: Date }) {',
+      '  const run = (label: string, fn: () => Promise<void>) => void fn()',
+      '  return (',
+      "    <div onClick={() => run('go', async () => {})}>",
+      '      {err && <p className="me-error">{err}</p>}',
+      "      {state === 'saving' && <span className=\"hako-save-state\">{t('common.saving')}</span>}",
+      "      <time>{d.toLocaleDateString('en-US')}</time>",
+      '    </div>',
+      '  )',
+      '}',
+    ].join('\n'),
+    ...DICTS,
+  },
+  expectFail: false,
+  notContains: ['me-error', 'hako-save-state', 'en-US', 'Promise', 'saving'],
+})
+
 gateCase('check:css — 死んだクラス（IDではない従来の検出）も引き続き検出する', {
   gate: 'check-css.mjs',
   files: {

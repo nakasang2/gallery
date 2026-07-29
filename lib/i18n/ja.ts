@@ -47,6 +47,11 @@ export const ja: Dictionary = {
     signIn: 'サインイン',
     dashboard: 'ダッシュボード',
     language: '言語',
+    change: '変更',
+    set: '設定',
+    untitled: '無題',
+    widthM: '幅 {n}m',
+    depthM: '奥行き {n}m',
   },
 
   hud: {
@@ -133,6 +138,9 @@ export const ja: Dictionary = {
     stopReading: '停止',
     next: '次の作品',
     previous: '前の作品',
+    playGuide: '音声ガイドを再生',
+    pauseGuide: '音声ガイドを一時停止',
+    preview3dAria: '{title} — 3Dプレビュー',
   },
 
   explore: {
@@ -402,6 +410,13 @@ export const ja: Dictionary = {
     purchaseSuccess: 'お支払いが完了しました。アップグレードが有効になっています。',
     purchaseCancelled: 'お支払いを中止しました。請求は発生していません。',
     dismiss: '閉じる',
+    changeLogo: 'ロゴを差し替える',
+    uploadLogo: 'ロゴをアップロード',
+    changeAvatar: 'プロフィール画像を差し替える',
+    uploadAvatar: 'プロフィール画像をアップロード',
+    addWorkSlots: '作品の枠を追加',
+    copyEmbed: '埋め込みコードをコピー',
+    setAsCover: '共有時の表紙にする',
   },
 
   design: {
@@ -423,6 +438,13 @@ export const ja: Dictionary = {
     placementDone: '完了',
     empty: '空き',
     premium: '有料',
+    framed: '額装あり',
+    bareCanvas: '額なし（キャンバスのまま）',
+    noMat: 'マットなし',
+    withMat: 'マットあり',
+    spotWork: '枠 {n} — {title}',
+    spotEmpty: '枠 {n} — 空き',
+    spotElsewhere: '{title} — いま別の枠に掛かっています',
   },
 
   purchase: {
@@ -665,6 +687,14 @@ export const ja: Dictionary = {
     couldNotRead: '「{name}」を読み込めませんでした。',
     corsFailed: '画像を読み込めませんでした。配信元がCORSを許可していない可能性があります。ファイルを直接アップロードしてみてください。',
     removeFailed: '作品を削除できませんでした：{msg}',
+    saving: '保存中…',
+    saved: '保存しました',
+    saveProfile: 'プロフィールを保存',
+    uploadMedia: '画像・動画をアップロード',
+    moveUpAria: '{title}を上へ',
+    moveDownAria: '{title}を下へ',
+    removeAria: '{title}を外す',
+    syncNote: '編集した内容はこのページに自動で反映されます。展示の名前を変えるには：',
   },
 
   articles: {
@@ -681,6 +711,9 @@ export const ja: Dictionary = {
     exhibitions: '展示',
     noExhibitions: 'まだ公開されている展示はありません。',
     reportProblem: '問題を報告する',
+    snsX: 'X の @{handle}',
+    snsInstagram: 'Instagram の @{handle}',
+    snsWebsite: 'ウェブサイト',
   },
 
   adminUi: {
@@ -745,6 +778,24 @@ export const ja: Dictionary = {
     resetDefault: '既定に戻す',
     demoLook: 'デモの見た目',
     demoLookNote: '公開されている /demo が開くときのテーマです。',
+    shellTitle: '管理',
+    refresh: '更新',
+    refreshing: '更新中…',
+    saveArticle: '記事を保存',
+    live: '公開中',
+    draft: '下書き',
+    bodyPlaceholder: '## 見出し\n\n**太字**・*斜体*・[リンク](https://example.com) を含む段落。\n\n- 箇条書き\n- もう1つ',
+    themeItem: 'テーマ · {name}',
+    layoutItem: '間取り · {name}',
+    frameItem: '額縁 · {name}',
+    stateOpen: '公開',
+    statePrivate: '非公開',
+    usersCount: 'ユーザー（{count}）',
+    publicCount: '（公開 {count}）',
+    revokeAria: '{name}を取り消す',
+    spotlightUsernameAria: '{n} 番目のユーザー名',
+    spotlightSlugAria: '{n} 番目のスラッグ',
+    working: '処理中…',
   },
 
   catalog: {
@@ -753,6 +804,10 @@ export const ja: Dictionary = {
     forSale: '購入できます',
     empty: 'この展示にはまだ作品がありません。',
     download: 'PDFで保存',
+    workCount_one: '作品{count}点',
+    workCount_other: '作品{count}点',
+    workAlt: '作品 {n}',
+    video: '映像',
   },
 
   notFound: {

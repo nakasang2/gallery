@@ -102,6 +102,8 @@ export default function PlacementEditor({
 
   if (n === 0) return null
   const selWork = sel != null ? byId.get(current[sel] ?? '') ?? null : null
+  // 枠の番号。掛けられない枠（間取りの外）を選んだときは番号が振れないので '–'
+  const spotNo = sel != null && usable.indexOf(sel) >= 0 ? usable.indexOf(sel) + 1 : '–'
 
   return (
     <div className="place-editor">
@@ -158,7 +160,11 @@ export default function PlacementEditor({
       {sel == null ? null : (
         <div className="place-picker">
           <div className="place-picker-head">
-            <span>Spot {usable.indexOf(sel) >= 0 ? usable.indexOf(sel) + 1 : '–'}{selWork ? ` — ${selWork.title || 'Untitled'}` : ' — empty'}</span>
+            <span>
+              {selWork
+                ? t('design.spotWork', { n: spotNo, title: selWork.title || t('common.untitled') })
+                : t('design.spotEmpty', { n: spotNo })}
+            </span>
             <button className="btn-line" onClick={() => setSel(null)}>{t('design.placementDone')}</button>
           </div>
           <div className="place-picker-strip">
@@ -181,7 +187,7 @@ export default function PlacementEditor({
                   className={`place-pick${here ? ' active' : ''}`}
                   disabled={disabled}
                   onClick={() => assign(sel, art.id)}
-                  title={elsewhere ? `${art.title || 'Untitled'} — currently in another spot` : art.title || 'Untitled'}
+                  title={elsewhere ? t('design.spotElsewhere', { title: art.title || t('common.untitled') }) : art.title || t('common.untitled')}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {src ? (

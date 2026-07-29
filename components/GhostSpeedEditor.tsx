@@ -103,7 +103,7 @@ export default function GhostSpeedEditor() {
       {row('Female', female, setFemale)}
       <div className="design-controls" style={{ gap: '0.9rem', marginTop: '0.6rem' }}>
         <button className="btn-line" disabled={busy || !dirty} onClick={() => void save()}>
-          {busy ? 'Saving…' : 'Save'}
+          {busy ? t('adminUi.saving') : t('common.save')}
         </button>
         {(Math.abs(male - GHOST_WALK_DEFAULT) > 0.001 || Math.abs(female - GHOST_WALK_DEFAULT) > 0.001) && (
           <button

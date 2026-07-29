@@ -71,6 +71,11 @@ export const en = {
     signIn: 'Sign in',
     dashboard: 'Dashboard',
     language: 'Language',
+    change: 'Change',
+    set: 'Set',
+    untitled: 'Untitled',
+    widthM: 'Width {n}m',
+    depthM: 'Depth {n}m',
   },
 
   hud: {
@@ -157,6 +162,9 @@ export const en = {
     stopReading: 'Stop',
     next: 'Next work',
     previous: 'Previous work',
+    playGuide: 'Play the audio guide',
+    pauseGuide: 'Pause the audio guide',
+    preview3dAria: '{title} — 3D preview',
   },
 
   explore: {
@@ -428,6 +436,13 @@ export const en = {
     purchaseSuccess: 'Purchase complete — your upgrade is active.',
     purchaseCancelled: 'Checkout cancelled — nothing was charged.',
     dismiss: 'Dismiss',
+    changeLogo: 'Change logo',
+    uploadLogo: 'Upload logo',
+    changeAvatar: 'Change avatar',
+    uploadAvatar: 'Upload avatar',
+    addWorkSlots: 'Add work slots',
+    copyEmbed: 'Copy embed code',
+    setAsCover: 'Set as cover',
   },
 
   design: {
@@ -449,6 +464,13 @@ export const en = {
     placementDone: 'Done',
     empty: 'Empty',
     premium: 'Premium',
+    framed: 'Framed',
+    bareCanvas: 'No frame (stretched canvas)',
+    noMat: 'No mat',
+    withMat: 'With mat',
+    spotWork: 'Spot {n} — {title}',
+    spotEmpty: 'Spot {n} — empty',
+    spotElsewhere: '{title} — currently in another spot',
   },
 
   purchase: {
@@ -699,6 +721,14 @@ export const en = {
     couldNotRead: 'Could not read “{name}”.',
     corsFailed: 'Could not load the image. The host may not allow CORS — try uploading the file instead.',
     removeFailed: 'Could not remove the work: {msg}',
+    saving: 'Saving…',
+    saved: 'Saved',
+    saveProfile: 'Save profile',
+    uploadMedia: 'Upload image / video',
+    moveUpAria: 'Move {title} up',
+    moveDownAria: 'Move {title} down',
+    removeAria: 'Remove {title}',
+    syncNote: 'Your edits sync to this page automatically. Rename your exhibition in the',
   },
 
   articles: {
@@ -715,6 +745,9 @@ export const en = {
     exhibitions: 'Exhibitions',
     noExhibitions: 'No public exhibitions yet.',
     reportProblem: 'Report a problem',
+    snsX: '@{handle} on X',
+    snsInstagram: '@{handle} on Instagram',
+    snsWebsite: 'Website',
   },
 
   adminUi: {
@@ -780,6 +813,24 @@ export const en = {
     resetDefault: 'Reset to default',
     demoLook: 'Demo look',
     demoLookNote: 'The theme the public /demo showcase opens in.',
+    shellTitle: 'Admin',
+    refresh: 'Refresh',
+    refreshing: 'Refreshing…',
+    saveArticle: 'Save article',
+    live: 'Live',
+    draft: 'Draft',
+    bodyPlaceholder: '## A heading\n\nA paragraph with **bold**, *italic* and a [link](https://example.com).\n\n- a list item\n- another',
+    themeItem: 'Theme · {name}',
+    layoutItem: 'Layout · {name}',
+    frameItem: 'Frame · {name}',
+    stateOpen: 'OPEN',
+    statePrivate: 'PRIVATE',
+    usersCount: 'Users ({count})',
+    publicCount: '({count} public)',
+    revokeAria: 'Revoke {name}',
+    spotlightUsernameAria: 'Gallery {n} username',
+    spotlightSlugAria: 'Gallery {n} slug',
+    working: 'Working…',
   },
 
   catalog: {
@@ -788,6 +839,10 @@ export const en = {
     forSale: 'Available for purchase',
     empty: 'This exhibition has no works yet.',
     download: 'Download PDF',
+    workCount_one: '{count} work',
+    workCount_other: '{count} works',
+    workAlt: 'Work {n}',
+    video: 'video',
   },
 
   // Reached by a bad URL and by every notFound() in app/[handle] and

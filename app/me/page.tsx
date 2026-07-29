@@ -947,7 +947,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           onChange={(e) => editDetails({ title: e.target.value })}
         />
         {detailsState !== 'idle' && (
-          <span className="hako-save-state">{detailsState === 'saving' ? 'saving…' : 'saved'}</span>
+          <span className="hako-save-state">{detailsState === 'saving' ? t('common.saving') : t('common.saved')}</span>
         )}
       </div>
       <textarea
@@ -1075,7 +1075,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 })
               }}
             >
-              {embedCopied ? 'Copied ✓' : 'Copy embed code'}
+              {embedCopied ? `${t('me.copied')} ✓` : t('me.copyEmbed')}
             </button>
           </div>
         </div>
@@ -1202,7 +1202,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           type="button"
           className="me-subnav-cap"
           disabled={row.work_cap >= MAX_WORKS_PER_ROOM}
-          onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: 'Add work slots' })}
+          onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots') })}
           title={
             row.work_cap >= MAX_WORKS_PER_ROOM
               ? t('me.roomFullHint')
@@ -1331,14 +1331,14 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 <span className="wd-label">{t('me.customSize')}</span>
                 <div className="wd-block-body custom-size">
                   <label className="slider-row">
-                    <span>Width {Math.round(custom.hw * 2)}m</span>
+                    <span>{t('common.widthM', { n: Math.round(custom.hw * 2) })}</span>
                     <input
                       type="range" min={8} max={18} step={0.5} value={custom.hw} disabled={busy}
                       onChange={(e) => editCustom({ hw: Number(e.target.value) })}
                     />
                   </label>
                   <label className="slider-row">
-                    <span>Depth {Math.round(custom.hd * 2)}m</span>
+                    <span>{t('common.depthM', { n: Math.round(custom.hd * 2) })}</span>
                     <input
                       type="range" min={4} max={10} step={0.5} value={custom.hd} disabled={busy}
                       onChange={(e) => editCustom({ hd: Number(e.target.value) })}
@@ -1496,7 +1496,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                       <img crossOrigin="anonymous" src={design.logoUrl} alt="" className="design-logo-preview" />
                     )}
                     <label className="btn-line file-btn" aria-disabled={logoUploading} style={{ marginTop: 0 }}>
-                      {logoUploading ? 'Uploading…' : design.logoUrl ? 'Change logo' : 'Upload logo'}
+                      {logoUploading ? t('me.uploading') : design.logoUrl ? t('me.changeLogo') : t('me.uploadLogo')}
                       <input
                         type="file"
                         accept="image/*"
@@ -1546,7 +1546,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   title={t('me.useAsCover')}
                   onClick={() => void toggleCover(selected)}
                 >
-                  {row.cover_artwork_id === selected.id ? '★ Share cover' : '☆ Set as cover'}
+                  {row.cover_artwork_id === selected.id ? `★ ${t('me.shareCover')}` : `☆ ${t('me.setAsCover')}`}
                 </button>
                 <button
                   type="button"
@@ -1556,7 +1556,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   {t('me.workRemove')}
                 </button>
                 {workState !== 'idle' && (
-                  <span className="hako-save-state">{workState === 'saving' ? 'saving…' : 'saved'}</span>
+                  <span className="hako-save-state">{workState === 'saving' ? t('common.saving') : t('common.saved')}</span>
                 )}
               </div>
               {/* The name plate's text: title + caption, straight onto the plate above.
@@ -1808,7 +1808,7 @@ function GuestbookCard({ galleryId, enabled }: { galleryId: string; enabled: boo
         {entries.map((e) => (
           <li key={e.id}>
             <div className="gb-meta">
-              <b>{e.name || 'Anonymous'}</b> · {fmtDate(e.created_at)}
+              <b>{e.name || t('guestbook.anonymous')}</b> · {fmtDate(e.created_at)}
               <button
                 aria-label={t('me.deleteEntry')}
                 onClick={() => {
@@ -2011,12 +2011,12 @@ function ProfileCard() {
       <div className="avatar-row">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img crossOrigin="anonymous" className="avatar-img" src={avatarUrl} alt="Avatar" />
+          <img crossOrigin="anonymous" className="avatar-img" src={avatarUrl} alt={t('me.profileAvatar')} />
         ) : (
           <div className="avatar-img avatar-empty">{(displayName || 'A').slice(0, 1).toUpperCase()}</div>
         )}
         <label className="btn-line file-btn" aria-disabled={busy} style={{ marginTop: 0 }}>
-          {busy ? 'Uploading…' : avatarUrl ? 'Change avatar' : 'Upload avatar'}
+          {busy ? t('me.uploading') : avatarUrl ? t('me.changeAvatar') : t('me.uploadAvatar')}
           <input
             type="file"
             accept="image/*"
@@ -2039,7 +2039,7 @@ function ProfileCard() {
             onChange={(e) => setNameInput(e.target.value)}
           />
           <button className="btn-line" disabled={busy || !nameInput.trim()} onClick={() => void saveUsername()}>
-            {username ? 'Change' : 'Set'}
+            {username ? t('common.change') : t('common.set')}
           </button>
         </div>
       </label>
@@ -2060,6 +2060,7 @@ function ProfileCard() {
           <span className="field-prefix">@</span>
           <input
             type="text"
+            // i18n-ok: 入力する値そのものの見本（SNSのハンドルはASCII）
             placeholder="yourhandle"
             value={snsX}
             onChange={(e) => editProfile({ x: e.target.value.replace(/^@/, '') })}
@@ -2072,6 +2073,7 @@ function ProfileCard() {
           <span className="field-prefix">@</span>
           <input
             type="text"
+            // i18n-ok: 入力する値そのものの見本（SNSのハンドルはASCII）
             placeholder="yourhandle"
             value={snsInstagram}
             onChange={(e) => editProfile({ instagram: e.target.value.replace(/^@/, '') })}

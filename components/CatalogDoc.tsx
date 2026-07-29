@@ -16,7 +16,7 @@ export default function CatalogDoc({ exhibition: ex }: { exhibition: PublicExhib
         <p className="catalog-artist">{ex.ownerName}</p>
         {ex.statement && <p className="catalog-statement">{ex.statement}</p>}
         <p className="catalog-meta">
-          {ex.artworks.length} {ex.artworks.length === 1 ? 'work' : 'works'} · {year} · XIBIT360
+          {t('catalog.workCount', { count: ex.artworks.length })} · {year} · XIBIT360
         </p>
       </section>
 
@@ -27,18 +27,18 @@ export default function CatalogDoc({ exhibition: ex }: { exhibition: PublicExhib
             <div className="catalog-plate-img">
               {img ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img crossOrigin="anonymous" src={img} alt={art.title || `Work ${i + 1}`} />
+                <img crossOrigin="anonymous" src={img} alt={art.title || t('catalog.workAlt', { n: i + 1 })} />
               ) : (
                 <div className="catalog-plate-noimg" aria-hidden="true" />
               )}
             </div>
             <div className="catalog-plate-cap">
               <p className="catalog-plate-no">{String(i + 1).padStart(2, '0')}</p>
-              <h2 className="catalog-plate-title">{art.title || 'Untitled'}</h2>
+              <h2 className="catalog-plate-title">{art.title || t('common.untitled')}</h2>
               <p className="catalog-plate-sub">
                 {art.artist || ex.ownerName}
                 {art.year ? ` · ${art.year}` : ''}
-                {art.kind === 'video' ? ' · video' : ''}
+                {art.kind === 'video' ? ` · ${t('catalog.video')}` : ''}
               </p>
               {art.desc && <p className="catalog-plate-desc">{art.desc}</p>}
               {art.purchaseUrl && <p className="catalog-plate-sale">{t('catalog.forSale')}</p>}

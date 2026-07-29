@@ -212,7 +212,7 @@ export default function ArtworkPreview3D({
 
   const initialPos = intro ? start : end
   return (
-    <div className="artpreview" role="dialog" aria-modal="true" aria-label={`${art.title} — 3D preview`}>
+    <div className="artpreview" role="dialog" aria-modal="true" aria-label={t('artwork.preview3dAria', { title: art.title })}>
       <Canvas
         camera={{ position: [initialPos.x, initialPos.y, initialPos.z], fov: 40 }}
         dpr={[1, 2]}

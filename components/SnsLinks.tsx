@@ -1,6 +1,13 @@
+'use client'
 // Small icon row for an artist's SNS handles/website — shown wherever their name
 // appears in public (artist page, the 3D HUD) so visitors can follow them elsewhere.
+//
+// A client component because the only text it carries — the aria-label/tooltip on
+// each icon — has to come from the dictionary, and `useT` reads the locale the
+// server already resolved (the provider lives in the root layout, so this still
+// renders in the right language inside a server component).
 import type { SnsLinks as SnsLinksData } from '@/lib/publish'
+import { useT } from '@/components/I18nProvider'
 
 function XIcon() {
   return (
@@ -39,10 +46,13 @@ function toUrl(kind: 'x' | 'instagram' | 'website', value: string): string {
 }
 
 export default function SnsLinks({ sns, className }: { sns: SnsLinksData; className?: string }) {
+  const t = useT()
   const items: { key: 'x' | 'instagram' | 'website'; label: string; icon: React.ReactNode }[] = []
-  if (sns.x) items.push({ key: 'x', label: `@${sns.x} on X`, icon: <XIcon /> })
-  if (sns.instagram) items.push({ key: 'instagram', label: `@${sns.instagram} on Instagram`, icon: <InstagramIcon /> })
-  if (sns.website) items.push({ key: 'website', label: 'Website', icon: <WebsiteIcon /> })
+  if (sns.x) items.push({ key: 'x', label: t('artist.snsX', { handle: sns.x }), icon: <XIcon /> })
+  if (sns.instagram) {
+    items.push({ key: 'instagram', label: t('artist.snsInstagram', { handle: sns.instagram }), icon: <InstagramIcon /> })
+  }
+  if (sns.website) items.push({ key: 'website', label: t('artist.snsWebsite'), icon: <WebsiteIcon /> })
   if (!items.length) return null
 
   return (

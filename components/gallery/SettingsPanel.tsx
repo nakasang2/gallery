@@ -88,7 +88,7 @@ function ProfileEditor() {
         />
       </div>
       <button className="btn-line" disabled={busy} onClick={() => void save()}>
-        {saved ? 'Saved' : 'Save profile'}
+        {saved ? t('panel.saved') : t('panel.saveProfile')}
       </button>
     </div>
   )
@@ -213,11 +213,11 @@ function PublishSection() {
               })
             }}
           >
-            {copied ? 'Copied' : 'Copy URL'}
+            {copied ? t('me.copied') : t('me.copyUrl')}
           </button>
           <br />
-          Your edits sync to this page automatically. Rename your exhibition in the{' '}
-          <Link href="/me" style={{ color: 'var(--gold)' }}>{t('common.dashboard')}</Link>.
+          {t('panel.syncNote')}{' '}
+          <Link href="/me" style={{ color: 'var(--gold)' }}>{t('common.dashboard')}</Link>
         </p>
       )}
     </>
@@ -470,7 +470,7 @@ export default function SettingsPanel() {
           syncState === 'error' ? (
             <button className="sync-chip error" onClick={retrySync}>{t('panel.syncFailed')}</button>
           ) : (
-            <span className={`sync-chip ${syncState}`}>{syncState === 'saving' ? 'Saving…' : 'Saved'}</span>
+            <span className={`sync-chip ${syncState}`}>{syncState === 'saving' ? t('panel.saving') : t('panel.saved')}</span>
           )
         )}
       </h2>
@@ -490,7 +490,7 @@ export default function SettingsPanel() {
           {!user && <input ref={artistRef} type="text" placeholder={t('panel.artistOptional')} />}
         </div>
         <label className="btn-line file-btn" aria-disabled={uploading}>
-          {uploading ? 'Uploading…' : 'Upload image / video'}
+          {uploading ? t('me.uploading') : t('panel.uploadMedia')}
           <input
             type="file"
             accept="image/*,video/mp4,video/webm,video/quicktime"
@@ -530,7 +530,7 @@ export default function SettingsPanel() {
                   </span>
                   <button
                     className="works-move"
-                    aria-label={`Move ${art.title} up`}
+                    aria-label={t('panel.moveUpAria', { title: art.title })}
                     disabled={i === 0}
                     onClick={() => void reorder(i, i - 1)}
                   >
@@ -538,13 +538,13 @@ export default function SettingsPanel() {
                   </button>
                   <button
                     className="works-move"
-                    aria-label={`Move ${art.title} down`}
+                    aria-label={t('panel.moveDownAria', { title: art.title })}
                     disabled={i === ownArtworks.length - 1}
                     onClick={() => void reorder(i, i + 1)}
                   >
                     ▼
                   </button>
-                  <button aria-label={`Remove ${art.title}`} onClick={() => void removeArtwork(art)}>×</button>
+                  <button aria-label={t('panel.removeAria', { title: art.title })} onClick={() => void removeArtwork(art)}>×</button>
                 </li>
               ))}
             </ul>
@@ -705,7 +705,7 @@ export default function SettingsPanel() {
         {settings.layout === 'custom' && (
           <div className="custom-layout">
             <label className="slider-row">
-              <span>Width {Math.round(settings.layoutParams.hw * 2)}m</span>
+              <span>{t('common.widthM', { n: Math.round(settings.layoutParams.hw * 2) })}</span>
               <input
                 type="range"
                 min={8}
@@ -718,7 +718,7 @@ export default function SettingsPanel() {
               />
             </label>
             <label className="slider-row">
-              <span>Depth {Math.round(settings.layoutParams.hd * 2)}m</span>
+              <span>{t('common.depthM', { n: Math.round(settings.layoutParams.hd * 2) })}</span>
               <input
                 type="range"
                 min={4}

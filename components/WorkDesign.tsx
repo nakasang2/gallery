@@ -73,7 +73,7 @@ export default function WorkDesign({
       <div className="wd-group">
         <div className="wd-title">
           <span>{t('design.frame')}</span>
-          <label className="switch" title={spec.framed ? 'Framed' : 'No frame (stretched canvas)'}>
+          <label className="switch" title={spec.framed ? t('design.framed') : t('design.bareCanvas')}>
             <input
               type="checkbox"
               checked={spec.framed}
@@ -132,7 +132,7 @@ export default function WorkDesign({
             </div>
             <div className="wd-row">
               <span className="wd-label">{t('design.mat')}</span>
-              <label className="switch" title={matKey === 'none' ? 'No mat' : 'With mat'}>
+              <label className="switch" title={matKey === 'none' ? t('design.noMat') : t('design.withMat')}>
                 <input
                   type="checkbox"
                   checked={matKey !== 'none'}

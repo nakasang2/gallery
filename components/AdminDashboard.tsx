@@ -24,16 +24,18 @@ function productKey(kind: string, itemKey: string): string {
  *  frame on sale. Reads the same paid catalog checkout sells from (lib/entitlements),
  *  so a future paid one shows up here automatically with no code change. */
 function useGrantableProducts() {
+  const t = useT()
   return useMemo(() => {
     const list: { kind: string; itemKey: string; label: string }[] = [
-      { kind: 'design_tools', itemKey: '', label: 'Design Tools' },
-      { kind: 'video_pass', itemKey: '', label: 'Video Pass' },
+      // 商品名はテーマ名（Chic / Noir）と同じ扱いで、どの言語でも英語のまま出す
+      { kind: 'design_tools', itemKey: '', label: 'Design Tools' }, // i18n-ok: 商品名
+      { kind: 'video_pass', itemKey: '', label: 'Video Pass' }, // i18n-ok: 商品名
     ]
-    for (const id of paidThemeIds()) list.push({ kind: 'theme', itemKey: id, label: `Theme · ${THEMES[id].label}` })
-    for (const id of paidLayoutIds()) list.push({ kind: 'layout', itemKey: id, label: `Layout · ${LAYOUTS[id]?.label ?? id}` })
-    for (const id of paidFrameIds()) list.push({ kind: 'frame', itemKey: id, label: `Frame · ${FRAMES[id]?.label ?? id}` })
+    for (const id of paidThemeIds()) list.push({ kind: 'theme', itemKey: id, label: t('adminUi.themeItem', { name: THEMES[id].label }) })
+    for (const id of paidLayoutIds()) list.push({ kind: 'layout', itemKey: id, label: t('adminUi.layoutItem', { name: LAYOUTS[id]?.label ?? id }) })
+    for (const id of paidFrameIds()) list.push({ kind: 'frame', itemKey: id, label: t('adminUi.frameItem', { name: FRAMES[id]?.label ?? id }) })
     return list
-  }, [])
+  }, [t])
 }
 
 function fmtDate(iso: string | null): string {
@@ -81,11 +83,11 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
   }, [data.purchases])
 
   function labelFor(kind: string, itemKey: string): string {
-    if (kind === 'theme') return `Theme · ${THEMES[itemKey]?.label ?? itemKey}`
-    if (kind === 'layout') return `Layout · ${LAYOUTS[itemKey]?.label ?? itemKey}`
-    if (kind === 'frame') return `Frame · ${FRAMES[itemKey]?.label ?? itemKey}`
-    if (kind === 'design_tools') return 'Design Tools'
-    if (kind === 'video_pass') return 'Video Pass'
+    if (kind === 'theme') return t('adminUi.themeItem', { name: THEMES[itemKey]?.label ?? itemKey })
+    if (kind === 'layout') return t('adminUi.layoutItem', { name: LAYOUTS[itemKey]?.label ?? itemKey })
+    if (kind === 'frame') return t('adminUi.frameItem', { name: FRAMES[itemKey]?.label ?? itemKey })
+    if (kind === 'design_tools') return 'Design Tools' // i18n-ok: 商品名
+    if (kind === 'video_pass') return 'Video Pass' // i18n-ok: 商品名
     return itemKey ? `${kind}:${itemKey}` : kind
   }
 
@@ -276,15 +278,15 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                   <td style={cell}>
                     {g.isPublic && g.username ? (
                       <a href={`/@${g.username}/${g.slug}`} target="_blank" rel="noreferrer">
-                        {g.title || '(untitled)'}
+                        {g.title || t('common.untitled')}
                       </a>
                     ) : (
-                      g.title || '(untitled)'
+                      g.title || t('common.untitled')
                     )}
                   </td>
                   <td style={cell}>{g.ownerName}{g.username ? ` · @${g.username}` : ''}</td>
                   <td style={cell}>
-                    <span className={`hako-state${g.isPublic ? ' open' : ''}`}>{g.isPublic ? 'OPEN' : 'PRIVATE'}</span>
+                    <span className={`hako-state${g.isPublic ? ' open' : ''}`}>{g.isPublic ? t('adminUi.stateOpen') : t('adminUi.statePrivate')}</span>
                   </td>
                   <td style={cell}>{g.workCount}{g.workCap ? ` / ${g.workCap}` : ''}</td>
                   <td style={cell}>{g.visits}</td>
@@ -299,7 +301,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
 
       {/* Users + owned packages */}
       <section className="me-section">
-        <h2>Users ({data.users.length})</h2>
+        <h2>{t('adminUi.usersCount', { count: data.users.length })}</h2>
         <div className="me-card">
           {data.users.length === 0 ? (
             <p className="me-note" style={{ marginTop: 0 }}>{t('admin.noUsers')}</p>
@@ -321,7 +323,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                   <tr key={u.id}>
                     <td style={cell}>{u.displayName}</td>
                     <td style={cell}>{u.username ? `@${u.username}` : '—'}</td>
-                    <td style={cell}>{u.galleryCount}{u.publicCount ? ` (${u.publicCount} public)` : ''}</td>
+                    <td style={cell}>{u.galleryCount}{u.publicCount ? ` ${t('adminUi.publicCount', { count: u.publicCount })}` : ''}</td>
                     <td style={cell}>{u.workCount}</td>
                     <td style={cell}>
                       {purchases.length === 0 ? (
@@ -333,7 +335,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                               {labelFor(p.kind, p.itemKey)}
                               <button
                                 className="ent-chip-x"
-                                aria-label={`Revoke ${labelFor(p.kind, p.itemKey)}`}
+                                aria-label={t('adminUi.revokeAria', { name: labelFor(p.kind, p.itemKey) })}
                                 disabled={busy}
                                 onClick={() => void mutate(() => revokeEntitlement(u.id, p.kind, p.itemKey))}
                               >
@@ -378,7 +380,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                 })
               }
             >
-              {busy ? 'Working…' : 'Grant'}
+              {busy ? t('adminUi.working') : t('admin.grant')}
             </button>
           </div>
           {err && <p className="me-error">{err}</p>}

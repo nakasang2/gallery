@@ -24,7 +24,7 @@ function AudioGuideButton({ source }: { source: GuideSource }) {
     <button
       className={`panel-guide${playing ? ' playing' : ''}`}
       onClick={() => audioGuide.toggle(source)}
-      aria-label={playing ? 'Pause the audio guide' : 'Play the audio guide'}
+      aria-label={playing ? t('artwork.pauseGuide') : t('artwork.playGuide')}
     >
       <span aria-hidden="true">{playing ? '❚❚' : '▶'}</span> {label}
     </button>

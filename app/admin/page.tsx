@@ -53,7 +53,7 @@ export default function AdminPage() {
 
   if (!supabase) {
     return (
-      <AuthShell title="Admin">
+      <AuthShell title={t('adminUi.shellTitle')}>
         <p className="auth-note">{t('me.notConfigured')}</p>
       </AuthShell>
     )
@@ -62,7 +62,7 @@ export default function AdminPage() {
   // Signed out, or signed in but not an admin — never hint at what's behind the wall
   if (checked && !isAdmin) {
     return (
-      <AuthShell title="Admin">
+      <AuthShell title={t('adminUi.shellTitle')}>
         {user ? (
           <p className="auth-note">{t('adminUi.noAccess')}</p>
         ) : (
@@ -84,7 +84,7 @@ export default function AdminPage() {
           <TopActions>
             <Link className="btn-line" href="/me">{t('common.dashboard')}</Link>
             <button className="btn-line" onClick={() => void load()} disabled={loading}>
-              {loading ? 'Refreshing…' : 'Refresh'}
+              {loading ? t('adminUi.refreshing') : t('adminUi.refresh')}
             </button>
             <button className="btn-line" onClick={() => void signOut()}>{t('me.signOut')}</button>
           </TopActions>

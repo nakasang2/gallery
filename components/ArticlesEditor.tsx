@@ -111,9 +111,9 @@ export default function ArticlesEditor() {
           {list.map((a) => (
             <div className="admin-article-row" key={a.id}>
               <span className={`admin-article-badge${a.published ? ' live' : ''}`}>
-                {a.published ? 'Live' : 'Draft'}
+                {a.published ? t('adminUi.live') : t('adminUi.draft')}
               </span>
-              <span className="admin-article-row-title">{a.title || a.slug || '(untitled)'}</span>
+              <span className="admin-article-row-title">{a.title || a.slug || t('common.untitled')}</span>
               <button className="btn-line" onClick={() => edit(a)}>{t('adminUi.edit')}</button>
               <button className="btn-line danger" onClick={() => void remove(a)} disabled={busy}>{t('adminUi.delete')}</button>
             </div>
@@ -132,6 +132,7 @@ export default function ArticlesEditor() {
           </label>
           <label className="me-field">
             <span>{t('adminUi.slug')}</span>
+            {/* i18n-ok: URLに入る値そのものの見本 */}
             <input value={editing.slug} onChange={(e) => set({ slug: e.target.value })} placeholder="open-a-web-solo-show" />
           </label>
           <label className="me-field">
@@ -144,7 +145,7 @@ export default function ArticlesEditor() {
           </label>
           <label className="me-field">
             <span>{t('adminUi.body')}</span>
-            <textarea className="md-input" value={editing.bodyMd} onChange={(e) => set({ bodyMd: e.target.value })} placeholder={'## A heading\n\nA paragraph with **bold**, *italic* and a [link](https://example.com).\n\n- a list item\n- another'} />
+            <textarea className="md-input" value={editing.bodyMd} onChange={(e) => set({ bodyMd: e.target.value })} placeholder={t('adminUi.bodyPlaceholder')} />
           </label>
 
           <label className="checkbox-row" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.4rem 0 0.9rem' }}>
@@ -154,7 +155,7 @@ export default function ArticlesEditor() {
 
           <div className="hako-actions">
             <button className="btn-line btn-gold" onClick={() => void save()} disabled={busy}>
-              {busy ? 'Saving…' : saved ? 'Saved' : 'Save article'}
+              {busy ? t('adminUi.saving') : saved ? t('adminUi.saved') : t('adminUi.saveArticle')}
             </button>
             <button className="btn-line" onClick={() => { setEditing(null); setExisting(null); setErr('') }} disabled={busy}>
               {t('common.close')}

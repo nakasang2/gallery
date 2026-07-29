@@ -6,8 +6,26 @@
 // 辞書を通っていなければ落とす。パーサ依存を増やさずCIでも動くよう正規表現で
 // 済ませているが、以下は素朴な実装で取りこぼすので明示的に処理している:
 //   - 複数行の /* */ コメント（状態を持って追跡する）
-//   - {式} を含むJSXテキスト（先に {…} を落としてから判定する）
+//   - {式} を含むJSXテキスト（`Width {…}m` のように、式を挟むと残る語が
+//     1つだけになる形も文言として見る）
 //   - タグをまたぐ複数行のJSXテキスト（タグも代入も無い「素の行」も見る）
+//   - **{式} の中の文字列リテラル**（`{busy ? 'Uploading…' : 'Upload'}`）。
+//     テキストだけを見ていた頃は、サインインした作家・管理者にだけ見える英語が
+//     89箇所（44の文言）残っていた（2026-07-29）。詳しくは下の「式の中のリテラル」節。
+//
+// ▼ ここが見ていないもの（意図的な線引き。増やすときはこの一覧も直す）
+//   - 関数呼び出しの引数（`run('Space change', …)` / `alert('…')`）。呼び名から
+//     文言かどうかを決められず、`from('galleries').select('id, title')` のような
+//     DBの列名やイベント名まで巻き込む。**代わりに、文言を受ける関数の引数は
+//     `t()` を通した文字列で渡す**（`run(t('me.deleteGallery'), …)`）。
+//   - モジュール直下の定数・配列（`const PANELS = [{ h: 'A solo show …' }]`）。
+//     キー名 `label:` だけは例外的に見る（下のルール5）。LPの3D壁テクスチャの
+//     ような「後で描画に回される定数」はここに入らない。
+//   - `className` / `key` / `accept` / `href` などの属性と、その中の式。
+//   - 三項・論理のオペランド位置にないリテラル。これは誤検知を止めるための線引き
+//     （`.map(…)` の中のJSX属性や関数の引数を巻き込まない）だが、代わりに
+//     `{(cond ? 'A' : 'B')}` のように括弧で囲んだものと、1行に収めた
+//     `.map()` の中身は見えない。詳しくは下の isOperand。
 //
 // 例外の付け方: その行か直前の行に `i18n-ok` とコメントを書く（理由も添える）。
 // ファイル単位の例外は ALLOW に理由付きで足す。
@@ -25,10 +43,18 @@ const ALLOW = new Set([
 
 // 訳す対象でないもの（ブランド名・記号・単位・技術用語）
 const NOT_COPY =
-  /^(XIBIT360|Xibit360|Stripe|Supabase|WebGL|Cloudflare|PDF|JPEG|MP4|GIF|BGM|SNS|URL|CSS|HTML|OK|No\.|Anonymous|[\d\s.,%/·—–→←✕×▲▼⋯©]+|[A-Za-z]{1,2})$/
+  /^(XIBIT360|Xibit360|Stripe|Supabase|WebGL|Cloudflare|PDF|JPEG|MP4|GIF|BGM|SNS|URL|CSS|HTML|OK|No\.|[\d\s.,%/·—–→←✕×▲▼⋯©]+|[A-Za-z]{1,2})$/
 
-const looksEnglish = (s) => {
-  const t = s.trim()
+// 1語ラベルの検出で、訳す対象でないもの（ブランド名・記号・単位・略語）
+const ONE_WORD_OK = /^(XIBIT360|Xibit360|Stripe|Supabase|WebGL|Cloudflare|Instagram|Chrome|Edge|Safari|Firefox|PDF|JPEG|JPG|PNG|WebP|MP4|GIF|BGM|SNS|URL|CSS|HTML|Noir|Chic)$/
+
+// 式を落とした跡に置く目印。判定の直前に空白へ戻すが、それまでは「ここに式が
+// あった」ことを残す。空白で潰してしまうと `Width {…}m` が「1語＋単位」に見え、
+// ただの識別子と区別できなくなる。
+const PH = '\u0000'
+
+const looksEnglish = (s, hadExpr = false) => {
+  const t = s.split(PH).join(' ').trim()
   if (t.length < 3 || NOT_COPY.test(t)) return false
   // 式の断片（複数行にまたがる条件やテンプレート）は文言ではない。
   // t() を通っている行も、残りはブランド名などの地の文しかない。
@@ -37,22 +63,124 @@ const looksEnglish = (s) => {
   if (/&&|\|\||\?\?|=>|\$\{|[{}]|\bt\('/.test(t)) return false
   if (!/[A-Za-z]/.test(t)) return false
   if (/[ぁ-んァ-ヶ一-龠]/.test(t)) return false // 日本語が混じるなら辞書側の値
-  const words = t.match(/[A-Za-z][A-Za-z''-]+/g) ?? []
-  return words.length >= 2 || /[.?!:]$/.test(t)
+  const words = t.match(/[A-Za-z][A-Za-z'’-]+/g) ?? []
+  if (words.length >= 2 || /[.?!:]$/.test(t)) return true
+  if (words.length !== 1) return false
+  // 語が1つだけの短いラベル。`Copied ✓` `Uploading…` `(untitled)` のように記号・
+  // 三点リーダ・括弧が付くだけで素通りしていたので、飾りを落としてから1語かを見る
+  // （SettingsPanel の "Add" を9言語42%まで訳した後に見つけた 2026-07-29。
+  // 括弧付きは、式の中を見るようにした日に admin の '(untitled)' 2件で判明）。
+  const w = t.replace(/^[\s·—–(（[]+/, '').replace(/[\s…✓.!?·—–)）\]]+$/, '')
+  if (ONE_WORD_OK.test(w)) return false
+  if (/^[A-Za-z][A-Za-z'’-]{2,19}$/.test(w)) return true
+  // 「Width {…}m」「Buy {…}」型。プレースホルダを挟んだ結果1語になった文は、
+  // 単位や記号が残るので上の1語判定には乗らない。式があったことを条件にする。
+  return hadExpr && words[0].length >= 3
 }
 
-// 1語ラベルの検出で、訳す対象でないもの（ブランド名・記号・単位・略語）
-const ONE_WORD_OK = /^(XIBIT360|Xibit360|Stripe|Supabase|WebGL|Cloudflare|Instagram|Chrome|Edge|Safari|Firefox|PDF|JPEG|JPG|PNG|WebP|MP4|GIF|BGM|SNS|URL|CSS|HTML|Noir|Chic)$/
+// {…} を目印に置き換える（ネストは1段だけ見れば足りる）
+const stripExpr = (s) => s.replace(/\{[^{}]*(\{[^{}]*\}[^{}]*)*\}/g, PH)
+// テンプレート文字列の ${…}。中身は式なので文言ではない
+const stripTemplate = (s) => s.replace(/\$\{[^}]*\}/g, PH)
 
-// {…} を落とす（ネストは1段だけ見れば足りる）
-const stripExpr = (s) => s.replace(/\{[^{}]*(\{[^{}]*\}[^{}]*)*\}/g, ' ')
+// 行を1回だけ走査して「文字列リテラルの位置」「括弧の深さ」「伏せ字」を得る。
+// 伏せ字はコメント境界を探す前に必ず通す: `accept="image/*,video/mp4"` の `/*` を
+// ブロックコメントの開始と誤認すると、そこから `*/` が現れるまで数百行がまるごと
+// 検査対象から抜け落ちる（実際に SettingsPanel.tsx で起き、英語の直書き2件を
+// 見逃していた 2026-07-28）。位置がずれないよう長さを保ち、判定は伏せ字側・
+// 切り出しは元の行から行う。
+// 閉じないクォート（`// don't` のような地の文）は行末まで飲み込むと本物の
+// コメント境界を消してしまうので、リテラルと見なさず捨てる。
+const scanLine = (line) => {
+  const lits = []
+  const depth = new Array(line.length).fill(0)
+  let mask = ''
+  let d = 0
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]
+    if (c === "'" || c === '"' || c === '`') {
+      let j = i + 1
+      while (j < line.length && line[j] !== c) {
+        if (line[j] === '\\') j++
+        j++
+      }
+      if (j >= line.length) {
+        // 閉じていない。ただの文字として扱う
+        depth[i] = d
+        mask += c
+        continue
+      }
+      lits.push({ start: i, end: j, value: line.slice(i + 1, j) })
+      for (let k = i; k <= j; k++) depth[k] = d
+      mask += c.repeat(j - i + 1)
+      i = j
+      continue
+    }
+    if (c === '(' || c === '[' || c === '{') {
+      depth[i] = d
+      d++
+    } else if (c === ')' || c === ']' || c === '}') {
+      d--
+      depth[i] = d
+    } else {
+      depth[i] = d
+    }
+    mask += c
+  }
+  return { lits, depth, mask }
+}
 
-// 文字列リテラルを同じ長さの伏せ字に置き換える。コメント境界を探す前に必ず通す:
-// `accept="image/*,video/mp4"` の `/*` をブロックコメントの開始と誤認すると、
-// そこから `*/` が現れるまで数百行がまるごと検査対象から抜け落ちる（実際に
-// SettingsPanel.tsx で起き、英語の直書き2件を見逃していた 2026-07-28）。
-// 位置がずれないよう長さを保ち、判定は伏せ字側・切り出しは元の行から行う。
-const maskStrings = (s) => s.replace(/"[^"\n]*"|'[^'\n]*'|`[^`\n]*`/g, (m) => m[0].repeat(m.length))
+const maskStrings = (s) => scanLine(s).mask
+
+// --- 式の中のリテラル -------------------------------------------------------
+// 「JSXの子として置かれた {式}」と「目に入る4属性の {式}」の中だけを見る。
+// さらに、**三項・論理演算のオペランド位置**（`? 'A' : 'B'` / `x || 'A'` /
+// 式そのもの）にあるリテラルに限る。これが誤検知を止めている唯一の要で、
+// `{error && <p className="auth-error">…}` のクラス名や
+// `{state === 'saving' && …}` の比較値、`fmt(d, 'en-US')` の引数は
+// すべて「オペランドではない」側に落ちる（この絞り込みが無いと候補は1951件、
+// 入れた後は実際の直書きだけ84件になった 2026-07-29）。
+//
+// 逆に、この形しか見ないので `{(cond ? 'A' : 'B')}` のように括弧で囲んだもの、
+// `.map()` の中で1行に収めたものは見えない（上の「見ていないもの」参照）。
+const VISIBLE_ATTR = /\b(placeholder|aria-label|title|alt)=$/
+const exprRegions = (line, depth, inElement) => {
+  const regions = []
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] !== '{' || depth[i] !== 0) continue
+    let j = i + 1
+    while (j < line.length && !(line[j] === '}' && depth[j] === 0)) j++
+    // この `{` より前は（深さ0なので）波括弧が閉じ切っている。中の式を潰してから
+    // 見ることで、`{a >= 0 ? …}{b}` のように式の中の `>` に惑わされずに済む。
+    const head = stripExpr(line.slice(0, i)).split(PH).join(' ')
+    let kind = null
+    if (VISIBLE_ATTR.test(line.slice(0, i))) kind = 'attr'
+    // タグの直後（`<>{…}` `</div>{…}` `<br />{…}` も含む）。除けるのは `=>` だけ
+    else if (/[^=]>\s*$/.test(head)) kind = 'child'
+    // 同じ行でタグが開いていて、そのあと `<` が来ていない＝要素の中身にいる
+    // （`<span>Spot {n}` 型）。`<Tag …>` から数えるので、比較演算子の
+    // `a > 0 ? {…}` を子と読むことはない
+    else if (/<[A-Za-z][^<>]*[^=]>[^<>]*$/.test(head)) kind = 'child'
+    // タグは前の行で開いている（prev で判定）。この行にタグは出てきていない
+    else if (inElement && !/[<>]/.test(head)) kind = 'child'
+    if (kind) regions.push({ start: i, end: j, kind })
+    i = j
+  }
+  return regions
+}
+
+// リテラルが三項・論理のオペランド位置にあるか（前後の非空白トークンで見る）
+const isOperand = (line, lit, r) => {
+  let p = lit.start - 1
+  while (p > r.start && /\s/.test(line[p])) p--
+  let q = lit.end + 1
+  while (q < r.end && /\s/.test(line[q])) q++
+  const pre = p === r.start ? '{' : line.slice(Math.max(0, p - 1), p + 1)
+  // `}` は「式の終わり」だけを許す。オブジェクトを閉じる `}` まで許すと
+  // `title={f(x, { month: 'short' })}` の Intl のオプション値を文言と読む
+  const post = q === r.end ? '}' : line.slice(q, q + 2)
+  return (pre === '{' || /(\?|:|\|\||\?\?|&&)$/.test(pre)) && (post === '}' || /^(\?|:|\|\||\?\?|&&)/.test(post))
+}
 
 // ディレクトリだけ渡して拡張子はJS側で絞る。`git ls-files "app/**/*.tsx"` は
 // pathspec の ** が1階層以上を要求するため app/page.tsx（LP本体）にマッチせず、
@@ -118,43 +246,77 @@ for (const file of files) {
     // 例外注記は同じ行でも直前の行でもよい（JSXでは直前にコメント行を置く方が自然）
     if (!line.trim() || annotated(lines, i, 'i18n-ok')) return
 
-    const report = (kind, text) => findings.push({ file, line: i + 1, kind, text: text.trim() })
+    // 同じ文言が別のルールにも当たることがある（属性の中のテキストなど）。
+    // 報告は1行1件にまとめる
+    const report = (kind, raw) => {
+      const text = raw.split(PH).join('{…}').trim()
+      if (findings.some((f) => f.file === file && f.line === i + 1 && f.text === text)) return
+      findings.push({ file, line: i + 1, kind, text })
+    }
 
     // 1) 目に入る属性の直書き
     for (const m of line.matchAll(/\b(placeholder|aria-label|title|alt)=(?:"([^"]*)"|'([^']*)')/g)) {
       const v = stripExpr(m[2] ?? m[3] ?? '')
-      if (looksEnglish(v)) report(m[1], v)
+      if (looksEnglish(v, v.includes(PH))) report(m[1], v)
     }
 
     const stripped = stripExpr(line)
 
-    // 2) 同じ行に閉じているJSXテキスト
-    for (const m of stripped.matchAll(/>([^<>\n]+)</g)) {
-      if (looksEnglish(m[1])) report('text', m[1])
+    // 2) 同じ行に閉じているJSXテキスト。直前が `=>` の `>` は JSXの開きタグでは
+    //    なくアロー関数で、`() => Promise<void>` の "Promise" を文言と読んでしまう
+    //    （1語ラベルを見るようにしてから出た誤検知 2026-07-29）。
+    for (const m of stripped.matchAll(/(^|[^=])>([^<>\n]+)</g)) {
+      if (looksEnglish(m[2], m[2].includes(PH))) report('text', m[2])
     }
 
-    // 2b) 1語だけのラベル（`>Add<`）。looksEnglish は「2語以上」を条件にして
-    //     いるので、ボタンやリンクの短いラベルがまるごと素通りしていた
-    //     （SettingsPanel の "Add" を42%まで訳した後で見つけた 2026-07-29）。
-    //     3〜20文字の英単語1つだけ、というJSXテキストは文言と見て間違いない。
-    for (const m of stripped.matchAll(/>([A-Za-z][A-Za-z'’-]{2,19})</g)) {
-      const w = m[1]
-      if (ONE_WORD_OK.test(w)) continue
-      report('text', w)
-    }
+    // ※ 1語だけのラベル（`>Add<`）は looksEnglish 側で見る。導入時は「2語以上」を
+    //    条件にしていたため、ボタンやリンクの短いラベルがまるごと素通りしていた
+    //    （SettingsPanel の "Add" を42%まで訳した後で見つけた 2026-07-29）。
 
     // 3) タグをまたぐJSXテキスト。「素の行」だけを見ると import 一覧や
     //    オブジェクトリテラルまで拾ってしまうので、直前の行がJSXの開きタグで
     //    終わっている（= 要素の中身にいる）ことを条件にする。
     //    コードらしさは記号の有無では判定できない（"Videos (reels etc.) …" のように
     //    地の文にも括弧やセミコロンは出る）。構文の形で弾く。
-    const bare = stripped.trim()
-    const inElement = /[^=/]>\s*$/.test(prev)
+    const bareRaw = stripped.trim()
+    // 構文の形を見る前に目印を空白へ戻す。trim() は目印（制御文字）を落とさないので
+    // 戻したあとに trim し直す — これを忘れると「式だけの行」が空文字にならず、
+    // prev（要素の中にいるか）を上書きして次の行が検査から外れる
+    const bare = bareRaw.split(PH).join(' ').trim()
+    // 前の行が開きタグの終わりか。ここで除けるのは `=>`（アロー関数）だけ:
+    //   - `>` だけの行（複数行に分けて書いたタグの最後）を数えないと、その中身が
+    //     丸ごと検査から外れる（`{embedCopied ? 'Copied ✓' : …}` を見逃していた）
+    //   - `<br />` の直後にもテキストは続く（案内文1件を見逃していた）
+    // どちらも 2026-07-29 に、式の中を見るようにして初めて見つかった。
+    const inElement = /(^|[^=])>\s*$/.test(prev)
     const codeish = /[<>]|=>|^[\w.$[\]]+\s*[:=]|[,({=]\s*$|^[.[]|\b(await|typeof|new|function)\b/
     if (inElement && !codeish.test(bare)) {
-      if (looksEnglish(bare)) report('text', bare)
+      if (looksEnglish(bareRaw, bareRaw.includes(PH))) report('text', bareRaw)
     }
-    prev = stripped.trim() || prev
+
+    // 4) JSXの子／目に入る属性に置かれた {式} の中の文字列リテラル。
+    //    `{busy ? 'Uploading…' : 'Upload avatar'}` のような三項が、テキストでも
+    //    属性の直書きでもないため丸ごと素通りしていた（2026-07-29）。
+    const { lits, depth } = scanLine(line)
+    for (const r of exprRegions(line, depth, inElement)) {
+      for (const lit of lits) {
+        if (lit.start < r.start || lit.end > r.end) continue
+        if (!isOperand(line, lit, r)) continue
+        const v = stripTemplate(lit.value)
+        if (looksEnglish(v, v.includes(PH))) report(r.kind === 'attr' ? 'attr式' : '子式', v)
+      }
+    }
+
+    // 5) UIラベルを持つオブジェクトのキー。定数や配列の中まで全部見ると DBの列名や
+    //    設定値を巻き込むので、実際にUIへ渡っているキー名だけを見る
+    //    （`setPurchaseItem({ …, label: 'Add work slots' })` が購入モーダルの
+    //    見出しになっていた 2026-07-29）。
+    for (const m of line.matchAll(/(?:^|[{,(])\s*(label):\s*(?:'([^']*)'|"([^"]*)"|`([^`]*)`)/g)) {
+      const v = stripTemplate(m[2] ?? m[3] ?? m[4] ?? '')
+      if (looksEnglish(v, v.includes(PH))) report(m[1], v)
+    }
+
+    prev = bare || prev
   })
 }
 
