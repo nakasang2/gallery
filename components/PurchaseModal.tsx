@@ -49,14 +49,17 @@ export default function PurchaseModal({
    *  sentence rather than interpolated — a noun dropped into `{unit}` cannot
    *  carry the plural and particle agreement the sentence needs (German wants
    *  Platz/Plätze, Spanish lugar/lugares, Korean 를 after a vowel). If a second
-   *  kind of unit ever ships, give it its own keys instead of a placeholder. */
-  quantity?: { unitCents: number; max: number }
+   *  kind of unit ever ships, give it its own keys instead of a placeholder.
+   *  `initial` opens the stepper on a number the caller already knows is needed
+   *  (tapping a locked spot on the placement map asks for exactly the slots that
+   *  reach it); the buyer can still step it up or down. */
+  quantity?: { unitCents: number; max: number; initial?: number }
   /** What checkout should buy — omit to keep the modal preview-only */
   intent?: PurchaseIntent
   onClose: () => void
 }) {
   const t = useT()
-  const [qty, setQty] = useState(1)
+  const [qty, setQty] = useState(Math.max(1, Math.round(quantity?.initial ?? 1)))
   // Why the buy never started. 'signed-out' is kept apart from 'not-live'
   // because they need opposite things from the buyer — one can act, the other
   // can only wait (docs/DECISIONS 2026-07-29).
@@ -129,11 +132,14 @@ export default function PurchaseModal({
             <div className="purchase-qty-row">
               <span className="purchase-qty-label">{t('purchase.howMany')}</span>
               <div className="purchase-stepper">
+                {/* Both steppers move from the number on screen, not from raw
+                    state: an `initial` above the current max would otherwise
+                    need several taps before the display moved at all. */}
                 <button
                   type="button"
                   aria-label={t('purchase.fewerAria')}
                   disabled={clampedQty <= 1}
-                  onClick={() => setQty((n) => Math.max(1, n - 1))}
+                  onClick={() => setQty(Math.max(1, clampedQty - 1))}
                 >
                   −
                 </button>
@@ -142,7 +148,7 @@ export default function PurchaseModal({
                   type="button"
                   aria-label={t('purchase.moreAria')}
                   disabled={clampedQty >= qtyMax}
-                  onClick={() => setQty((n) => Math.min(qtyMax, n + 1))}
+                  onClick={() => setQty(Math.min(qtyMax, clampedQty + 1))}
                 >
                   +
                 </button>

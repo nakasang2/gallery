@@ -326,7 +326,7 @@ export const ja: Dictionary = {
     customSize: '部屋の広さ',
     centreWall: '中央の壁（枠が4つ増えます）',
     placement: '配置',
-    placementHint: 'どの場所にどの作品を飾るかを決めます。地図の場所をタップして作品を選んでください。空けたままにすると、少ない点数でもゆったり見せられます。',
+    placementHint: 'どの場所にどの作品を飾るかを決めます。地図の場所をタップして作品を選んでください。空けたままにすると、少ない点数でもゆったり見せられます。この部屋の容量を超えた枠には鍵が付きます。押すと枠を追加できます。',
     ambience: '環境音',
     ambienceHint: '部屋を歩く来場者に流れる、繰り返し再生の音源です。来場者は ♪ ボタンで消せます。MP3/M4A・{max}MBまで。権利をお持ちの音源だけをアップロードしてください。',
     uploadTrack: '音源をアップロード',
@@ -445,6 +445,7 @@ export const ja: Dictionary = {
     spotWork: '枠 {n} — {title}',
     spotEmpty: '枠 {n} — 空き',
     spotElsewhere: '{title} — いま別の枠に掛かっています',
+    spotLocked: '枠 {n} — 鍵付き。枠を追加すると、ここに飾れます。',
   },
 
   purchase: {

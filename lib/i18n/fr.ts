@@ -336,6 +336,7 @@ export const fr: PartialDictionary = {
     spotWork: 'Emplacement {n} — {title}',
     spotEmpty: 'Emplacement {n} — vide',
     spotElsewhere: '{title} — actuellement à un autre emplacement',
+    spotLocked: 'Emplacement {n} — verrouillé. Ajoutez des emplacements pour y accrocher une œuvre.',
   },
   me: {
     dashboard: 'Tableau de bord', sections: 'Sections du tableau de bord',
@@ -406,7 +407,7 @@ export const fr: PartialDictionary = {
     lighting: 'Éclairage', customSize: 'Dimensions sur mesure', centreWall: 'Mur central (4 emplacements de plus)',
     lightCeiling: 'Plafond', lightOverhead: 'Au-dessus de l’œuvre',
     placement: 'Accrochage',
-    placementHint: 'Choisissez l’œuvre de chaque place : touchez une place sur le plan puis son œuvre. Laisser des vides aère une petite exposition.',
+    placementHint: 'Choisissez l’œuvre de chaque place : touchez une place sur le plan puis son œuvre. Laisser des vides aère une petite exposition. Les emplacements au-delà de la capacité de cette salle affichent un cadenas : touchez-en un pour ajouter des emplacements.',
     ambience: 'Ambiance sonore',
     ambienceHint: 'Une piste de fond en boucle pour les visiteurs qui traversent la salle ; ils peuvent la couper avec le bouton ♪. MP3/M4A jusqu’à {max} Mo — n’importez que de l’audio dont vous avez les droits.',
     uploadTrack: 'Importer la piste', replaceTrack: 'Remplacer la piste', uploading: 'Envoi en cours…',

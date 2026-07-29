@@ -336,6 +336,7 @@ export const id: PartialDictionary = {
     spotWork: 'Tempat {n} — {title}',
     spotEmpty: 'Tempat {n} — kosong',
     spotElsewhere: '{title} — sedang di tempat lain',
+    spotLocked: 'Tempat {n} — terkunci. Tambah tempat karya untuk memasang sesuatu di sini.',
   },
   me: {
     dashboard: 'Dasbor', sections: 'Bagian dasbor',
@@ -406,7 +407,7 @@ export const id: PartialDictionary = {
     lighting: 'Pencahayaan', customSize: 'Ukuran sendiri', centreWall: 'Dinding tengah (tambah 4 tempat)',
     lightCeiling: 'Plafon', lightOverhead: 'Di atas karya',
     placement: 'Penempatan',
-    placementHint: 'Tentukan karya mana di tiap tempat: ketuk sebuah tempat di peta lalu pilih karyanya. Menyisakan ruang kosong membuat pameran kecil terasa lega.',
+    placementHint: 'Tentukan karya mana di tiap tempat: ketuk sebuah tempat di peta lalu pilih karyanya. Menyisakan ruang kosong membuat pameran kecil terasa lega. Tempat di luar kapasitas ruangan ini bertanda kunci — ketuk untuk menambah tempat.',
     ambience: 'Suara ruang',
     ambienceHint: 'Musik latar yang berputar untuk pengunjung yang menjelajahi ruangmu; mereka bisa mematikannya dengan tombol ♪. MP3/M4A sampai {max}MB — unggah hanya audio yang kamu punya haknya.',
     uploadTrack: 'Unggah trek', replaceTrack: 'Ganti trek', uploading: 'Mengunggah…',

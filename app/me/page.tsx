@@ -506,7 +506,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const [workState, setWorkState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const workTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [purchaseItem, setPurchaseItem] = useState<
-    { kind: PaidKind | 'capacity'; key: string; label: string } | null
+    // `qty` is only read in capacity mode: tapping a locked spot on the placement
+    // map knows how many slots it takes to reach that spot, so the stepper opens
+    // on that number instead of 1.
+    { kind: PaidKind | 'capacity'; key: string; label: string; qty?: number } | null
   >(null)
   const owned = usePurchasedIds(user.id)
   const entitlements = getEntitlements(user.id, owned)
@@ -1381,6 +1384,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                     works={cloudArtworks}
                     arrangement={placement}
                     onChange={editPlacement}
+                    onBuySlots={(slots) =>
+                      setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
+                    }
                     disabled={busy}
                   />
                 </div>
@@ -1739,6 +1745,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               ? {
                   unitCents: PRICE_PER_SLOT_CENTS,
                   max: MAX_WORKS_PER_ROOM - row.work_cap,
+                  initial: purchaseItem.qty,
                 }
               : undefined
           }

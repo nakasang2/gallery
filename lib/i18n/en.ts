@@ -352,7 +352,7 @@ export const en = {
     customSize: 'Custom size',
     centreWall: 'Centre wall (4 extra slots)',
     placement: 'Placement',
-    placementHint: 'Choose which work hangs on each spot: tap a spot on the map to pick its work. Leave gaps to space a small show out.',
+    placementHint: 'Choose which work hangs on each spot: tap a spot on the map to pick its work. Leave gaps to space a small show out. Spots past this room’s capacity show a lock — tap one to add slots.',
     ambience: 'Ambience',
     ambienceHint: 'A looping background track for visitors walking your room; they can mute it with the ♪ button. MP3/M4A up to {max}MB — upload only audio you have the rights to.',
     uploadTrack: 'Upload track',
@@ -471,6 +471,7 @@ export const en = {
     spotWork: 'Spot {n} — {title}',
     spotEmpty: 'Spot {n} — empty',
     spotElsewhere: '{title} — currently in another spot',
+    spotLocked: 'Spot {n} — locked. Add work slots to hang something here.',
   },
 
   purchase: {

@@ -337,6 +337,7 @@ export const ko: PartialDictionary = {
     spotWork: '걸이 {n} — {title}',
     spotEmpty: '걸이 {n} — 비어 있음',
     spotElsewhere: '{title} — 지금 다른 걸이에 걸려 있습니다',
+    spotLocked: '걸이 {n} — 잠김. 걸이를 추가하면 여기에 걸 수 있습니다.',
   },
   me: {
     dashboard: '대시보드',
@@ -451,7 +452,7 @@ export const ko: PartialDictionary = {
     customSize: '크기 직접 설정',
     centreWall: '가운데 벽（걸이 4개 추가）',
     placement: '배치',
-    placementHint: '어느 자리에 어떤 작품을 걸지 정합니다: 배치도에서 자리를 눌러 작품을 고르세요. 작품이 적을 때는 일부러 비워 두면 여유가 생깁니다.',
+    placementHint: '어느 자리에 어떤 작품을 걸지 정합니다: 배치도에서 자리를 눌러 작품을 고르세요. 작품이 적을 때는 일부러 비워 두면 여유가 생깁니다. 이 방의 수용 범위를 넘는 자리에는 잠금 표시가 붙습니다. 누르면 걸이를 추가할 수 있습니다.',
     ambience: '공간의 소리',
     ambienceHint: '전시장을 걷는 관람객에게 흐르는 반복 재생 음원입니다. ♪ 버튼으로 끌 수 있습니다. MP3/M4A, {max}MB까지 — 권리를 가진 음원만 올려 주세요.',
     uploadTrack: '음원 업로드',

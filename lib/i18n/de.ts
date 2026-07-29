@@ -336,6 +336,7 @@ export const de: PartialDictionary = {
     spotWork: 'Platz {n} — {title}',
     spotEmpty: 'Platz {n} — frei',
     spotElsewhere: '{title} — hängt gerade an einem anderen Platz',
+    spotLocked: 'Platz {n} — gesperrt. Füge Plätze hinzu, um hier ein Werk zu hängen.',
   },
   me: {
     dashboard: 'Übersicht', sections: 'Bereiche der Übersicht',
@@ -406,7 +407,7 @@ export const de: PartialDictionary = {
     lighting: 'Licht', customSize: 'Eigene Maße', centreWall: 'Mittelwand (4 Plätze mehr)',
     lightCeiling: 'Decke', lightOverhead: 'Über dem Werk',
     placement: 'Hängung',
-    placementHint: 'Lege fest, welches Werk an welchem Platz hängt: tippe einen Platz im Plan an und wähle sein Werk. Lücken lassen eine kleine Ausstellung atmen.',
+    placementHint: 'Lege fest, welches Werk an welchem Platz hängt: tippe einen Platz im Plan an und wähle sein Werk. Lücken lassen eine kleine Ausstellung atmen. Plätze über der Kapazität dieses Raums zeigen ein Schloss — tippe darauf, um Plätze hinzuzufügen.',
     ambience: 'Klang des Raums',
     ambienceHint: 'Eine Hintergrundschleife für Besucher, die durch deinen Raum gehen; sie können sie mit der ♪-Taste stummschalten. MP3/M4A bis {max} MB — lade nur Audio hoch, an dem du die Rechte hast.',
     uploadTrack: 'Titel hochladen', replaceTrack: 'Titel ersetzen', uploading: 'Wird hochgeladen…',

@@ -460,6 +460,12 @@
 }
 .field-hint:hover,
 .field-hint:focus-visible { opacity: 1; color: var(--gold); outline: none; }
+/* 吹き出しの位置の基準は、ⓘ アイコンではなく見出しの行にする。アイコン基準だと、
+   アイコンが行の右寄りに来る行（作品の各項目）で 230px の吹き出しが画面の右へ 15px
+   はみ出し、ページに横スクロールが生えていた（375px で実測 2026-07-29）。見出しは
+   カードの左端から始まるので、基準を移すだけで収まる。 */
+.me-field-label { position: relative; }
+.me-field-label .field-hint { position: static; }
 .field-hint-pop {
   position: absolute;
   bottom: calc(100% + 8px);
@@ -551,7 +557,10 @@
   align-items: start;
   margin-top: 0.4rem;
 }
-.works-detail .we-left { position: sticky; top: 1rem; }
+/* min-width: 0 は必須。中の3Dキャンバスは three.js が px で幅を書き込むので、
+   グリッド列の自動最小幅（min-content）がその px を下限にしてしまい、列＝カード＝
+   ページが画面より広くなる（下の 720px 以下の 1fr も minmax(0,1fr) にしてある） */
+.works-detail .we-left { position: sticky; top: 1rem; min-width: 0; }
 /* The art preview sits inside the card like the theme preview above it — both inset within
    the card's side padding — so the two 3D views line up (no edge bleed). */
 .wall-preview--lg { height: 320px; font-size: 22px; }
@@ -563,9 +572,14 @@
   border: 1px solid var(--hairline);
   background: #101010;
 }
-.wall-preview3d canvas { display: block; width: 100%; height: 100%; }
+/* !important は three.js のインラインstyleに勝つため（css-ok）。
+   `renderer.setSize()` は canvas.style.width に px を直接書く（react-three-fiber が
+   updateStyle=true で呼ぶ）ので、画面幅が変わった後に古い px が残ると、その幅が
+   レイアウトの下限になり、375px の画面でページ幅が451pxになった（実測 2026-07-29）。
+   描画バッファの大きさは setSize が決めるまま。表示だけを親に合わせる。 */
+.wall-preview3d canvas { display: block; width: 100% !important; height: 100% !important; }
 @media (max-width: 720px) {
-  .works-detail { grid-template-columns: 1fr; }
+  .works-detail { grid-template-columns: minmax(0, 1fr); }
   /* Preview stays on top on phones so the picked work is seen while you tweak */
   .works-detail .we-left { position: static; }
   .wall-preview--lg { height: 230px; font-size: 16px; }
@@ -727,7 +741,9 @@
 }
 
 @media (max-width: 720px) {
-  .me-gallery-body { grid-template-columns: 1fr; gap: 0.8rem; }
+  /* minmax(0,1fr)：素の 1fr は最小幅が min-content なので、中身（3Dキャンバス等）が
+     広いと列ごと画面外へ伸びる。ここも同じ穴だった */
+  .me-gallery-body { grid-template-columns: minmax(0, 1fr); gap: 0.8rem; }
   /* かつては横スクロールのタブ列だったが、作品が増えるほど「+ 追加」が右端の
      画面外へ押し出され、そこへ辿り着くまで横スクロールが必要だった
      （ユーザー指摘 2026-07-28）。縦リストに戻し、代わりに既定でたたむ。 */
@@ -1013,23 +1029,27 @@
 }
 
 /* ---- Manual slot placement (§11.13): top-down room map + work picker ---- */
-.wd-row-block { flex-direction: column; align-items: stretch; gap: 0.6rem; margin-top: 1rem; }
+/* flex-wrap は必ず nowrap に戻す。`.wd-row` は wrap なので、縦並び（column）のまま
+   wrap だと「複数列に折り返せる縦フレックス」になり、列の幅が**中身の幅**で決まる。
+   その結果、配置図(360px)やサムネ列がカードより広いと、行ごとカードごとページが
+   画面外へ伸びて横スクロールが生えた（375pxの画面でページ幅425px。ユーザー報告
+   「設定を行き来していると横スクロールできるようになる」2026-07-29）。 */
+.wd-row-block { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0.6rem; margin-top: 1rem; }
 /* In a stacked block row the label is a full-width heading, not the 72px side-label
    used by inline .wd-row — otherwise "Ambience"/"Placement" + ⓘ get cramped/overlap. */
 .wd-row-block > .wd-label { width: auto; }
-.wd-block-body { display: flex; flex-direction: column; gap: 0.7rem; }
+/* width/min-width は保険。中身（配置図・サムネ列・スライダー）に幅を決めさせない */
+.wd-block-body { display: flex; flex-direction: column; gap: 0.7rem; width: 100%; min-width: 0; }
 
 .place-editor { display: flex; flex-direction: column; gap: 0.8rem; }
+/* 囲みは持たせない（ユーザー判断 2026-07-29）。設定カードの中でさらに枠を重ねると
+   入れ子の箱に見えるため、地図は地の上に直接置き、部屋の輪郭線に境界を任せる。 */
 .place-map {
   display: block;
   width: 100%;
   max-width: 360px;
   margin: 0 auto;
   color: var(--ink);
-  background: rgba(236, 231, 222, 0.04);
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  padding: 0.4rem;
 }
 .place-map .lp-room { fill: none; stroke: currentColor; stroke-width: 0.34; opacity: 0.7; }
 .place-map .lp-part { fill: currentColor; opacity: 0.5; }
@@ -1043,6 +1063,17 @@
 .pe-slot.sel .pe-slot-ring { stroke: var(--gold); stroke-width: 0.16; opacity: 1; }
 .pe-slot-num { fill: currentColor; opacity: 0.55; font-size: 0.62px; text-anchor: middle; font-family: var(--sans, sans-serif); }
 .pe-slot:hover .pe-slot-ring { opacity: 0.9; }
+
+/* 容量を超えた枠。買えば使えるものなので、ロックのチップと同じ金色で示す */
+.pe-slot.locked .pe-slot-bg { fill: rgba(236, 231, 222, 0.02); }
+.pe-slot.locked .pe-slot-ring { stroke: var(--gold); stroke-dasharray: 0.14 0.18; opacity: 0.35; }
+.pe-slot.locked:hover .pe-slot-ring { opacity: 0.7; }
+/* 既定では10枠が鍵付きなので、明るくしすぎると配置の作業を邪魔する。
+   金色で「買えば使える」ことだけ伝わる濃さに留める */
+.pe-slot-lock rect { fill: var(--gold); opacity: 0.6; }
+.pe-slot-lock path { fill: none; stroke: var(--gold); stroke-width: 0.075; opacity: 0.6; }
+.pe-slot.locked:hover .pe-slot-lock rect,
+.pe-slot.locked:hover .pe-slot-lock path { opacity: 0.9; }
 
 .place-picker { display: flex; flex-direction: column; gap: 0.5rem; }
 .place-picker-head {
