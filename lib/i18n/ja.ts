@@ -21,6 +21,18 @@ export const ja: Dictionary = {
     hanging: { wire: 'ワイヤー吊り', flush: '壁付け', ledge: '棚に立てる' },
     caption: { side: '横に名板', under: '下に名板', none: 'なし' },
   },
+  seo: {
+    homeTitle: 'Xibit360 — 作品に、空間を。',
+    homeDesc:
+      'Xibit360 は、あなたのポートフォリオを歩いて見る3Dの個展にします。作品をアップして空間を組み、URLひとつで世界に開けます。',
+    exploreTitle: '展示をさがす — Xibit360',
+    exploreDesc: '公開されている展示をすべて。どの部屋もブラウザでそのまま3Dで開き、歩いて見られます。',
+    articlesTitle: 'ガイド — Xibit360',
+    articlesDesc:
+      '作品を歩いて見る展示にする方法。最初の部屋を開き、共有し、人を呼ぶところまでのガイドです。',
+    demoTitle: 'XIBIT360 コレクション — 常設展 | Xibit360',
+    demoDesc: '架空の作家による10点の常設展です。ブラウザの中で展示場を歩けます。',
+  },
   common: {
     add: '追加',
     free: '無料',

@@ -11,7 +11,17 @@ import { localeAlternates } from '@/lib/i18n/metadata'
 // The landing page inherits title/description from the root layout; what it needs
 // of its own is the canonical + hreflang set for `/{locale}` (lib/i18n/metadata).
 export async function generateMetadata(): Promise<Metadata> {
-  return { alternates: await localeAlternates('/') }
+  const { t } = await getServerT()
+  const title = t('seo.homeTitle')
+  const description = t('seo.homeDesc')
+  // openGraph は明示的に上書きする。layout の値は自動では title から
+  // 導出されないので、指定しないと共有カードだけ英語のまま残る。
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+    alternates: await localeAlternates('/'),
+  }
 }
 
 export default async function LandingPage() {

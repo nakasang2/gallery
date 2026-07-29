@@ -493,6 +493,20 @@ export const de: PartialDictionary = {
     ghostSpeed: 'Gehgeschwindigkeit der Silhouetten', resetDefault: 'Auf Standard zurücksetzen',
     demoLook: 'Aussehen der Demo', demoLookNote: 'Das Thema, mit dem die öffentliche Demo /demo öffnet.',
   },
+  seo: {
+    homeTitle: 'Xibit360 — Deiner Arbeit einen Raum geben.',
+    homeDesc:
+      'Xibit360 macht aus deinem Portfolio eine begehbare 3D-Ausstellung. Werke hochladen, den Raum einrichten, und mit einem einzigen Link für die Welt öffnen.',
+    exploreTitle: 'Entdecken — Xibit360',
+    exploreDesc:
+      'Alle öffentlichen Ausstellungen der Plattform. Jeder Raum öffnet sich in 3D im Browser und lässt sich zu Fuß durchgehen.',
+    articlesTitle: 'Anleitungen — Xibit360',
+    articlesDesc:
+      'Wie du deine Arbeit als begehbare Ausstellung zeigst: den ersten Raum eröffnen, ihn teilen und Publikum gewinnen.',
+    demoTitle: 'XIBIT360 SAMMLUNG — Ständige Ausstellung | Xibit360',
+    demoDesc:
+      'Eine ständige Sammlung mit zehn Werken erfundener Künstler. Geh durch die Galerie, direkt im Browser.',
+  },
   common: {
     add: 'Hinzufügen',
     free: 'kostenlos',

@@ -493,6 +493,20 @@ export const id: PartialDictionary = {
     ghostSpeed: 'Kecepatan siluet berjalan', resetDefault: 'Kembalikan ke bawaan',
     demoLook: 'Tampilan contoh', demoLookNote: 'Tema yang dipakai saat contoh publik /demo dibuka.',
   },
+  seo: {
+    homeTitle: 'Xibit360 — Beri ruang untuk karyamu.',
+    homeDesc:
+      'Xibit360 mengubah portofoliomu menjadi pameran 3D yang bisa dijelajahi. Unggah karyamu, susun ruangnya, lalu buka pameranmu ke dunia dengan satu tautan.',
+    exploreTitle: 'Jelajahi — Xibit360',
+    exploreDesc:
+      'Semua pameran publik di platform ini. Setiap ruang terbuka dalam 3D di peramban dan bisa dijelajahi dengan berjalan.',
+    articlesTitle: 'Panduan — Xibit360',
+    articlesDesc:
+      'Cara menampilkan karyamu sebagai pameran yang bisa dijelajahi: membuka ruang pertama, membagikannya, dan mendatangkan pengunjung.',
+    demoTitle: 'KOLEKSI XIBIT360 — Pameran tetap | Xibit360',
+    demoDesc:
+      'Koleksi tetap berisi sepuluh karya perupa fiktif. Jelajahi galerinya langsung di peramban.',
+  },
   common: {
     add: 'Tambah',
     free: 'gratis',

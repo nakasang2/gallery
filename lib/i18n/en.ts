@@ -39,6 +39,24 @@ export const en = {
     hanging: { wire: 'Rail wires', flush: 'Flush mount', ledge: 'Shelf ledge' },
     caption: { side: 'Side plate', under: 'Under plate', none: 'None' },
   },
+  // 検索結果の見出しとスニペット。言語別URLを持つ4ページだけに使う
+  // （DECISIONS 2026-07-29）。ブランド接尾の「— Xibit360」は全言語で残す:
+  // 固有名詞であり、検索結果でシリーズとして認識されるのは接尾が揃っている
+  // ときだから。/terms /privacy /legal は単一URLなので layout の英語のまま。
+  seo: {
+    homeTitle: 'Xibit360 — Your work, given space.',
+    homeDesc:
+      'Xibit360 turns your portfolio into a walkable 3D exhibition. Upload your work, compose the room, and open your show to the world with a single URL.',
+    exploreTitle: 'Explore — Xibit360',
+    exploreDesc:
+      'Walk through public galleries from other artists — every exhibition on the platform, one link each.',
+    articlesTitle: 'Guides — Xibit360',
+    articlesDesc:
+      'How to open a walkable 3D exhibition: guides on showing your art, growing an audience, and making the most of Xibit360.',
+    demoTitle: 'XIBIT360 COLLECTION — Permanent Exhibition | Xibit360',
+    demoDesc:
+      'A permanent collection of ten works by fictional artists. Walk the gallery inside your browser.',
+  },
   common: {
     add: 'Add',
     free: 'free',

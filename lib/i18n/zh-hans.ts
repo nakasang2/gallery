@@ -494,6 +494,17 @@ export const zhHans: PartialDictionary = {
     ghostSpeed: '人影行走速度', resetDefault: '恢复默认',
     demoLook: '示例的外观', demoLookNote: '公开的 /demo 打开时使用的主题。',
   },
+  seo: {
+    homeTitle: 'Xibit360 — 给你的作品，一个空间。',
+    homeDesc:
+      'Xibit360 把你的作品集变成可以走进去的 3D 展览。上传作品、布置展厅，用一个链接向世界打开。',
+    exploreTitle: '浏览展览 — Xibit360',
+    exploreDesc: '平台上所有公开的展览。每个展厅都能在浏览器里直接以 3D 打开，走进去看。',
+    articlesTitle: '指南 — Xibit360',
+    articlesDesc: '把作品做成可以走进去的展览：从打开第一个展厅，到分享出去，再到把人请进来。',
+    demoTitle: 'XIBIT360 藏品 — 常设展 | Xibit360',
+    demoDesc: '十件虚构作者作品的常设展。可以在浏览器里走进展厅看。',
+  },
   common: {
     add: '添加',
     free: '免费',

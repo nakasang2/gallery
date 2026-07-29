@@ -558,6 +558,17 @@ export const ko: PartialDictionary = {
     ghostSpeed: '사람 그림자의 속도', resetDefault: '기본값으로',
     demoLook: '데모의 겉모습', demoLookNote: '공개된 /demo 가 열릴 때의 테마입니다.',
   },
+  seo: {
+    homeTitle: 'Xibit360 — 작품에, 자리를.',
+    homeDesc:
+      'Xibit360 은 당신의 포트폴리오를 걸어서 보는 3D 전시로 만듭니다. 작품을 올리고 공간을 구성해, 링크 하나로 세계에 열 수 있습니다.',
+    exploreTitle: '전시 찾아보기 — Xibit360',
+    exploreDesc: '공개된 전시를 모두 모았습니다. 어느 전시장이든 브라우저에서 바로 3D로 열려, 걸어서 볼 수 있습니다.',
+    articlesTitle: '가이드 — Xibit360',
+    articlesDesc: '작품을 걸어서 보는 전시로 만드는 방법. 첫 전시장을 열고, 공유하고, 사람을 불러 모으기까지의 가이드입니다.',
+    demoTitle: 'XIBIT360 컬렉션 — 상설전 | Xibit360',
+    demoDesc: '가상의 작가 열 명의 작품을 모은 상설전입니다. 브라우저 안에서 전시장을 걸어 볼 수 있습니다.',
+  },
   common: {
     add: '추가',
     free: '무료',

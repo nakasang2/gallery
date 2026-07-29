@@ -13,9 +13,13 @@ import { localeAlternates } from '@/lib/i18n/metadata'
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getServerT()
+  const title = t('seo.exploreTitle')
+  const description = t('seo.exploreDesc')
   return {
-    title: 'Explore — Xibit360',
-    description: 'Walk through public galleries from other artists — every exhibition on the platform, one link each.',
+    title,
+    description,
+    openGraph: { title, description },
     alternates: await localeAlternates('/explore'),
   }
 }
