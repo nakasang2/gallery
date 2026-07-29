@@ -1697,51 +1697,19 @@ body:not(.gallery-mode) {
 }
 
 /* Immediate-delivery acknowledgement before a purchase (EU/UK 14-day right). */
-.purchase-consent {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  margin: 1rem 0 0.2rem;
-  font-size: 0.72rem;
-  line-height: 1.65;
-  color: var(--muted);
-  text-align: left;
-  cursor: pointer;
-}
-.purchase-consent input[type='checkbox'] {
-  flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
-  margin-top: 0.2em;
-  accent-color: var(--gold);
-  cursor: pointer;
-}
-/* The way to read the Terms the tick box agrees to. Lined up with the label
-   text, not the box (16px + the 0.55rem gap above), so the two read as one
-   block. */
-.purchase-consent-more {
-  margin: 0 0 0.2rem;
-  padding-left: calc(16px + 0.55rem);
-  font-size: 0.66rem;
-  line-height: 1.6;
-  text-align: left;
-}
-.purchase-consent-more a {
+/* The Terms notice under the CTA — where the tick box used to be (DECISIONS
+   2026-07-29). Quieter than the note above it: this is the fine print, not
+   something the buyer has to act on. */
+.purchase-terms { margin-top: 0.5rem; font-size: 0.66rem; }
+.purchase-terms a {
   color: var(--muted);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.purchase-consent-more a:hover { color: var(--gold); }
+.purchase-terms a:hover { color: var(--gold); }
 
-/* Only "opening checkout…" disables the CTA now. Waiting on the acknowledgement
-   used to disable it too, which made a tap do nothing and say nothing
-   (DECISIONS 2026-07-29) — .needs-consent is what points at the reason. */
+/* Only "opening checkout…" disables the CTA — nothing else gates it. */
 .purchase-cta:disabled { opacity: 0.45; cursor: default; }
-.purchase-consent.needs-consent { color: var(--gold); }
-.purchase-consent.needs-consent input[type='checkbox'] {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
-}
 /* Sign in again, from inside the modal, when the session lapsed mid-purchase. */
 .purchase-signin { display: block; margin-top: 0.9rem; text-align: center; }
 

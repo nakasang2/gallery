@@ -15,7 +15,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { itemPriceCents, usd, type PaidKind } from '@/lib/pricing'
 import { startCheckout, type PurchaseIntent } from '@/lib/checkout'
-import { useT } from '@/components/I18nProvider'
+import { TextWithSlot, useT } from '@/components/I18nProvider'
 
 const EYEBROW: Record<PaidKind | 'capacity', string> = {
   theme: 'purchase.eyebrowTheme',
@@ -66,19 +66,15 @@ export default function PurchaseModal({
   const [blocked, setBlocked] = useState<'not-live' | 'signed-out' | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // The CTA used to be `disabled` until this was ticked, so tapping it did
-  // nothing at all and said nothing — on a phone the checkbox is 16px of grey
-  // fine print, easy to miss. The button stays live and explains instead.
-  const [consentMissing, setConsentMissing] = useState(false)
-  // Agreement to the Terms, taken here because Stripe's own consent_collection
-  // needs a URL configured in the dashboard and would break silently without it.
+  // No tick box here on purpose. Buying requires being signed in, and signing up
+  // already takes agreement to the Terms — so asking again on every purchase was
+  // taking the same consent twice. The line under the CTA carries the notice
+  // instead, the way any other store does it (docs/DECISIONS 2026-07-29).
   //
-  // This box used to carry the express waiver EU/UK law wants for digital content
-  // supplied immediately ("I give up the 14-day right to cancel"). The user chose
-  // the shorter wording instead and accepted that trade knowingly, so the detail
-  // lives in the Terms (§5) and this is a plain agreement to them
-  // (docs/DECISIONS 2026-07-29). Don't quietly re-lengthen it.
-  const [acknowledged, setAcknowledged] = useState(false)
+  // It used to be the express waiver EU/UK law wants for digital content supplied
+  // immediately, which does have to be taken per transaction. That was dropped by
+  // the user's decision, knowingly — so if it ever comes back, it comes back as a
+  // tick box, not as this line.
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -94,10 +90,6 @@ export default function PurchaseModal({
   async function onCta() {
     if (!intent) {
       setBlocked('not-live')
-      return
-    }
-    if (!acknowledged) {
-      setConsentMissing(true)
       return
     }
     setBusy(true)
@@ -198,45 +190,30 @@ export default function PurchaseModal({
           </p>
         ) : (
           <>
-            {intent && (
-              <label className={`purchase-consent${consentMissing ? ' needs-consent' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={acknowledged}
-                  onChange={(e) => {
-                    setAcknowledged(e.target.checked)
-                    if (e.target.checked) setConsentMissing(false)
-                  }}
-                />
-                <span>
-                  {t('purchase.consent')}
-                </span>
-              </label>
-            )}
-            {intent && (
-              /* What the box agrees to has to be readable before ticking it.
-                 Outside the <label> on purpose — a link inside it would toggle
-                 the box — and a new tab, so reading the Terms doesn't throw
-                 away the purchase. */
-              <p className="purchase-consent-more">
-                <Link href="/terms" target="_blank" rel="noopener noreferrer">
-                  {t('purchase.termsLink')}
-                </Link>
-              </p>
-            )}
             <button className="purchase-cta" onClick={() => void onCta()} disabled={busy}>
               {busy ? t('purchase.opening') : t('purchase.continueToCheckout')}
             </button>
             {error ? (
               <p className="purchase-note purchase-note-active">{error}</p>
-            ) : consentMissing ? (
-              <p className="purchase-note purchase-note-active">{t('purchase.needsConsent')}</p>
             ) : (
               /* Capacity buys slots that stay with the room; everything else is a
                  one-off unlock. Both sentences were already in the dictionary —
                  the caller used to pass the English one as a prop. */
               <p className="purchase-note">
                 {quantity ? t('purchase.oneTimeSlots') : t('purchase.oneTimeNote')}
+              </p>
+            )}
+            {intent && (
+              /* Where the tick box used to be. One sentence, and the word that
+                 links to the Terms sits where each language puts it — never
+                 built by joining fragments (docs/DECISIONS 2026-07-29). New tab,
+                 so reading the Terms doesn't throw away the purchase. */
+              <p className="purchase-note purchase-terms">
+                <TextWithSlot text={t('purchase.agreeNote')} slot="terms">
+                  <Link href="/terms" target="_blank" rel="noopener noreferrer">
+                    {t('purchase.termsLink')}
+                  </Link>
+                </TextWithSlot>
               </p>
             )}
           </>
