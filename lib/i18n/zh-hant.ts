@@ -283,8 +283,6 @@ export const zhHant: PartialDictionary = {
     opening: '正在開啟付款頁面…',
     howMany: '要加幾個{unit}？',
     slot: '作品位',
-    addsSlots: '為這個展場增加 {count} 個作品位，買一次就一直用。剩餘 {max}。',
-    addsSlots_other: '為這個展場增加 {count} 個作品位，買一次就一直用。剩餘 {max}。',
     consent: '我要立刻使用。我明白這表示放棄 14 天的解約權，並且一旦啟用就不能退款。',
     oneTimeNote: '一次性購買 — 從此歸你。沒有訂閱，不必續約。',
     oneTimeSlots: '一次性購買 — 這些作品位會一直留在這個展場。沒有訂閱。',

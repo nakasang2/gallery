@@ -284,8 +284,6 @@ export const ptBr: PartialDictionary = {
     opening: 'Abrindo o pagamento…',
     howMany: 'Quantos {unit}s?',
     slot: 'lugar',
-    addsSlots: 'Acrescenta {count} lugar a esta sala, de uma vez, para sempre. {max} disponíveis.',
-    addsSlots_other: 'Acrescenta {count} lugares a esta sala, de uma vez, para sempre. {max} disponíveis.',
     consent: 'Quero usar na hora. Entendo que assim desisto do direito de cancelar em 14 dias e que não há reembolso depois de liberado.',
     oneTimeNote: 'Compra única — fica sua para sempre. Sem assinatura, nada para renovar.',
     oneTimeSlots: 'Compra única — estes lugares ficam nesta sala para sempre. Sem assinatura.',

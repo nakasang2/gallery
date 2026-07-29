@@ -284,8 +284,6 @@ export const fr: PartialDictionary = {
     opening: 'Ouverture du paiement…',
     howMany: 'Combien d’{unit}s ?',
     slot: 'emplacement',
-    addsSlots: 'Ajoute {count} emplacement à cette salle, une fois, pour toujours. {max} disponibles.',
-    addsSlots_other: 'Ajoute {count} emplacements à cette salle, une fois, pour toujours. {max} disponibles.',
     consent: 'Débloquer tout de suite. Je comprends que je renonce ainsi au droit de rétractation de 14 jours, et que ce n’est pas remboursable une fois débloqué.',
     oneTimeNote: 'Un achat unique — à vous pour de bon. Pas d’abonnement, rien à renouveler.',
     oneTimeSlots: 'Un achat unique — ces emplacements restent sur cette salle pour de bon. Pas d’abonnement.',

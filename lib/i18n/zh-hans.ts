@@ -285,8 +285,6 @@ export const zhHans: PartialDictionary = {
     opening: '正在打开付款页面…',
     howMany: '要加几个{unit}？',
     slot: '作品位',
-    addsSlots: '为这个展厅增加 {count} 个作品位，买一次就一直用。剩余 {max}。',
-    addsSlots_other: '为这个展厅增加 {count} 个作品位，买一次就一直用。剩余 {max}。',
     consent: '我要立刻使用。我明白这意味着放弃 14 天的撤销权，并且一旦启用就不能退款。',
     oneTimeNote: '一次性购买 — 从此归你。没有订阅，不用续费。',
     oneTimeSlots: '一次性购买 — 这些作品位会一直留在这个展厅。没有订阅。',

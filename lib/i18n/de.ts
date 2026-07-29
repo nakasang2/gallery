@@ -284,8 +284,6 @@ export const de: PartialDictionary = {
     opening: 'Kasse wird geöffnet…',
     howMany: 'Wie viele {unit}?',
     slot: 'Plätze',
-    addsSlots: 'Gibt diesem Raum {count} Platz mehr — einmal gekauft, dauerhaft. {max} verfügbar.',
-    addsSlots_other: 'Gibt diesem Raum {count} Plätze mehr — einmal gekauft, dauerhaft. {max} verfügbar.',
     consent: 'Sofort freischalten. Mir ist klar, dass ich damit auf das 14-tägige Widerrufsrecht verzichte und dass es nach dem Freischalten nicht erstattet wird.',
     oneTimeNote: 'Ein einmaliger Kauf — bleibt deins. Kein Abo, nichts zu verlängern.',
     oneTimeSlots: 'Ein einmaliger Kauf — diese Plätze bleiben dauerhaft an diesem Raum. Kein Abo.',

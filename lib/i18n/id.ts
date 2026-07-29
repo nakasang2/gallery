@@ -284,8 +284,6 @@ export const id: PartialDictionary = {
     opening: 'Membuka pembayaran…',
     howMany: 'Berapa {unit}?',
     slot: 'tempat',
-    addsSlots: 'Menambah {count} tempat di ruang ini, sekali beli, selamanya. Tersisa {max}.',
-    addsSlots_other: 'Menambah {count} tempat di ruang ini, sekali beli, selamanya. Tersisa {max}.',
     consent: 'Saya ingin langsung memakainya. Saya paham dengan begitu saya melepas hak batal 14 hari, dan tidak ada pengembalian dana setelah dibuka.',
     oneTimeNote: 'Sekali beli — jadi milikmu terus. Tanpa langganan, tidak ada yang perlu diperpanjang.',
     oneTimeSlots: 'Sekali beli — tempat-tempat ini menetap di ruang ini. Tanpa langganan.',

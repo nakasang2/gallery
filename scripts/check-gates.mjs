@@ -293,6 +293,114 @@ gateCase('check:i18n — タグをまたぐ（行が分かれた）JSXテキス�
   contains: ['Upload a piece'],
 })
 
+// --- 複数形キーの対（2026-07-29 に足した番人） -------------------------------
+// 発端: 8キーが `_other` だけを持ち、単数は素のキーに書かれていた。translate() が
+// 素のキーより先に `_other` を見ていたため、英語で count=1 のとき「1 works」と
+// 読める文が出ていた。**番人は1つもこれを見ていなかった**ので、対の有無を見る。
+const PLURAL_DICT = (lines) => ['export const en = {', '  common: {', "    save: 'Save',", ...lines, '  },', '}', ''].join('\n')
+
+gateCase('check:i18n — `_other` だけで相方の無いキーを検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    'lib/i18n/en.ts': PLURAL_DICT(["    works_other: '{count} works',"]),
+    'lib/i18n/ja.ts': DICT_JA,
+  },
+  expectFail: true,
+  contains: ['works_other'],
+})
+
+gateCase('check:i18n — `_one` だけで `_other` の無いキーを検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    'lib/i18n/en.ts': PLURAL_DICT(["    works_one: '{count} work',"]),
+    'lib/i18n/ja.ts': DICT_JA,
+  },
+  expectFail: true,
+  contains: ['works_one'],
+})
+
+gateCase('check:i18n — 対になっている複数形キーを誤検知しない（素のキー／_one の両方の書き方）', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // 値の中の `{count}` を波括弧として数えると階層がずれる。両方の書き方が
+    // 同じファイルに混在していても通ること。
+    'lib/i18n/en.ts': PLURAL_DICT([
+      "    works: '{count} work',",
+      "    works_other: '{count} works',",
+      "    seats_one: '{count} seat',",
+      "    seats_other: '{count} seats',",
+    ]),
+    'lib/i18n/ja.ts': DICT_JA,
+  },
+  expectFail: false,
+})
+
+gateCase('check:i18n — 複数行コメントの後ろでも行番号が合っている', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // コメントを1文字に潰すと、その後ろのキーの行番号が縮んで報告が嘘になる
+    // （辞書は各グループの上に複数行の解説コメントを置く書き方をしている）。
+    // 期待: `works_other` は8行目。合成コメントを日本語で書くと**他言語混入の番人が
+    // 先に落ちる**（あちらはブロックコメントの中身を除外していない）ので英語で書く。
+    'lib/i18n/en.ts': [
+      'export const en = {', // 1
+      '  /*', // 2
+      '   * Why this group exists,', // 3
+      '   * spelled out over several lines', // 4
+      '   */', // 5
+      '  common: {', // 6
+      "    save: 'Save',", // 7
+      "    works_other: '{count} works',", // 8
+      '  },',
+      '}',
+      '',
+    ].join('\n'),
+    'lib/i18n/ja.ts': DICT_JA,
+  },
+  expectFail: true,
+  contains: ['lib/i18n/en.ts:8'],
+})
+
+gateCase('check:i18n — 値の中の波括弧やコロンを階層／キーと読まない', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // 文言の値は波括弧やコロンを含む。これを構文として読むと階層がずれ、対に
+    // なっているキーを「相方が無い」と誤検知して push が止まる。カバレッジ計測が
+    // 値の中の `Live at:'` をキーと数えて分母を水増ししたのと同じ穴（2026-07-29）。
+    'lib/i18n/en.ts': PLURAL_DICT([
+      "    works: '{count} work',",
+      "    tip: 'Type } to close the block',",
+      "    works_other: '{count} works',",
+      "    note: 'Shown as Live at: {time}',",
+    ]),
+    'lib/i18n/ja.ts': DICT_JA,
+  },
+  expectFail: false,
+  notContains: ['works_other'],
+})
+
+gateCase('check:i18n — 別のグループの同名キーを相方と数えない（入れ子の道筋を見る）', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // `panel.works` は `artwork.works_other` の相方ではない。道筋を見ずに
+    // キー名だけ集めると、この入力を取りこぼす。
+    'lib/i18n/en.ts': [
+      'export const en = {',
+      '  artwork: {',
+      "    works_other: '{count} works',",
+      '  },',
+      '  panel: {',
+      "    works: '{count} work',",
+      '  },',
+      '}',
+      '',
+    ].join('\n'),
+    'lib/i18n/ja.ts': DICT_JA,
+  },
+  expectFail: true,
+  contains: ['artwork.works_other'],
+})
+
 gateCase('check:css — 複数行コメントの中のクラス名を誤検知しない', {
   gate: 'check-css.mjs',
   files: {
@@ -337,6 +445,9 @@ for (const c of cases) {
   if (c.expectFail && !didFail) problems.push('落ちるべき入力なのに通した（＝この穴が空いている）')
   if (!c.expectFail && didFail) problems.push('通るべき入力なのに落ちた（＝誤検知でpushが止まる）')
   for (const s of c.contains ?? []) if (!out.includes(s)) problems.push(`出力に「${s}」が無い`)
+  // notContains は宣言だけされて一度も照合されていなかった（2026-07-29 に気づいた）。
+  // 「誤検知しないこと」を書いたつもりのケースが黙って何も見ていない状態だった。
+  for (const s of c.notContains ?? []) if (out.includes(s)) problems.push(`出力に「${s}」が出た（誤検知）`)
   const names = reportedNames(out)
   for (const s of c.reported ?? []) if (!names.includes(s)) problems.push(`${s} が報告されていない（この穴が空いている）`)
   for (const s of c.notReported ?? []) if (names.includes(s)) problems.push(`${s} が報告された（誤検知）`)

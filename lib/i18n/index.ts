@@ -249,9 +249,14 @@ type Params = Record<string, string | number>
 
 /** Resolve a dotted key against a dictionary, filling `{placeholders}`.
  *
- *  Pass `count` to pick a plural form: the key is looked up as `<key>_one` /
- *  `<key>_other` first (via Intl.PluralRules for the locale, so languages with
- *  no plural distinction — Japanese — simply always land on `_other`).
+ *  Pass `count` to pick a plural form, chosen by Intl.PluralRules for the locale
+ *  (so languages with no plural distinction — Japanese, Chinese, Korean — always
+ *  land on `other`).
+ *
+ *  Two spellings of the singular are accepted, because the dictionaries use both:
+ *  `<key>_one` beside `<key>_other`, OR the BARE key beside `<key>_other`
+ *  (`resetPerWork` / `resetPerWork_other`). The bare key is only ever the
+ *  singular, so only `one` may fall back to it — see below.
  *
  *  A missing key returns the key itself rather than throwing: a label reading
  *  "explore.title" in one corner is a bug you can see and fix, a crashed
@@ -268,7 +273,23 @@ export function translate(dict: Dictionary, locale: Locale, key: string, params?
   let value: unknown
   if (params && typeof params.count === 'number') {
     const form = new Intl.PluralRules(LOCALE_META[locale]?.bcp47 ?? locale).select(params.count)
-    value = lookup(`${key}_${form}`) ?? lookup(`${key}_other`) ?? lookup(key)
+    // `one` has to be allowed to read the bare key: most dictionaries write the
+    // singular there and only suffix the plural, so looking at `_other` before the
+    // bare key made every "1 work" sentence read "1 works" (fixed 2026-07-29).
+    // Every other form must SKIP the bare key — it is the singular, and a locale
+    // with `few`/`many` (Russian, Polish) would otherwise render a singular
+    // sentence for 5. `check:i18n` requires the pair to exist, so the third
+    // entry in each chain is a safety net, not the normal path.
+    // The Set drops a duplicate: when `form` is already `other` the first two
+    // entries are the same key, and `other` is the ONLY form the five CJK-and-id
+    // locales ever get — they would walk the same tree twice on every call.
+    const chain = new Set(
+      form === 'one' ? [`${key}_one`, key, `${key}_other`] : [`${key}_${form}`, `${key}_other`, key],
+    )
+    for (const k of chain) {
+      value = lookup(k)
+      if (value !== undefined) break
+    }
   } else {
     value = lookup(key)
   }

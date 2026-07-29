@@ -285,8 +285,6 @@ export const ko: PartialDictionary = {
     opening: '결제 화면을 여는 중…',
     howMany: '{unit}을 몇 개 추가할까요?',
     slot: '걸이',
-    addsSlots: '이 전시장에 걸이를 {count}개 추가합니다. 한 번 구입하면 계속 사용합니다. 남은 수 {max}.',
-    addsSlots_other: '이 전시장에 걸이를 {count}개 추가합니다. 한 번 구입하면 계속 사용합니다. 남은 수 {max}.',
     consent: '바로 사용하겠습니다. 그에 따라 14일 청약철회권을 포기하며, 사용을 시작한 뒤에는 환불되지 않는다는 점을 이해합니다.',
     oneTimeNote: '한 번만 구입하면 계속 내 것입니다. 정기 결제도, 갱신도 없습니다.',
     oneTimeSlots: '한 번만 구입하면 이 걸이는 이 전시장에 계속 남습니다. 정기 결제는 없습니다.',

@@ -228,6 +228,72 @@ if (mixed.length) {
   process.exit(1)
 }
 
+// --- 複数形キーの対の点検 ---------------------------------------------------
+// 単数の書き方が2通り混在している: 素のキーに単数を書いて複数だけ接尾辞を付ける形
+// （`resetPerWork` / `resetPerWork_other`）と、両方に付ける形（`walkThrough_one` /
+// `walkThrough_other`）。translate() はどちらも読めるが、**片方しか無いキーは必ず
+// 嘘をつく** — 相方が無ければ英語（＝別の言語）か違う数の文に落ちるしかない。
+// 実際に8キーが `_other` だけを持ち、英語で count=1 のとき「1 works」と読める文が
+// 出ていた（2026-07-29）。対が揃っているかは機械で見られるので機械に見せる。
+//
+// 数え方は check:i18n のカバレッジと違って**入れ子の道筋まで見る**。`artwork.foo_other`
+// の相方は `artwork.foo` であって、別のグループの同名 `panel.foo` ではない。
+const pluralKeys = (src) => {
+  // 文字列の中の { } を波括弧として数えないよう伏せ字にしてからコメントを落とす
+  // （値には `{count} works` のように波括弧が入る）。**長さと行数は保つ** —
+  // 複数行コメントを1文字に潰すと、その後ろのキーの行番号がずれて報告が嘘になる。
+  const body = maskStrings(src)
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/\/\/[^\n]*/g, (m) => ' '.repeat(m.length))
+  // 並び順が意味を持つので1本の正規表現で順に拾う。グループ開き → 葉 → 素の波括弧。
+  const TOKEN = /([a-zA-Z0-9_]+)\s*:\s*\{|([a-zA-Z0-9_]+)\s*:\s*['"`]|\{|\}/g
+  const stack = []
+  const found = new Map()
+  for (const m of body.matchAll(TOKEN)) {
+    if (m[1]) stack.push(m[1])
+    else if (m[2]) {
+      const path = [...stack, m[2]].filter(Boolean).join('.')
+      // 行番号は「報告するとき」だけ数える（全キーで文字列を切り出すと、
+      // 11辞書 × 約700キー ぶんのコピーが走る）。
+      if (!found.has(path)) found.set(path, m.index)
+      // `export const en = {` のような「キーを持たない波括弧」。`{` と `}` の数を
+      // 釣り合わせるためだけに積む（道筋には出ない＝上の filter(Boolean)）。
+      // **現在の辞書はどれもキー付きの波括弧しか持たないので、この行を消しても
+      // check:gates は落ちない**（変異テストで確認）。将来キー無しの波括弧が入った
+      // ときに道筋がずれないための備えなので、死んだコードと見て消さないこと。
+    } else if (m[0] === '{') stack.push(null)
+    else stack.pop()
+  }
+  return found
+}
+
+const pairIssues = []
+for (const f of dictFiles) {
+  const src = readFileSync(f, 'utf8')
+  const keys = pluralKeys(src)
+  const lineOf = (at) => src.slice(0, at).split('\n').length
+  for (const [k, at] of keys) {
+    if (k.endsWith('_other')) {
+      const stem = k.slice(0, -'_other'.length)
+      const bare = stem.split('.').pop()
+      if (!keys.has(stem) && !keys.has(`${stem}_one`)) {
+        pairIssues.push({ f, line: lineOf(at), key: k, want: `${bare}（単数）か ${bare}_one` })
+      }
+    } else if (k.endsWith('_one')) {
+      const stem = k.slice(0, -'_one'.length)
+      if (!keys.has(`${stem}_other`)) {
+        pairIssues.push({ f, line: lineOf(at), key: k, want: `${stem.split('.').pop()}_other` })
+      }
+    }
+  }
+}
+if (pairIssues.length) {
+  console.error(`複数形キーの相方が無いもの ${pairIssues.length} 件（count=1 と 2 以上で別の文が要ります）:\n`)
+  for (const p of pairIssues) console.error(`  ${p.f}:${p.line}  ${p.key} → ${p.want} が無い`)
+  console.error('\n単数は素のキーでも `_one` でも構いませんが、必ず対で書いてください。\n')
+  process.exit(1)
+}
+
 // --- 翻訳カバレッジ（ゲートではなく進捗の可視化） ---------------------------
 // 英語以外の辞書は部分辞書で、欠けたキーは英語にフォールバックする
 // （lib/i18n getDictionary）。何%訳せているかを毎回出しておかないと、
@@ -272,6 +338,7 @@ const coverage = localeFiles
 if (stateFindings.length) process.exit(1)
 console.log(`UI文言の直書き: 0 件（${files.length} ファイルを検査）`)
 console.log(`状態を語る対外文言: 0 件（${stateFiles.length} ファイルを検査）`)
+console.log(`複数形キーの相方が無いもの: 0 件（${dictFiles.length} 辞書を検査）`)
 console.log(`\n翻訳カバレッジ（英語 ${enLeaves} キーに対して。欠けた分は英語で表示される）:`)
 for (const c of coverage) {
   const bar = '█'.repeat(Math.round(c.pct / 5)).padEnd(20, '·')

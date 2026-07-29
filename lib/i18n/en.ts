@@ -462,8 +462,6 @@ export const en = {
     opening: 'Opening checkout…',
     howMany: 'How many {unit}s?',
     slot: 'slot',
-    addsSlots: 'Adds {count} more slot to this room, once, forever. {max} available.',
-    addsSlots_other: 'Adds {count} more slots to this room, once, forever. {max} available.',
     consent: 'Unlock it straight away. I understand that means I give up the 14-day right to cancel, and that it is non-refundable once unlocked.',
     oneTimeNote: 'A one-time purchase — yours for good. No subscription, nothing to renew.',
     oneTimeSlots: 'A one-time purchase — these slots stay on this room for good. No subscription.',

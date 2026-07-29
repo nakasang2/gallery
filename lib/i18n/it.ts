@@ -283,8 +283,6 @@ export const it: PartialDictionary = {
     opening: 'Apertura del pagamento…',
     howMany: 'Quanti {unit}?',
     slot: 'posti',
-    addsSlots: 'Aggiunge {count} posto a questa sala, una volta, per sempre. Ne restano {max}.',
-    addsSlots_other: 'Aggiunge {count} posti a questa sala, una volta, per sempre. Ne restano {max}.',
     consent: 'Voglio usarlo subito. Capisco che così rinuncio al diritto di recesso di 14 giorni e che non è rimborsabile una volta attivato.',
     oneTimeNote: 'Un acquisto unico — resta tuo. Nessun abbonamento, niente da rinnovare.',
     oneTimeSlots: 'Un acquisto unico — questi posti restano su questa sala per sempre. Nessun abbonamento.',

@@ -552,7 +552,9 @@ export default function SettingsPanel() {
         )}
         {over > 0 && (
           <p className="settings-note">
-            {t('panel.overCapacity', { slots, over })}{' '}
+            {/* `count` is what picks the plural form; the sentence itself reads
+                `{over}`. Without it the English text said "2 work is not shown". */}
+            {t('panel.overCapacity', { slots, over, count: over })}{' '}
             {ownerEditing ? t('panel.overCapacityOwner') : t('panel.overCapacityGuest')}
           </p>
         )}
