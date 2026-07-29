@@ -146,16 +146,13 @@ export async function POST(req: NextRequest) {
         },
       ],
       client_reference_id: user.id,
-      // Repeat the acknowledgement the buyer already ticked in our modal, so the
-      // waiver of the 14-day withdrawal right is also on Stripe's own receipt
-      // trail. Plain `custom_text` rather than `consent_collection`, which needs
-      // a Terms URL configured in the Stripe dashboard to work at all.
-      custom_text: {
-        submit: {
-          message:
-            'One-time purchase — nothing renews. It unlocks immediately, so it is non-refundable once unlocked, except where the law requires otherwise.',
-        },
-      },
+      // No `custom_text` here: Managed Payments rejects it outright ("custom_text
+      // cannot be used with Managed Payments"), and Stripe's own checkout page is
+      // theirs to word once they are the merchant of record. `consent_collection`
+      // is no way out either — it needs a Terms URL set in the dashboard. So the
+      // waiver of the 14-day withdrawal right is taken in our modal (the tick box
+      // gates the CTA) and the fact of it rides along in metadata below, which
+      // Managed Payments does allow (docs/LESSONS 2026-07-29).
       metadata: {
         user_id: user.id,
         sku,
@@ -163,6 +160,9 @@ export async function POST(req: NextRequest) {
         item_key: itemKey,
         gallery_id: galleryId,
         slot_count: sku === 'capacity_addon' ? String(quantity) : '',
+        // Which acknowledgement the buyer passed through, not free prose: the
+        // wording itself lives in lib/i18n (`purchase.consent`) and the Terms.
+        consent: 'immediate-access-waiver', // i18n-ok: 対人文言ではなくStripeの記録用の識別子
       },
       success_url: `${origin}/me?purchase=success`,
       cancel_url: `${origin}/me?purchase=cancelled`,
