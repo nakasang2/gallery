@@ -3,7 +3,7 @@ import Link from 'next/link'
 import LandingEffects from '@/components/landing/LandingEffects'
 import HeroCanvas from '@/components/landing/HeroCanvas'
 import { PLAN } from '@/lib/limits'
-import { PRICE_SLOT, priceRangeLabel } from '@/lib/pricing'
+import { PRICE_SLOT, paidIdsFor, priceRangeLabel } from '@/lib/pricing'
 import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
 import { localeAlternates } from '@/lib/i18n/metadata'
@@ -206,6 +206,11 @@ export default async function LandingPage() {
                   — priceRangeLabel derives it from the price table (AGENTS.md 5.3) */}
               <li>{t('lp.upThemes')}<span className="amt">{t('lp.each', { price: priceRangeLabel('theme', t('lp.priceRange')) })}</span></li>
               <li>{t('lp.upLayouts')}<span className="amt">{t('lp.each', { price: priceRangeLabel('layout', t('lp.priceRange')) })}</span></li>
+              {/* Frames only appear once one is actually on sale — every frame shipped
+                  so far is free, and a price list must not advertise nothing. */}
+              {paidIdsFor('frame').length > 0 && (
+                <li>{t('lp.upFrames')}<span className="amt">{t('lp.each', { price: priceRangeLabel('frame', t('lp.priceRange')) })}</span></li>
+              )}
             </ul>
             {billingLive ? (
               <Link className="btn btn-small price-cta" href="/me">{t('lp.buyFromGallery')}</Link>

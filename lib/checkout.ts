@@ -5,11 +5,11 @@
 // falls back to the same honest "not live yet" note as before — a missing
 // key must never look like a broken buy button.
 import { supabase } from './supabase'
-import type { Sku } from './pricing'
+import type { PaidKind, Sku } from './pricing'
 
 export interface PurchaseIntent {
-  kind: 'theme' | 'layout' | 'capacity'
-  /** theme/layout id being bought; '' for capacity */
+  kind: PaidKind | 'capacity'
+  /** theme/layout/frame id being bought; '' for capacity */
   itemKey: string
   /** the room receiving a capacity add-on (required for kind 'capacity') */
   galleryId?: string
@@ -20,8 +20,9 @@ export type CheckoutStart = { kind: 'redirect'; url: string } | { kind: 'unavail
 /** Map the modal's selection to the server's SKU vocabulary (lib/pricing). */
 export function resolveSku(intent: PurchaseIntent): { sku: Sku; itemKey: string } {
   if (intent.kind === 'capacity') return { sku: 'capacity_addon', itemKey: '' }
-  // Themes and layouts are sold only as single items ($5 each); Design Tools is
-  // free and the Theme Collection bundle was retired (docs/DECISIONS 2026-07-24).
+  // Themes, layouts and frames all travel as one `single_item` SKU; the server
+  // prices them per item (ITEM_PRICE_CENTS) from itemKind + itemKey. Design Tools
+  // is free and the Theme Collection bundle was retired (DECISIONS 2026-07-24).
   return { sku: 'single_item', itemKey: intent.itemKey }
 }
 
@@ -39,7 +40,7 @@ export async function startCheckout(intent: PurchaseIntent, quantity = 1): Promi
     body: JSON.stringify({
       sku,
       itemKey,
-      itemKind: intent.kind === 'theme' || intent.kind === 'layout' ? intent.kind : undefined,
+      itemKind: intent.kind === 'capacity' ? undefined : intent.kind,
       galleryId: intent.galleryId,
       quantity: intent.kind === 'capacity' ? quantity : undefined,
     }),

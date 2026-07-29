@@ -4,8 +4,8 @@
 // grant/revoke controls refresh after a change.
 import { useMemo, useState } from 'react'
 import { money } from '@/lib/pricing'
-import { THEMES, LAYOUTS } from '@/lib/presets'
-import { paidThemeIds, paidLayoutIds } from '@/lib/entitlements'
+import { THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
+import { paidThemeIds, paidLayoutIds, paidFrameIds } from '@/lib/entitlements'
 import {
   grantEntitlement,
   revokeEntitlement,
@@ -20,9 +20,9 @@ function productKey(kind: string, itemKey: string): string {
   return `${kind}|${itemKey}`
 }
 
-/** The paid items an admin can grant — fixed capabilities plus every theme/layout
- *  on sale. Reads the same paid catalog checkout sells from (lib/entitlements), so
- *  a future paid theme or layout shows up here automatically with no code change. */
+/** The paid items an admin can grant — fixed capabilities plus every theme/layout/
+ *  frame on sale. Reads the same paid catalog checkout sells from (lib/entitlements),
+ *  so a future paid one shows up here automatically with no code change. */
 function useGrantableProducts() {
   return useMemo(() => {
     const list: { kind: string; itemKey: string; label: string }[] = [
@@ -31,6 +31,7 @@ function useGrantableProducts() {
     ]
     for (const id of paidThemeIds()) list.push({ kind: 'theme', itemKey: id, label: `Theme · ${THEMES[id].label}` })
     for (const id of paidLayoutIds()) list.push({ kind: 'layout', itemKey: id, label: `Layout · ${LAYOUTS[id]?.label ?? id}` })
+    for (const id of paidFrameIds()) list.push({ kind: 'frame', itemKey: id, label: `Frame · ${FRAMES[id]?.label ?? id}` })
     return list
   }, [])
 }
@@ -82,6 +83,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
   function labelFor(kind: string, itemKey: string): string {
     if (kind === 'theme') return `Theme · ${THEMES[itemKey]?.label ?? itemKey}`
     if (kind === 'layout') return `Layout · ${LAYOUTS[itemKey]?.label ?? itemKey}`
+    if (kind === 'frame') return `Frame · ${FRAMES[itemKey]?.label ?? itemKey}`
     if (kind === 'design_tools') return 'Design Tools'
     if (kind === 'video_pass') return 'Video Pass'
     return itemKey ? `${kind}:${itemKey}` : kind

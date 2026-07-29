@@ -13,11 +13,11 @@ import { uploadArtwork, uploadVideoArtwork, deleteArtwork } from '@/lib/cloud'
 import { getProfile, saveProfile } from '@/lib/publish'
 import { setGalleryPublic } from '@/lib/galleries'
 import { walkRef } from '@/lib/controller'
-import { getEntitlements, isThemeUnlocked, isLayoutUnlocked } from '@/lib/entitlements'
+import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isFrameUnlocked } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import PurchaseModal from '@/components/PurchaseModal'
 import { LockIcon, VideoIcon } from '@/components/icons'
-import { purchaseOptionsFor, purchaseEyebrow } from '@/lib/pricing'
+import { type PaidKind } from '@/lib/pricing'
 import {
   ThemeSwatch,
   LayoutPlan,
@@ -243,7 +243,7 @@ export default function SettingsPanel() {
 
   const [igNote, setIgNote] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [purchaseItem, setPurchaseItem] = useState<{ kind: 'theme' | 'layout'; key: string; label: string } | null>(null)
+  const [purchaseItem, setPurchaseItem] = useState<{ kind: PaidKind; key: string; label: string } | null>(null)
   const titleRef = useRef<HTMLInputElement>(null!)
   const artistRef = useRef<HTMLInputElement>(null)
   const urlRef = useRef<HTMLInputElement>(null!)
@@ -680,7 +680,6 @@ export default function SettingsPanel() {
         {purchaseItem && (
           <PurchaseModal
             itemLabel={purchaseItem.label}
-            eyebrow={purchaseEyebrow(purchaseItem.kind)}
             preview={
               purchaseItem.kind === 'theme' ? (
                 <WallPreview
@@ -696,7 +695,7 @@ export default function SettingsPanel() {
                 <LayoutPlan layoutKey={purchaseItem.key} className="purchase-plan-preview" />
               )
             }
-            options={purchaseOptionsFor(purchaseItem.kind, purchaseItem.label, purchaseItem.key)}
+            item={{ kind: purchaseItem.kind, itemKey: purchaseItem.key }}
             intent={{ kind: purchaseItem.kind, itemKey: purchaseItem.key }}
             onClose={() => setPurchaseItem(null)}
           />
@@ -745,21 +744,28 @@ export default function SettingsPanel() {
 
       <section className="settings-section">
         <h3>{t('panel.framingAll')}</h3>
-        {/* Each chip shows the art IN that frame (bar, mat, colour from the real preset) */}
+        {/* Each chip shows the art IN that frame (bar, mat, colour from the real preset).
+            Every frame shipped so far is free; a frame added from here on is paid and
+            locks itself (lib/entitlements → FOREVER_FREE_FRAME_IDS). */}
         <div className="chips">
-          {Object.entries(FRAMES).map(([key, def]) => (
-            <button
-              key={key}
-              className={`chip chip-visual${key === settings.frame ? ' active' : ''}`}
-              onClick={() => {
-                if (!confirmOverrideReset(settings.frameOverrides)) return
-                updateSettings({ frame: key, frameOverrides: {} })
-              }}
-            >
-              <FramedArt frameKey={key} className="chip-frame" />
-              {t(`presets.frame.${key}`)}
-            </button>
-          ))}
+          {Object.keys(FRAMES).map((key) => {
+            const unlocked = isFrameUnlocked(key, entitlements)
+            return (
+              <button
+                key={key}
+                className={`chip chip-visual${key === settings.frame ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                onClick={() => {
+                  if (!unlocked) { setPurchaseItem({ kind: 'frame', key, label: t(`presets.frame.${key}`) }); return }
+                  if (!confirmOverrideReset(settings.frameOverrides)) return
+                  updateSettings({ frame: key, frameOverrides: {} })
+                }}
+              >
+                <FramedArt frameKey={key} className="chip-frame" />
+                {t(`presets.frame.${key}`)}
+                {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
+              </button>
+            )
+          })}
         </div>
         <p className="settings-note">{t('panel.perWorkNote')}</p>
       </section>

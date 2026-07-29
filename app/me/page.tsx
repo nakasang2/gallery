@@ -16,12 +16,7 @@ import PurchaseModal from '@/components/PurchaseModal'
 import PlacementEditor from '@/components/PlacementEditor'
 import TopActions from '@/components/TopActions'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
-import {
-  purchaseOptionsFor,
-  purchaseEyebrow,
-  PRICE_SLOT,
-  PRICE_PER_SLOT_CENTS,
-} from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, type PaidKind } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
@@ -508,7 +503,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const [workState, setWorkState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const workTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [purchaseItem, setPurchaseItem] = useState<
-    { kind: 'theme' | 'layout' | 'capacity'; key: string; label: string } | null
+    { kind: PaidKind | 'capacity'; key: string; label: string } | null
   >(null)
   const owned = usePurchasedIds(user.id)
   const entitlements = getEntitlements(user.id, owned)
@@ -1716,7 +1711,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     {purchaseItem && (
         <PurchaseModal
           itemLabel={purchaseItem.label}
-          eyebrow={purchaseEyebrow(purchaseItem.kind)}
           preview={
             purchaseItem.kind === 'theme' ? (
               <WallPreview
@@ -1732,28 +1726,23 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               <LayoutPlan layoutKey={purchaseItem.key} className="purchase-plan-preview" />
             ) : undefined
           }
-          options={
+          item={
             purchaseItem.kind === 'capacity'
-              ? []
-              : purchaseOptionsFor(purchaseItem.kind, purchaseItem.label, purchaseItem.key)
+              ? undefined
+              : { kind: purchaseItem.kind, itemKey: purchaseItem.key }
           }
           quantity={
             purchaseItem.kind === 'capacity'
               ? {
                   unitCents: PRICE_PER_SLOT_CENTS,
                   max: MAX_WORKS_PER_ROOM - row.work_cap,
-                  unitLabel: 'slot',
+                  unitLabel: t('purchase.slot'),
                 }
-              : undefined
-          }
-          previewNote={
-            purchaseItem.kind === 'capacity'
-              ? 'A one-time purchase — these slots stay on this room for good. No subscription.'
               : undefined
           }
           intent={{
             kind: purchaseItem.kind,
-            itemKey: purchaseItem.kind === 'theme' || purchaseItem.kind === 'layout' ? purchaseItem.key : '',
+            itemKey: purchaseItem.kind === 'capacity' ? '' : purchaseItem.key,
             galleryId: purchaseItem.kind === 'capacity' ? row.id : undefined,
           }}
           onClose={() => setPurchaseItem(null)}

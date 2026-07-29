@@ -1,4 +1,4 @@
-import { paidThemeIds, paidLayoutIds } from './entitlements'
+import { paidThemeIds, paidLayoutIds, paidFrameIds } from './entitlements'
 
 // Prices in USD cents. Stripe's unit_amount for USD is cents, so these values
 // are passed straight to Checkout, written by the webhook into
@@ -7,7 +7,7 @@ import { paidThemeIds, paidLayoutIds } from './entitlements'
 export const PRICE_USD_CENTS = {
   room: 0, // not sold (no UI / entitlement effect yet)
   capacity_addon: 300, // PER SLOT — capacity is sold by quantity now ($3/slot)
-  single_item: 500, // one layout ($5); themes cost PRICE_THEME_CENTS (priced apart)
+  single_item: 500, // base for one layout ($5); themes/frames have their own base
   theme_collection: 0, // retired (docs/DECISIONS 2026-07-24)
   design_tools: 0, // now free for everyone
   video_pass: 0, // not sold (subscription, unwired)
@@ -17,7 +17,7 @@ export type Sku = keyof typeof PRICE_USD_CENTS
 export const SKU_LABEL: Record<Sku, string> = {
   room: 'Extra room',
   capacity_addon: 'Work slot',
-  single_item: 'Theme / layout',
+  single_item: 'Theme / layout / frame',
   theme_collection: 'Theme Collection Vol.1',
   design_tools: 'Design Tools',
   video_pass: 'Video Pass',
@@ -63,13 +63,16 @@ export const PRICE_SLOT = usd(PRICE_PER_SLOT_CENTS) // '$3'
 // gives that particular theme/layout its own price.
 export const PRICE_THEME_CENTS = 800
 export const PRICE_LAYOUT_CENTS = PRICE_USD_CENTS.single_item // 500
+// A frame is a smaller change than a whole room and it is chosen per work, so it
+// sits at the slot price rather than the layout's (ユーザー判断 2026-07-29).
+export const PRICE_FRAME_CENTS = 300
 
 /* ================= Per-item prices ================= */
 
-export type PaidKind = 'theme' | 'layout'
+export type PaidKind = 'theme' | 'layout' | 'frame'
 
 /**
- * Prices for individual themes/layouts, in USD cents. An id that isn't listed
+ * Prices for individual themes/layouts/frames, in USD cents. An id that isn't listed
  * here costs its kind's base price above, so shipping a normally-priced theme
  * stays a one-line change in lib/presets — put an id here only to charge
  * something different (a more elaborate theme, an introductory price).
@@ -86,23 +89,30 @@ export type PaidKind = 'theme' | 'layout'
 export const ITEM_PRICE_CENTS: Record<PaidKind, Record<string, number>> = {
   theme: {},
   layout: {},
+  frame: {},
 }
 
 const BASE_PRICE_CENTS: Record<PaidKind, number> = {
   theme: PRICE_THEME_CENTS,
   layout: PRICE_LAYOUT_CENTS,
+  frame: PRICE_FRAME_CENTS,
 }
 
-const paidIdsFor = (kind: PaidKind): string[] => (kind === 'theme' ? paidThemeIds() : paidLayoutIds())
+const PAID_IDS: Record<PaidKind, () => string[]> = {
+  theme: paidThemeIds,
+  layout: paidLayoutIds,
+  frame: paidFrameIds,
+}
+
+/** Everything of this kind that is on sale. Empty is a real answer (no paid frame
+ *  has shipped yet) — callers must not read an empty list as "not implemented". */
+export function paidIdsFor(kind: PaidKind): string[] {
+  return PAID_IDS[kind]()
+}
 
 /** What this one theme/layout costs, in USD cents. */
 export function itemPriceCents(kind: PaidKind, itemKey: string): number {
   return ITEM_PRICE_CENTS[kind][itemKey] ?? BASE_PRICE_CENTS[kind]
-}
-
-/** What this one theme/layout costs, formatted ('$8'). */
-function itemPrice(kind: PaidKind, itemKey: string): string {
-  return usd(itemPriceCents(kind, itemKey))
 }
 
 /**
@@ -127,36 +137,8 @@ export function priceRangeLabel(kind: PaidKind, rangeFormat = '{min}–{max}'): 
   return rangeFormat.replace('{min}', usd(min)).replace('{max}', usd(max))
 }
 
-export interface PurchaseOption {
-  key: string
-  label: string
-  price: string
-  description: string
-}
-
-/** Themes and layouts are sold only as a single, solo purchase. The "Theme
- *  Collection Vol.1" bundle was retired (docs/DECISIONS 2026-07-24). The price
- *  comes from the item, not the kind, so the modal quotes what checkout will
- *  actually charge for this particular theme/layout. */
-export function purchaseOptionsFor(kind: PaidKind, label: string, itemKey: string): PurchaseOption[] {
-  return [
-    {
-      key: 'solo',
-      label: `${label} only`,
-      price: itemPrice(kind, itemKey),
-      description: `Unlocks just this ${kind}, once, forever.`,
-    },
-  ]
-}
-
-/** Small eyebrow label above the modal title — gives the price context at a glance */
-export function purchaseEyebrow(kind: 'theme' | 'layout' | 'capacity'): string {
-  switch (kind) {
-    case 'theme':
-      return 'New theme'
-    case 'layout':
-      return 'New layout'
-    case 'capacity':
-      return 'Room capacity'
-  }
-}
+// The modal's own copy (eyebrow, "{name} only", "Unlocks just this…") used to be
+// built here as English strings. It now lives in the dictionary and is assembled
+// in components/PurchaseModal — this file only decides amounts. `check:i18n` does
+// not scan lib/, so English written here is invisible to the guardian and shipped
+// to every language (docs/LESSONS 2026-07-29).

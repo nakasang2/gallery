@@ -2,20 +2,21 @@
 // `purchases` ledger (migration 0016). There is no write path here on purpose:
 // a real purchase is only ever recorded server-side (the Stripe webhook), so
 // until someone actually buys, this resolves to the free tier: no owned themes/
-// layouts, Design Tools and Video Pass locked.
+// layouts/frames, Design Tools and Video Pass locked.
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 
 export interface OwnedIds {
   themeIds: string[]
   layoutIds: string[]
+  frameIds: string[]
   /** ③ Design Tools bought (buy-once) */
   designTools: boolean
   /** ① Video Pass active (subscription) */
   videoPass: boolean
 }
 
-const EMPTY_OWNED: OwnedIds = { themeIds: [], layoutIds: [], designTools: false, videoPass: false }
+const EMPTY_OWNED: OwnedIds = { themeIds: [], layoutIds: [], frameIds: [], designTools: false, videoPass: false }
 
 export function usePurchasedIds(userId: string | null): OwnedIds {
   const [owned, setOwned] = useState<OwnedIds>(EMPTY_OWNED)
@@ -40,6 +41,7 @@ export function usePurchasedIds(userId: string | null): OwnedIds {
         setOwned({
           themeIds: rows.filter((r) => r.kind === 'theme').map((r) => r.item_key),
           layoutIds: rows.filter((r) => r.kind === 'layout').map((r) => r.item_key),
+          frameIds: rows.filter((r) => r.kind === 'frame').map((r) => r.item_key),
           designTools: rows.some((r) => r.kind === 'design_tools'),
           videoPass: rows.some((r) => r.kind === 'video_pass'),
         })

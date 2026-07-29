@@ -6,8 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
-import { PRICE_USD_CENTS, itemPriceCents, SKU_LABEL, type Sku } from '@/lib/pricing'
-import { paidThemeIds, paidLayoutIds } from '@/lib/entitlements'
+import { PRICE_USD_CENTS, itemPriceCents, paidIdsFor, SKU_LABEL, type PaidKind, type Sku } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM, PLAN } from '@/lib/limits'
 
 export const runtime = 'nodejs'
@@ -24,6 +23,11 @@ const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item']
 // general fit. Refine in Stripe's tax-code list if a more specific category
 // applies (docs/DECISIONS 2026-07-27).
 const STRIPE_TAX_CODE = 'txcd_10000000'
+
+// What `single_item` can be. Frames joined in 2026-07-29 (migration 0034 taught
+// the ledger the 'frame' kind — without it the webhook's insert would fail the
+// check constraint AFTER the customer had paid).
+const PAID_KINDS: readonly PaidKind[] = ['theme', 'layout', 'frame']
 
 interface CheckoutBody {
   sku?: string
@@ -63,17 +67,16 @@ export async function POST(req: NextRequest) {
   }
 
   const itemKey = (body.itemKey ?? '').trim()
-  const itemKind = body.itemKind === 'theme' || body.itemKind === 'layout' ? body.itemKind : ''
+  const itemKind = PAID_KINDS.includes(body.itemKind as PaidKind) ? (body.itemKind as PaidKind) : ''
   if (sku === 'single_item') {
     if (!itemKey || !itemKind) {
-      return NextResponse.json({ error: 'This purchase needs a theme or layout id.' }, { status: 400 })
+      return NextResponse.json({ error: 'This purchase needs a theme, layout or frame id.' }, { status: 400 })
     }
     // The id has to be something we actually sell. Without this an id that no
     // longer exists (or one that is free for everyone) would still be charged —
     // at the kind's base price, which is exactly the wrong number now that each
     // item can carry its own (lib/pricing → ITEM_PRICE_CENTS).
-    const onSale = itemKind === 'theme' ? paidThemeIds() : paidLayoutIds()
-    if (!onSale.includes(itemKey)) {
+    if (!paidIdsFor(itemKind).includes(itemKey)) {
       return NextResponse.json({ error: 'That is not something we sell.' }, { status: 400 })
     }
   }
@@ -113,9 +116,9 @@ export async function POST(req: NextRequest) {
 
   // Per-unit amount in USD cents (Stripe's unit_amount for USD is cents). The
   // capacity line uses Stripe's own quantity so amount_total = unit × quantity.
-  // single_item is priced per item: the kind's base price ($8 theme / $5 layout)
-  // unless that particular id has its own entry in ITEM_PRICE_CENTS. The client
-  // never sends an amount, so this stays the only place a price is decided.
+  // single_item is priced per item: the kind's base price ($8 theme / $5 layout /
+  // $3 frame) unless that particular id has its own entry in ITEM_PRICE_CENTS. The
+  // client never sends an amount, so this stays the only place a price is decided.
   const unitAmount =
     sku === 'single_item' && itemKind
       ? itemPriceCents(itemKind, itemKey)

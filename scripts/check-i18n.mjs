@@ -252,6 +252,7 @@ const NOT_TRANSLATED = new Set([
   'rowPhone', 'valPhone', 'rowEmail', 'rowPrice', 'valPrice', 'rowExtra', 'valExtra',
   'rowPayMethod', 'valPayMethod', 'rowPayTiming', 'valPayTiming', 'rowDelivery',
   'valDelivery', 'rowReturns', 'valReturns', 'rowAge', 'valAge', 'rowSystem', 'valSystem',
+  'valPriceFrames', // 同じ特商法ページの1文（有料の額縁が出たときだけ表示）
   'code', // notFound.code = '404'
   'legal', // footer.legal — 導線は locale === 'ja' のときだけ出す
 ])

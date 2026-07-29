@@ -315,6 +315,12 @@ export const LAYOUTS: Record<string, LayoutDef> = {
 /* ================= Framing ================= */
 // bar: frame thickness, gap: space between the work and the inner edge of the frame (the visible width of the mat).
 
+// ⚠ Adding a frame here makes it PAID (lib/entitlements → FOREVER_FREE_FRAME_IDS
+// is a fixed snapshot of the five below). Before shipping one, make sure
+// supabase/migrations/0034_frame_purchases.sql is applied to production: without
+// it Checkout takes the money and the webhook's ledger insert fails the `kind`
+// check constraint — charged, with nothing unlocked. Until a paid frame exists,
+// /api/checkout refuses every frame purchase, so today there is no such window.
 export const FRAMES: Record<string, FrameDef> = {
   black: { label: 'Black', bar: 0.07, gap: 0.08, color: 0x141210, roughness: 0.42, metalness: 0.35, mat: 0xf1ede4, finish: 'wood' },
   gold: { label: 'Gold', bar: 0.1, gap: 0.07, color: 0xa8853c, roughness: 0.34, metalness: 1.0, mat: 0xf3eee0, finish: 'metal' },
@@ -401,10 +407,17 @@ export function frameSpecFor(key?: string | null): FrameSpec {
 }
 
 /** Serialise a spec to a key — collapsing back to a preset key when it matches one,
- *  so "same as the gallery default" keeps clearing per-work overrides */
-export function makeFrameKey(spec: Omit<FrameSpec, 'framed'>): string {
+ *  so "same as the gallery default" keeps clearing per-work overrides.
+ *
+ *  Only collapses onto frames the caller may use (`allowedPresets`, defaulting to
+ *  every preset). The design panel passes the unlocked ones: without that, setting
+ *  the knobs to a paid frame's material/colour/width would hand back that frame's
+ *  key — buying it for free through the free panel (lib/entitlements → isFrameUnlocked).
+ *  A parametric key renders identically anyway; what must not leak is ownership. */
+export function makeFrameKey(spec: Omit<FrameSpec, 'framed'>, allowedPresets?: (key: string) => boolean): string {
   const barMm = clampBarMm(spec.barMm)
   for (const [k, f] of Object.entries(FRAMES)) {
+    if (allowedPresets && !allowedPresets(k)) continue
     if (f.mat !== null && f.finish === spec.material && f.color === spec.color && Math.round(f.bar! * 1000) === barMm) {
       return k
     }

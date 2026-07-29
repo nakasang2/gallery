@@ -10,7 +10,7 @@
 // governing version.
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { PRICE_SLOT, priceRangeLabel } from '@/lib/pricing'
+import { PRICE_SLOT, paidIdsFor, priceRangeLabel } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM } from '@/lib/limits'
 import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
@@ -66,6 +66,10 @@ export default async function LegalPage() {
                 theme: priceRangeLabel('theme', t('lp.priceRange')),
                 max: MAX_WORKS_PER_ROOM,
               })}
+              {/* 有料の額縁を出したら、この開示にも値段が並ぶ（特商法の価格表示）。
+                  売っていないうちは1文まるごと出さない */}
+              {paidIdsFor('frame').length > 0 &&
+                ' ' + t('legal.valPriceFrames', { frame: priceRangeLabel('frame', t('lp.priceRange')) })}
             </Row>
             <Row label={t('legal.rowExtra')}>{t('legal.valExtra')}</Row>
             <Row label={t('legal.rowPayMethod')}>{t('legal.valPayMethod')}</Row>

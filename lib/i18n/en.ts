@@ -466,6 +466,17 @@ export const en = {
     oneTimeNote: 'A one-time purchase — yours for good. No subscription, nothing to renew.',
     oneTimeSlots: 'A one-time purchase — these slots stay on this room for good. No subscription.',
     failed: 'Checkout failed — please try again.',
+    eyebrowTheme: 'New theme',
+    eyebrowLayout: 'New layout',
+    eyebrowFrame: 'New frame',
+    eyebrowCapacity: 'Room capacity',
+    soloItem: '{name} only',
+    unlocksTheme: 'Unlocks just this theme, once, forever.',
+    unlocksLayout: 'Unlocks just this layout, once, forever.',
+    unlocksFrame: 'Unlocks just this frame, once, forever.',
+    buyAria: 'Buy {name}',
+    fewerAria: 'Fewer {unit}s',
+    moreAria: 'More {unit}s',
   },
 
   admin: {
@@ -596,6 +607,7 @@ export const en = {
     upSlots: 'Extra work slots',
     upThemes: 'New themes',
     upLayouts: 'New layouts',
+    upFrames: 'New frames',
     each: '{price} each',
     // 値段が1点ごとに違うときだけ出る「$8〜$12」の形。区切りは言語によって違う
     // （日本語は〜、韓国語は~）ので辞書に置く。使うのは料金カードと特商法ページ。
@@ -785,6 +797,7 @@ export const en = {
     rowEmail: 'Email',
     rowPrice: 'Price',
     valPrice: 'Creating an account, building a gallery and publishing it are free. Optional one-time upgrades: extra work slots {slot} each (up to {max} works per room), layouts {layout} each, themes {theme} each. Prices are shown before you confirm, in the currency your payment provider presents.',
+    valPriceFrames: 'Frames are also available at {frame} each.',
     rowExtra: 'Additional costs',
     valExtra: 'None from us. You are responsible for your own internet connection. Any consumption tax or VAT is shown at checkout.',
     rowPayMethod: 'Payment method',

@@ -82,7 +82,10 @@ export async function POST(req: NextRequest) {
   try {
     switch (sku) {
       case 'single_item': {
-        const kind = meta.item_kind === 'layout' ? 'layout' : 'theme'
+        // Whatever the checkout route validated (theme / layout / frame). Unknown
+        // values can't reach here — the route rejects them before charging — and
+        // the ledger's own check constraint is the last line of defence.
+        const kind = meta.item_kind === 'layout' || meta.item_kind === 'frame' ? meta.item_kind : 'theme'
         const itemKey = meta.item_key ?? ''
         if (!itemKey) break
         await insertPurchase(db, { user_id: userId, kind, item_key: itemKey, sku, amount_jpy: amount, currency })

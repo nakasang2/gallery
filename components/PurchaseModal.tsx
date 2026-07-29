@@ -1,43 +1,55 @@
 'use client'
-// The tap-through from anything locked — a theme/layout chip, or extra room
-// capacity. With an `intent`, the CTA starts a real Stripe Checkout via
+// The tap-through from anything locked — a theme/layout/frame chip, or extra
+// room capacity. With an `intent`, the CTA starts a real Stripe Checkout via
 // /api/checkout; while billing isn't configured (or no intent is given) it
 // falls back to the same honest "not live yet" note rather than faking a buy.
 //
-// Two shapes: a radio list of `options` (themes/layouts), or a `quantity`
-// stepper (capacity — buy N slots in one checkout, docs/DECISIONS 2026-07-24).
+// Two shapes: a single `item` being unlocked (theme/layout/frame), or a
+// `quantity` stepper (capacity — buy N slots in one checkout, DECISIONS 2026-07-24).
+//
+// Every word here comes from the dictionary. It used to build its own English
+// ("New theme", "Chic only", "Unlocks just this theme…") in lib/pricing, which
+// `check:i18n` does not scan — so the paywall, of all screens, was English in all
+// eleven languages (docs/LESSONS 2026-07-29).
 import { useEffect, useState } from 'react'
-import { usd, type PurchaseOption } from '@/lib/pricing'
+import { itemPriceCents, usd, type PaidKind } from '@/lib/pricing'
 import { startCheckout, type PurchaseIntent } from '@/lib/checkout'
 import { useT } from '@/components/I18nProvider'
 
+const EYEBROW: Record<PaidKind | 'capacity', string> = {
+  theme: 'purchase.eyebrowTheme',
+  layout: 'purchase.eyebrowLayout',
+  frame: 'purchase.eyebrowFrame',
+  capacity: 'purchase.eyebrowCapacity',
+}
+
+const UNLOCKS: Record<PaidKind, string> = {
+  theme: 'purchase.unlocksTheme',
+  layout: 'purchase.unlocksLayout',
+  frame: 'purchase.unlocksFrame',
+}
+
 export default function PurchaseModal({
   itemLabel,
-  eyebrow,
+  item,
   preview,
-  options = [],
   quantity,
   intent,
-  previewNote = 'A one-time purchase — yours for good. No subscription, nothing to renew.',
   onClose,
 }: {
   itemLabel: string
-  /** Small label above the title — gives the price context at a glance, e.g. "New theme" */
-  eyebrow?: string
+  /** The single thing being unlocked (theme/layout/frame). Its price comes from
+   *  the price table, so the modal quotes exactly what checkout will charge.
+   *  Omit when using `quantity`. */
+  item?: { kind: PaidKind; itemKey: string }
   preview?: React.ReactNode
-  /** Radio options (themes/layouts). Omit when using `quantity`. */
-  options?: PurchaseOption[]
   /** Quantity-picker mode (capacity): pay for N units in one checkout. */
   quantity?: { unitCents: number; max: number; unitLabel: string }
   /** What checkout should buy — omit to keep the modal preview-only */
   intent?: PurchaseIntent
-  /** Footer copy while the CTA is untried. It used to call a live Stripe Checkout
-   *  a "preview", which stopped being true the moment billing was switched on. */
-  previewNote?: string
   onClose: () => void
 }) {
   const t = useT()
-  const [selected, setSelected] = useState(options[0]?.key ?? '')
   const [qty, setQty] = useState(1)
   const [tried, setTried] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -88,12 +100,12 @@ export default function PurchaseModal({
         className="purchase-modal"
         role="dialog"
         aria-modal="true"
-        aria-label={`Buy ${itemLabel}`}
+        aria-label={t('purchase.buyAria', { name: itemLabel })}
         onClick={(e) => e.stopPropagation()}
       >
         <button className="purchase-close" aria-label={t('purchase.close')} onClick={onClose}>×</button>
         {preview && <div className="purchase-preview">{preview}</div>}
-        {eyebrow && <p className="purchase-eyebrow">{eyebrow}</p>}
+        <p className="purchase-eyebrow">{t(EYEBROW[item?.kind ?? 'capacity'])}</p>
         <h3 className="purchase-title">{itemLabel}</h3>
 
         {quantity ? (
@@ -103,7 +115,7 @@ export default function PurchaseModal({
               <div className="purchase-stepper">
                 <button
                   type="button"
-                  aria-label={`Fewer ${quantity.unitLabel}s`}
+                  aria-label={t('purchase.fewerAria', { unit: quantity.unitLabel })}
                   disabled={clampedQty <= 1}
                   onClick={() => setQty((n) => Math.max(1, n - 1))}
                 >
@@ -112,7 +124,7 @@ export default function PurchaseModal({
                 <span className="purchase-qty-value">{clampedQty}</span>
                 <button
                   type="button"
-                  aria-label={`More ${quantity.unitLabel}s`}
+                  aria-label={t('purchase.moreAria', { unit: quantity.unitLabel })}
                   disabled={clampedQty >= qtyMax}
                   onClick={() => setQty((n) => Math.min(qtyMax, n + 1))}
                 >
@@ -128,27 +140,23 @@ export default function PurchaseModal({
               {t('purchase.optionDesc', { count: clampedQty, unit: quantity.unitLabel, max: qtyMax })}
             </p>
           </div>
-        ) : (
+        ) : item ? (
+          /* Exactly one thing is ever on offer here — the bundle that needed a
+             radio list was retired (DECISIONS 2026-07-24). The radio stays as the
+             selected-state affordance so the row looks unchanged. */
           <div className="purchase-options">
-            {options.map((opt) => (
-              <label key={opt.key} className={`purchase-option${selected === opt.key ? ' selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="purchase-option"
-                  checked={selected === opt.key}
-                  onChange={() => setSelected(opt.key)}
-                />
-                <div>
-                  <div className="purchase-option-label">
-                    <span>{opt.label}</span>
-                    <span className="purchase-price">{opt.price}</span>
-                  </div>
-                  <div className="purchase-option-desc">{opt.description}</div>
+            <label className="purchase-option selected">
+              <input type="radio" name="purchase-option" checked readOnly />
+              <div>
+                <div className="purchase-option-label">
+                  <span>{t('purchase.soloItem', { name: itemLabel })}</span>
+                  <span className="purchase-price">{usd(itemPriceCents(item.kind, item.itemKey))}</span>
                 </div>
-              </label>
-            ))}
+                <div className="purchase-option-desc">{t(UNLOCKS[item.kind])}</div>
+              </div>
+            </label>
           </div>
-        )}
+        ) : null}
 
         {tried ? (
           <p className="purchase-note purchase-note-active">
@@ -178,7 +186,12 @@ export default function PurchaseModal({
             {error ? (
               <p className="purchase-note purchase-note-active">{error}</p>
             ) : (
-              <p className="purchase-note">{previewNote}</p>
+              /* Capacity buys slots that stay with the room; everything else is a
+                 one-off unlock. Both sentences were already in the dictionary —
+                 the caller used to pass the English one as a prop. */
+              <p className="purchase-note">
+                {quantity ? t('purchase.oneTimeSlots') : t('purchase.oneTimeNote')}
+              </p>
             )}
           </>
         )}

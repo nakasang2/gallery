@@ -1,9 +1,9 @@
 // Entitlements for the paid axes in REQUIREMENTS.md §11.5 (Video Pass /
-// Design Tools / owned themes & layouts). Resolved from the real purchases
-// ledger (lib/purchases.ts): the free tier locks Video Pass and Design Tools
-// until purchased; forever-free themes/layouts (below) stay open to everyone.
-// This is the intended release base — buying is what unlocks these.
-import { THEMES, LAYOUTS, CUSTOM_LAYOUT_RELEASED } from './presets'
+// Design Tools / owned themes, layouts & frames). Resolved from the real
+// purchases ledger (lib/purchases.ts): the free tier locks Video Pass and Design
+// Tools until purchased; forever-free themes/layouts/frames (below) stay open to
+// everyone. This is the intended release base — buying is what unlocks these.
+import { THEMES, LAYOUTS, FRAMES, CUSTOM_LAYOUT_RELEASED } from './presets'
 
 export interface Entitlements {
   /** ① Video Pass (subscription) — video exhibits enabled */
@@ -11,9 +11,10 @@ export interface Entitlements {
   /** Design Tools (custom colour/lighting/branding) — now FREE for everyone
    *  (docs/DECISIONS 2026-07-24); kept as a flag so callers don't change. */
   designToolsEnabled: boolean
-  /** ③ Themes/layouts owned as individual purchases (ids into THEMES/LAYOUTS) */
+  /** ③ Themes/layouts/frames owned as individual purchases (ids into the presets) */
   ownedThemeIds: string[]
   ownedLayoutIds: string[]
+  ownedFrameIds: string[]
 }
 
 /** The free tier: Video Pass + paid themes/layouts locked; Design Tools is free
@@ -23,11 +24,13 @@ export const FREE_TIER_ENTITLEMENTS: Entitlements = {
   designToolsEnabled: true,
   ownedThemeIds: [],
   ownedLayoutIds: [],
+  ownedFrameIds: [],
 }
 
 export interface OwnedEntitlements {
   themeIds: string[]
   layoutIds: string[]
+  frameIds: string[]
   designTools: boolean
   videoPass: boolean
 }
@@ -38,13 +41,14 @@ export interface OwnedEntitlements {
  *  isThemeUnlocked / isLayoutUnlocked below and remain open regardless. */
 export function getEntitlements(
   _userId: string | null,
-  owned: OwnedEntitlements = { themeIds: [], layoutIds: [], designTools: false, videoPass: false }
+  owned: OwnedEntitlements = { themeIds: [], layoutIds: [], frameIds: [], designTools: false, videoPass: false }
 ): Entitlements {
   return {
     videoEnabled: owned.videoPass,
     designToolsEnabled: true, // free for everyone (docs/DECISIONS 2026-07-24)
     ownedThemeIds: owned.themeIds,
     ownedLayoutIds: owned.layoutIds,
+    ownedFrameIds: owned.frameIds,
   }
 }
 
@@ -61,6 +65,14 @@ export function getEntitlements(
 const FOREVER_FREE_THEME_IDS: readonly string[] = ['whitecube']
 const FOREVER_FREE_LAYOUT_IDS: readonly string[] = ['corridor']
 
+// Frames: EVERY frame that existed when frames became sellable stays free
+// (ユーザー判断 2026-07-29 — 今あるものは全部無料のまま、今後追加する額を有料に).
+// Making an already-shipped frame paid would retroactively lock rooms that are
+// hanging their works in it, so this list is a snapshot and only ever grows for
+// frames someone should NOT have to pay for. Frames added after this line ships
+// are paid by default.
+const FOREVER_FREE_FRAME_IDS: readonly string[] = ['black', 'gold', 'white', 'wood', 'none']
+
 /** The default theme/layout a new free gallery starts on (the free-tier options). */
 export const FREE_DEFAULT_THEME_ID = FOREVER_FREE_THEME_IDS[0]
 export const FREE_DEFAULT_LAYOUT_ID = FOREVER_FREE_LAYOUT_IDS[0]
@@ -74,6 +86,9 @@ if (process.env.NODE_ENV !== 'production') {
   for (const id of FOREVER_FREE_LAYOUT_IDS) {
     if (id !== 'custom' && !(id in LAYOUTS)) console.error(`entitlements: forever-free layout "${id}" is missing from LAYOUTS`)
   }
+  for (const id of FOREVER_FREE_FRAME_IDS) {
+    if (!(id in FRAMES)) console.error(`entitlements: forever-free frame "${id}" is missing from FRAMES`)
+  }
 }
 
 export function isThemeUnlocked(themeId: string, ent: Entitlements): boolean {
@@ -82,6 +97,20 @@ export function isThemeUnlocked(themeId: string, ent: Entitlements): boolean {
 
 export function isLayoutUnlocked(layoutId: string, ent: Entitlements): boolean {
   return FOREVER_FREE_LAYOUT_IDS.includes(layoutId) || ent.ownedLayoutIds.includes(layoutId)
+}
+
+/**
+ * Frames come in two shapes and only one of them can be paid: a preset id
+ * ('gold') or a parametric key ('c:wood:46311f:110', material × colour × width).
+ * The parametric panel is free for everyone, so any key that isn't a preset id
+ * is unlocked — a paid frame therefore has to bring something the knobs cannot
+ * express (a new finish or profile), not just a colour and a width, or it can be
+ * rebuilt for free. makeFrameKey() only ever collapses a spec onto a free preset
+ * for the same reason (lib/presets).
+ */
+export function isFrameUnlocked(frameKey: string, ent: Entitlements): boolean {
+  if (!(frameKey in FRAMES)) return true // parametric / unknown → the free panel
+  return FOREVER_FREE_FRAME_IDS.includes(frameKey) || ent.ownedFrameIds.includes(frameKey)
 }
 
 /** A starting template is usable only when the user has BOTH its theme and its
@@ -110,4 +139,12 @@ export function paidThemeIds(): string[] {
 export function paidLayoutIds(): string[] {
   const ids = CUSTOM_LAYOUT_RELEASED ? [...Object.keys(LAYOUTS), 'custom'] : Object.keys(LAYOUTS)
   return ids.filter((id) => !isLayoutUnlocked(id, FREE_TIER_ENTITLEMENTS))
+}
+
+/** Empty today: every frame that exists is forever-free. It fills in by itself
+ *  when a frame is added to FRAMES, which is the whole point — the frame then
+ *  shows a lock, gets a price, appears in /admin's grant list, and can be bought,
+ *  with no further code change. */
+export function paidFrameIds(): string[] {
+  return Object.keys(FRAMES).filter((id) => !isFrameUnlocked(id, FREE_TIER_ENTITLEMENTS))
 }

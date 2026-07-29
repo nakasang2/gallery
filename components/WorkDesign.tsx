@@ -18,6 +18,9 @@ import {
   type FrameMaterial,
 } from '@/lib/presets'
 import { HangingIcon, CaptionIcon } from '@/components/SpacePreviews'
+import { getEntitlements, isFrameUnlocked } from '@/lib/entitlements'
+import { usePurchasedIds } from '@/lib/purchases'
+import { useGallery } from '@/lib/store'
 import { useT } from '@/components/I18nProvider'
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
@@ -44,13 +47,24 @@ export default function WorkDesign({
   onCaption: (key: string) => void
 }) {
   const t = useT()
+  // This panel (material × colour × width) is free for everyone, so it must never
+  // serialise a spec down to a PAID preset id — that would hand over ownership of
+  // a frame nobody bought. Parametric keys render identically; only the id is
+  // withheld (lib/presets → makeFrameKey).
+  const user = useGallery((s) => s.user)
+  const owned = usePurchasedIds(user?.id ?? null)
+  const entitlements = getEntitlements(user?.id ?? null, owned)
   const spec = frameSpecFor(frameKey)
   // Remember the last framed look so switching the frame off and on restores it
   const lastFramed = useRef(spec.framed ? frameKey : 'black')
   if (spec.framed) lastFramed.current = frameKey
 
   const set = (p: Partial<Omit<typeof spec, 'framed'>>) =>
-    onFrame(makeFrameKey({ material: spec.material, color: spec.color, barMm: spec.barMm, ...p }))
+    onFrame(
+      makeFrameKey({ material: spec.material, color: spec.color, barMm: spec.barMm, ...p }, (key) =>
+        isFrameUnlocked(key, entitlements)
+      )
+    )
 
   const autoMatColor = frameDefFor(spec.framed ? frameKey : 'black').mat ?? 0xf1ede4
 
