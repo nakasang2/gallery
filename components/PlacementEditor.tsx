@@ -24,6 +24,7 @@ export default function PlacementEditor({
   arrangement,
   onChange,
   onBuySlots,
+  onEditWork,
   disabled,
 }: {
   layoutKey: string
@@ -37,6 +38,9 @@ export default function PlacementEditor({
    *  actually unlocks the spot that was tapped, not some other one. Omit to
    *  leave locked spots inert. */
   onBuySlots?: (slots: number) => void
+  /** Offered on an occupied spot: open the caller's work editor for that work,
+   *  so hanging and describing don't live in different views. Omit to hide. */
+  onEditWork?: (id: string) => void
   disabled?: boolean
 }) {
   const t = useT()
@@ -256,7 +260,12 @@ export default function PlacementEditor({
                 ? t('design.spotWork', { n: spotNo, title: selWork.title || t('common.untitled') })
                 : t('design.spotEmpty', { n: spotNo })}
             </span>
-            <button className="btn-line" onClick={() => setSel(null)}>{t('design.placementDone')}</button>
+            <span className="place-picker-actions">
+              {selWork && onEditWork && (
+                <button className="btn-line" onClick={() => onEditWork(selWork.id)}>{t('design.editWork')}</button>
+              )}
+              <button className="btn-line" onClick={() => setSel(null)}>{t('design.placementDone')}</button>
+            </span>
           </div>
           <div className="place-picker-strip">
             <button

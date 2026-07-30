@@ -344,8 +344,20 @@
 .hako-url-actions { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .hako-url:hover { text-decoration: underline; text-underline-offset: 3px; }
 .hako-url.off { color: var(--muted); }
-.hako-state { font-size: 0.6rem; letter-spacing: 0.2em; color: var(--muted); }
-.hako-state.open { color: var(--gold); }
+.hako-state {
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  font-family: var(--sans);
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 0.4em 0.7em 0.4em 0.9em;
+  flex: none;
+}
+button.hako-state { cursor: pointer; }
+.hako-state.open { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
+.hako-head-actions { margin-left: auto; display: flex; align-items: center; gap: 0.55rem; flex: none; }
 
 .hako-head { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
 .hako-title { font-family: var(--serif); font-size: 1.35rem; font-weight: 500; }
@@ -546,8 +558,7 @@
   .wd-block-body .hako-actions .btn-line { flex: 0 1 auto; }
 }
 
-/* 作品ワークベンチ: 設定カラム内に Room → 選択作品の詳細 と縦に流れる
-   (作品の切り替えは左のサブナビ .me-subnav-work が担う) */
+/* 作品ワークベンチ: ステージカードの中身（作品の切り替えは作品グリッドが担う） */
 
 /* 詳細: プレビュー左 / 設定右。全幅なので余裕を持って2カラム */
 .works-detail {
@@ -580,121 +591,164 @@
 .wall-preview3d canvas { display: block; width: 100% !important; height: 100% !important; }
 @media (max-width: 720px) {
   .works-detail { grid-template-columns: minmax(0, 1fr); }
-  /* Preview stays on top on phones so the picked work is seen while you tweak */
-  .works-detail .we-left { position: static; }
-  .wall-preview--lg { height: 230px; font-size: 16px; }
-  .wall-preview3d { height: 230px; }
+  /* 縦積みでもプレビューは上に貼り付いたまま（DECISIONS 2026-07-30 追補）:
+     ボトムシートで照明や額のチップを押した結果が見え続けることを優先する。
+     背景はカードの下地より暗い不透明色 — 半透明だと下を通る設定行が透ける。 */
+  .works-detail .we-left {
+    position: sticky;
+    top: 0.4rem;
+    z-index: 5;
+    background: #12100d;
+    border-radius: 10px;
+  }
+  .wall-preview--lg { height: 170px; font-size: 14px; }
+  .wall-preview3d { height: 170px; }
 }
 
-/* ---- Gallery workbench: second-level rail + content card (枠外サブメニュー) ---- */
-/* Desktop: a narrow vertical rail beside the content card. Phones: a horizontal
-   scroller above it (see the 720px block below). */
-.me-gallery-body {
-  display: grid;
-  grid-template-columns: 172px minmax(0, 1fr);
-  gap: 1rem;
-  align-items: start;
-  margin-top: 1rem;
-}
-.me-subnav {
+/* ---- Gallery workbench: the stage card (the rail is gone — DECISIONS 2026-07-30) ---- */
+.me-gallery-body { margin-top: 1rem; }
+
+.me-subcard { margin: 0; }
+
+/* ---- Stage bar: 作品 → 部屋 → 配置 → 公開 (DECISIONS 2026-07-30)。順序は見える、
+   でも強制しない。✓は「公開に必要な条件を満たした」印。 ---- */
+.me-stages {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  position: sticky;
-  top: 1rem;
+  gap: 0.2rem;
+  border-bottom: 1px solid var(--hairline);
+  margin-top: 1.3rem;
 }
-.me-subnav-item,
-.me-subnav-add,
-.me-subnav-cap {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  text-align: left;
-  border: 1px solid transparent;
+.me-stage {
   background: none;
-  color: var(--muted);
-  font-family: var(--sans);
-  font-size: 0.78rem;
-  padding: 0.5em 0.6em;
-  border-radius: 9px;
-  cursor: pointer;
-  transition: color 0.2s, background 0.2s, border-color 0.2s;
-}
-.me-subnav-item:hover,
-.me-subnav-add:hover,
-.me-subnav-cap:hover { color: var(--ink); background: rgba(212, 162, 78, 0.06); }
-.me-subnav-item.active {
-  color: var(--ink);
-  background: rgba(212, 162, 78, 0.1);
-  border-color: rgba(212, 162, 78, 0.4);
-}
-.me-subnav-ic {
-  flex: none;
-  width: 22px;
-  height: 22px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.45em;
+  padding: 0.6em 0.9em;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.me-stage:hover { color: var(--ink); }
+.me-stage.active { color: var(--ink); border-bottom-color: var(--gold); }
+.me-stage-check { display: inline-flex; color: var(--gold); font-size: 0.7rem; }
+.me-stage-count { color: var(--gold); font-size: 0.72rem; }
+/* 次の一手を1つだけ指す金色の行（押すと該当ステージへ） */
+.me-stage-hint {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
   color: var(--gold);
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  padding: 0.55em 0.2em 0;
+  cursor: pointer;
 }
-.me-subnav-thumb {
-  flex: none;
-  width: 30px;
-  height: 22px;
-  object-fit: cover;
-  border-radius: 4px;
+.me-stage-hint:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---- Works stage: the library grid + the shared editor sheet ---- */
+.me-works-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
+.me-works-count { font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.me-works-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+.me-work-tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
   border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: rgba(236, 231, 222, 0.03);
+  overflow: hidden;
+  cursor: pointer;
 }
-.me-subnav-item.active .me-subnav-thumb { border-color: var(--gold); }
-.me-subnav-tx {
-  flex: 1 1 auto;
+.me-work-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.me-work-tile.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.me-work-tile-video {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+}
+.me-add-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  color: var(--gold);
+  border-style: dashed;
+  border-color: rgba(212, 162, 78, 0.5);
+  font-family: var(--sans);
+}
+.me-add-tile small { font-size: 0.58rem; letter-spacing: 0.06em; color: var(--muted); text-align: center; padding: 0 0.2rem; }
+.me-add-tile-plus { font-size: 1.2rem; line-height: 1; }
+.me-add-tile.busy { opacity: 0.6; cursor: default; }
+.me-worksheet { margin-top: 1rem; }
+
+/* ---- 電話幅の編集シート（グリッド/地図の上へ、下からせり上がる） ---- */
+.me-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  max-height: 62dvh;
+  overflow-y: auto;
+  background: #14120f;
+  border-top: 1px solid rgba(212, 162, 78, 0.4);
+  border-radius: 14px 14px 0 0;
+  padding: 0 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.55);
+}
+.me-sheet-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #14120f;
+  padding: 0.55rem 0 0.45rem;
+  border-bottom: 1px solid var(--hairline);
+}
+.me-sheet-thumb { width: 30px; height: 30px; object-fit: cover; border-radius: 5px; border: 1px solid var(--hairline); flex: none; }
+.me-sheet-title {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: var(--serif);
+  font-size: 0.9rem;
+  color: var(--ink);
 }
-.me-subnav-star { flex: none; color: var(--gold); font-size: 0.7rem; }
-.me-subnav-group {
-  font-size: 0.6rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  padding: 0.9rem 0.6em 0.3rem;
-}
-.me-subnav-add { color: var(--gold); }
-.me-subnav-add .me-subnav-ic {
-  border: 1px dashed rgba(212, 162, 78, 0.5);
-  border-radius: 5px;
-  font-size: 1rem;
-  line-height: 1;
-}
-.me-subnav-add[aria-disabled='true'] { opacity: 0.6; cursor: default; }
-.me-subnav-cap .me-subnav-ic { color: var(--gold); }
 
-/* 空き枠をたたむトグル。枠そのものではないので、罫線だけの控えめな行にする */
-.me-subnav-more {
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: none;
-  color: var(--muted);
-  font-family: var(--sans);
-  font-size: 0.72rem;
-  padding: 0.5em 0.6em 0.5em 2.1rem;
+/* ---- Publish stage: share-cover picker ---- */
+.me-cover-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.me-cover-thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(236, 231, 222, 0.03);
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
-.me-subnav-more:hover { color: var(--gold); }
-
-/* 電話幅だけで使う「いま何を編集しているか」の行。デスクトップとタブレットでは
-   レールが常に開いているので出さない（720px以下のブロックで display を戻す）。 */
-.me-subnav-toggle { display: none; }
-.me-subnav-caret { flex: none; color: var(--muted); font-size: 0.7rem; }
-
-/* The content card sits flush with the rail (no extra top margin — the row owns it) */
-.me-subcard { margin: 0; }
+.me-cover-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.me-cover-thumb.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.me-cover-star { position: absolute; left: 4px; top: 2px; color: var(--gold); font-size: 0.7rem; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
 
 /* Per-work housekeeping (cover / remove), a quiet row above the work's fields */
 .work-actions {
@@ -743,34 +797,6 @@
 @media (max-width: 720px) {
   /* minmax(0,1fr)：素の 1fr は最小幅が min-content なので、中身（3Dキャンバス等）が
      広いと列ごと画面外へ伸びる。ここも同じ穴だった */
-  .me-gallery-body { grid-template-columns: minmax(0, 1fr); gap: 0.8rem; }
-  /* かつては横スクロールのタブ列だったが、作品が増えるほど「+ 追加」が右端の
-     画面外へ押し出され、そこへ辿り着くまで横スクロールが必要だった
-     （ユーザー指摘 2026-07-28）。縦リストに戻し、代わりに既定でたたむ。 */
-  .me-subnav {
-    position: static;
-    display: none;
-    gap: 0.15rem;
-    padding-bottom: 0.4rem;
-  }
-  .me-subnav.open { display: flex; flex-direction: column; }
-  .me-subnav-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    text-align: left;
-    font-family: var(--sans);
-    font-size: 0.8rem;
-    color: var(--ink);
-    background: rgba(236, 231, 222, 0.04);
-    border: 1px solid var(--hairline);
-    border-radius: 10px;
-    padding: 0.6em 0.7em;
-    cursor: pointer;
-  }
-  .me-subnav-toggle .me-subnav-caret { margin-left: auto; }
-  .me-subnav-tx { max-width: none; }
   /* 見出しは必ず1行目、選択肢は2行目に。統一のための指定である: 選択肢が多い行
      （テーマ・間取り）は 72px の見出しの横に入り切らず勝手に折り返るのに、選択肢が
      2つの「照明」だけは見出しと同じ行に並び、同じ設定群に行の形が2種類あった
@@ -779,30 +805,13 @@
   .me-page .wd-row > .wd-label { width: 100%; }
 }
 
-/* 指で押す端末では、レールの行も目安の44pxまで広げる */
+/* 指で押す端末では、ステージタブとタイルも目安の44pxまで広げる */
 @media (pointer: coarse) {
-  .me-subnav-item,
-  .me-subnav-add,
-  .me-subnav-cap,
-  .me-subnav-toggle { min-height: 44px; }
-  .me-subnav-more { min-height: 44px; }
+  .me-stage { min-height: 44px; }
+  .me-work-tile, .me-cover-thumb { min-width: 44px; min-height: 44px; }
 }
 
-/* Wide screens: break the rail out into the left gutter so it reads as a page-level
-   sidebar, while the content column stays aligned with the 880px column above it.
-   The body widens leftward by the rail's footprint and shifts left by the same amount,
-   so the content column overlays the centred column exactly and the rail spills into
-   the gutter. The rail stays an in-flow sticky item, so its top lines up with the
-   content card and it follows the page on scroll (no fixed-offset guessing).
-   Gated at 1300px so the gutter has room for the ~196px rail footprint. */
-@media (min-width: 1300px) {
-  .me-gallery-body {
-    width: calc(100% + 172px + 1.5rem);
-    margin-left: calc(-172px - 1.5rem);
-    gap: 1.5rem;
-  }
-  .me-subnav { max-height: calc(100dvh - 2rem); overflow-y: auto; padding-right: 2px; }
-}
+
 
 /* 二次操作(Rename/Delete): 主要ボタンと並列にしない静かなテキスト行 */
 .hako-secondary {
@@ -1087,6 +1096,7 @@
 .pe-slot.locked:hover .pe-slot-lock path { opacity: 0.9; }
 
 .place-picker { display: flex; flex-direction: column; gap: 0.5rem; }
+.place-picker-actions { display: flex; gap: 0.5rem; flex: none; }
 .place-picker-head {
   display: flex; align-items: center; justify-content: space-between;
   font-size: 0.78rem; color: var(--ink);
@@ -1202,13 +1212,12 @@
    ブレークポイントが 720 と 1300 しか無く、iPad縦（768〜834px）は
    デスクトップの2カラムをそのまま受けていた。左に172px固定のサブナビ、
    右をさらに 1.1fr / 1fr で割るので、実質250px / 218pxまで潰れる。
-   サブナビは縦のまま活かしたいので、内側の分割だけ1カラムに戻す。
+   内側の分割だけ1カラムに戻す（レールは2026-07-30に廃止）。
    ============================================================ */
 @media (min-width: 721px) and (max-width: 1024px) {
   .works-detail { grid-template-columns: 1fr; gap: 1.1rem; }
-  /* 1カラムでは貼り付いても意味がない（プレビューの真下に設定が来る） */
-  .works-detail .we-left { position: static; }
-  .me-gallery-body { grid-template-columns: 148px minmax(0, 1fr); }
+  /* タブレットも縦積みだが、プレビューは上に貼り付けたまま（DECISIONS 2026-07-30 追補） */
+  .works-detail .we-left { position: sticky; top: 0.5rem; z-index: 5; background: #12100d; border-radius: 10px; }
 }
 
 /* ============================================================

@@ -4,7 +4,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
 import { TEMPLATES, THEMES, LAYOUTS, CUSTOM_LAYOUT_RELEASED, normalizeDesignOverrides, normalizeLayoutParams, normalizeArrangement, type DesignOverrides, type CustomLayoutParams } from '@/lib/presets'
@@ -308,7 +307,6 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   const user = useGallery((s) => s.user)!
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const updateSettings = useGallery((s) => s.updateSettings)
-  const router = useRouter()
   const owned = usePurchasedIds(user.id)
   const entitlements = getEntitlements(user.id, owned)
   const [step, setStep] = useState<1 | 2>(1)
@@ -349,8 +347,9 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
           captionOverrides: {},
         })
       }
+      // Land on the dashboard's works stage, not the empty 3D room — the next
+      // step ("add your first work") is visible there (DECISIONS 2026-07-30).
       onCreated()
-      router.push('/demo') // straight into the room — the result is the feedback
     } catch (e) {
       alert(t('me.createFailed', { msg: String(e instanceof Error ? e.message : e) }))
       setBusy(false)
@@ -464,33 +463,20 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const [showEmbed, setShowEmbed] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
   const [uploading, setUploading] = useState(false)
-  // Which sub-view the workbench shows: the room, or one work by id. The second-level
-  // rail drives it; per-work editing shows one work at a time (no more works strip).
-  const [nav, setNav] = useState<'room' | string>('room')
-  const selectedId = nav === 'room' ? null : nav
-  // Phones: the rail is a vertical list (a horizontal scroller pushed the "add"
-  // affordance off-screen behind every work — ユーザー指摘 2026-07-28), but up to
-  // 15 rows would bury the editor below the fold, so it starts collapsed to a
-  // single row showing what you're editing. Desktop and tablet keep it always open.
-  const [railOpen, setRailOpen] = useState(true)
+  // The stage tabs (works → room → placement → publish) are the second level.
+  // Order is visible but never enforced — every stage stays reachable.
+  const [stage, setStage] = useState<'works' | 'room' | 'placement' | 'publish'>('works')
+  // The work being edited in the shared editor sheet (works + placement stages).
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Phones render the editor sheet as a bottom sheet over the grid/map.
   const [narrow, setNarrow] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 720px)')
-    const apply = () => {
-      setNarrow(mq.matches)
-      setRailOpen(!mq.matches)
-    }
+    const apply = () => setNarrow(mq.matches)
     apply()
     mq.addEventListener('change', apply)
     return () => mq.removeEventListener('change', apply)
   }, [])
-  // Picking something on a phone should land you on the editor, not leave the
-  // list covering it.
-  const pickNav = (id: 'room' | string) => {
-    setNav(id)
-    if (narrow) setRailOpen(false)
-  }
-  const [slotsExpanded, setSlotsExpanded] = useState(false)
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
   const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
@@ -529,14 +515,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const selected = selectedId ? cloudArtworks.find((a) => a.id === selectedId) : undefined
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
 
-  // How many rows the rail shows before collapsing. Works + empty slots always sum
-  // to work_cap (max 15), so this only has to keep a full room from becoming a wall.
-  const RAIL_BUDGET = 8
-  const emptySlots = Math.max(0, row.work_cap - cloudArtworks.length)
-  const collapsedSlots =
-    emptySlots === 0 ? 0 : Math.max(1, Math.min(emptySlots, RAIL_BUDGET - cloudArtworks.length))
-  const slotsCollapsible = emptySlots > collapsedSlots
-  const shownSlots = slotsExpanded ? emptySlots : collapsedSlots
   // Effective per-work design: the override when set, else the gallery default
   const frame = (selected && frameOverrides[selected.id]) || row.frame_default
   const mat = (selected && matOverrides[selected.id]) || row.mat_default
@@ -574,10 +552,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       : roomArt.poster ?? roomArt.src
     : undefined
 
-  // If the shown work is deleted (here or on another device), fall back to the room
+  // If the edited work is deleted (here or on another device), close the sheet
   useEffect(() => {
-    if (nav !== 'room' && !cloudArtworks.some((a) => a.id === nav)) setNav('room')
-  }, [nav, cloudArtworks])
+    if (selectedId && !cloudArtworks.some((a) => a.id === selectedId)) setSelectedId(null)
+  }, [selectedId, cloudArtworks])
 
   // The plate fields follow whichever work is selected
   useEffect(() => {
@@ -926,6 +904,230 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
 
   const themeDef = THEMES[row.theme] ?? THEMES.chic
 
+  // Template = one tap that sets theme+layout+frame+hanging+caption together. It
+  // used to be pickable only at creation time and in the 3D panel — now the room
+  // stage owns it. Highlighted only while every axis still matches its bundle
+  // (same rule as the 3D panel).
+  const activeTemplate =
+    Object.keys(TEMPLATES).find((key) => {
+      const p = TEMPLATES[key]
+      return (
+        !!p &&
+        p.theme === row.theme &&
+        p.layout === row.layout &&
+        p.frame === row.frame_default &&
+        p.hanging === row.hanging_default &&
+        p.caption === row.caption_default
+      )
+    }) ?? null
+  function applyTemplate(key: string) {
+    const tpl = TEMPLATES[key]
+    if (!tpl) return
+    if (!isTemplateUnlocked(tpl, entitlements)) {
+      // Sell whichever axis is locked — the theme first (the bigger visual change)
+      setPurchaseItem(
+        !isThemeUnlocked(tpl.theme, entitlements)
+          ? { kind: 'theme', key: tpl.theme, label: THEMES[tpl.theme]?.label ?? tpl.theme }
+          : { kind: 'layout', key: tpl.layout, label: t(`presets.layout.${tpl.layout}`) }
+      )
+      return
+    }
+    // A template resets per-work design — never silently (same as the 3D panel)
+    const n = new Set([
+      ...Object.keys(frameOverrides),
+      ...Object.keys(matOverrides),
+      ...Object.keys(hangingOverrides),
+      ...Object.keys(captionOverrides),
+    ]).size
+    if (n > 0 && !confirm(t('artwork.resetPerWork', { count: n }))) return
+    updateSettings({ frameOverrides: {}, matOverrides: {}, hangingOverrides: {}, captionOverrides: {} })
+    // EMPTY_OVERRIDES, not mergedOverrides(): the maps we just cleared must not ride
+    // back in through the closure and survive the rebuild
+    void run(t('panel.template'), async () => {
+      const s = {
+        ...rowToSettings(row, EMPTY_OVERRIDES),
+        theme: tpl.theme,
+        layout: tpl.layout,
+        frame: tpl.frame,
+        mat: 'auto',
+        hanging: tpl.hanging,
+        caption: tpl.caption,
+      }
+      await saveGallerySpace(row.id, s)
+      if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+    })
+  }
+
+  // The shared work editor: the same sheet opens from the works grid and from the
+  // placement map (DECISIONS 2026-07-30 — hanging and describing a work used to
+  // live in different views). Phones present it as a bottom sheet over the grid/map.
+  const workSheet = selected ? (
+    <div className={narrow ? 'me-sheet' : 'me-worksheet'}>
+      {narrow && (
+        <div className="me-sheet-head">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img crossOrigin="anonymous" className="me-sheet-thumb" src={selected.poster ?? selected.thumb ?? selected.src} alt="" />
+          <span className="me-sheet-title">{selected.title || t('common.untitled')}</span>
+          <button type="button" className="me-modal-close" aria-label={t('common.close')} onClick={() => setSelectedId(null)}>✕</button>
+        </div>
+      )}
+      <div className="work-actions">
+        <button
+          type="button"
+          className="btn-line danger"
+          onClick={() => void removeWork(selected)}
+        >
+          {t('me.workRemove')}
+        </button>
+        {workState !== 'idle' && (
+          <span className="hako-save-state">{workState === 'saving' ? t('common.saving') : t('common.saved')}</span>
+        )}
+      </div>
+      {/* The name plate's text: title + caption, straight onto the plate above. */}
+      <div className="wd-group wd-group--flush">
+        <div className="wd-title"><span>{t('me.titleAndCaption')}</span></div>
+        <label className="me-field" style={{ margin: '0.45rem 0' }}>
+          <span>{t('me.workTitle')}</span>
+          <input
+            type="text"
+            maxLength={TITLE_MAX}
+            value={titleInput}
+            onChange={(e) => editWork({ title: e.target.value })}
+          />
+        </label>
+        <label className="me-field" style={{ margin: '0.45rem 0' }}>
+          <FieldLabel hint={t('me.captionHint')}>{t('me.caption')}</FieldLabel>
+          <textarea
+            rows={2}
+            maxLength={140}
+            placeholder={t('me.captionPlaceholder')}
+            value={captionInput}
+            onChange={(e) => editWork({ caption: e.target.value })}
+          />
+        </label>
+        <label className="me-field" style={{ margin: '0.45rem 0' }}>
+          <FieldLabel hint={t('me.priceHint')}>{t('me.price')}</FieldLabel>
+          <input
+            type="text"
+            placeholder={t('me.pricePlaceholder')}
+            value={priceInput}
+            onChange={(e) => editWork({ price: e.target.value })}
+          />
+        </label>
+        <label className="me-field" style={{ margin: '0.45rem 0' }}>
+          <FieldLabel hint={t('me.purchaseLinkHint')}>{t('me.purchaseLink')}</FieldLabel>
+          <input
+            type="text"
+            inputMode="url"
+            placeholder={t('me.purchaseLinkPlaceholder')}
+            value={purchaseUrlInput}
+            onChange={(e) => editWork({ purchaseUrl: e.target.value })}
+          />
+        </label>
+        <div className="wd-row" style={{ margin: '0.45rem 0' }}>
+          <span className="wd-label">{t('me.size')}</span>
+          <div className="design-controls" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+            {/* Pick a standard size (号 / A / B), or "Custom" to type cm. The W×H
+                fields only appear in custom mode; a preset shows just the ⇄ swap. */}
+            <select
+              className="ent-select"
+              value={sizeCustom ? 'custom' : (matchPreset(parseFloat(widthInput), parseFloat(heightInput)) ?? 'custom')}
+              onChange={(e) => {
+                const p = presetByLabel(e.target.value)
+                if (p) {
+                  editWork({ width: String(p.w), height: String(p.h) })
+                  setSizeCustom(false)
+                } else {
+                  setSizeCustom(true) // "{t('me.sizeCustom')}" — reveal the cm fields
+                }
+              }}
+            >
+              <option value="custom">{t('me.sizeCustom')}</option>
+              {SIZE_GROUPS.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.options.map((o) => (
+                    <option key={o.label} value={o.label}>
+                      {o.label} — {o.w} × {o.h} cm
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
+              {sizeCustom && (
+                <>
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="decimal"
+                    placeholder="W"
+                    className="size-num"
+                    value={widthInput}
+                    onChange={(e) => editWork({ width: e.target.value })}
+                  />
+                  <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="decimal"
+                    placeholder="H"
+                    className="size-num"
+                    value={heightInput}
+                    onChange={(e) => editWork({ height: e.target.value })}
+                  />
+                  <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
+                </>
+              )}
+              <button
+                type="button"
+                className="btn-line"
+                title={t('me.swapSize')}
+                style={{ padding: '0.35em 0.6em' }}
+                onClick={() => editWork({ width: heightInput, height: widthInput })}
+              >
+                ⇄
+              </button>
+            </div>
+          </div>
+        </div>
+        <label className="me-field" style={{ margin: '0.45rem 0' }}>
+          <FieldLabel hint={t('me.mediumHint')}>{t('me.medium')}</FieldLabel>
+          <input
+            type="text"
+            placeholder={t('me.mediumPlaceholder')}
+            value={mediumInput}
+            onChange={(e) => editWork({ medium: e.target.value })}
+          />
+        </label>
+        {/* Audio guide needs no upload UI — the tour reads the caption aloud
+            automatically (text-to-speech). */}
+      </div>
+
+      <WorkDesign
+        frameKey={frame}
+        matKey={mat}
+        hangingKey={hanging}
+        captionKey={captionKey}
+        onFrame={(k) => {
+          updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, k, row.frame_default) })
+          toast()
+        }}
+        onMat={(k) => {
+          updateSettings({ matOverrides: setOverride(matOverrides, selected.id, k, row.mat_default) })
+          toast()
+        }}
+        onHanging={(k) => {
+          updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, k, row.hanging_default) })
+          toast()
+        }}
+        onCaption={(k) => {
+          updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, row.caption_default) })
+          toast()
+        }}
+      />
+    </div>
+  ) : null
+
   return (
     <>
     <div className="me-section-head">
@@ -939,7 +1141,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           background: `linear-gradient(90deg, ${hex(themeDef.wall)}, ${hex(themeDef.accentWall)} 45%, ${hex(themeDef.spotColor)})`,
         }}
       />
-      {/* Title + statement are edited right here — no separate edit mode */}
+      {/* Slim header: the title edits in place; publish state and the 3D door are
+          always visible. Everything else lives in its stage below. */}
       <div className="hako-head">
         <input
           className="hako-title-input"
@@ -953,275 +1156,66 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         {detailsState !== 'idle' && (
           <span className="hako-save-state">{detailsState === 'saving' ? t('common.saving') : t('common.saved')}</span>
         )}
-      </div>
-      <textarea
-        className="hako-statement-input"
-        rows={2}
-        maxLength={200}
-        placeholder={t('me.statementBoardPlaceholder')}
-        aria-label={t('me.exhibitionStatement')}
-        value={statementInput}
-        onChange={(e) => editDetails({ statement: e.target.value })}
-      />
-      {/* The URL and its state live together: flip the switch to open / close the room */}
-      {username ? (
-        <div className="hako-url-row">
-          {row.is_public && publicUrl ? (
-            <a className="hako-url" href={publicUrl} target="_blank" rel="noreferrer">
-              {publicUrl.replace(/^https?:\/\//, '')}
-            </a>
-          ) : (
-            <span className="hako-url off">{(publicUrl || `/@${username}`).replace(/^https?:\/\//, '')}</span>
-          )}
-          {row.is_public && publicUrl && (
-            <button
-              className="hako-url-copy"
-              title={copied ? t('me.copied') : t('me.copyUrl')}
-              aria-label={copied ? t('me.copied') : t('me.copyUrl')}
-              onClick={() => {
-                void navigator.clipboard.writeText(publicUrl).then(() => {
-                  setCopied(true)
-                  setTimeout(() => setCopied(false), 1600)
-                })
-              }}
-            >
-              {copied ? <CheckIcon /> : <CopyIcon />}
-            </button>
-          )}
-          <label
-            className="switch"
-            title={
-              row.is_public
-                ? t('me.openHint')
-                : cloudArtworks.length
-                  ? t('me.privateHint')
-                  : t('me.needWorkHint')
-            }
+        <div className="hako-head-actions">
+          {/* The badge is a shortcut to the stage that changes it */}
+          <button
+            type="button"
+            className={`hako-state${row.is_public ? ' open' : ''}`}
+            onClick={() => setStage('publish')}
           >
-            <input type="checkbox" checked={row.is_public} disabled={busy} onChange={() => void togglePublic()} />
-            <span className="knob" aria-hidden="true" />
-          </label>
-          <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? t('me.open') : t('me.private')}</span>
-          {row.is_public && (embedCode || username) && (
-            <div className="hako-url-actions">
-              {embedCode && (
-                <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
-                  {showEmbed ? t('me.embedHide') : t('me.embed')}
-                </button>
-              )}
-              {username && (
-                <a className="btn-line" href={`/@${username}/${row.slug}/catalog`} target="_blank" rel="noreferrer">
-                  {t('me.catalog')}
-                </a>
-              )}
-            </div>
-          )}
+            {row.is_public ? t('me.open') : t('me.private')}
+          </button>
+          <LocaleLink className="btn-line hako-walk" href="/demo">{t('me.navWalk')}</LocaleLink>
         </div>
-      ) : (
-        /* No username means no public URL, so there is nothing for the switch to
-           switch — but hiding the whole row left no clue about WHY publishing is
-           unavailable, and the input sat far below the stats. Put the reason and
-           the fix exactly where the toggle would have been. */
-        <div className="hako-url-row hako-url-locked">
-          {/* i18n-ok: URLの見本 */}
-          <span className="hako-url off">xibit360.art/@…</span>
-          <p className="hako-locked-why">{t('me.usernameGate')}</p>
-          <div className="field-row">
-            <input
-              type="text"
-              aria-label={t('me.username')}
-              placeholder={t('me.usernamePlaceholder')}
-              value={usernameInput}
-              onChange={(e) => setUsernameInput(e.target.value)}
-            />
-            <button
-              className="btn-line"
-              disabled={busy || !usernameInput.trim()}
-              onClick={() => void saveUsernameInline()}
-            >
-              {t('me.usernameSet')}
-            </button>
-          </div>
-        </div>
-      )}
-      <p className="hako-meta">{row.updated_at ? t('me.updatedAt', { date: fmtDate(row.updated_at) }) : ''}</p>
-      {/* How the exhibition is doing, at a glance */}
-      <div className="stat-row">
-        <div className="stat"><b>{cloudArtworks.length}</b><span>{t('me.statWorks')}</span></div>
-        <div className="stat"><b>{stats ? stats.visits : '–'}</b><span>{t('me.statVisits')}</span></div>
-        <div className="stat"><b>{stats ? stats.likes : '–'}</b><span>{t('me.statLikes')}</span></div>
-        <div className="stat"><b>{stats ? stats.guestbook : '–'}</b><span>{t('me.statGuestNotes')}</span></div>
-      </div>
-
-      {row.is_public && embedCode && showEmbed && (
-        <div
-          className="me-modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t('me.embedCode')}
-          onClick={() => setShowEmbed(false)}
-        >
-          <div className="me-modal embed-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="me-modal-head">
-              <h3>{t('me.embedTitle')}</h3>
-              <button className="me-modal-close" aria-label={t('common.close')} onClick={() => setShowEmbed(false)}>✕</button>
-            </div>
-            <p className="me-note" style={{ marginTop: 0 }}>
-              {t('me.embedBody')}
-            </p>
-            <code className="embed-code">{embedCode}</code>
-            <button
-              className="wd-save-cta wd-save-compact"
-              onClick={() => {
-                void navigator.clipboard.writeText(embedCode).then(() => {
-                  setEmbedCopied(true)
-                  setTimeout(() => setEmbedCopied(false), 1600)
-                })
-              }}
-            >
-              {embedCopied ? `${t('me.copied')} ✓` : t('me.copyEmbed')}
-            </button>
-          </div>
-        </div>
-      )}
-      {/* Quiet row for rare / destructive housekeeping — not peers of the actions above */}
-      <div className="hako-secondary">
-        <button
-          className="danger"
-          disabled={busy}
-          onClick={() => {
-            if (!confirm(t('me.deleteGalleryConfirm', { name: isPlaceholderTitle(row.title) ? t('me.myGallery') : row.title }))) return
-            void run(t('me.deleteGallery'), () => deleteGallery(row.id))
-          }}
-        >
-          {t('me.deleteGallery')}
-        </button>
       </div>
     </div>
 
-    {/* Second-level rail (outside the card): the room, then every work as its own
-        entry, then one row per empty slot. Always-open vertical list on desktop and
-        tablet; on phones it collapses behind the row below (see railOpen). */}
-    <div className="me-gallery-body">
-      <button
-        type="button"
-        className="me-subnav-toggle"
-        aria-expanded={railOpen}
-        aria-controls="me-subnav"
-        onClick={() => setRailOpen((o) => !o)}
-      >
-        <span className="me-subnav-ic" aria-hidden="true">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-        </span>
-        <span className="me-subnav-tx">
-          {nav === 'room'
-            ? t('me.navRoom')
-            : cloudArtworks.find((a) => a.id === nav)?.title || t('me.railPick')}
-        </span>
-        <span className="me-subnav-caret" aria-hidden="true">{railOpen ? '\u25b4' : '\u25be'}</span>
-      </button>
-      <nav
-        id="me-subnav"
-        className={`me-subnav${railOpen ? ' open' : ''}`}
-        aria-label={t('me.navSections')}
-      >
+    {/* The stage bar: order is visible (works → room → placement → publish), every
+        stage stays reachable, and a check marks what publishing already has. */}
+    <nav className="me-stages" aria-label={t('me.navSections')}>
+      {(
+        [
+          ['works', t('me.stageWorks'), cloudArtworks.length > 0, cloudArtworks.length || null],
+          ['room', t('me.navRoom'), true, null],
+          ['placement', t('me.placement'), cloudArtworks.length > 0, null],
+          ['publish', t('me.stagePublish'), row.is_public, null],
+        ] as const
+      ).map(([key, label, done, count]) => (
         <button
+          key={key}
           type="button"
-          className={`me-subnav-item${nav === 'room' ? ' active' : ''}`}
-          onClick={() => pickNav('room')}
+          className={`me-stage${stage === key ? ' active' : ''}${done ? ' done' : ''}`}
+          aria-current={stage === key ? 'page' : undefined}
+          onClick={() => setStage(key)}
         >
-          <span className="me-subnav-ic" aria-hidden="true">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3.5" y="5" width="17" height="14" rx="1" /><path d="M3.5 9.5h17" /></svg>
-          </span>
-          <span className="me-subnav-tx">{t('me.navRoom')}</span>
+          {done && <span className="me-stage-check" aria-hidden="true"><CheckIcon /></span>}
+          {label}
+          {count != null && <span className="me-stage-count">{count}</span>}
         </button>
-        {/* The only way back into the 3D editor. Creating a gallery pushes you to
-            /demo, but nothing here linked to it — and two alerts below used to
-            send people to "the editor" with no door to walk through. */}
-        <LocaleLink className="me-subnav-item me-subnav-walk" href="/demo">
-          <span className="me-subnav-ic" aria-hidden="true">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 20V9l8-5 8 5v11" /><path d="M9.5 20v-6h5v6" /></svg>
-          </span>
-          <span className="me-subnav-tx">{t('me.navWalk')}</span>
-        </LocaleLink>
-        <div className="me-subnav-group">{t('me.navWorksCount', { count: cloudArtworks.length, cap: row.work_cap })}</div>
-        {cloudArtworks.map((art) => (
-          <button
-            type="button"
-            key={art.id}
-            className={`me-subnav-item me-subnav-work${nav === art.id ? ' active' : ''}`}
-            onClick={() => pickNav(art.id)}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img crossOrigin="anonymous" className="me-subnav-thumb" src={art.poster ?? art.thumb ?? art.src} alt="" loading="lazy" />
-            <span className="me-subnav-tx">
-              {art.kind === 'video' ? <><VideoIcon className="works-title-icon" /> {art.title}</> : art.title}
-            </span>
-            {row.cover_artwork_id === art.id && <span className="me-subnav-star" title={t('me.shareCover')}>★</span>}
-          </button>
-        ))}
-        {/* One row per empty slot, so the room's remaining capacity is visible instead
-            of hidden behind a single "+" (ユーザー指摘 2026-07-28). Every one opens the
-            same picker — numbering them reads as capacity rather than as N identical
-            buttons. Slots beyond the budget collapse behind the toggle below, because
-            a 15-slot room would otherwise be a wall of rows. Works always win the
-            budget, and at least one slot stays visible so "add" is never buried. */}
-        {Array.from({ length: shownSlots }, (_, i) => (
-          <label
-            key={`slot-${cloudArtworks.length + i}`}
-            className={`me-subnav-add${uploading ? ' busy' : ''}`}
-            aria-disabled={uploading}
-          >
-            <span className="me-subnav-ic" aria-hidden="true">{uploading ? '…' : '+'}</span>
-            <span className="me-subnav-tx">
-              {cloudArtworks.length === 0 && i === 0
-                ? t('me.addFirstWork')
-                : t('me.slotEmpty', { n: cloudArtworks.length + i + 1 })}
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              hidden
-              disabled={uploading}
-              onChange={(e) => {
-                void onFiles(e.target.files)
-                e.target.value = ''
-              }}
-            />
-          </label>
-        ))}
-        {slotsCollapsible && (
-          <button
-            type="button"
-            className="me-subnav-more"
-            onClick={() => setSlotsExpanded((v) => !v)}
-          >
-            {slotsExpanded
-              ? t('me.showFewerSlots')
-              : t('me.showAllSlots', { count: emptySlots - collapsedSlots })}
-          </button>
-        )}
-        <button
-          type="button"
-          className="me-subnav-cap"
-          disabled={row.work_cap >= MAX_WORKS_PER_ROOM}
-          onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots') })}
-          title={
-            row.work_cap >= MAX_WORKS_PER_ROOM
-              ? t('me.roomFullHint')
-              : t('me.addSlotsHint', { price: PRICE_SLOT })
-          }
-        >
-          <span className="me-subnav-ic" aria-hidden="true"><LockIcon /></span>
-          <span className="me-subnav-tx">
-            {row.work_cap >= MAX_WORKS_PER_ROOM ? t('me.roomFull') : t('me.addSlots')}
-          </span>
+      ))}
+    </nav>
+    {/* One next step at a time — the highest-priority gap on the way to publishing */}
+    {(() => {
+      const hint = cloudArtworks.length === 0
+        ? { key: 'me.hintAddWork', to: 'works' as const }
+        : !username
+          ? { key: 'me.hintUsername', to: 'publish' as const }
+          : !row.is_public
+            ? { key: 'me.hintPublish', to: 'publish' as const }
+            : null
+      if (!hint || stage === hint.to) return null
+      return (
+        <button type="button" className="me-stage-hint" onClick={() => setStage(hint.to)}>
+          → {t(hint.key)}
         </button>
-      </nav>
+      )
+    })()}
 
+    {/* The stage’s working surface. The rail is gone — the works grid, the header
+        and the placement map now carry everything it used to. */}
+    <div className="me-gallery-body">
       <div className="me-card me-subcard">
-      {nav === 'room' ? (
+      {stage === 'room' ? (
         /* The room's editing surface: sticky 3D preview on the left, its design on the right */
         <div className="works-detail">
         <GalleryPreview
@@ -1243,6 +1237,28 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               recolours live as you switch theme. (Design Tools hidden for now.) */}
           <div className="wd-group wd-group--flush">
             <div className="wd-title"><span>{t('me.themeAndLayout')}</span></div>
+            {/* A template sets theme+layout+frame+hanging+caption in one tap. It used
+                to exist only at creation time and in the 3D panel — now the room it
+                configures is also where you can change it. Same locks as the chips. */}
+            <div className="wd-row wd-row-block">
+              <span className="wd-label">{t('panel.template')}</span>
+              <div className="wd-block-body">
+                <div className="tpl-grid">
+                  {unlockedFirst(
+                    Object.keys(TEMPLATES),
+                    (key) => !TEMPLATES[key] || isTemplateUnlocked(TEMPLATES[key], entitlements)
+                  ).map((key) => (
+                    <TemplateCard
+                      key={key}
+                      templateId={key}
+                      active={key === activeTemplate}
+                      locked={!!TEMPLATES[key] && !isTemplateUnlocked(TEMPLATES[key], entitlements)}
+                      onClick={() => applyTemplate(key)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
             <div className="wd-row">
               <span className="wd-label">{t('me.theme')}</span>
               <div className="chips">
@@ -1355,38 +1371,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                     />
                     {t('me.centreWall')}
                   </label>
-                </div>
-              </div>
-            )}
-            {cloudArtworks.length > 0 && (
-              <div className="wd-row wd-row-block">
-                <span className="wd-label me-field-label">
-                  {t('me.placement')}
-                  <span
-                    className="field-hint"
-                    tabIndex={0}
-                    role="note"
-                    aria-label={t('me.placementHint')}
-                  >
-                    <InfoIcon />
-                    <span className="field-hint-pop" role="tooltip">
-                      {t('me.placementHint')}
-                    </span>
-                  </span>
-                </span>
-                <div className="wd-block-body">
-                  <PlacementEditor
-                    layoutKey={row.layout}
-                    layoutParams={normalizeLayoutParams(row.layout_params)}
-                    workCap={row.work_cap}
-                    works={cloudArtworks}
-                    arrangement={placement}
-                    onChange={editPlacement}
-                    onBuySlots={(slots) =>
-                      setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
-                    }
-                    disabled={busy}
-                  />
                 </div>
               </div>
             )}
@@ -1529,189 +1513,317 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           )}
         </div>
       </div>
-      ) : selected ? (
-        /* One work: its 3D preview (left) + its content and look (right) */
+      ) : stage === 'works' ? (
+        /* The works library: grid + the shared editor sheet */
         <div className="works-detail">
-            <GalleryPreview
-              art={previewArt}
-              src={previewSrc}
-              index={selectedIndex}
-              themeKey={row.theme}
-              frameKey={frame}
-              matKey={mat}
-              hangingKey={hanging}
-              captionKey={captionKey}
-              designOverrides={design}
-              emptyNote={t('me.pickWorkNote')}
-            />
-            <div className="we-right">
-              {/* Per-work housekeeping the rail used to carry: share cover + remove */}
-              <div className="work-actions">
+          <GalleryPreview
+            art={selected ? previewArt : roomArt}
+            src={selected ? previewSrc : roomSrc}
+            index={selected ? selectedIndex : Math.max(0, cloudArtworks.indexOf(roomArt))}
+            themeKey={row.theme}
+            frameKey={selected ? frame : row.frame_default}
+            matKey={selected ? mat : row.mat_default}
+            hangingKey={selected ? hanging : row.hanging_default}
+            captionKey={selected ? captionKey : row.caption_default}
+            designOverrides={design}
+            emptyNote={t('me.emptyRoomNote')}
+            mode={selected ? 'work' : 'room'}
+          />
+          <div className="we-right">
+            <div className="me-works-head">
+              <span className="me-works-count">{t('me.navWorksCount', { count: cloudArtworks.length, cap: row.work_cap })}</span>
+              <button
+                type="button"
+                className="btn-line"
+                disabled={row.work_cap >= MAX_WORKS_PER_ROOM}
+                title={row.work_cap >= MAX_WORKS_PER_ROOM ? t('me.roomFullHint') : t('me.addSlotsHint', { price: PRICE_SLOT })}
+                onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots') })}
+              >
+                {row.work_cap >= MAX_WORKS_PER_ROOM ? t('me.roomFull') : t('me.addSlots')}
+              </button>
+            </div>
+            <div className="me-works-grid">
+              {cloudArtworks.map((art) => (
                 <button
                   type="button"
-                  className={`btn-line${row.cover_artwork_id === selected.id ? ' active' : ''}`}
-                  title={t('me.useAsCover')}
-                  onClick={() => void toggleCover(selected)}
+                  key={art.id}
+                  className={`me-work-tile${selectedId === art.id ? ' active' : ''}`}
+                  title={art.title}
+                  onClick={() => setSelectedId(selectedId === art.id ? null : art.id)}
                 >
-                  {row.cover_artwork_id === selected.id ? `★ ${t('me.shareCover')}` : `☆ ${t('me.setAsCover')}`}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img crossOrigin="anonymous" src={art.poster ?? art.thumb ?? art.src} alt={art.title} loading="lazy" />
+                  {art.kind === 'video' && <span className="me-work-tile-video" aria-hidden="true"><VideoIcon /></span>}
                 </button>
-                <button
-                  type="button"
-                  className="btn-line danger"
-                  onClick={() => void removeWork(selected)}
+              ))}
+              {cloudArtworks.length < row.work_cap && (
+                <label className={`me-work-tile me-add-tile${uploading ? ' busy' : ''}`} aria-disabled={uploading}>
+                  <span className="me-add-tile-plus" aria-hidden="true">{uploading ? '…' : '+'}</span>
+                  <small>{uploading ? t('me.uploading') : cloudArtworks.length === 0 ? t('me.addFirstWork') : t('me.addWork')}</small>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    disabled={uploading}
+                    onChange={(e) => {
+                      void onFiles(e.target.files)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+            {selected ? workSheet : cloudArtworks.length > 0 ? (
+              <p className="me-note">{t('me.pickWorkNote')}</p>
+            ) : null}
+          </div>
+        </div>
+      ) : stage === 'placement' ? (
+        /* The placement map + the same editor sheet, so hanging and describing a
+           work no longer live in different views (DECISIONS 2026-07-30) */
+        <div className="works-detail">
+          <GalleryPreview
+            art={roomArt}
+            src={roomSrc}
+            index={Math.max(0, cloudArtworks.indexOf(roomArt))}
+            themeKey={row.theme}
+            frameKey={row.frame_default}
+            matKey={row.mat_default}
+            hangingKey={row.hanging_default}
+            captionKey={row.caption_default}
+            designOverrides={design}
+            emptyNote={t('me.emptyRoomNote')}
+            mode="room"
+          />
+          <div className="we-right">
+            {cloudArtworks.length > 0 ? (
+              <>
+                <div className="wd-group wd-group--flush">
+                  <div className="wd-title">
+                    <span className="me-field-label">
+                      {t('me.placement')}
+                      <span
+                        className="field-hint"
+                        tabIndex={0}
+                        role="note"
+                        aria-label={t('me.placementHint')}
+                      >
+                        <InfoIcon />
+                        <span className="field-hint-pop" role="tooltip">
+                          {t('me.placementHint')}
+                        </span>
+                      </span>
+                    </span>
+                  </div>
+                  <PlacementEditor
+                    layoutKey={row.layout}
+                    layoutParams={normalizeLayoutParams(row.layout_params)}
+                    workCap={row.work_cap}
+                    works={cloudArtworks}
+                    arrangement={placement}
+                    onChange={editPlacement}
+                    onBuySlots={(slots) =>
+                      setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
+                    }
+                    onEditWork={(id) => setSelectedId(id)}
+                    disabled={busy}
+                  />
+                </div>
+                {workSheet}
+              </>
+            ) : (
+              <>
+                <p className="me-note" style={{ marginTop: 0 }}>{t('me.hintAddWork')}</p>
+                <button type="button" className="btn-line" onClick={() => setStage('works')}>
+                  {t('me.addFirstWork')}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Publish: everything about going public in one place — the URL name gate,
+           the statement, the share cover, the switch, and the numbers */
+        <div className="works-detail">
+          <GalleryPreview
+            art={roomArt}
+            src={roomSrc}
+            index={Math.max(0, cloudArtworks.indexOf(roomArt))}
+            themeKey={row.theme}
+            frameKey={row.frame_default}
+            matKey={row.mat_default}
+            hangingKey={row.hanging_default}
+            captionKey={row.caption_default}
+            designOverrides={design}
+            emptyNote={t('me.emptyRoomNote')}
+            mode="room"
+          />
+          <div className="we-right">
+            {/* The URL and its state live together: flip the switch to open / close the room */}
+            {username ? (
+              <div className="hako-url-row">
+                {row.is_public && publicUrl ? (
+                  <a className="hako-url" href={publicUrl} target="_blank" rel="noreferrer">
+                    {publicUrl.replace(/^https?:\/\//, '')}
+                  </a>
+                ) : (
+                  <span className="hako-url off">{(publicUrl || `/@${username}`).replace(/^https?:\/\//, '')}</span>
+                )}
+                {row.is_public && publicUrl && (
+                  <button
+                    className="hako-url-copy"
+                    title={copied ? t('me.copied') : t('me.copyUrl')}
+                    aria-label={copied ? t('me.copied') : t('me.copyUrl')}
+                    onClick={() => {
+                      void navigator.clipboard.writeText(publicUrl).then(() => {
+                        setCopied(true)
+                        setTimeout(() => setCopied(false), 1600)
+                      })
+                    }}
+                  >
+                    {copied ? <CheckIcon /> : <CopyIcon />}
+                  </button>
+                )}
+                <label
+                  className="switch"
+                  title={
+                    row.is_public
+                      ? t('me.openHint')
+                      : cloudArtworks.length
+                        ? t('me.privateHint')
+                        : t('me.needWorkHint')
+                  }
                 >
-                  {t('me.workRemove')}
-                </button>
-                {workState !== 'idle' && (
-                  <span className="hako-save-state">{workState === 'saving' ? t('common.saving') : t('common.saved')}</span>
+                  <input type="checkbox" checked={row.is_public} disabled={busy} onChange={() => void togglePublic()} />
+                  <span className="knob" aria-hidden="true" />
+                </label>
+                <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? t('me.open') : t('me.private')}</span>
+                {row.is_public && (embedCode || username) && (
+                  <div className="hako-url-actions">
+                    {embedCode && (
+                      <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
+                        {showEmbed ? t('me.embedHide') : t('me.embed')}
+                      </button>
+                    )}
+                    {username && (
+                      <a className="btn-line" href={`/@${username}/${row.slug}/catalog`} target="_blank" rel="noreferrer">
+                        {t('me.catalog')}
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
-              {/* The name plate's text: title + caption, straight onto the plate above.
-                  Flush (no top divider) — it's the first thing in the settings column now. */}
-              <div className="wd-group wd-group--flush">
-                <div className="wd-title"><span>{t('me.titleAndCaption')}</span></div>
-                <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <span>{t('me.workTitle')}</span>
+            ) : (
+              /* No username means no public URL, so there is nothing for the switch to
+                 switch — the reason and the fix sit exactly where the toggle would be. */
+              <div className="hako-url-row hako-url-locked">
+                {/* i18n-ok: URLの見本 */}
+                <span className="hako-url off">xibit360.art/@…</span>
+                <p className="hako-locked-why">{t('me.usernameGate')}</p>
+                <div className="field-row">
                   <input
                     type="text"
-                    maxLength={TITLE_MAX}
-                    value={titleInput}
-                    onChange={(e) => editWork({ title: e.target.value })}
+                    aria-label={t('me.username')}
+                    placeholder={t('me.usernamePlaceholder')}
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
                   />
-                </label>
-                <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <FieldLabel hint={t('me.captionHint')}>{t('me.caption')}</FieldLabel>
-                  <textarea
-                    rows={2}
-                    maxLength={140}
-                    placeholder={t('me.captionPlaceholder')}
-                    value={captionInput}
-                    onChange={(e) => editWork({ caption: e.target.value })}
-                  />
-                </label>
-                <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <FieldLabel hint={t('me.priceHint')}>{t('me.price')}</FieldLabel>
-                  <input
-                    type="text"
-                    placeholder={t('me.pricePlaceholder')}
-                    value={priceInput}
-                    onChange={(e) => editWork({ price: e.target.value })}
-                  />
-                </label>
-                <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <FieldLabel hint={t('me.purchaseLinkHint')}>{t('me.purchaseLink')}</FieldLabel>
-                  <input
-                    type="text"
-                    inputMode="url"
-                    placeholder={t('me.purchaseLinkPlaceholder')}
-                    value={purchaseUrlInput}
-                    onChange={(e) => editWork({ purchaseUrl: e.target.value })}
-                  />
-                </label>
-                <div className="wd-row" style={{ margin: '0.45rem 0' }}>
-                  <span className="wd-label">{t('me.size')}</span>
-                  <div className="design-controls" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {/* Pick a standard size (号 / A / B), or "Custom" to type cm. The W×H
-                        fields only appear in custom mode; a preset shows just the ⇄ swap. */}
-                    <select
-                      className="ent-select"
-                      value={sizeCustom ? 'custom' : (matchPreset(parseFloat(widthInput), parseFloat(heightInput)) ?? 'custom')}
-                      onChange={(e) => {
-                        const p = presetByLabel(e.target.value)
-                        if (p) {
-                          editWork({ width: String(p.w), height: String(p.h) })
-                          setSizeCustom(false)
-                        } else {
-                          setSizeCustom(true) // "{t('me.sizeCustom')}" — reveal the cm fields
-                        }
-                      }}
-                    >
-                      <option value="custom">{t('me.sizeCustom')}</option>
-                      {SIZE_GROUPS.map((g) => (
-                        <optgroup key={g.label} label={g.label}>
-                          {g.options.map((o) => (
-                            <option key={o.label} value={o.label}>
-                              {o.label} — {o.w} × {o.h} cm
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
-                      {sizeCustom && (
-                        <>
-                          <input
-                            type="number"
-                            min={1}
-                            inputMode="decimal"
-                            placeholder="W"
-                            className="size-num"
-                            value={widthInput}
-                            onChange={(e) => editWork({ width: e.target.value })}
-                          />
-                          <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
-                          <input
-                            type="number"
-                            min={1}
-                            inputMode="decimal"
-                            placeholder="H"
-                            className="size-num"
-                            value={heightInput}
-                            onChange={(e) => editWork({ height: e.target.value })}
-                          />
-                          <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        className="btn-line"
-                        title={t('me.swapSize')}
-                        style={{ padding: '0.35em 0.6em' }}
-                        onClick={() => editWork({ width: heightInput, height: widthInput })}
-                      >
-                        ⇄
-                      </button>
-                    </div>
-                  </div>
+                  <button
+                    className="btn-line"
+                    disabled={busy || !usernameInput.trim()}
+                    onClick={() => void saveUsernameInline()}
+                  >
+                    {t('me.usernameSet')}
+                  </button>
                 </div>
-                <label className="me-field" style={{ margin: '0.45rem 0' }}>
-                  <FieldLabel hint={t('me.mediumHint')}>{t('me.medium')}</FieldLabel>
-                  <input
-                    type="text"
-                    placeholder={t('me.mediumPlaceholder')}
-                    value={mediumInput}
-                    onChange={(e) => editWork({ medium: e.target.value })}
-                  />
-                </label>
-                {/* Audio guide needs no upload UI — the tour reads the caption aloud
-                    automatically (text-to-speech). */}
               </div>
-
-              <WorkDesign
-                frameKey={frame}
-                matKey={mat}
-                hangingKey={hanging}
-                captionKey={captionKey}
-                onFrame={(k) => {
-                  updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, k, row.frame_default) })
-                  toast()
+            )}
+            <textarea
+              className="hako-statement-input"
+              rows={2}
+              maxLength={200}
+              placeholder={t('me.statementBoardPlaceholder')}
+              aria-label={t('me.exhibitionStatement')}
+              value={statementInput}
+              onChange={(e) => editDetails({ statement: e.target.value })}
+            />
+            {cloudArtworks.length > 0 && (
+              <div className="wd-group">
+                <div className="wd-title"><span>{t('me.coverPick')}</span></div>
+                <div className="me-cover-row">
+                  {cloudArtworks.map((art) => (
+                    <button
+                      type="button"
+                      key={art.id}
+                      className={`me-cover-thumb${row.cover_artwork_id === art.id ? ' active' : ''}`}
+                      title={row.cover_artwork_id === art.id ? t('me.shareCover') : t('me.setAsCover')}
+                      disabled={busy}
+                      onClick={() => void toggleCover(art)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img crossOrigin="anonymous" src={art.poster ?? art.thumb ?? art.src} alt={art.title} loading="lazy" />
+                      {row.cover_artwork_id === art.id && <span className="me-cover-star" aria-hidden="true">★</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* How the exhibition is doing, at a glance */}
+            <div className="stat-row">
+              <div className="stat"><b>{cloudArtworks.length}</b><span>{t('me.statWorks')}</span></div>
+              <div className="stat"><b>{stats ? stats.visits : '–'}</b><span>{t('me.statVisits')}</span></div>
+              <div className="stat"><b>{stats ? stats.likes : '–'}</b><span>{t('me.statLikes')}</span></div>
+              <div className="stat"><b>{stats ? stats.guestbook : '–'}</b><span>{t('me.statGuestNotes')}</span></div>
+            </div>
+            <p className="hako-meta">{row.updated_at ? t('me.updatedAt', { date: fmtDate(row.updated_at) }) : ''}</p>
+            {row.is_public && embedCode && showEmbed && (
+              <div
+                className="me-modal-overlay"
+                role="dialog"
+                aria-modal="true"
+                aria-label={t('me.embedCode')}
+                onClick={() => setShowEmbed(false)}
+              >
+                <div className="me-modal embed-modal" onClick={(e) => e.stopPropagation()}>
+                  <div className="me-modal-head">
+                    <h3>{t('me.embedTitle')}</h3>
+                    <button className="me-modal-close" aria-label={t('common.close')} onClick={() => setShowEmbed(false)}>✕</button>
+                  </div>
+                  <p className="me-note" style={{ marginTop: 0 }}>
+                    {t('me.embedBody')}
+                  </p>
+                  <code className="embed-code">{embedCode}</code>
+                  <button
+                    className="wd-save-cta wd-save-compact"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(embedCode).then(() => {
+                        setEmbedCopied(true)
+                        setTimeout(() => setEmbedCopied(false), 1600)
+                      })
+                    }}
+                  >
+                    {embedCopied ? `${t('me.copied')} ✓` : t('me.copyEmbed')}
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* Quiet row for rare / destructive housekeeping — not a peer of the rest */}
+            <div className="hako-secondary">
+              <button
+                className="danger"
+                disabled={busy}
+                onClick={() => {
+                  if (!confirm(t('me.deleteGalleryConfirm', { name: isPlaceholderTitle(row.title) ? t('me.myGallery') : row.title }))) return
+                  void run(t('me.deleteGallery'), () => deleteGallery(row.id))
                 }}
-                onMat={(k) => {
-                  updateSettings({ matOverrides: setOverride(matOverrides, selected.id, k, row.mat_default) })
-                  toast()
-                }}
-                onHanging={(k) => {
-                  updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, k, row.hanging_default) })
-                  toast()
-                }}
-                onCaption={(k) => {
-                  updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, row.caption_default) })
-                  toast()
-                }}
-              />
+              >
+                {t('me.deleteGallery')}
+              </button>
             </div>
           </div>
-      ) : null}
+        </div>
+      )}
       </div>
     </div>
 
