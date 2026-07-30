@@ -412,6 +412,8 @@ export const es: PartialDictionary = {
     lightCeiling: 'Techo', lightOverhead: 'Sobre la obra',
     placement: 'Montaje',
     placementOrderHint: 'Es el orden en que se cuelgan las obras al recorrer la sala — reordena con las flechas.',
+    placementDragHint: 'Arrastra una obra a un punto de la pared para colgarla. Arrastra una obra colgada sobre otra para intercambiarlas.',
+    placementTrayLabel: 'Tus obras',
     moveUp: 'Subir',
     moveDown: 'Bajar',
     cropWarn: 'Alrededor del {pct}% de la imagen se recorta para llenar este tamaño sin deformarla. Usa ⇄ para invertir la proporción.',

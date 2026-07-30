@@ -412,6 +412,8 @@ export const de: PartialDictionary = {
     lightCeiling: 'Decke', lightOverhead: 'Über dem Werk',
     placement: 'Hängung',
     placementOrderHint: 'Das ist die Reihenfolge, in der die Werke beim Rundgang hängen — mit den Pfeilen umsortieren.',
+    placementDragHint: 'Ziehe ein Werk auf einen Wandplatz, um es aufzuhängen. Ziehe ein hängendes Werk auf ein anderes, um beide zu tauschen.',
+    placementTrayLabel: 'Deine Werke',
     moveUp: 'Nach oben',
     moveDown: 'Nach unten',
     cropWarn: 'Etwa {pct}% des Bildes werden beschnitten, um diese Größe ohne Verzerrung zu füllen. Mit ⇄ das Seitenverhältnis tauschen.',

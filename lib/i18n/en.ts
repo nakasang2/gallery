@@ -358,6 +358,8 @@ export const en = {
     centreWall: 'Centre wall (4 extra slots)',
     placement: 'Placement',
     placementOrderHint: 'This is the order works hang as you walk the room — reorder them with the arrows.',
+    placementDragHint: 'Drag a work onto a wall spot to hang it. Drag a hung work onto another to swap them.',
+    placementTrayLabel: 'Your works',
     moveUp: 'Move up',
     moveDown: 'Move down',
     cropWarn: 'About {pct}% of the image is cropped to fill this size without distorting it. Use ⇄ to flip the ratio.',

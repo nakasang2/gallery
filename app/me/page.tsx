@@ -11,6 +11,7 @@ import { setOverride } from '@/lib/exhibition'
 import { SIZE_GROUPS, matchPreset, presetByLabel } from '@/lib/artSizes'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
+import PlacementEditor from '@/components/PlacementEditor'
 import PurchaseModal from '@/components/PurchaseModal'
 import TopActions from '@/components/TopActions'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
@@ -454,7 +455,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const updateSettings = useGallery((s) => s.updateSettings)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
-  const reorderOwnArtworks = useGallery((s) => s.reorderOwnArtworks)
   const toast = useToast()
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
@@ -744,28 +744,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   useEffect(() => () => {
     if (placeTimer.current) clearTimeout(placeTimer.current)
   }, [])
-
-  // Reorder-only placement (ユーザー指示 2026-07-31): the list order is the walk order,
-  // so a move just reorders the works and drops any leftover per-slot arrangement from
-  // the old map, then rebuilds the public room to auto-fill by the new order.
-  //   - updateSettings clears the STORE arrangement so reorderOwnArtworks's own debounced
-  //     rebuild can't resurrect the old fixed slots.
-  //   - the explicit saveGallerySpace + run() write [] to the DB and refresh the MePage
-  //     row, so later room/publish edits (setSpace/editCustom/togglePublic build settings
-  //     from the row) don't write the stale row.arrangement back (レビュー指摘 2026-07-31).
-  async function moveWork(from: number, to: number) {
-    if (to < 0 || to >= cloudArtworks.length || from < 0 || from >= cloudArtworks.length || from === to) return
-    updateSettings({ arrangement: [] })
-    const reordered = cloudArtworks.slice()
-    const [moved] = reordered.splice(from, 1)
-    reordered.splice(to, 0, moved)
-    await run('Reorder', async () => {
-      await reorderOwnArtworks(from, to)
-      const s = { ...rowToSettings(row, await mergedOverrides()), arrangement: [] }
-      await saveGallerySpace(row.id, s)
-      if (row.is_public) await rebuildPlacements(row.id, s, reordered)
-    })
-  }
 
   // Custom layout size autosave: optimistic local update, then persist the layout_params
   // through the same saveGallerySpace(+rebuildPlacements) path. Debounced because the
@@ -1553,49 +1531,28 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           </div>
         </div>
       ) : stage === 'placement' ? (
-        /* Placement is just a reorder list now (ユーザー指示 2026-07-31): the top-down
-           map was too abstract to operate. The order here is walk order — works fill
-           the walls in this sequence. Reordering drops any old per-slot arrangement so
-           the room auto-fills by the new order (moveWork). */
+        /* Placement is a top-down room map (ユーザー指示 2026-07-31): drag a work from the
+           tray onto a wall slot to hang it, drag a hung work onto another to swap them.
+           editPlacement persists the arrangement + rebuilds the public room. */
         <div className="placement-stage">
           {cloudArtworks.length > 0 ? (
             <>
               <div className="placement-head">
                 <h3 className="placement-title">{t('me.placement')}</h3>
-                <p className="me-note" style={{ marginTop: '0.3rem' }}>{t('me.placementOrderHint')}</p>
+                <p className="me-note" style={{ marginTop: '0.3rem' }}>{t('me.placementDragHint')}</p>
               </div>
-              <ol className="place-order">
-                {cloudArtworks.map((art, i) => (
-                  <li key={art.id} className="place-order-row">
-                    <span className="place-order-n" aria-hidden="true">{i + 1}</span>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img crossOrigin="anonymous" className="place-order-thumb" src={art.poster ?? art.thumb ?? art.src} alt="" loading="lazy" />
-                    <span className="place-order-title">{art.title || t('common.untitled')}</span>
-                    <span className="place-order-moves">
-                      <button
-                        type="button"
-                        className="place-order-move"
-                        aria-label={t('me.moveUp')}
-                        title={t('me.moveUp')}
-                        disabled={busy || i === 0}
-                        onClick={() => moveWork(i, i - 1)}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="place-order-move"
-                        aria-label={t('me.moveDown')}
-                        title={t('me.moveDown')}
-                        disabled={busy || i === cloudArtworks.length - 1}
-                        onClick={() => moveWork(i, i + 1)}
-                      >
-                        ↓
-                      </button>
-                    </span>
-                  </li>
-                ))}
-              </ol>
+              <PlacementEditor
+                layoutKey={row.layout}
+                layoutParams={normalizeLayoutParams(row.layout_params)}
+                workCap={row.work_cap}
+                works={cloudArtworks}
+                arrangement={placement}
+                onChange={editPlacement}
+                onBuySlots={(slots) =>
+                  setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
+                }
+                disabled={busy}
+              />
             </>
           ) : (
             <>

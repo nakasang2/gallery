@@ -783,53 +783,6 @@
   color: var(--muted);
   margin: 0;
 }
-/* Reorder list — the walk order of the works (ユーザー指示 2026-07-31) */
-.place-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
-.place-order-row {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: rgba(236, 231, 222, 0.02);
-}
-.place-order-n { flex: none; width: 1.4rem; text-align: center; font-size: 0.8rem; color: var(--gold); }
-.place-order-thumb {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid var(--hairline);
-}
-.place-order-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.85rem;
-  color: var(--ink);
-}
-.place-order-moves { flex: none; display: flex; gap: 0.3rem; }
-.place-order-move {
-  width: 2rem;
-  height: 2rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  background: none;
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: color 0.15s, border-color 0.15s;
-}
-.place-order-move:hover:not(:disabled) { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
-.place-order-move:disabled { opacity: 0.3; cursor: default; }
-
 /* ---- Publish stage: share-cover picker ---- */
 .me-cover-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .me-cover-thumb {
@@ -1144,6 +1097,9 @@
 .place-map {
   display: block;
   width: 100%;
+  /* The map hit-tests presses to drag works between spots — a press-drag must move a
+     piece, not scroll the page. */
+  touch-action: none;
   /* The map fills its column (the sticky left column of the placement stage, or the
      full width on phones). 680px is just an upper cap that the column width beats in
      practice — the map is never wider than its column. */
@@ -1179,9 +1135,15 @@
    （破線は壁の線と混ざって輪郭が消えていた） */
 .pe-slot.empty .pe-slot-ring { opacity: 0.62; }
 .pe-slot.filled .pe-slot-ring { stroke: var(--gold); opacity: 0.75; }
-.pe-slot.sel .pe-slot-ring { stroke: var(--gold); stroke-width: 0.16; opacity: 1; }
+/* The slot the pointer is over while dragging — the drop target. */
+.pe-slot.over .pe-slot-ring { stroke: var(--gold); stroke-width: 0.16; opacity: 1; }
 .pe-slot-num { fill: currentColor; opacity: 0.55; font-size: 0.62px; text-anchor: middle; font-family: var(--sans, sans-serif); }
 .pe-slot:hover .pe-slot-ring { opacity: 0.9; }
+/* The map is the drag surface (it hit-tests presses by coordinate), so touch-action:none
+   here lets a press-drag move a piece instead of scrolling the page. Filled spots show a
+   grab cursor as the affordance. */
+.pe-slot.grab { cursor: grab; }
+.pe-slot.grab:active { cursor: grabbing; }
 
 /* 容量を超えた枠。買えば使えるものなので、ロックのチップと同じ金色で示す。
    下地は空き枠より暗くして「まだ使えない」ことを明るさの差で伝える */
@@ -1195,30 +1157,60 @@
 .pe-slot.locked:hover .pe-slot-lock rect,
 .pe-slot.locked:hover .pe-slot-lock path { opacity: 0.9; }
 
-.place-picker { display: flex; flex-direction: column; gap: 0.5rem; }
-.place-picker-actions { display: flex; gap: 0.5rem; flex: none; }
-.place-picker-head {
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: 0.78rem; color: var(--ink);
+/* ---- Placement tray: the works, ready to drag onto a wall ---- */
+.place-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
 }
-.place-picker-strip {
-  display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.3rem;
+.place-tray-item {
+  position: relative;
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(236, 231, 222, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.place-pick {
-  position: relative; flex: 0 0 auto; width: 56px; height: 56px;
-  border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden;
-  background: rgba(236, 231, 222, 0.05); cursor: pointer; padding: 0;
-  display: flex; align-items: center; justify-content: center;
+.place-tray-item.grab { cursor: grab; touch-action: none; }
+.place-tray-item.grab:active { cursor: grabbing; }
+.place-tray-item img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.place-tray-vid { color: var(--muted); font-size: 1.4rem; display: inline-flex; }
+/* A work already hung is dimmed with a gold dot, so what's left to place reads at a glance. */
+.place-tray-item.placed { opacity: 0.5; }
+.place-tray-item.placed .place-tray-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
 }
-.place-pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.place-pick.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
-.place-pick:disabled { opacity: 0.5; cursor: default; }
-.place-pick.empty { flex-direction: column; gap: 0.1rem; color: var(--muted); font-size: 1.1rem; }
-.place-pick.empty small { font-size: 0.56rem; letter-spacing: 0.06em; }
-.place-pick-badge {
-  position: absolute; top: 2px; right: 2px; font-size: 0.6rem;
-  background: var(--ink); color: #14110c; border-radius: 4px; padding: 0 2px; line-height: 1.3;
+.place-tray-item.dragging { opacity: 0.3; }
+
+/* The piece that follows the pointer while dragging (rendered at the document level,
+   so it floats above everything and never clips to the map or tray). */
+.place-ghost {
+  position: fixed;
+  z-index: 200;
+  width: 60px;
+  height: 60px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--gold);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  background: #14110c;
 }
+.place-ghost img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.place-ghost .place-tray-vid { width: 100%; height: 100%; align-items: center; justify-content: center; }
 
 /* 公開できない理由を、公開トグルがあるべき場所に出す */
 .hako-url-locked { flex-wrap: wrap; align-items: center; }

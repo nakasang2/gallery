@@ -412,6 +412,8 @@ export const id: PartialDictionary = {
     lightCeiling: 'Plafon', lightOverhead: 'Di atas karya',
     placement: 'Penempatan',
     placementOrderHint: 'Ini urutan karya saat Anda menyusuri ruangan — ubah urutannya dengan panah.',
+    placementDragHint: 'Seret karya ke titik dinding untuk memasangnya. Seret karya yang terpasang ke karya lain untuk menukarnya.',
+    placementTrayLabel: 'Karya Anda',
     moveUp: 'Naikkan',
     moveDown: 'Turunkan',
     cropWarn: 'Sekitar {pct}% gambar dipangkas agar mengisi ukuran ini tanpa mendistorsinya. Gunakan ⇄ untuk membalik rasio.',

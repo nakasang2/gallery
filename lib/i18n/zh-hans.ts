@@ -413,6 +413,8 @@ export const zhHans: PartialDictionary = {
     lightCeiling: '天花板', lightOverhead: '作品正上方',
     placement: '布置',
     placementOrderHint: '这是你在展厅走动时作品悬挂的顺序——用箭头调整。',
+    placementDragHint: '把作品拖到墙上的位置即可悬挂。将已挂的作品拖到另一处即可互换。',
+    placementTrayLabel: '你的作品',
     moveUp: '上移',
     moveDown: '下移',
     cropWarn: '为在不变形的情况下填满该尺寸，图像约 {pct}% 会被裁剪。可用 ⇄ 交换长宽。',
