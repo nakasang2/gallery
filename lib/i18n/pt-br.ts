@@ -457,8 +457,11 @@ export const ptBr: PartialDictionary = {
 
     profileName: 'Nome de exibição (nome artístico)', profileBio: 'Bio / texto de artista',
     profileSnsNote: 'Ligue suas redes — aparecem na sua página pública e durante a visita, para que possam te seguir em outro lugar.',
-    profileX: 'Usuário no X (Twitter)', profileInstagram: 'Usuário no Instagram',
-    profileWebsite: 'Site / portfólio', profileAvatar: 'Foto de perfil',
+    profileCustomLabel: 'Rótulo (ex.: Substack)',
+    profileCustomUrl: 'URL do link',
+    profileAddLink: 'Adicionar outro link',
+    profileRemoveLink: 'Remover este link',
+    profileAvatar: 'Foto de perfil',
     profileSaveFailed: 'Não foi possível salvar seu perfil: {msg}', avatarUploadFailed: 'O envio da foto falhou: {msg}',
 
     accountEmail: 'E-mail', accountChange: 'Alterar',
@@ -656,9 +659,7 @@ export const ptBr: PartialDictionary = {
     exhibitions: 'Exposições',
     noExhibitions: 'Ainda não há exposições públicas.',
     reportProblem: 'Relatar um problema',
-    snsX: '@{handle} no X',
-    snsInstagram: '@{handle} no Instagram',
-    snsWebsite: 'Site',
+    snsFollow: 'Ver no {platform}', snsWebsite: 'Site',
   },
   catalog: {
     back: '← Voltar para a exposição',

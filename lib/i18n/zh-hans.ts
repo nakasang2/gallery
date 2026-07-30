@@ -458,8 +458,11 @@ export const zhHans: PartialDictionary = {
 
     profileName: '显示名称（作者名）', profileBio: '简介 / 创作自述',
     profileSnsNote: '把社交账号连上，会显示在公开页面和展厅里，观众就能在别处继续关注你。',
-    profileX: 'X（Twitter）账号', profileInstagram: 'Instagram 账号',
-    profileWebsite: '网站 / 作品集', profileAvatar: '头像',
+    profileCustomLabel: '标签（如 Substack）',
+    profileCustomUrl: '链接 URL',
+    profileAddLink: '添加其他链接',
+    profileRemoveLink: '删除此链接',
+    profileAvatar: '头像',
     profileSaveFailed: '没能保存个人资料：{msg}', avatarUploadFailed: '头像上传失败：{msg}',
 
     accountEmail: '邮箱', accountChange: '更改',
@@ -653,9 +656,7 @@ export const zhHans: PartialDictionary = {
     exhibitions: '展览',
     noExhibitions: '还没有公开的展览。',
     reportProblem: '举报问题',
-    snsX: 'X 上的 @{handle}',
-    snsInstagram: 'Instagram 上的 @{handle}',
-    snsWebsite: '网站',
+    snsFollow: '在 {platform} 上查看', snsWebsite: '网站',
   },
   catalog: {
     back: '← 返回展览',

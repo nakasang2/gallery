@@ -11,36 +11,10 @@ import {
 } from './presets'
 import { PLAN } from './limits'
 
-/** Handles/URL the artist wants visitors to follow them on — set from the
- *  dashboard, shown wherever the artist's name appears in public (§ SNS/inflow) */
-export interface SnsLinks {
-  /** X (Twitter) handle, no leading @ */
-  x: string
-  /** Instagram handle, no leading @ */
-  instagram: string
-  /** Any URL — portfolio, Linktree, etc. */
-  website: string
-}
-
-export const EMPTY_SNS: SnsLinks = { x: '', instagram: '', website: '' }
-
-/** Absolute URL for one of the artist's handles. Shared by the icon row visitors
- *  click and the `sameAs` list in the structured data, so a crawler is told about
- *  exactly the same profiles the page links to. */
-export function snsUrl(kind: keyof SnsLinks, value: string): string {
-  if (kind === 'x') return `https://x.com/${value}`
-  if (kind === 'instagram') return `https://instagram.com/${value}`
-  return /^https?:\/\//i.test(value) ? value : `https://${value}`
-}
-
-function readSns(raw: unknown): SnsLinks {
-  const r = (raw ?? {}) as Partial<SnsLinks>
-  return {
-    x: typeof r.x === 'string' ? r.x : '',
-    instagram: typeof r.instagram === 'string' ? r.instagram : '',
-    website: typeof r.website === 'string' ? r.website : '',
-  }
-}
+// SNS links (known platforms + custom) live in lib/sns.ts so both server code
+// (this file, seo.ts) and client components can share them.
+import { readSns, EMPTY_SNS, type SnsLinks, sanitizeSns } from './sns'
+export { EMPTY_SNS, snsUrl, type SnsLinks } from './sns'
 
 // Does this error mean migration 0035 (light_override) is missing? Gate the
 // light-less retry on it, so a transient error doesn't silently drop the
@@ -149,11 +123,7 @@ export async function saveProfile(
     bio: fields.bio.trim(),
   }
   if (fields.sns) {
-    update.sns = {
-      x: fields.sns.x.trim().replace(/^@/, ''),
-      instagram: fields.sns.instagram.trim().replace(/^@/, ''),
-      website: fields.sns.website.trim(),
-    }
+    update.sns = sanitizeSns(fields.sns)
   }
   const { error } = await supabase!.from('profiles').update(update).eq('id', userId)
   if (error) throw error

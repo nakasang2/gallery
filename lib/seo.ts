@@ -25,10 +25,10 @@ import {
   fetchPublicExhibition,
   fetchPublicProfile,
   isPlaceholderTitle,
-  snsUrl,
   type PublicExhibition,
   type PublicProfile,
 } from './publish'
+import { allSnsUrls, type SnsLinks } from './sns'
 import { siteUrl } from './publicUrl'
 import { publicExhibitionWorks } from './roomPlan'
 import type { ArtworkData } from './artworks'
@@ -98,11 +98,9 @@ function personNode(p: {
   displayName: string
   bio: string
   avatarUrl: string | null
-  sns: { x: string; instagram: string; website: string }
+  sns: SnsLinks
 }): Node {
-  const sameAs = (['x', 'instagram', 'website'] as const)
-    .filter((k) => p.sns[k])
-    .map((k) => snsUrl(k, p.sns[k]))
+  const sameAs = allSnsUrls(p.sns)
   const image = absoluteMedia(p.avatarUrl)
   return {
     '@type': 'Person',

@@ -39,6 +39,8 @@ import {
   type GalleryRow,
 } from '@/lib/galleries'
 import { getProfile, saveProfile, setUsername, isPlaceholderTitle, USERNAME_RE } from '@/lib/publish'
+import { SNS_PLATFORMS, type CustomLink } from '@/lib/sns'
+import { BRAND_ICONS, GlobeIcon } from '@/components/BrandIcons'
 import {
   getStorageUsage,
   uploadArtwork,
@@ -1974,9 +1976,9 @@ function ProfileCard() {
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [snsX, setSnsX] = useState('')
-  const [snsInstagram, setSnsInstagram] = useState('')
-  const [snsWebsite, setSnsWebsite] = useState('')
+  // Known-platform links keyed by id, plus free-form "other" links
+  const [snsLinks, setSnsLinks] = useState<Record<string, string>>({})
+  const [snsCustom, setSnsCustom] = useState<CustomLink[]>([])
   const [busy, setBusy] = useState(false)
   // Profile text (display name / bio / SNS) autosaves like everything else.
   const [profileState, setProfileState] = useState<'idle' | 'saving'>('idle')
@@ -1990,9 +1992,8 @@ function ProfileCard() {
         setDisplayName(p.displayName)
         setBio(p.bio)
         setAvatarUrl(p.avatarUrl)
-        setSnsX(p.sns.x)
-        setSnsInstagram(p.sns.instagram)
-        setSnsWebsite(p.sns.website)
+        setSnsLinks(p.sns.links)
+        setSnsCustom(p.sns.custom)
       })
       .catch(() => {})
     return () => {
@@ -2035,21 +2036,16 @@ function ProfileCard() {
   // Display name / bio / SNS autosave after a short pause (payload captured at call
   // time, like the gallery's editWork). Username + avatar stay explicit above.
   function editProfile(next: Partial<{
-    displayName: string; bio: string; x: string; instagram: string; website: string
+    displayName: string; bio: string; links: Record<string, string>; custom: CustomLink[]
   }>) {
     if (next.displayName !== undefined) setDisplayName(next.displayName)
     if (next.bio !== undefined) setBio(next.bio)
-    if (next.x !== undefined) setSnsX(next.x)
-    if (next.instagram !== undefined) setSnsInstagram(next.instagram)
-    if (next.website !== undefined) setSnsWebsite(next.website)
+    if (next.links !== undefined) setSnsLinks(next.links)
+    if (next.custom !== undefined) setSnsCustom(next.custom)
     const payload = {
       displayName: next.displayName ?? displayName,
       bio: next.bio ?? bio,
-      sns: {
-        x: next.x ?? snsX,
-        instagram: next.instagram ?? snsInstagram,
-        website: next.website ?? snsWebsite,
-      },
+      sns: { links: next.links ?? snsLinks, custom: next.custom ?? snsCustom },
     }
     setProfileState('saving')
     if (profileTimer.current) clearTimeout(profileTimer.current)
@@ -2123,42 +2119,67 @@ function ProfileCard() {
       <p className="me-field-group-label">
         {t('me.profileSnsNote')}
       </p>
-      <label className="me-field">
-        <span>{t('me.profileX')}</span>
-        <div className="field-row" style={{ marginTop: 0 }}>
-          <span className="field-prefix">@</span>
-          <input
-            type="text"
-            // i18n-ok: 入力する値そのものの見本（SNSのハンドルはASCII）
-            placeholder="yourhandle"
-            value={snsX}
-            onChange={(e) => editProfile({ x: e.target.value.replace(/^@/, '') })}
-          />
-        </div>
-      </label>
-      <label className="me-field">
-        <span>{t('me.profileInstagram')}</span>
-        <div className="field-row" style={{ marginTop: 0 }}>
-          <span className="field-prefix">@</span>
-          <input
-            type="text"
-            // i18n-ok: 入力する値そのものの見本（SNSのハンドルはASCII）
-            placeholder="yourhandle"
-            value={snsInstagram}
-            onChange={(e) => editProfile({ instagram: e.target.value.replace(/^@/, '') })}
-          />
-        </div>
-      </label>
-      <label className="me-field">
-        <span>{t('me.profileWebsite')}</span>
-        <input
-          type="text"
-          // i18n-ok: URLの見本
-          placeholder="yoursite.com"
-          value={snsWebsite}
-          onChange={(e) => editProfile({ website: e.target.value })}
-        />
-      </label>
+      {/* One row per known platform with its official brand mark; leave any blank
+          to hide it. "Other" links are added freely below (ユーザー指示 2026-07-30). */}
+      <div className="sns-fields">
+        {SNS_PLATFORMS.map((p) => {
+          const Icon = BRAND_ICONS[p.id] ?? GlobeIcon
+          return (
+            <label key={p.id} className="sns-field">
+              <span className="sns-field-icon" aria-hidden="true"><Icon /></span>
+              <span className="sns-field-hint">{p.hint}</span>
+              <input
+                type="text"
+                aria-label={p.label}
+                // i18n-ok: 入力する値そのものの見本（ハンドル/URLはASCII）
+                placeholder={p.kind === 'url' ? 'yoursite.com' : 'yourhandle'}
+                value={snsLinks[p.id] ?? ''}
+                onChange={(e) => editProfile({ links: { ...snsLinks, [p.id]: e.target.value } })}
+              />
+            </label>
+          )
+        })}
+      </div>
+      {/* Other: arbitrary labelled links */}
+      <div className="sns-custom">
+        {snsCustom.map((c, i) => (
+          <div key={i} className="sns-custom-row">
+            <input
+              type="text"
+              aria-label={t('me.profileCustomLabel')}
+              placeholder={t('me.profileCustomLabel')}
+              className="sns-custom-label"
+              value={c.label}
+              onChange={(e) => editProfile({ custom: snsCustom.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })}
+            />
+            <input
+              type="text"
+              inputMode="url"
+              aria-label={t('me.profileCustomUrl')}
+              // i18n-ok: URLの見本
+              placeholder="https://…"
+              value={c.url}
+              onChange={(e) => editProfile({ custom: snsCustom.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)) })}
+            />
+            <button
+              type="button"
+              className="sns-custom-del"
+              aria-label={t('me.profileRemoveLink')}
+              title={t('me.profileRemoveLink')}
+              onClick={() => editProfile({ custom: snsCustom.filter((_, j) => j !== i) })}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          className="btn-line sns-add"
+          onClick={() => editProfile({ custom: [...snsCustom, { label: '', url: '' }] })}
+        >
+          + {t('me.profileAddLink')}
+        </button>
+      </div>
     </div>
     </>
   )

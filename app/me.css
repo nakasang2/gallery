@@ -512,13 +512,49 @@
   padding-top: 1.2rem;
   border-top: 1px solid var(--hairline);
 }
-.field-prefix {
-  display: flex;
-  align-items: center;
-  padding: 0 0.2rem;
-  color: var(--muted);
-  font-size: 0.9rem;
+/* ---- Profile SNS fields: one row per platform (icon + hint + input) ---- */
+.sns-fields { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.7rem; }
+.sns-field { display: flex; align-items: center; gap: 0.5rem; }
+.sns-field-icon {
   flex: none;
+  width: 1.4rem;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 1rem;
+}
+.sns-field-hint {
+  flex: none;
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 6.5rem;
+  text-align: right;
+}
+.sns-field input { flex: 1; min-width: 0; }
+/* Other links: label + url + remove */
+.sns-custom { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.sns-custom-row { display: flex; align-items: center; gap: 0.5rem; }
+.sns-custom-label { flex: 0 0 8rem; min-width: 0; }
+.sns-custom-row input[inputmode='url'] { flex: 1; min-width: 0; }
+.sns-custom-del {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+.sns-custom-del:hover { color: #e08a7a; border-color: #e08a7a; }
+.sns-add { align-self: flex-start; margin-top: 0.2rem; }
+@media (max-width: 480px) {
+  /* Stack the hint above a full-width input so handles fit on phones */
+  .sns-field-hint { min-width: 5rem; }
+  .sns-custom-label { flex-basis: 6rem; }
 }
 
 @media (max-width: 640px) {

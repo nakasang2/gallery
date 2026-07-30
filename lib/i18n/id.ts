@@ -457,8 +457,11 @@ export const id: PartialDictionary = {
 
     profileName: 'Nama tampilan (nama perupa)', profileBio: 'Bio / catatan perupa',
     profileSnsNote: 'Tautkan media sosialmu — tampil di halaman publikmu dan saat pengunjung menjelajahi ruangmu, jadi mereka bisa mengikutimu di tempat lain.',
-    profileX: 'Nama pengguna X (Twitter)', profileInstagram: 'Nama pengguna Instagram',
-    profileWebsite: 'Situs / portofolio', profileAvatar: 'Foto profil',
+    profileCustomLabel: 'Label (mis. Substack)',
+    profileCustomUrl: 'URL tautan',
+    profileAddLink: 'Tambah tautan lain',
+    profileRemoveLink: 'Hapus tautan ini',
+    profileAvatar: 'Foto profil',
     profileSaveFailed: 'Profilmu tidak bisa disimpan: {msg}', avatarUploadFailed: 'Unggahan foto profil gagal: {msg}',
 
     accountEmail: 'Email', accountChange: 'Ubah',
@@ -656,9 +659,7 @@ export const id: PartialDictionary = {
     exhibitions: 'Pameran',
     noExhibitions: 'Belum ada pameran publik.',
     reportProblem: 'Laporkan masalah',
-    snsX: '@{handle} di X',
-    snsInstagram: '@{handle} di Instagram',
-    snsWebsite: 'Situs web',
+    snsFollow: 'Lihat di {platform}', snsWebsite: 'Situs web',
   },
   catalog: {
     back: '← Kembali ke pameran',

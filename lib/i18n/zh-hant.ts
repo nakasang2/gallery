@@ -456,8 +456,11 @@ export const zhHant: PartialDictionary = {
 
     profileName: '顯示名稱（作者名）', profileBio: '簡介 / 創作自述',
     profileSnsNote: '把社群帳號連上，會顯示在公開頁面和展場裡，觀眾就能在別處繼續追蹤你。',
-    profileX: 'X（Twitter）帳號', profileInstagram: 'Instagram 帳號',
-    profileWebsite: '網站 / 作品集', profileAvatar: '頭像',
+    profileCustomLabel: '標籤（如 Substack）',
+    profileCustomUrl: '連結 URL',
+    profileAddLink: '新增其他連結',
+    profileRemoveLink: '刪除此連結',
+    profileAvatar: '頭像',
     profileSaveFailed: '沒能儲存個人資料：{msg}', avatarUploadFailed: '頭像上傳失敗：{msg}',
 
     accountEmail: '電子郵件', accountChange: '變更',
@@ -651,9 +654,7 @@ export const zhHant: PartialDictionary = {
     exhibitions: '展覽',
     noExhibitions: '還沒有公開的展覽。',
     reportProblem: '檢舉問題',
-    snsX: 'X 上的 @{handle}',
-    snsInstagram: 'Instagram 上的 @{handle}',
-    snsWebsite: '網站',
+    snsFollow: '在 {platform} 上查看', snsWebsite: '網站',
   },
   catalog: {
     back: '← 返回展覽',
