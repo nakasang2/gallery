@@ -115,6 +115,36 @@ function personNode(p: {
   }
 }
 
+/** The work's image, with who made it attached.
+ *
+ *  A bare URL says "here is a picture". An `ImageObject` carrying `creator`,
+ *  `creditText` and `copyrightNotice` is what lets Google Images show the artist's
+ *  name next to their own work — which matters more here than on most sites,
+ *  because the whole product is other people's art being found by strangers.
+ *
+ *  Every field is derived from data we actually hold. `copyrightNotice` names the
+ *  artist because the Terms §3 say so in as many words ("You keep all rights to the
+ *  works you upload"), so this is repeating our own agreement, not deciding it.
+ *
+ *  Deliberately absent:
+ *  - `license` / `acquireLicensePage`, which are what Google's "Licensable" badge
+ *    needs. Only the artist knows the terms on which their work may be licensed,
+ *    and there is no field for it yet. A site-wide URL here would tell searchers
+ *    these images are licensable on terms nobody has agreed to.
+ *  - pixel `width` / `height`. `contentUrl` is the resized derivative, while the
+ *    dimensions we store are the original's — declaring one for the other would be
+ *    precisely wrong rather than merely missing. */
+function imageNode(art: ArtworkData, url: string, pageUrl: string, personId: string): Node {
+  return {
+    '@type': 'ImageObject',
+    '@id': `${pageUrl}#image-${art.id}`,
+    contentUrl: url,
+    creator: { '@id': personId },
+    creditText: art.artist,
+    ...(art.year ? { copyrightNotice: `© ${art.year} ${art.artist}` } : {}),
+  }
+}
+
 /** One work. `VisualArtwork` with a real `image` is what puts a piece in front of
  *  someone searching images — which no artwork could be before, because the only
  *  place the files appeared was as a WebGL texture.
@@ -134,7 +164,7 @@ function artworkNode(art: ArtworkData, pageUrl: string, personId: string): Node 
     ...(art.medium ? { artMedium: art.medium } : {}),
     ...(art.widthCm ? { width: cm(art.widthCm) } : {}),
     ...(art.heightCm ? { height: cm(art.heightCm) } : {}),
-    ...(image ? { image } : {}),
+    ...(image ? { image: imageNode(art, image, pageUrl, personId) } : {}),
     creator: { '@id': personId },
     isPartOf: { '@id': `${pageUrl}#page` },
   }
