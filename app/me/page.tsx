@@ -345,6 +345,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
           matOverrides: {},
           hangingOverrides: {},
           captionOverrides: {},
+          lightOverrides: {},
         })
       }
       // Land on the dashboard's works stage, not the empty 3D room — the next
@@ -448,6 +449,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const matOverrides = useGallery((s) => s.matOverrides)
   const hangingOverrides = useGallery((s) => s.hangingOverrides)
   const captionOverrides = useGallery((s) => s.captionOverrides)
+  const lightOverrides = useGallery((s) => s.lightOverrides)
   const updateSettings = useGallery((s) => s.updateSettings)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
@@ -520,6 +522,16 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const mat = (selected && matOverrides[selected.id]) || row.mat_default
   const hanging = (selected && hangingOverrides[selected.id]) || row.hanging_default
   const captionKey = (selected && captionOverrides[selected.id]) || row.caption_default
+  // Effective lighting for the selected work: 'follow' means the room's default.
+  const lightKey = (() => {
+    const k = selected ? lightOverrides[selected.id] : undefined
+    return k === 'ceiling' || k === 'overhead' ? k : 'follow'
+  })()
+  // The 3D preview reads lightMode from designOverrides, so resolve the per-work
+  // override into the copy the preview gets — tapping a lighting chip must be
+  // visible immediately (DECISIONS 2026-07-30).
+  const selectedDesign: DesignOverrides =
+    lightKey === 'follow' ? design : { ...design, lightMode: lightKey }
   // Videos hang by their poster; a poster-less video previews as the placeholder
   const previewSrc = selected
     ? selected.kind === 'video'
@@ -644,6 +656,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       mats: { ...saved.mats, ...matOverrides },
       hangings: { ...saved.hangings, ...hangingOverrides },
       captions: { ...saved.captions, ...captionOverrides },
+      lights: { ...saved.lights, ...lightOverrides },
     }
   }
 
@@ -938,9 +951,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       ...Object.keys(matOverrides),
       ...Object.keys(hangingOverrides),
       ...Object.keys(captionOverrides),
+      ...Object.keys(lightOverrides),
     ]).size
     if (n > 0 && !confirm(t('artwork.resetPerWork', { count: n }))) return
-    updateSettings({ frameOverrides: {}, matOverrides: {}, hangingOverrides: {}, captionOverrides: {} })
+    updateSettings({ frameOverrides: {}, matOverrides: {}, hangingOverrides: {}, captionOverrides: {}, lightOverrides: {} })
     // EMPTY_OVERRIDES, not mergedOverrides(): the maps we just cleared must not ride
     // back in through the closure and survive the rebuild
     void run(t('panel.template'), async () => {
@@ -1108,6 +1122,14 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         matKey={mat}
         hangingKey={hanging}
         captionKey={captionKey}
+        lightKey={lightKey}
+        onLight={(k) => {
+          const next = { ...lightOverrides }
+          if (k) next[selected.id] = k
+          else delete next[selected.id]
+          updateSettings({ lightOverrides: next })
+          toast()
+        }}
         onFrame={(k) => {
           updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, k, row.frame_default) })
           toast()
@@ -1525,7 +1547,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             matKey={selected ? mat : row.mat_default}
             hangingKey={selected ? hanging : row.hanging_default}
             captionKey={selected ? captionKey : row.caption_default}
-            designOverrides={design}
+            designOverrides={selected ? selectedDesign : design}
             emptyNote={t('me.emptyRoomNote')}
             mode={selected ? 'work' : 'room'}
           />

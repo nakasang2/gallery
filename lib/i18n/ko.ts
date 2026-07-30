@@ -327,7 +327,7 @@ export const ko: PartialDictionary = {
     matColor: '매트 색',
     placementMap: '전시장 배치도',
     placementEmpty: '이 자리는 비워 두기',
-    placementDone: '완료', editWork: '이 작품 편집',
+    placementDone: '완료', editWork: '이 작품 편집', lightFollowRoom: '전시실 설정에 따름',
     empty: '비어 있음',
     premium: '유료',
     framed: '액자 있음',

@@ -441,7 +441,7 @@ export const ja: Dictionary = {
     placementMap: '部屋の配置図',
     placementEmpty: 'この場所を空けたままにする',
     placementDone: '完了',
-    editWork: 'この作品を編集',
+    editWork: 'この作品を編集', lightFollowRoom: '部屋の設定に従う',
     empty: '空き',
     premium: '有料',
     framed: '額装あり',

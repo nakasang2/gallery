@@ -116,6 +116,15 @@ export function captionKeyFor(s: Settings, art: ArtworkData): string {
   return key && CAPTIONS[key] ? key : s.caption
 }
 
+/** Effective lighting per work: the override when set, else the room's default.
+ *  Unlike the other four axes this one is picked with an explicit "follow the
+ *  room" chip, so an override never collapses into the default (DECISIONS
+ *  2026-07-30 — a work set to 'ceiling' stays 'ceiling' when the room changes). */
+export function lightModeFor(s: Settings, art: ArtworkData): 'ceiling' | 'overhead' {
+  const key = s.lightOverrides[art.id]
+  return key === 'ceiling' || key === 'overhead' ? key : (s.designOverrides.lightMode ?? 'ceiling')
+}
+
 /** Set a per-work override — picking the gallery-wide value clears it instead,
  *  so the work follows future theme/global changes again */
 export function setOverride(

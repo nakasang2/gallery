@@ -60,6 +60,8 @@ export interface PublicExhibition {
   matOverrides: Record<string, string>
   hangingOverrides: Record<string, string>
   captionOverrides: Record<string, string>
+  /** Per-work lighting override (migration 0035) — 'ceiling' | 'overhead' */
+  lightOverrides: Record<string, string>
   /** This room's own work-slot cap (§11.5/§11.7) — the placements are already
    *  trimmed to it server-side; carried through so slotCount() agrees */
   workCap: number
@@ -307,9 +309,17 @@ async function fetchPublicExhibitionInner(
 
   let pRes = await supabase!
     .from('placements')
-    .select('slot_index, frame_override, mat_override, hanging_override, caption_override, artworks (*)')
+    .select('slot_index, frame_override, mat_override, hanging_override, caption_override, light_override, artworks (*)')
     .eq('gallery_id', gallery.id)
     .order('slot_index', { ascending: true })
+  if (pRes.error) {
+    // Migration 0035 (light_override) not applied — the other four axes must survive
+    pRes = (await supabase!
+      .from('placements')
+      .select('slot_index, frame_override, mat_override, hanging_override, caption_override, artworks (*)')
+      .eq('gallery_id', gallery.id)
+      .order('slot_index', { ascending: true })) as unknown as typeof pRes
+  }
   if (pRes.error) {
     // Migration 0011/0012 (per-work overrides) not applied — the page must still render
     pRes = (await supabase!
@@ -325,6 +335,7 @@ async function fetchPublicExhibitionInner(
   const matOverrides: Record<string, string> = {}
   const hangingOverrides: Record<string, string> = {}
   const captionOverrides: Record<string, string> = {}
+  const lightOverrides: Record<string, string> = {}
   const artworks: ArtworkData[] = []
   // Rebuild the manual arrangement (§11.13) from each placement's slot_index, so a
   // published room hangs works on the same walls (and keeps the same empty slots) the
@@ -336,6 +347,7 @@ async function fetchPublicExhibitionInner(
     mat_override?: string | null
     hanging_override?: string | null
     caption_override?: string | null
+    light_override?: string | null
     artworks: unknown
   }>) {
     const row = p.artworks as Parameters<typeof rowToArtwork>[0] | null
@@ -346,6 +358,7 @@ async function fetchPublicExhibitionInner(
     if (p.mat_override) matOverrides[row.id] = p.mat_override
     if (p.hanging_override) hangingOverrides[row.id] = p.hanging_override
     if (p.caption_override) captionOverrides[row.id] = p.caption_override
+    if (p.light_override) lightOverrides[row.id] = p.light_override
   }
   // Array holes (JS leaves them `undefined`) normalise to intentionally-empty slots.
   for (let i = 0; i < arrangement.length; i++) if (arrangement[i] == null) arrangement[i] = null
@@ -390,6 +403,7 @@ async function fetchPublicExhibitionInner(
     matOverrides,
     hangingOverrides,
     captionOverrides,
+    lightOverrides,
     artworks,
   }
 }
@@ -429,18 +443,28 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       .maybeSingle()
     if (gErr || !gallery) return null
 
-    const { data: placements, error: pErr } = await supabase
+    let pRes = await supabase
       .from('placements')
-      .select('slot_index, frame_override, mat_override, hanging_override, caption_override, artworks (*)')
+      .select('slot_index, frame_override, mat_override, hanging_override, caption_override, light_override, artworks (*)')
       .eq('gallery_id', gallery.id)
       .order('slot_index', { ascending: true })
-    if (pErr) return null
+    if (pRes.error) {
+      // Migration 0035 (light_override) not applied — the other four axes must survive
+      pRes = (await supabase
+        .from('placements')
+        .select('slot_index, frame_override, mat_override, hanging_override, caption_override, artworks (*)')
+        .eq('gallery_id', gallery.id)
+        .order('slot_index', { ascending: true })) as unknown as typeof pRes
+    }
+    if (pRes.error) return null
+    const placements = pRes.data
 
     const ownerName = profile.display_name || profile.username || ''
     const frameOverrides: Record<string, string> = {}
     const matOverrides: Record<string, string> = {}
     const hangingOverrides: Record<string, string> = {}
     const captionOverrides: Record<string, string> = {}
+    const lightOverrides: Record<string, string> = {}
     const artworks: ArtworkData[] = []
     const arrangement: (string | null)[] = []
     for (const p of (placements ?? []) as Array<{
@@ -449,6 +473,7 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       mat_override?: string | null
       hanging_override?: string | null
       caption_override?: string | null
+      light_override?: string | null
       artworks: unknown
     }>) {
       const row = p.artworks as Parameters<typeof rowToArtwork>[0] | null
@@ -459,6 +484,7 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       if (p.mat_override) matOverrides[row.id] = p.mat_override
       if (p.hanging_override) hangingOverrides[row.id] = p.hanging_override
       if (p.caption_override) captionOverrides[row.id] = p.caption_override
+      if (p.light_override) lightOverrides[row.id] = p.light_override
     }
     for (let i = 0; i < arrangement.length; i++) if (arrangement[i] == null) arrangement[i] = null
 
@@ -491,6 +517,7 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       matOverrides,
       hangingOverrides,
       captionOverrides,
+      lightOverrides,
       artworks,
     }
   } catch (e) {

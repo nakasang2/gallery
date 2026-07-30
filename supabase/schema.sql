@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0034 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0035 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -1418,3 +1418,10 @@ $$;
 -- them is harmless.
 revoke all on function public.grant_entitlement(uuid, text, text) from public;
 grant execute on function public.grant_entitlement(uuid, text, text) to authenticated;
+
+-- ============================================================================
+-- # 0035_light_override.sql — 作品ごとの照明モード(DECISIONS 2026-07-30)
+-- ============================================================================
+-- 既存の4軸(額・マット・掛け方・キャプション)と同じ形の5軸目。
+-- NULL = 部屋の既定(galleries.design_overrides の lightMode)に従う。
+alter table placements add column if not exists light_override text;

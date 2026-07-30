@@ -326,7 +326,7 @@ export const ptBr: PartialDictionary = {
     matColor: 'Cor do passepartout',
     placementMap: 'Planta de montagem da sala',
     placementEmpty: 'Deixar este lugar vazio',
-    placementDone: 'Pronto', editWork: 'Editar esta obra',
+    placementDone: 'Pronto', editWork: 'Editar esta obra', lightFollowRoom: 'Seguir a sala',
     empty: 'Vazio',
     premium: 'Pago',
     framed: 'Com moldura',

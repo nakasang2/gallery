@@ -325,7 +325,7 @@ export const zhHant: PartialDictionary = {
     matColor: '襯邊顏色',
     placementMap: '展場平面圖',
     placementEmpty: '這個位置留空',
-    placementDone: '完成', editWork: '編輯此作品',
+    placementDone: '完成', editWork: '編輯此作品', lightFollowRoom: '跟隨展廳設定',
     empty: '空著',
     premium: '付費',
     framed: '裝框',

@@ -467,7 +467,7 @@ export const en = {
     placementMap: 'Room placement map',
     placementEmpty: 'Leave this spot empty',
     placementDone: 'Done',
-    editWork: 'Edit this work',
+    editWork: 'Edit this work', lightFollowRoom: 'Follow the room',
     empty: 'Empty',
     premium: 'Premium',
     framed: 'Framed',

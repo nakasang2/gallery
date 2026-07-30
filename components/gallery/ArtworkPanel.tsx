@@ -211,6 +211,17 @@ export default function ArtworkPanel() {
                 matKey={matKeyFor(settings, art)}
                 hangingKey={hangingKeyFor(settings, art)}
                 captionKey={captionKeyFor(settings, art)}
+                lightKey={
+                  settings.lightOverrides[art.id] === 'ceiling' || settings.lightOverrides[art.id] === 'overhead'
+                    ? (settings.lightOverrides[art.id] as 'ceiling' | 'overhead')
+                    : 'follow'
+                }
+                onLight={(k) => {
+                  const next = { ...settings.lightOverrides }
+                  if (k) next[art.id] = k
+                  else delete next[art.id]
+                  updateSettings({ lightOverrides: next })
+                }}
                 onFrame={(k) =>
                   updateSettings({ frameOverrides: setOverride(settings.frameOverrides, art.id, k, settings.frame) })
                 }

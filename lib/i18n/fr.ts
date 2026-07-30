@@ -326,7 +326,7 @@ export const fr: PartialDictionary = {
     matColor: 'Couleur du passe-partout',
     placementMap: 'Plan d’accrochage de la salle',
     placementEmpty: 'Laisser cette place vide',
-    placementDone: 'Terminé', editWork: 'Modifier cette œuvre',
+    placementDone: 'Terminé', editWork: 'Modifier cette œuvre', lightFollowRoom: 'Suivre la salle',
     empty: 'Vide',
     premium: 'Payant',
     framed: 'Encadré',

@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import { getNeutralEnvTexture } from './textures'
 import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat } from '@/lib/presets'
-import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor } from '@/lib/exhibition'
+import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, lightModeFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
 import { LOW_POWER, QUALITY } from '@/lib/controller'
 import Room from './Room'
@@ -56,11 +56,13 @@ export default function GalleryScene() {
     () => list.map((art) => applyMat(frameDefFor(frameKeyFor(settings, art)), matKeyFor(settings, art))),
     [list, settings]
   )
-  const lightMode = settings.designOverrides.lightMode ?? 'ceiling'
+  // Per-work lighting (DECISIONS 2026-07-30): each exhibit already owns one spot,
+  // so "per work" is just resolving the mode per art instead of once for the room.
   const bakeSpecs = useMemo<BakeSpec[]>(
     () =>
       list.map((art, i) => {
         const slot = layout.slots[slots[i]]
+        const lightMode = lightModeFor(settings, art)
         const { halfW, halfH } = exhibitExtents(art, frameDefs[i])
         const rig = exhibitLightRig(slot, lightMode, halfH, halfW)
         const patch = shadowPatch(halfW, halfH)
@@ -86,7 +88,7 @@ export default function GalleryScene() {
           ambient: lightMode === 'overhead' ? 0.22 : 0.35,
         }
       }),
-    [list, slots, layout, frameDefs, lightMode]
+    [list, slots, layout, frameDefs, settings]
   )
   // Fingerprint of everything that changes a baked silhouette: geometry/slot via
   // the spec numbers, PLUS hanging (ledge shelf casts) and caption (plaque casts).
@@ -95,7 +97,7 @@ export default function GalleryScene() {
       bakeSpecs
         .map((s, i) => {
           const art = list[i]
-          return `${s.id}:${s.slotX.toFixed(2)},${s.slotZ.toFixed(2)},${s.rotY.toFixed(3)},${s.patchW.toFixed(2)},${s.patchH.toFixed(2)},${s.angle},${hangingKeyFor(settings, art)},${captionKeyFor(settings, art)}`
+          return `${s.id}:${s.slotX.toFixed(2)},${s.slotZ.toFixed(2)},${s.rotY.toFixed(3)},${s.patchW.toFixed(2)},${s.patchH.toFixed(2)},${s.angle},${hangingKeyFor(settings, art)},${captionKeyFor(settings, art)},${lightModeFor(settings, art)}`
         })
         .join('|'),
     [bakeSpecs, list, settings]
@@ -140,7 +142,7 @@ export default function GalleryScene() {
       gl.shadowMap.needsUpdate = true
     })
     return () => cancelAnimationFrame(id)
-  }, [gl, scene, settings.theme, settings.layout, settings.layoutParams, settings.frame, settings.mat, settings.hanging, settings.caption, settings.frameOverrides, settings.matOverrides, settings.hangingOverrides, settings.captionOverrides, settings.designOverrides, list])
+  }, [gl, scene, settings.theme, settings.layout, settings.layoutParams, settings.frame, settings.mat, settings.hanging, settings.caption, settings.frameOverrides, settings.matOverrides, settings.hangingOverrides, settings.captionOverrides, settings.lightOverrides, settings.designOverrides, list])
 
   return (
     <>
@@ -157,7 +159,7 @@ export default function GalleryScene() {
           frameDef={frameDefs[i]}
           hangingDef={HANGINGS[hangingKeyFor(settings, art)] ?? HANGINGS.wire}
           captionDef={CAPTIONS[captionKeyFor(settings, art)] ?? CAPTIONS.side}
-          lightMode={lightMode}
+          lightMode={lightModeFor(settings, art)}
         />
       ))}
       {/* medium tier bakes too (its shadow pipeline is on); only low skips */}

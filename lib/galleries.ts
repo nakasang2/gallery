@@ -287,7 +287,7 @@ function missingOverrideColumns(error: { code?: string; message?: string }): boo
   return (
     error.code === 'PGRST204' ||
     error.code === '42703' ||
-    /hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides|arrangement/.test(error.message ?? '')
+    /light_override|hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides|arrangement/.test(error.message ?? '')
   )
 }
 
@@ -325,12 +325,18 @@ export async function rebuildPlacements(
             mat_override: settings.matOverrides[art.id] ?? null,
             hanging_override: settings.hangingOverrides[art.id] ?? null,
             caption_override: settings.captionOverrides[art.id] ?? null,
+            light_override: settings.lightOverrides[art.id] ?? null,
           }
         : null
     )
     .filter((r): r is NonNullable<typeof r> => r !== null)
   if (rows.length) {
     let { error } = await sb.from('placements').upsert(rows, { onConflict: 'gallery_id,slot_index' })
+    if (error && missingOverrideColumns(error)) {
+      // Migration 0035 (light_override) not applied yet — keep the other four axes
+      const noLight = rows.map(({ light_override: _light, ...rest }) => rest)
+      ;({ error } = await sb.from('placements').upsert(noLight, { onConflict: 'gallery_id,slot_index' }))
+    }
     if (error && missingOverrideColumns(error)) {
       // Migration 0011/0012 not applied yet — keep publishing working, frame-only
       const legacy = rows.map(({ gallery_id, artwork_id, slot_index, frame_override }) => ({
@@ -359,15 +365,23 @@ export interface PlacementOverrides {
   mats: Record<string, string>
   hangings: Record<string, string>
   captions: Record<string, string>
+  lights: Record<string, string>
 }
 
-export const EMPTY_OVERRIDES: PlacementOverrides = { frames: {}, mats: {}, hangings: {}, captions: {} }
+export const EMPTY_OVERRIDES: PlacementOverrides = { frames: {}, mats: {}, hangings: {}, captions: {}, lights: {} }
 
 export async function fetchPlacementOverrides(galleryId: string): Promise<PlacementOverrides> {
   let res = await supabase!
     .from('placements')
-    .select('artwork_id, frame_override, mat_override, hanging_override, caption_override')
+    .select('artwork_id, frame_override, mat_override, hanging_override, caption_override, light_override')
     .eq('gallery_id', galleryId)
+  if (res.error && missingOverrideColumns(res.error)) {
+    // Migration 0035 (light_override) not applied yet — the other four axes still work
+    res = (await supabase!
+      .from('placements')
+      .select('artwork_id, frame_override, mat_override, hanging_override, caption_override')
+      .eq('gallery_id', galleryId)) as unknown as typeof res
+  }
   if (res.error && missingOverrideColumns(res.error)) {
     // Migration 0011/0012 not applied yet — frame overrides still work
     res = (await supabase!
@@ -376,18 +390,20 @@ export async function fetchPlacementOverrides(galleryId: string): Promise<Placem
       .eq('gallery_id', galleryId)) as unknown as typeof res
   }
   if (res.error) throw res.error
-  const out: PlacementOverrides = { frames: {}, mats: {}, hangings: {}, captions: {} }
+  const out: PlacementOverrides = { frames: {}, mats: {}, hangings: {}, captions: {}, lights: {} }
   for (const r of (res.data ?? []) as Array<{
     artwork_id: string
     frame_override?: string | null
     mat_override?: string | null
     hanging_override?: string | null
     caption_override?: string | null
+    light_override?: string | null
   }>) {
     if (r.frame_override) out.frames[r.artwork_id] = r.frame_override
     if (r.mat_override) out.mats[r.artwork_id] = r.mat_override
     if (r.hanging_override) out.hangings[r.artwork_id] = r.hanging_override
     if (r.caption_override) out.captions[r.artwork_id] = r.caption_override
+    if (r.light_override) out.lights[r.artwork_id] = r.light_override
   }
   return out
 }
@@ -420,6 +436,7 @@ export function rowToSettings(row: GalleryRow, overrides: PlacementOverrides = E
     matOverrides: overrides.mats,
     hangingOverrides: overrides.hangings,
     captionOverrides: overrides.captions,
+    lightOverrides: overrides.lights,
     workCap: row.work_cap ?? PLAN.worksPerGallery,
     designOverrides: normalizeDesignOverrides(row.design_overrides),
     arrangement: normalizeArrangement(row.arrangement),

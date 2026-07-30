@@ -327,7 +327,7 @@ export const zhHans: PartialDictionary = {
     matColor: '衬边颜色',
     placementMap: '展厅平面图',
     placementEmpty: '这个位置留空',
-    placementDone: '完成', editWork: '编辑此作品',
+    placementDone: '完成', editWork: '编辑此作品', lightFollowRoom: '跟随展厅设置',
     empty: '空着',
     premium: '付费',
     framed: '装框',

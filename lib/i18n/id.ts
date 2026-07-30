@@ -326,7 +326,7 @@ export const id: PartialDictionary = {
     matColor: 'Warna mat',
     placementMap: 'Peta penempatan ruang',
     placementEmpty: 'Biarkan tempat ini kosong',
-    placementDone: 'Selesai', editWork: 'Edit karya ini',
+    placementDone: 'Selesai', editWork: 'Edit karya ini', lightFollowRoom: 'Ikuti ruangan',
     empty: 'Kosong',
     premium: 'Berbayar',
     framed: 'Berbingkai',

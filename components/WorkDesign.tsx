@@ -32,19 +32,25 @@ export default function WorkDesign({
   matKey,
   hangingKey,
   captionKey,
+  lightKey,
   onFrame,
   onMat,
   onHanging,
   onCaption,
+  onLight,
 }: {
   frameKey: string
   matKey: string
   hangingKey: string
   captionKey: string
+  /** 'follow' = the room's lighting; otherwise a per-work override (DECISIONS 2026-07-30) */
+  lightKey: 'follow' | 'ceiling' | 'overhead'
   onFrame: (key: string) => void
   onMat: (key: string) => void
   onHanging: (key: string) => void
   onCaption: (key: string) => void
+  /** null clears the override (back to "follow the room") */
+  onLight: (key: 'ceiling' | 'overhead' | null) => void
 }) {
   const t = useT()
   // This panel (material × colour × width) is free for everyone, so it must never
@@ -176,6 +182,28 @@ export default function WorkDesign({
               >
                 <HangingIcon hangingKey={key} />
                 {t(`presets.hanging.${key}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="wd-row">
+          <span className="wd-label">{t('me.lighting')}</span>
+          <div className="chips">
+            {/* Explicit "follow the room" chip — with only two modes, an implicit
+                override (the other axes' model) can't show whether the work will
+                follow a future room change or stay fixed. */}
+            {([
+              ['follow', 'design.lightFollowRoom', null],
+              ['ceiling', 'me.lightCeiling', 'ceiling'],
+              ['overhead', 'me.lightOverhead', 'overhead'],
+            ] as const).map(([key, labelKey, value]) => (
+              <button
+                key={key}
+                type="button"
+                className={`chip${lightKey === key ? ' active' : ''}`}
+                onClick={() => onLight(value)}
+              >
+                {t(labelKey)}
               </button>
             ))}
           </div>

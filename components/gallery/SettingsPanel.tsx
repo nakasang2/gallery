@@ -447,6 +447,7 @@ export default function SettingsPanel() {
     settings.matOverrides,
     settings.hangingOverrides,
     settings.captionOverrides,
+    settings.lightOverrides,
   ]
 
   // Highlight a template only while every axis still matches its bundle
@@ -614,6 +615,7 @@ export default function SettingsPanel() {
                   matOverrides: {},
                   hangingOverrides: {},
                   captionOverrides: {},
+                  lightOverrides: {},
                 })
               }}
             />
@@ -634,7 +636,9 @@ export default function SettingsPanel() {
                 className={`chip chip-visual${key === settings.theme ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                 onClick={() => {
                   if (!unlocked) { setPurchaseItem({ kind: 'theme', key, label: def.label }); return }
-                  if (!confirmOverrideReset(...allOverrideMaps)) return
+                  // Lighting overrides survive a theme change — a theme carries no
+                  // lighting, so only the four axes it does carry are reset/counted.
+                  if (!confirmOverrideReset(settings.frameOverrides, settings.matOverrides, settings.hangingOverrides, settings.captionOverrides)) return
                   updateSettings({
                     theme: key,
                     ...def.recommends,

@@ -72,6 +72,9 @@ export interface Settings {
   matOverrides: Record<string, string>
   hangingOverrides: Record<string, string>
   captionOverrides: Record<string, string>
+  /** Per-work lighting override ('ceiling' | 'overhead'), absent = follow the
+   *  room's designOverrides.lightMode (DECISIONS 2026-07-30) */
+  lightOverrides: Record<string, string>
   /** This room's own work-slot cap (REQUIREMENTS.md §11.5/§11.7) — travels with
    *  the gallery row rather than one account-wide plan constant */
   workCap: number
@@ -96,6 +99,7 @@ export const DEFAULT_SETTINGS: Settings = {
   matOverrides: {},
   hangingOverrides: {},
   captionOverrides: {},
+  lightOverrides: {},
   workCap: PLAN.worksPerGallery,
   designOverrides: EMPTY_DESIGN_OVERRIDES,
   arrangement: [],
@@ -158,14 +162,14 @@ function saveSettings(s: Settings): boolean {
   try {
     const {
       theme, layout, layoutParams, frame, mat, hanging, caption,
-      showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides, workCap,
+      showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides, lightOverrides, workCap,
       designOverrides, arrangement,
     } = s
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         theme, layout, layoutParams, frame, mat, hanging, caption,
-        showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides, workCap,
+        showDemo, artworks, frameOverrides, matOverrides, hangingOverrides, captionOverrides, lightOverrides, workCap,
         designOverrides, arrangement,
       })
     )
@@ -335,13 +339,15 @@ export const useGallery = create<GalleryStore>((set, get) => ({
           Object.keys(saved.frames).length ||
           Object.keys(saved.mats).length ||
           Object.keys(saved.hangings).length ||
-          Object.keys(saved.captions).length
+          Object.keys(saved.captions).length ||
+          Object.keys(saved.lights).length
         ) {
           set({
             frameOverrides: { ...saved.frames, ...get().frameOverrides },
             matOverrides: { ...saved.mats, ...get().matOverrides },
             hangingOverrides: { ...saved.hangings, ...get().hangingOverrides },
             captionOverrides: { ...saved.captions, ...get().captionOverrides },
+            lightOverrides: { ...saved.lights, ...get().lightOverrides },
           })
           saveSettings(get())
         }
@@ -441,6 +447,7 @@ export function useSettings(): Settings {
             matOverrides: s.visitor.matOverrides,
             hangingOverrides: s.visitor.hangingOverrides,
             captionOverrides: s.visitor.captionOverrides,
+            lightOverrides: s.visitor.lightOverrides,
             workCap: s.visitor.workCap,
             designOverrides: s.visitor.designOverrides,
             arrangement: s.visitor.arrangement,
@@ -459,6 +466,7 @@ export function useSettings(): Settings {
             matOverrides: s.matOverrides,
             hangingOverrides: s.hangingOverrides,
             captionOverrides: s.captionOverrides,
+            lightOverrides: s.lightOverrides,
             workCap: s.workCap,
             designOverrides: s.designOverrides,
             arrangement: s.arrangement,

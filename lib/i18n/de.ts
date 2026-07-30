@@ -326,7 +326,7 @@ export const de: PartialDictionary = {
     matColor: 'Farbe des Passepartouts',
     placementMap: 'Hängeplan des Raums',
     placementEmpty: 'Diesen Platz frei lassen',
-    placementDone: 'Fertig', editWork: 'Dieses Werk bearbeiten',
+    placementDone: 'Fertig', editWork: 'Dieses Werk bearbeiten', lightFollowRoom: 'Wie der Raum',
     empty: 'Frei',
     premium: 'Kostenpflichtig',
     framed: 'Gerahmt',
