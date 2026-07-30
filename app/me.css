@@ -1051,22 +1051,33 @@
   margin: 0 auto;
   color: var(--ink);
 }
-.place-map .lp-room { fill: none; stroke: currentColor; stroke-width: 0.34; opacity: 0.7; }
-.place-map .lp-part { fill: currentColor; opacity: 0.5; }
-.place-map .lp-bench { fill: currentColor; opacity: 0.22; }
+/* 壁の線は細く・暗く。空き枠のマスと同じ明るさだと、壁の線と枠が混ざって
+   どこが枠なのか読めなかった（ユーザー指摘 2026-07-29）。主役は枠、壁は下地。 */
+.place-map .lp-room { fill: none; stroke: currentColor; stroke-width: 0.22; opacity: 0.34; }
+.place-map .lp-part { fill: currentColor; opacity: 0.34; }
+.place-map .lp-bench { fill: currentColor; opacity: 0.16; }
 
-.pe-slot-bg { fill: rgba(236, 231, 222, 0.06); }
-.pe-slot.filled .pe-slot-bg { fill: rgba(236, 231, 222, 0.03); }
+/* マスの下地は**不透明**にする。枠は壁の線に重なる位置にあるので、半透明だと線が
+   マスの中を通り抜けて「枠」に見えない。不透明にすると壁の線が枠の手前で途切れ、
+   美術館の平面図で作品が壁を占めているように読める（ユーザー指摘 2026-07-29）。 */
+/* 枠のまわりで壁の線を消すための縁取り（カードの地の色）。線とマスの縁が平行に
+   並ぶと1本の滲みに見えるので、間に隙間をつくる */
+.pe-slot-knockout { fill: none; stroke: #100e0c; stroke-width: 0.16; }
+.pe-slot-bg { fill: #1e1b16; }
+.pe-slot.filled .pe-slot-bg { fill: #0e0d0b; }
 .pe-slot-ring { fill: none; stroke: currentColor; stroke-width: 0.08; opacity: 0.4; }
-.pe-slot.empty .pe-slot-ring { stroke-dasharray: 0.28 0.22; opacity: 0.55; }
+/* 空き枠は「置ける場所」なので、破線ではなく実線の縁で1つのマスとして閉じる
+   （破線は壁の線と混ざって輪郭が消えていた） */
+.pe-slot.empty .pe-slot-ring { opacity: 0.62; }
 .pe-slot.filled .pe-slot-ring { stroke: var(--gold); opacity: 0.75; }
 .pe-slot.sel .pe-slot-ring { stroke: var(--gold); stroke-width: 0.16; opacity: 1; }
 .pe-slot-num { fill: currentColor; opacity: 0.55; font-size: 0.62px; text-anchor: middle; font-family: var(--sans, sans-serif); }
 .pe-slot:hover .pe-slot-ring { opacity: 0.9; }
 
-/* 容量を超えた枠。買えば使えるものなので、ロックのチップと同じ金色で示す */
-.pe-slot.locked .pe-slot-bg { fill: rgba(236, 231, 222, 0.02); }
-.pe-slot.locked .pe-slot-ring { stroke: var(--gold); stroke-dasharray: 0.14 0.18; opacity: 0.35; }
+/* 容量を超えた枠。買えば使えるものなので、ロックのチップと同じ金色で示す。
+   下地は空き枠より暗くして「まだ使えない」ことを明るさの差で伝える */
+.pe-slot.locked .pe-slot-bg { fill: #16130f; }
+.pe-slot.locked .pe-slot-ring { stroke: var(--gold); stroke-dasharray: 0.16 0.16; opacity: 0.45; }
 .pe-slot.locked:hover .pe-slot-ring { opacity: 0.7; }
 /* 既定では10枠が鍵付きなので、明るくしすぎると配置の作業を邪魔する。
    金色で「買えば使える」ことだけ伝わる濃さに留める */

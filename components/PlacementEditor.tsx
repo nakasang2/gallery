@@ -168,6 +168,27 @@ export default function PlacementEditor({
         {def.benches.map((b, i) => (
           <rect key={`b${i}`} className="lp-bench" x={b.x - 1.05} y={b.z - 0.28} width={2.1} height={0.56} rx={0.2} />
         ))}
+        {/* Knockout layer: a ring of the surface colour just outside every spot, so the
+            wall line stops short of a spot instead of running along its edge — two
+            parallel lines a pixel apart read as one smear (ユーザー指摘 2026-07-29).
+            All of them are painted BEFORE any cell, so a knockout can never eat the
+            neighbouring spot's own outline (portrait's corner spots sit 1.35m apart,
+            close enough for that to happen if they were drawn per-spot). */}
+        {shown.map((slotIdx) => {
+          const s = at[slotIdx]
+          const side = S + 0.16
+          return (
+            <rect
+              key={`k${slotIdx}`}
+              className="pe-slot-knockout"
+              x={s.x - side / 2}
+              y={s.z - side / 2}
+              width={side}
+              height={side}
+              rx={0.22}
+            />
+          )
+        })}
         {shown.map((slotIdx, pos) => {
           const s = at[slotIdx]
           const art = perSlot[slotIdx]
