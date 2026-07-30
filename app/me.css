@@ -13,34 +13,6 @@
 
 .me-inner { width: min(880px, 100%); margin: 0 auto; }
 
-/* ダッシュボードのメニュー: プロフィール編集とギャラリー編集を混ぜない */
-.me-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
-  border-bottom: 1px solid var(--hairline);
-  margin-bottom: 1.8rem;
-}
-.me-tab {
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  padding: 0.6em 0.95em;
-  font-family: var(--sans);
-  font-size: 0.7rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--muted);
-  cursor: pointer;
-  transition: color 0.2s;
-}
-.me-tab:hover { color: var(--ink); }
-.me-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
-@media (max-width: 480px) {
-  /* All four menus on one line on phones */
-  .me-tab { font-size: 0.6rem; letter-spacing: 0.12em; padding: 0.6em 0.55em; }
-}
 
 .me-top {
   display: flex;
@@ -352,12 +324,7 @@
   padding: 0.4em 0.7em 0.4em 0.9em;
   flex: none;
 }
-button.hako-state { cursor: pointer; }
 .hako-state.open { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
-.hako-head-actions { margin-left: auto; display: flex; align-items: center; gap: 0.55rem; flex: none; }
-
-.hako-head { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; }
-.hako-title { font-family: var(--serif); font-size: 1.35rem; font-weight: 500; }
 
 /* タイトル/説明文はその場で編集(編集モードなし)。見た目は見出し、実体は入力 */
 .hako-title-input {
@@ -621,7 +588,12 @@ button.hako-state { cursor: pointer; }
   gap: 0.2rem;
   border-bottom: 1px solid var(--hairline);
   margin-top: 1.3rem;
+  /* 6 stages (作品/部屋/配置/公開/芳名帳/プロフィール) can outrun a phone's width;
+     scroll them sideways rather than wrap into a ragged second row. */
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
+.me-stage { flex: 0 0 auto; white-space: nowrap; }
 .me-stage {
   background: none;
   border: none;
@@ -1291,7 +1263,6 @@ button.hako-state { cursor: pointer; }
    密度は保つ）。見た目の大きさではなく、当たり判定を稼ぐのが目的。
    ============================================================ */
 @media (pointer: coarse) {
-  .me-tab { min-height: 44px; display: inline-flex; align-items: center; }
   .btn-line { min-height: 44px; }
   /* 芳名帳の削除✕（1.4rem = 22.4px） */
   .gb-list .gb-meta button { width: 44px; height: 44px; }

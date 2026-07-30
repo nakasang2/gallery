@@ -465,9 +465,12 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const [showEmbed, setShowEmbed] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
   const [uploading, setUploading] = useState(false)
-  // The stage tabs (works → room → placement → publish) are the second level.
+  // The stage tabs are the ONLY navigation now (the old top-level gallery/guestbook/
+  // profile tabs are gone — ユーザー指示 2026-07-30). The publish flow (works → room →
+  // placement → publish) leads, then the two housekeeping stages (guestbook, profile).
   // Order is visible but never enforced — every stage stays reachable.
-  const [stage, setStage] = useState<'works' | 'room' | 'placement' | 'publish'>('works')
+  type Stage = 'works' | 'room' | 'placement' | 'publish' | 'guestbook' | 'profile'
+  const [stage, setStage] = useState<Stage>('works')
   // The work being edited in the shared editor sheet (works + placement stages).
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // Phones render the editor sheet as a bottom sheet over the grid/map.
@@ -1109,31 +1112,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
 
   return (
     <>
-    <div className="me-section-head">
-      <h2>{t('me.myGallery')}</h2>
-    </div>
-    <div className="me-card">
-      {/* Slim header: which exhibition you're editing and its publish state. The
-          title is EDITED in the publish stage — here it only names the room you're
-          working on. "Walk the room" moved to the publish stage's action row, and
-          the theme-colour ribbon was dropped (ユーザー指示 2026-07-30). */}
-      <div className="hako-head">
-        <h2 className="hako-title">{nameInput || t('me.untitledPlaceholder')}</h2>
-        <div className="hako-head-actions">
-          {/* The badge is a shortcut to the stage that changes it */}
-          <button
-            type="button"
-            className={`hako-state${row.is_public ? ' open' : ''}`}
-            onClick={() => setStage('publish')}
-          >
-            {row.is_public ? t('me.open') : t('me.private')}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    {/* The stage bar: order is visible (works → room → placement → publish), every
-        stage stays reachable, and a check marks what publishing already has. */}
+    {/* The stage bar is the only navigation (the header card and the top tabs are
+        gone — ユーザー指示 2026-07-30). The publish flow leads with a check for what
+        publishing already has; guestbook + profile follow as housekeeping stages. */}
     <nav className="me-stages" aria-label={t('me.navSections')}>
       {(
         [
@@ -1141,6 +1122,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           ['room', t('me.navRoom'), true, null],
           ['placement', t('me.placement'), cloudArtworks.length > 0, null],
           ['publish', t('me.stagePublish'), row.is_public, null],
+          ['guestbook', t('me.tabGuestbook'), false, null],
+          ['profile', t('me.tabProfile'), false, null],
         ] as const
       ).map(([key, label, done, count]) => (
         <button
@@ -1156,8 +1139,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         </button>
       ))}
     </nav>
-    {/* One next step at a time — the highest-priority gap on the way to publishing */}
+    {/* One next step at a time toward publishing — not shown on the housekeeping stages */}
     {(() => {
+      if (stage === 'guestbook' || stage === 'profile') return null
       const hint = cloudArtworks.length === 0
         ? { key: 'me.hintAddWork', to: 'works' as const }
         : !username
@@ -1173,9 +1157,14 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       )
     })()}
 
-    {/* The stage’s working surface. The rail is gone — the works grid, the header
-        and the placement map now carry everything it used to. */}
+    {/* The stage’s working surface. Guestbook + profile bring their own card; the
+        four flow stages share the subcard. */}
     <div className="me-gallery-body">
+      {stage === 'guestbook' ? (
+        <GuestbookCard galleryId={row.id} enabled={row.guestbook_enabled !== false} />
+      ) : stage === 'profile' ? (
+        <ProfileCard />
+      ) : (
       <div className="me-card me-subcard">
       {stage === 'room' ? (
         /* The room's editing surface: sticky 3D preview on the left, its design on the right */
@@ -1800,6 +1789,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         </div>
       )}
       </div>
+      )}
     </div>
 
     {purchaseItem && (
@@ -2192,12 +2182,10 @@ function ProfileCard() {
 // Dashboard menus: gallery editing and profile/account editing are separate concerns
 // Ids only — the labels are translated where they are rendered, since a module
 // constant cannot call a hook.
-// Account settings live in the top-right menu instead of a fourth tab (ユーザー指示
-// 2026-07-30): they're visited rarely, and three tabs leave the row uncrowded.
-// 'account' is still a tab VALUE — the menu switches to it, the tab row just never
-// offers it.
-const ME_TABS = ['gallery', 'guestbook', 'profile'] as const
-type MeTab = (typeof ME_TABS)[number] | 'account'
+// Only two top-level views remain (ユーザー指示 2026-07-30): the gallery (whose stage
+// bar carries works/room/placement/publish/guestbook/profile) and account, reached
+// from the top-right menu. There is no tab row anymore.
+type MeTab = 'gallery' | 'account'
 
 export default function MePage() {
   const t = useT()
@@ -2329,25 +2317,15 @@ export default function MePage() {
                 <button className="btn-line" onClick={() => setPurchaseReturn(null)}>{t('me.dismiss')}</button>
               </div>
             )}
-            <nav className="me-tabs" aria-label={t('me.sections')}>
-              {ME_TABS.map((key) => (
-                <button
-                  key={key}
-                  className={`me-tab${tab === key ? ' active' : ''}`}
-                  aria-current={tab === key ? 'page' : undefined}
-                  onClick={() => setTab(key)}
-                >
-                  {t(`me.tab${key.charAt(0).toUpperCase()}${key.slice(1)}`)}
-                </button>
-              ))}
-            </nav>
-
+            {/* The top-level tabs are gone (ユーザー指示 2026-07-30): guestbook and
+                profile became stages inside the gallery, and the gallery is the only
+                non-account view. Account is still reached from the top-right menu. */}
             {tab === 'gallery' && (
               <>
                 <GuestImportCard />
                 <section className="me-section">
-                  {/* The GalleryCard renders its own "My gallery" header (with the Save action);
-                      only show a bare heading while there's no card yet (loading / empty). */}
+                  {/* A bare heading only while there's no gallery card yet (loading / empty).
+                      The card itself carries the stage bar and needs no separate header. */}
                   {(galleries === null || galleries.length === 0) && <h2>{t('me.myGallery')}</h2>}
                   {loadErr && <p className="me-error">{loadErr}</p>}
                   {galleries === null && !loadErr && <p className="me-note">{t('me.loading')}</p>}
@@ -2372,25 +2350,6 @@ export default function MePage() {
                   )}
                 </section>
               </>
-            )}
-
-            {tab === 'guestbook' && (
-              <section className="me-section">
-                <h2>{t('me.tabGuestbook')}</h2>
-                {galleries !== null && galleries.length > 0 ? (
-                  <GuestbookCard galleryId={galleries[0].id} enabled={galleries[0].guestbook_enabled !== false} />
-                ) : (
-                  <p className="me-note">
-                    {t('me.guestbookNeedGallery')}
-                  </p>
-                )}
-              </section>
-            )}
-
-            {tab === 'profile' && (
-              <section className="me-section">
-                <ProfileCard />
-              </section>
             )}
 
             {tab === 'account' && (
