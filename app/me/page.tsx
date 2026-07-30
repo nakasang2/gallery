@@ -924,9 +924,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     if (workTimer.current) clearTimeout(workTimer.current)
   }, [])
 
-  const themeDef = THEMES[row.theme] ?? THEMES.chic
-
-
   // The shared work editor: opens from the works row and from the placement map
   // (DECISIONS 2026-07-30 — hanging and describing a work used to live in different
   // views). Always inline, on every width: the works stage keeps one work selected
@@ -1110,16 +1107,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       <h2>{t('me.myGallery')}</h2>
     </div>
     <div className="me-card">
-      {/* The room's own colours, as a ribbon — this card IS that room */}
-      <div
-        className="hako-ribbon"
-        style={{
-          background: `linear-gradient(90deg, ${hex(themeDef.wall)}, ${hex(themeDef.accentWall)} 45%, ${hex(themeDef.spotColor)})`,
-        }}
-      />
-      {/* Slim header: which exhibition you're editing, its publish state, and the
-          door into 3D. The title is EDITED in the publish stage (ユーザー指示
-          2026-07-30) — here it only names the room you're working on. */}
+      {/* Slim header: which exhibition you're editing and its publish state. The
+          title is EDITED in the publish stage — here it only names the room you're
+          working on. "Walk the room" moved to the publish stage's action row, and
+          the theme-colour ribbon was dropped (ユーザー指示 2026-07-30). */}
       <div className="hako-head">
         <h2 className="hako-title">{nameInput || t('me.untitledPlaceholder')}</h2>
         <div className="hako-head-actions">
@@ -1131,7 +1122,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           >
             {row.is_public ? t('me.open') : t('me.private')}
           </button>
-          <LocaleLink className="btn-line hako-walk" href="/demo">{t('me.navWalk')}</LocaleLink>
         </div>
       </div>
     </div>
@@ -1534,70 +1524,53 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           </div>
         </div>
       ) : stage === 'placement' ? (
-        /* The placement map + the same editor sheet, so hanging and describing a
-           work no longer live in different views (DECISIONS 2026-07-30). One column
-           on every width: the map is the thing being aimed at, and a side-by-side
-           preview squeezed each spot down to ~15px
-           （ユーザー指摘「スロットの枠が小さすぎる」2026-07-30）。 */
-        <div className="works-detail works-detail--map">
-          <GalleryPreview
-            art={roomArt}
-            src={roomSrc}
-            index={Math.max(0, cloudArtworks.indexOf(roomArt))}
-            themeKey={row.theme}
-            frameKey={row.frame_default}
-            matKey={row.mat_default}
-            hangingKey={row.hanging_default}
-            captionKey={row.caption_default}
-            designOverrides={design}
-            emptyNote={t('me.emptyRoomNote')}
-            mode="room"
-          />
-          <div className="we-right">
-            {cloudArtworks.length > 0 ? (
-              <>
-                <div className="wd-group wd-group--flush">
-                  <div className="wd-title">
-                    <span className="me-field-label">
-                      {t('me.placement')}
-                      <span
-                        className="field-hint"
-                        tabIndex={0}
-                        role="note"
-                        aria-label={t('me.placementHint')}
-                      >
-                        <InfoIcon />
-                        <span className="field-hint-pop" role="tooltip">
-                          {t('me.placementHint')}
-                        </span>
+        /* The map IS the preview here, so the 3D view is gone (ユーザー指示
+           2026-07-30). One column, full width, so each spot is big; the map+heading
+           stick to the top while you scroll the editor for a tapped spot beneath it. */
+        <div className="placement-stage">
+          {cloudArtworks.length > 0 ? (
+            <>
+              <div className="placement-sticky wd-group wd-group--flush">
+                <div className="wd-title">
+                  <span className="me-field-label">
+                    {t('me.placement')}
+                    <span
+                      className="field-hint"
+                      tabIndex={0}
+                      role="note"
+                      aria-label={t('me.placementHint')}
+                    >
+                      <InfoIcon />
+                      <span className="field-hint-pop" role="tooltip">
+                        {t('me.placementHint')}
                       </span>
                     </span>
-                  </div>
-                  <PlacementEditor
-                    layoutKey={row.layout}
-                    layoutParams={normalizeLayoutParams(row.layout_params)}
-                    workCap={row.work_cap}
-                    works={cloudArtworks}
-                    arrangement={placement}
-                    onChange={editPlacement}
-                    onBuySlots={(slots) =>
-                      setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
-                    }
-                    onEditWork={(id) => setSelectedId(id)}
-                    disabled={busy}
-                  />
+                  </span>
                 </div>
-                {workSheet}
-              </>
-            ) : (
-              <>
-                <p className="me-note" style={{ marginTop: 0 }}>{t('me.hintAddWork')}</p>
-                <button type="button" className="btn-line" onClick={() => setStage('works')}>
-                  {t('me.addFirstWork')}
-                </button>
-              </>
-            )}
-          </div>
+                <PlacementEditor
+                  layoutKey={row.layout}
+                  layoutParams={normalizeLayoutParams(row.layout_params)}
+                  workCap={row.work_cap}
+                  works={cloudArtworks}
+                  arrangement={placement}
+                  onChange={editPlacement}
+                  onBuySlots={(slots) =>
+                    setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
+                  }
+                  onEditWork={(id) => setSelectedId(id)}
+                  disabled={busy}
+                />
+              </div>
+              {workSheet}
+            </>
+          ) : (
+            <>
+              <p className="me-note" style={{ marginTop: 0 }}>{t('me.hintAddWork')}</p>
+              <button type="button" className="btn-line" onClick={() => setStage('works')}>
+                {t('me.addFirstWork')}
+              </button>
+            </>
+          )}
         </div>
       ) : (
         /* Publish: everything about going public in one place — the URL name gate,
@@ -1656,20 +1629,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   <span className="knob" aria-hidden="true" />
                 </label>
                 <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? t('me.open') : t('me.private')}</span>
-                {row.is_public && (embedCode || username) && (
-                  <div className="hako-url-actions">
-                    {embedCode && (
-                      <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
-                        {showEmbed ? t('me.embedHide') : t('me.embed')}
-                      </button>
-                    )}
-                    {username && (
-                      <a className="btn-line" href={`/@${username}/${row.slug}/catalog`} target="_blank" rel="noreferrer">
-                        {t('me.catalog')}
-                      </a>
-                    )}
-                  </div>
-                )}
               </div>
             ) : (
               /* No username means no public URL, so there is nothing for the switch to
@@ -1696,6 +1655,22 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 </div>
               </div>
             )}
+            {/* Actions for the finished room: walk it in 3D (always — the room can be
+                arranged before it's public), plus embed + catalog once it's live
+                (ユーザー指示 2026-07-30 — "部屋を歩く" moved here from the header). */}
+            <div className="hako-url-actions">
+              <LocaleLink className="btn-line" href="/demo">{t('me.navWalk')}</LocaleLink>
+              {row.is_public && embedCode && (
+                <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
+                  {showEmbed ? t('me.embedHide') : t('me.embed')}
+                </button>
+              )}
+              {row.is_public && username && (
+                <a className="btn-line" href={`/@${username}/${row.slug}/catalog`} target="_blank" rel="noreferrer">
+                  {t('me.catalog')}
+                </a>
+              )}
+            </div>
             {/* The exhibition's own words — the title and the statement, edited
                 together where the room goes public (ユーザー指示 2026-07-30). */}
             <div className="wd-group">

@@ -282,9 +282,6 @@
   background: rgba(212, 162, 78, 0.08);
 }
 
-/* 部屋のテーマ色を映すリボン — カードと3D空間を視覚的に接続する */
-.hako-ribbon { height: 5px; border-radius: 100px; margin-bottom: 1.15rem; opacity: 0.9; }
-
 /* エンゲージメント統計タイル */
 .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-top: 1rem; }
 .stat {
@@ -728,14 +725,19 @@ button.hako-state { cursor: pointer; }
   color: var(--ink);
 }
 
-/* ---- Placement stage: 地図が主役なので1カラム（ユーザー指摘「スロットの枠が
-   小さすぎる」2026-07-30）。横に3Dプレビューを置くと右列が420pxまで狭まり、
-   26×16mのhallでは1枠が15pxしか描けなかった。 ---- */
-.works-detail--map { grid-template-columns: minmax(0, 1fr); }
-/* 1カラムでは貼り付く意味がない（地図がプレビューの真下に来る） */
-.works-detail--map .we-left { position: static; }
-.works-detail--map .wall-preview3d,
-.works-detail--map .wall-preview--lg { height: 220px; }
+/* ---- Placement stage: 地図が主役。3Dプレビューは廃止（地図がプレビューそのもの
+   ＝ユーザー指示 2026-07-30）。1カラム・全幅なので1枠が大きく描ける。 ---- */
+.placement-stage { margin-top: 0.4rem; }
+/* スクロールしても地図（と見出し）は上に貼り付く。下の編集シートがその裏を
+   スクロールするので、透明なSVGの下地が透けないよう不透明な背景を敷く。
+   position: sticky は positioned なので、静的な編集シートの上に描かれる。 */
+.placement-sticky {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 2;
+  background: var(--bg);
+  padding-bottom: 0.5rem;
+}
 
 /* ---- Publish stage: share-cover picker ---- */
 .me-cover-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -1061,7 +1063,7 @@ button.hako-state { cursor: pointer; }
   display: block;
   width: 100%;
   /* 680px: the placement stage gives the map the full content column (see
-     .works-detail--map), and a 26×16m hall drawn this wide puts each 1.25m spot at
+     .placement-stage), and a 26×16m hall drawn this wide puts each 1.25m spot at
      ~31px instead of the ~15px it got inside the old 360px box
      （ユーザー指摘「スロットの枠が小さすぎる」2026-07-30）。 */
   max-width: 680px;
