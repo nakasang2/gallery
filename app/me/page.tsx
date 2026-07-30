@@ -1138,26 +1138,25 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     <>
     {/* The stage bar is the only navigation (the header card and the top tabs are
         gone — ユーザー指示 2026-07-30). Profile leads (who you are), then the publish
-        flow with a check for what publishing already has; the guestbook lives INSIDE
-        the publish stage. */}
+        flow; the guestbook lives INSIDE the publish stage. (Per-stage "done" check
+        marks were dropped — ユーザー指示 2026-07-31.) */}
     <nav className="me-stages" aria-label={t('me.navSections')}>
       {(
         [
-          ['profile', t('me.tabProfile'), false, null],
-          ['works', t('me.stageWorks'), cloudArtworks.length > 0, cloudArtworks.length || null],
-          ['room', t('me.navRoom'), true, null],
-          ['placement', t('me.placement'), cloudArtworks.length > 0, null],
-          ['publish', t('me.stagePublish'), row.is_public, null],
+          ['profile', t('me.tabProfile'), null],
+          ['works', t('me.stageWorks'), cloudArtworks.length || null],
+          ['room', t('me.navRoom'), null],
+          ['placement', t('me.placement'), null],
+          ['publish', t('me.stagePublish'), null],
         ] as const
-      ).map(([key, label, done, count]) => (
+      ).map(([key, label, count]) => (
         <button
           key={key}
           type="button"
-          className={`me-stage${stage === key ? ' active' : ''}${done ? ' done' : ''}`}
+          className={`me-stage${stage === key ? ' active' : ''}`}
           aria-current={stage === key ? 'page' : undefined}
           onClick={() => setStage(key)}
         >
-          {done && <span className="me-stage-check" aria-hidden="true"><CheckIcon /></span>}
           {label}
           {count != null && <span className="me-stage-count">{count}</span>}
         </button>

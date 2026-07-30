@@ -627,11 +627,14 @@
   /* The stages can outrun a phone's width; scroll them sideways rather than wrap
      into a ragged second row. overflow-y MUST be hidden explicitly — setting only
      overflow-x makes the y-axis compute to `auto`, which showed a spurious vertical
-     scrollbar from the active tab's -1px bottom margin (ユーザー指摘 2026-07-30). */
+     scrollbar from the active tab's -1px bottom margin (ユーザー指摘 2026-07-30).
+     The scrollbar itself is hidden (ユーザー指摘 2026-07-31) — the row still scrolls
+     by touch/trackpad/wheel, it just doesn't draw a bar. */
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  scrollbar-width: none; /* Firefox */
 }
+.me-stages::-webkit-scrollbar { display: none; } /* WebKit/Blink */
 .me-stage { flex: 0 0 auto; white-space: nowrap; }
 .me-stage {
   background: none;
@@ -650,7 +653,6 @@
 }
 .me-stage:hover { color: var(--ink); }
 .me-stage.active { color: var(--ink); border-bottom-color: var(--gold); }
-.me-stage-check { display: inline-flex; color: var(--gold); font-size: 0.7rem; }
 .me-stage-count { color: var(--gold); font-size: 0.72rem; }
 /* 次の一手を1つだけ指す金色の行（押すと該当ステージへ） */
 .me-stage-hint {
