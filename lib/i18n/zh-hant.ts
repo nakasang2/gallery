@@ -410,6 +410,7 @@ export const zhHant: PartialDictionary = {
     lighting: '燈光', customSize: '自訂尺寸', centreWall: '中央牆面（多 4 個位置）',
     lightCeiling: '天花板', lightOverhead: '作品正上方',
     placement: '佈置',
+    placementEditHint: '點按地圖上的位置，即可在此編輯該作品。',
     placementHint: '決定每個位置掛哪件作品：在平面圖上點一個位置，再選作品。作品少的時候，刻意留空會更有餘裕。超出本展廳容量的位置會顯示鎖形標記，點一下即可增加作品位。',
     ambience: '空間的聲音',
     ambienceHint: '給走進展場的觀眾循環播放的背景音，他們可以用 ♪ 按鈕關掉。MP3/M4A，最大 {max}MB — 請只上傳你有權使用的音訊。',

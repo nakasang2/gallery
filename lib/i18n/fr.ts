@@ -411,6 +411,7 @@ export const fr: PartialDictionary = {
     lighting: 'Éclairage', customSize: 'Dimensions sur mesure', centreWall: 'Mur central (4 emplacements de plus)',
     lightCeiling: 'Plafond', lightOverhead: 'Au-dessus de l’œuvre',
     placement: 'Accrochage',
+    placementEditHint: 'Touchez un emplacement sur le plan pour modifier cette œuvre ici.',
     placementHint: 'Choisissez l’œuvre de chaque place : touchez une place sur le plan puis son œuvre. Laisser des vides aère une petite exposition. Les emplacements au-delà de la capacité de cette salle affichent un cadenas : touchez-en un pour ajouter des emplacements.',
     ambience: 'Ambiance sonore',
     ambienceHint: 'Une piste de fond en boucle pour les visiteurs qui traversent la salle ; ils peuvent la couper avec le bouton ♪. MP3/M4A jusqu’à {max} Mo — n’importez que de l’audio dont vous avez les droits.',

@@ -411,6 +411,7 @@ export const es: PartialDictionary = {
     lighting: 'Iluminación', customSize: 'Medidas a medida', centreWall: 'Muro central (4 lugares más)',
     lightCeiling: 'Techo', lightOverhead: 'Sobre la obra',
     placement: 'Montaje',
+    placementEditHint: 'Toca un lugar en el plano para editar esa obra aquí.',
     placementHint: 'Elige qué obra va en cada lugar: toca un lugar del plano y luego su obra. Dejar huecos le da aire a una muestra pequeña. Los lugares que superan la capacidad de esta sala muestran un candado: toca uno para añadir lugares.',
     ambience: 'Sonido del espacio',
     ambienceHint: 'Una pista de fondo en bucle para quien recorre tu sala; puede silenciarla con el botón ♪. MP3/M4A hasta {max} MB — sube solo audio del que tengas los derechos.',

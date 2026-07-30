@@ -410,6 +410,7 @@ export const it: PartialDictionary = {
     lighting: 'Luci', customSize: 'Misure su misura', centreWall: 'Parete centrale (4 posti in più)',
     lightCeiling: 'Soffitto', lightOverhead: 'Sopra l’opera',
     placement: 'Allestimento',
+    placementEditHint: 'Tocca un punto sulla mappa per modificare quell’opera qui.',
     placementHint: 'Decidi quale opera sta in ogni posto: tocca un posto sulla pianta e poi la sua opera. Lasciare vuoti dà respiro a una mostra piccola. I posti oltre la capienza di questa sala mostrano un lucchetto: toccane uno per aggiungere posti.',
     ambience: 'Suono dello spazio',
     ambienceHint: 'Una traccia di fondo in loop per chi attraversa la sala; può silenziarla col tasto ♪. MP3/M4A fino a {max} MB — carica solo audio di cui hai i diritti.',

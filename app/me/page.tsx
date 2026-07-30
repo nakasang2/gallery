@@ -935,15 +935,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img crossOrigin="anonymous" className="me-sheet-thumb" src={selected.poster ?? selected.thumb ?? selected.src} alt="" />
         <span className="me-sheet-title">{selected.title || t('common.untitled')}</span>
-      </div>
-      <div className="work-actions">
-        <button
-          type="button"
-          className="btn-line danger"
-          onClick={() => void removeWork(selected)}
-        >
-          {t('me.workRemove')}
-        </button>
+        {/* Delete moved to the × on each thumbnail (ユーザー指示 2026-07-30); the head
+            keeps only the autosave state. */}
         {workState !== 'idle' && (
           <span className="hako-save-state">{workState === 'saving' ? t('common.saving') : t('common.saved')}</span>
         )}
@@ -1503,73 +1496,91 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 </label>
               )}
               {cloudArtworks.map((art) => (
-                <button
-                  type="button"
-                  key={art.id}
-                  className={`me-work-tile${selectedId === art.id ? ' active' : ''}`}
-                  title={art.title}
-                  aria-current={selectedId === art.id ? 'true' : undefined}
-                  onClick={() => setSelectedId(art.id)}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img crossOrigin="anonymous" src={art.poster ?? art.thumb ?? art.src} alt={art.title} loading="lazy" />
-                  {art.kind === 'video' && <span className="me-work-tile-video" aria-hidden="true"><VideoIcon /></span>}
-                  {/* Points at the editor below, so "this is the one you're editing"
-                      reads without a label the 64px tile has no room for. */}
-                  {selectedId === art.id && <span className="me-work-tile-mark" aria-hidden="true" />}
-                </button>
+                /* The delete × is a SIBLING of the tile button, not nested (a button
+                   inside a button is invalid) — hence the wrapper (ユーザー指示
+                   2026-07-30, delete moved here from the editor sheet). */
+                <div key={art.id} className="me-work-tile-wrap">
+                  <button
+                    type="button"
+                    className={`me-work-tile${selectedId === art.id ? ' active' : ''}`}
+                    title={art.title}
+                    aria-current={selectedId === art.id ? 'true' : undefined}
+                    onClick={() => setSelectedId(art.id)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img crossOrigin="anonymous" src={art.poster ?? art.thumb ?? art.src} alt={art.title} loading="lazy" />
+                    {art.kind === 'video' && <span className="me-work-tile-video" aria-hidden="true"><VideoIcon /></span>}
+                    {/* Points at the editor below, so "this is the one you're editing"
+                        reads without a label the 64px tile has no room for. */}
+                    {selectedId === art.id && <span className="me-work-tile-mark" aria-hidden="true" />}
+                  </button>
+                  <button
+                    type="button"
+                    className="me-work-tile-del"
+                    aria-label={t('me.workRemove')}
+                    title={t('me.workRemove')}
+                    onClick={() => void removeWork(art)}
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
             </div>
             {workSheet}
           </div>
         </div>
       ) : stage === 'placement' ? (
-        /* The map IS the preview here, so the 3D view is gone (ユーザー指示
-           2026-07-30). One column, full width, so each spot is big; the map+heading
-           stick to the top while you scroll the editor for a tapped spot beneath it. */
-        <div className="placement-stage">
+        /* Same shape as the other stages now (ユーザー指示 2026-07-30): the map is the
+           "preview" in the sticky left column, the tapped spot's editor is the right
+           column. The 3D view is gone — the map IS the preview. On phones this
+           collapses to one column with the map stuck to the top. */
+        <div className="works-detail works-detail--map">
           {cloudArtworks.length > 0 ? (
             <>
-              <div className="placement-sticky wd-group wd-group--flush">
-                <div className="wd-title">
-                  <span className="me-field-label">
-                    {t('me.placement')}
-                    <span
-                      className="field-hint"
-                      tabIndex={0}
-                      role="note"
-                      aria-label={t('me.placementHint')}
-                    >
-                      <InfoIcon />
-                      <span className="field-hint-pop" role="tooltip">
-                        {t('me.placementHint')}
+              <div className="we-left">
+                <div className="wd-group wd-group--flush">
+                  <div className="wd-title">
+                    <span className="me-field-label">
+                      {t('me.placement')}
+                      <span
+                        className="field-hint"
+                        tabIndex={0}
+                        role="note"
+                        aria-label={t('me.placementHint')}
+                      >
+                        <InfoIcon />
+                        <span className="field-hint-pop" role="tooltip">
+                          {t('me.placementHint')}
+                        </span>
                       </span>
                     </span>
-                  </span>
+                  </div>
+                  <PlacementEditor
+                    layoutKey={row.layout}
+                    layoutParams={normalizeLayoutParams(row.layout_params)}
+                    workCap={row.work_cap}
+                    works={cloudArtworks}
+                    arrangement={placement}
+                    onChange={editPlacement}
+                    onBuySlots={(slots) =>
+                      setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
+                    }
+                    onEditWork={(id) => setSelectedId(id)}
+                    disabled={busy}
+                  />
                 </div>
-                <PlacementEditor
-                  layoutKey={row.layout}
-                  layoutParams={normalizeLayoutParams(row.layout_params)}
-                  workCap={row.work_cap}
-                  works={cloudArtworks}
-                  arrangement={placement}
-                  onChange={editPlacement}
-                  onBuySlots={(slots) =>
-                    setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
-                  }
-                  onEditWork={(id) => setSelectedId(id)}
-                  disabled={busy}
-                />
               </div>
-              {workSheet}
+              <div className="we-right">
+                {workSheet || <p className="me-note" style={{ marginTop: 0 }}>{t('me.placementEditHint')}</p>}
+              </div>
             </>
           ) : (
-            <>
+            <div className="we-right">
               <p className="me-note" style={{ marginTop: 0 }}>{t('me.hintAddWork')}</p>
               <button type="button" className="btn-line" onClick={() => setStage('works')}>
                 {t('me.addFirstWork')}
               </button>
-            </>
+            </div>
           )}
         </div>
       ) : (

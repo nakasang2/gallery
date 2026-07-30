@@ -411,6 +411,7 @@ export const ptBr: PartialDictionary = {
     lighting: 'Iluminação', customSize: 'Medidas sob medida', centreWall: 'Parede central (4 lugares a mais)',
     lightCeiling: 'Teto', lightOverhead: 'Sobre a obra',
     placement: 'Montagem',
+    placementEditHint: 'Toque em um ponto no mapa para editar essa obra aqui.',
     placementHint: 'Escolha qual obra vai em cada lugar: toque num lugar da planta e depois na obra. Deixar vãos dá respiro a uma mostra pequena. Os lugares além da capacidade desta sala mostram um cadeado: toque em um para adicionar lugares.',
     ambience: 'Som do espaço',
     ambienceHint: 'Uma trilha de fundo em loop para quem percorre sua sala; dá para silenciar no botão ♪. MP3/M4A até {max} MB — envie só áudio cujos direitos você tem.',

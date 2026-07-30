@@ -663,9 +663,33 @@ button.hako-state { cursor: pointer; }
   padding-bottom: 0.35rem;
   scrollbar-width: thin;
 }
-.me-works-row .me-work-tile { flex: 0 0 auto; width: 64px; }
-/* 文字が入るぶんだけ広い */
-.me-works-row .me-add-tile { width: 78px; }
+/* サムネはラッパ（削除の×をタイルの兄弟として置くため）。文字が入る +追加は広い */
+.me-works-row .me-work-tile-wrap { position: relative; flex: 0 0 auto; width: 64px; }
+.me-work-tile-wrap .me-work-tile { width: 100%; }
+.me-works-row .me-add-tile { flex: 0 0 auto; width: 78px; }
+/* 各サムネ右上の削除ボタン（ユーザー指示 2026-07-30 — 編集シートの「作品を削除」を
+   ここへ移した）。タイルとは別要素なので選択のクリックを奪わない。押すと確認
+   （removeWork）が出る。行の overflow-x クリップに切られないよう角の内側に置く。 */
+.me-work-tile-del {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(236, 231, 222, 0.25);
+  border-radius: 50%;
+  background: rgba(10, 9, 8, 0.82);
+  color: var(--ink);
+  font-size: 0.66rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.me-work-tile-del:hover { color: #e08a7a; border-color: #e08a7a; background: rgba(10, 9, 8, 0.95); }
 .me-work-tile {
   position: relative;
   aspect-ratio: 1;
@@ -725,18 +749,23 @@ button.hako-state { cursor: pointer; }
   color: var(--ink);
 }
 
-/* ---- Placement stage: 地図が主役。3Dプレビューは廃止（地図がプレビューそのもの
-   ＝ユーザー指示 2026-07-30）。1カラム・全幅なので1枠が大きく描ける。 ---- */
-.placement-stage { margin-top: 0.4rem; }
-/* スクロールしても地図（と見出し）は上に貼り付く。下の編集シートがその裏を
-   スクロールするので、透明なSVGの下地が透けないよう不透明な背景を敷く。
-   position: sticky は positioned なので、静的な編集シートの上に描かれる。 */
-.placement-sticky {
-  position: sticky;
-  top: 0.5rem;
-  z-index: 2;
-  background: var(--bg);
-  padding-bottom: 0.5rem;
+/* ---- Placement stage ---- */
+/* 他のステージと同じ2カラム（左＝地図＝プレビュー、右＝設定）にする（ユーザー指示
+   2026-07-30）。左列は works-detail の既定で position: sticky なので、スクロール
+   すると地図が上に貼り付き、右列の編集シートだけが動く。PCでは左右が並ぶだけで
+   重ならないため、以前の不透明な黒い下地は不要（＝スクロール時に浮いて見えた
+   ブロックが消える。ユーザー指摘 2026-07-30）。 */
+@media (max-width: 720px) {
+  /* 1カラムに畳むと地図の下を編集シートがスクロールするので、透明なSVGの隙間から
+     下の文字が透けないよう不透明な下地が要る。ページ色ではなくカードに溶ける色
+     （カード rgba(15,14,12,.7) を素地 #0b0a09 の上に重ねた実効色 ≒ #0e0d0b）。 */
+  .works-detail--map .we-left {
+    background: #0e0d0b;
+    border-radius: 10px;
+  }
+  /* 粗ポインタ用の地図のはみ出し（負マージン）は、上の下地からはみ出て隙間を
+     作るのでこのステージでは殺す。地図は左列の幅いっぱいのまま。 */
+  .works-detail--map .place-map { margin-inline: 0; width: 100%; }
 }
 
 /* ---- Publish stage: share-cover picker ---- */
@@ -755,17 +784,6 @@ button.hako-state { cursor: pointer; }
 .me-cover-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .me-cover-thumb.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
 .me-cover-star { position: absolute; left: 4px; top: 2px; color: var(--gold); font-size: 0.7rem; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
-
-/* Per-work housekeeping (cover / remove), a quiet row above the work's fields */
-.work-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.9rem;
-}
-.work-actions .btn-line.active { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
-.work-actions .btn-line.danger { color: #c96a5a; }
-.work-actions .btn-line.danger:hover { border-color: #e08a7a; color: #e08a7a; }
 
 /* Dashboard-wide autosave toast — a transient confirmation for every save */
 .me-toast {
@@ -815,6 +833,8 @@ button.hako-state { cursor: pointer; }
 @media (pointer: coarse) {
   .me-stage { min-height: 44px; }
   .me-work-tile, .me-cover-thumb { min-width: 44px; min-height: 44px; }
+  /* 指では小さすぎる削除の×を少し大きく（タイルとは別要素なので選択は奪わない） */
+  .me-work-tile-del { width: 26px; height: 26px; font-size: 0.8rem; }
 }
 
 
@@ -1062,10 +1082,9 @@ button.hako-state { cursor: pointer; }
 .place-map {
   display: block;
   width: 100%;
-  /* 680px: the placement stage gives the map the full content column (see
-     .placement-stage), and a 26×16m hall drawn this wide puts each 1.25m spot at
-     ~31px instead of the ~15px it got inside the old 360px box
-     （ユーザー指摘「スロットの枠が小さすぎる」2026-07-30）。 */
+  /* The map fills its column (the sticky left column of the placement stage, or the
+     full width on phones). 680px is just an upper cap that the column width beats in
+     practice — the map is never wider than its column. */
   max-width: 680px;
   margin: 0 auto;
   color: var(--ink);
