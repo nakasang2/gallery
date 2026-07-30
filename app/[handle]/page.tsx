@@ -5,10 +5,20 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { fetchPublicProfile, fetchPublicExhibition, isPlaceholderTitle } from '@/lib/publish'
+import { isPlaceholderTitle } from '@/lib/publish'
+import {
+  artistJsonLd,
+  artistPath,
+  exhibitionDescription,
+  exhibitionJsonLd,
+  exhibitionTitle,
+  getExhibition,
+  getProfile,
+} from '@/lib/seo'
 import VisitorGallery from '@/components/gallery/VisitorGallery'
 import OwnerPreview from '@/components/gallery/OwnerPreview'
 import SnsLinks from '@/components/SnsLinks'
+import JsonLd from '@/components/JsonLd'
 import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
 import { COVER_SIZES } from '@/components/FeedCard'
@@ -29,23 +39,23 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const username = await resolveUsername(params)
   if (!username) return {}
-  const p = await fetchPublicProfile(username)
+  const p = await getProfile(username)
   if (!p) return {}
+  // Whether this URL is the exhibition or a listing, it is canonical for itself:
+  // it is the URL artists hand out (docs/DECISIONS 2026-07-30 SEO).
+  const canonical = artistPath(username)
 
   // Single public gallery: /@name IS the exhibition — use exhibition metadata
   if (p.galleries.length === 1) {
-    const ex = await fetchPublicExhibition(username, p.galleries[0].slug)
+    const ex = await getExhibition(username, p.galleries[0].slug)
     if (ex) {
-      const title = isPlaceholderTitle(ex.title)
-        ? `${ex.ownerName} — Xibit360`
-        : `${ex.title} | ${ex.ownerName} — Xibit360`
-      const description =
-        ex.statement ||
-        `A 3D gallery by ${ex.ownerName}. Walk through ${ex.artworks.length} works in your browser.`
+      const title = exhibitionTitle(ex)
+      const description = exhibitionDescription(ex)
       return {
         title,
         description,
-        openGraph: { title, description, type: 'website' },
+        alternates: { canonical },
+        openGraph: { title, description, type: 'website', url: canonical },
         twitter: { card: 'summary_large_image' },
       }
     }
@@ -57,7 +67,14 @@ export async function generateMetadata({
   return {
     title,
     description,
-    openGraph: { title, description, type: 'profile', ...(cover ? { images: [{ url: cover }] } : {}) },
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      type: 'profile',
+      url: canonical,
+      ...(cover ? { images: [{ url: cover }] } : {}),
+    },
     twitter: { card: 'summary_large_image' },
   }
 }
@@ -72,7 +89,7 @@ export default async function ArtistPage({
   const { t } = await getServerT()
   const username = await resolveUsername(params)
   if (!username) notFound()
-  const p = await fetchPublicProfile(username)
+  const p = await getProfile(username)
   if (!p) notFound()
 
   // /@name is the URL the dashboard's Embed button points at, so it must honor
@@ -81,12 +98,20 @@ export default async function ArtistPage({
 
   // Exactly one public gallery → /@name opens the room itself
   if (p.galleries.length === 1) {
-    const ex = await fetchPublicExhibition(username, p.galleries[0].slug)
-    if (ex) return <VisitorGallery exhibition={ex} embed={embed === '1'} />
+    const ex = await getExhibition(username, p.galleries[0].slug)
+    if (ex) {
+      return (
+        <>
+          <JsonLd data={exhibitionJsonLd(ex)} />
+          <VisitorGallery exhibition={ex} embed={embed === '1'} />
+        </>
+      )
+    }
   }
 
   return (
     <>
+    <JsonLd data={artistJsonLd(p)} />
     {/* Owner-only: if the signed-in viewer owns a PRIVATE gallery at this handle,
         this takes over full-screen so they can walk their draft. Renders nothing
         for everyone else, so the public listing below is unaffected. */}

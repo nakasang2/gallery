@@ -866,6 +866,14 @@ body:not(.gallery-mode) {
 .flat-head h1 { font-family: var(--serif); font-size: 1.8rem; font-weight: 500; }
 .flat-head p { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; letter-spacing: 0.1em; }
 .flat-note { font-style: italic; }
+.flat-statement {
+  max-width: 640px;
+  margin: 0 auto 3rem;
+  font-size: 0.9rem;
+  line-height: 2;
+  color: #cdc7bd;
+  white-space: pre-line;
+}
 .flat-work { max-width: 640px; margin: 0 auto 3.4rem; }
 .flat-work img {
   width: 100%;

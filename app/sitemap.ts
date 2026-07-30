@@ -74,29 +74,47 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const articlesQ = fetchPublishedArticles().catch(() => [] as Awaited<ReturnType<typeof fetchPublishedArticles>>)
   const [galleries, articles] = await Promise.all([galleriesQ, articlesQ])
 
-  // An artist appears once, however many rooms they have open.
-  const artists = new Set<string>()
-  const rooms: MetadataRoute.Sitemap = []
+  // Group by artist first: with exactly one public gallery, `/@name` renders that
+  // exhibition and `/@name/{slug}` is the same page again. Listing both — which this
+  // file used to do — asks Google to index two URLs for one room. Only the canonical
+  // goes in (docs/DECISIONS 2026-07-30 SEO); `lib/seo.ts` picks the same one.
+  const byArtist = new Map<string, GalleryRow[]>()
   for (const g of galleries) {
     const username = g.profiles?.username
     if (!username || !g.slug) continue
-    artists.add(username)
-    rooms.push({
-      url: `${base}/@${username}/${g.slug}`,
-      lastModified: g.updated_at ? new Date(g.updated_at) : now,
+    const list = byArtist.get(username)
+    if (list) list.push(g)
+    else byArtist.set(username, [g])
+  }
+
+  const artistPages: MetadataRoute.Sitemap = []
+  const rooms: MetadataRoute.Sitemap = []
+  for (const [username, rows] of byArtist) {
+    const newest = rows.reduce<Date>((acc, g) => {
+      const t = g.updated_at ? new Date(g.updated_at) : now
+      return t > acc ? t : acc
+    }, new Date(0))
+    artistPages.push({
+      url: `${base}/@${username}`,
+      lastModified: newest,
       changeFrequency: 'weekly',
       priority: 0.8,
     })
+    // The sole gallery's own URL is not canonical, so it stays out.
+    if (rows.length === 1) continue
+    for (const g of rows) {
+      rooms.push({
+        url: `${base}/@${username}/${g.slug}`,
+        lastModified: g.updated_at ? new Date(g.updated_at) : now,
+        changeFrequency: 'weekly',
+        priority: 0.8,
+      })
+    }
   }
 
   return [
     ...staticPages,
-    ...[...artists].map((u) => ({
-      url: `${base}/@${u}`,
-      lastModified: now,
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-    })),
+    ...artistPages,
     ...rooms,
     ...articles.flatMap((a) =>
       localized(base, `/articles/${a.slug}`, {

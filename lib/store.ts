@@ -20,6 +20,7 @@ import {
 } from './presets'
 import { supabase } from './supabase'
 import { showToast } from './toast'
+import { visitorSettings } from './roomPlan'
 import { listMyArtworks, reorderArtworks } from './cloud'
 import { PLAN } from './limits'
 import type { PublicExhibition } from './publish'
@@ -425,33 +426,12 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   },
 }))
 
-// useShallow compares values by reference, so returning a freshly created array each time would cause infinite re-renders
-const EMPTY_ARTWORKS: ArtworkData[] = []
-
 /** Subscribe to the effective space settings with shallow comparison (public data takes priority in visitor mode) */
 export function useSettings(): Settings {
   return useGallery(
     useShallow((s) =>
       s.visitor
-        ? {
-            theme: s.visitor.theme,
-            layout: s.visitor.layout,
-            layoutParams: s.visitor.layoutParams,
-            frame: s.visitor.frame,
-            mat: s.visitor.mat,
-            hanging: s.visitor.hanging,
-            caption: s.visitor.caption,
-            showDemo: false,
-            artworks: EMPTY_ARTWORKS,
-            frameOverrides: s.visitor.frameOverrides,
-            matOverrides: s.visitor.matOverrides,
-            hangingOverrides: s.visitor.hangingOverrides,
-            captionOverrides: s.visitor.captionOverrides,
-            lightOverrides: s.visitor.lightOverrides,
-            workCap: s.visitor.workCap,
-            designOverrides: s.visitor.designOverrides,
-            arrangement: s.visitor.arrangement,
-          }
+        ? visitorSettings(s.visitor)
         : {
             theme: s.theme,
             layout: s.layout,

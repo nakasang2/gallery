@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { I18nProvider } from '@/components/I18nProvider'
 import { getDictionary, LOCALE_META } from '@/lib/i18n'
 import { getRequestLocale } from '@/lib/i18n/server'
+import { siteUrl } from '@/lib/publicUrl'
 import './landing.css'
 import './gallery.css'
 import './auth.css'
@@ -10,6 +11,12 @@ import './catalog.css'
 import './articles.css'
 
 export const metadata: Metadata = {
+  // Without this, every relative URL in `metadata` — the canonical each public page
+  // now sets, and the OG card produced by the opengraph-image convention — is
+  // resolved against the deployment host. On Vercel that is the per-deploy
+  // `*.vercel.app` domain, so shared cards and canonicals pointed at a URL nobody
+  // should be indexing (docs/DECISIONS 2026-07-30 SEO).
+  metadataBase: new URL(siteUrl()),
   title: 'Xibit360 — Your work, given space.',
   description:
     'Xibit360 turns your portfolio into a walkable 3D exhibition. Upload your work, compose the room, and open your show to the world with a single URL.',

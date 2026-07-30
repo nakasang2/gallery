@@ -24,6 +24,15 @@ export interface SnsLinks {
 
 export const EMPTY_SNS: SnsLinks = { x: '', instagram: '', website: '' }
 
+/** Absolute URL for one of the artist's handles. Shared by the icon row visitors
+ *  click and the `sameAs` list in the structured data, so a crawler is told about
+ *  exactly the same profiles the page links to. */
+export function snsUrl(kind: keyof SnsLinks, value: string): string {
+  if (kind === 'x') return `https://x.com/${value}`
+  if (kind === 'instagram') return `https://instagram.com/${value}`
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`
+}
+
 function readSns(raw: unknown): SnsLinks {
   const r = (raw ?? {}) as Partial<SnsLinks>
   return {
@@ -79,6 +88,11 @@ export interface PublicExhibition {
   arrangement: (string | null)[]
   /** Cumulative visit count (§11.19) — drives the ambient past-visitor silhouettes */
   visitCount: number
+  /** How many galleries this artist has open to the public, this one included.
+   *  Exactly 1 means `/@name` renders THIS exhibition inline, so the two URLs are
+   *  the same page and the canonical is `/@name` (docs/DECISIONS 2026-07-30 SEO).
+   *  Fails soft to 1: with a broken count the worst case is a self-canonical page. */
+  publicGalleryCount: number
   artworks: ArtworkData[]
 }
 
@@ -380,6 +394,21 @@ async function fetchPublicExhibitionInner(
     /* non-fatal */
   }
 
+  // Which URL is canonical depends on whether `/@name` is this exhibition or a
+  // listing (docs/DECISIONS 2026-07-30 SEO). `head: true` fetches no rows, so this
+  // is the cheapest question we can ask — and we already hold `profile.id`.
+  let publicGalleryCount = 1
+  try {
+    const { count } = await supabase!
+      .from('galleries')
+      .select('id', { count: 'exact', head: true })
+      .eq('owner_id', profile.id)
+      .eq('is_public', true)
+    if (typeof count === 'number' && count > 0) publicGalleryCount = count
+  } catch {
+    /* non-fatal — a self-canonical page is a safe default */
+  }
+
   return {
     galleryId: gallery.id,
     title: gallery.title,
@@ -406,6 +435,7 @@ async function fetchPublicExhibitionInner(
     designOverrides: normalizeDesignOverrides(gallery.design_overrides),
     arrangement,
     visitCount,
+    publicGalleryCount,
     frameOverrides,
     matOverrides,
     hangingOverrides,
@@ -520,6 +550,9 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       designOverrides: normalizeDesignOverrides(gallery.design_overrides),
       arrangement,
       visitCount: 0, // a private draft has no public visits to show
+      // This path only ever returns a PRIVATE draft, which is never indexed and
+      // never reached by a crawler — the value is unused, so state the truth.
+      publicGalleryCount: 0,
       frameOverrides,
       matOverrides,
       hangingOverrides,

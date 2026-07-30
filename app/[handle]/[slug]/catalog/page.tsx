@@ -5,7 +5,8 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { fetchPublicExhibition, isPlaceholderTitle } from '@/lib/publish'
+import { isPlaceholderTitle } from '@/lib/publish'
+import { getExhibition } from '@/lib/seo'
 import CatalogPrintButton from '@/components/CatalogPrintButton'
 import CatalogDoc from '@/components/CatalogDoc'
 import { getServerT } from '@/lib/i18n/server'
@@ -26,7 +27,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const p = await resolveParams(params)
   if (!p) return {}
-  const ex = await fetchPublicExhibition(p.username, p.slug)
+  const ex = await getExhibition(p.username, p.slug)
   if (!ex) return {}
   const name = isPlaceholderTitle(ex.title) ? ex.ownerName : ex.title
   return { title: `${name} — Catalog | Xibit360`, robots: { index: false } }
@@ -40,7 +41,7 @@ export default async function CatalogPage({
   const { t } = await getServerT()
   const p = await resolveParams(params)
   if (!p) notFound()
-  const ex = await fetchPublicExhibition(p.username, p.slug)
+  const ex = await getExhibition(p.username, p.slug)
   if (!ex) notFound()
 
   return (

@@ -6,7 +6,7 @@
 // each icon — has to come from the dictionary, and `useT` reads the locale the
 // server already resolved (the provider lives in the root layout, so this still
 // renders in the right language inside a server component).
-import type { SnsLinks as SnsLinksData } from '@/lib/publish'
+import { snsUrl, type SnsLinks as SnsLinksData } from '@/lib/publish'
 import { useT } from '@/components/I18nProvider'
 
 function XIcon() {
@@ -39,12 +39,6 @@ function WebsiteIcon() {
   )
 }
 
-function toUrl(kind: 'x' | 'instagram' | 'website', value: string): string {
-  if (kind === 'x') return `https://x.com/${value}`
-  if (kind === 'instagram') return `https://instagram.com/${value}`
-  return /^https?:\/\//i.test(value) ? value : `https://${value}`
-}
-
 export default function SnsLinks({ sns, className }: { sns: SnsLinksData; className?: string }) {
   const t = useT()
   const items: { key: 'x' | 'instagram' | 'website'; label: string; icon: React.ReactNode }[] = []
@@ -60,7 +54,7 @@ export default function SnsLinks({ sns, className }: { sns: SnsLinksData; classN
       {items.map((it) => (
         <a
           key={it.key}
-          href={toUrl(it.key, sns[it.key])}
+          href={snsUrl(it.key, sns[it.key])}
           target="_blank"
           rel="noopener noreferrer nofollow"
           aria-label={it.label}
