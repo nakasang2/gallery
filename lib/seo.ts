@@ -134,6 +134,12 @@ function personNode(p: {
  *  - pixel `width` / `height`. `contentUrl` is the resized derivative, while the
  *    dimensions we store are the original's — declaring one for the other would be
  *    precisely wrong rather than merely missing. */
+/** The file we point a crawler at for this work — the poster frame for a video,
+ *  the display image otherwise. `undefined` when it is not an absolute URL. */
+function workImageUrl(art: ArtworkData): string | undefined {
+  return absoluteMedia(art.kind === 'video' ? art.poster ?? art.src : art.src)
+}
+
 function imageNode(art: ArtworkData, url: string, pageUrl: string, personId: string): Node {
   return {
     '@type': 'ImageObject',
@@ -153,7 +159,7 @@ function imageNode(art: ArtworkData, url: string, pageUrl: string, personId: str
  *  format they like ("Ask", "¥50,000"), and an Offer needs a machine-readable
  *  price. Claiming one from that string would be inventing data. */
 function artworkNode(art: ArtworkData, pageUrl: string, personId: string): Node {
-  const image = absoluteMedia(art.kind === 'video' ? art.poster ?? art.src : art.src)
+  const image = workImageUrl(art)
   const cm = (v: number) => ({ '@type': 'QuantitativeValue', value: v, unitCode: 'CMT' })
   return {
     '@type': 'VisualArtwork',
@@ -203,9 +209,15 @@ export function exhibitionJsonLd(ex: PublicExhibition): Node {
   // Slot order — the same order the room hangs them in, and the same list the
   // plain-HTML fallback prints. Works past the room's capacity are not exhibited.
   const works = publicExhibitionWorks(ex)
-  const cover =
-    works.find((w) => w.id === ex.coverArtworkId) ?? works[0]
-  const coverImage = absoluteMedia(cover ? (cover.kind === 'video' ? cover.poster : cover.card ?? cover.src) : undefined)
+  // `primaryImageOfPage` expects an ImageObject, NOT a URL — unlike `image`, which
+  // takes either. Handing it a bare string made validators read the URL as the
+  // object's `name`, so the cover was the one image on the page that did not count
+  // as an image at all. Reference the cover work's own node instead: it exists
+  // already and carries the artist's credit, so there is nothing to keep in sync.
+  const cover = works.find((w) => w.id === ex.coverArtworkId) ?? works[0]
+  // Only when that node was actually emitted — a work whose media is not an
+  // absolute URL has no ImageObject, and a dangling @id is worse than no cover.
+  const coverImageId = cover && workImageUrl(cover) ? `${pageUrl}#image-${cover.id}` : undefined
   const name = isPlaceholderTitle(ex.title) ? ex.ownerName : ex.title
 
   return {
@@ -223,7 +235,7 @@ export function exhibitionJsonLd(ex: PublicExhibition): Node {
         // declare, and declaring the wrong one is worse than declaring none.
         isPartOf: { '@id': website()['@id'] },
         about: { '@id': personId },
-        ...(coverImage ? { primaryImageOfPage: coverImage } : {}),
+        ...(coverImageId ? { primaryImageOfPage: { '@id': coverImageId } } : {}),
         mainEntity: { '@id': `${pageUrl}#works` },
       },
       {
@@ -287,7 +299,20 @@ export function artistJsonLd(p: PublicProfile): Node {
             url: abs(`/@${p.username}/${g.slug}`),
             name: isPlaceholderTitle(g.title) ? p.displayName : g.title,
             ...(g.statement ? { description: g.statement } : {}),
-            ...(image ? { primaryImageOfPage: image } : {}),
+            // A full ImageObject, not the URL — see the note in exhibitionJsonLd.
+            // This page has no per-work nodes to point at, so it carries its own,
+            // credited the same way the works on the exhibition page are.
+            ...(image
+              ? {
+                  primaryImageOfPage: {
+                    '@type': 'ImageObject',
+                    '@id': `${abs(`/@${p.username}/${g.slug}`)}#cover`,
+                    contentUrl: image,
+                    creator: { '@id': person['@id'] },
+                    creditText: p.displayName,
+                  },
+                }
+              : {}),
             about: { '@id': person['@id'] },
           }
         }),
