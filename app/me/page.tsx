@@ -747,11 +747,13 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
 
   // Reorder-only placement (ユーザー指示 2026-07-31): the list order is the walk order,
   // so a move just reorders the works (reorderOwnArtworks persists it + rebuilds the
-  // public room). If a per-slot arrangement lingers from the old map, drop it first so
-  // the room auto-fills by the new order instead of the pinned slots.
+  // public room). Drop any leftover per-slot arrangement from the old map THROUGH THE
+  // STORE — the same state reorderOwnArtworks's rebuild reads — so both changes ride
+  // the one debounced sync as {arrangement: [], works: reordered}, instead of two
+  // racing timers that could resurrect the old arrangement (レビュー指摘 2026-07-31).
   function moveWork(from: number, to: number) {
     if (to < 0 || to >= cloudArtworks.length || from === to) return
-    if (placement.length) editPlacement([])
+    updateSettings({ arrangement: [] })
     void reorderOwnArtworks(from, to)
   }
 
