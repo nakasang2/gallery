@@ -954,7 +954,23 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       ...Object.keys(lightOverrides),
     ]).size
     if (n > 0 && !confirm(t('artwork.resetPerWork', { count: n }))) return
-    updateSettings({ frameOverrides: {}, matOverrides: {}, hangingOverrides: {}, captionOverrides: {}, lightOverrides: {} })
+    // The space values ride along so the debounce-scheduled store sync carries the
+    // NEW theme/layout — clearing only the override maps would schedule a sync that
+    // still holds the old space and could write it back over run()'s save when the
+    // rebuild takes longer than the 1.2s debounce (レビュー指摘 2026-07-30).
+    updateSettings({
+      theme: tpl.theme,
+      layout: tpl.layout,
+      frame: tpl.frame,
+      mat: 'auto',
+      hanging: tpl.hanging,
+      caption: tpl.caption,
+      frameOverrides: {},
+      matOverrides: {},
+      hangingOverrides: {},
+      captionOverrides: {},
+      lightOverrides: {},
+    })
     // EMPTY_OVERRIDES, not mergedOverrides(): the maps we just cleared must not ride
     // back in through the closure and survive the rebuild
     void run(t('panel.template'), async () => {

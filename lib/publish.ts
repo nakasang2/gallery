@@ -33,6 +33,13 @@ function readSns(raw: unknown): SnsLinks {
   }
 }
 
+// Does this error mean migration 0035 (light_override) is missing? Gate the
+// light-less retry on it, so a transient error doesn't silently drop the
+// lighting overrides on a fully-migrated DB (レビュー指摘 2026-07-30).
+function missingLightColumn(e: { code?: string; message?: string } | null): boolean {
+  return !!e && (e.code === 'PGRST204' || e.code === '42703' || /light_override/.test(e.message ?? ''))
+}
+
 export interface PublicExhibition {
   galleryId: string
   title: string
@@ -312,7 +319,7 @@ async function fetchPublicExhibitionInner(
     .select('slot_index, frame_override, mat_override, hanging_override, caption_override, light_override, artworks (*)')
     .eq('gallery_id', gallery.id)
     .order('slot_index', { ascending: true })
-  if (pRes.error) {
+  if (pRes.error && missingLightColumn(pRes.error)) {
     // Migration 0035 (light_override) not applied — the other four axes must survive
     pRes = (await supabase!
       .from('placements')
@@ -448,7 +455,7 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       .select('slot_index, frame_override, mat_override, hanging_override, caption_override, light_override, artworks (*)')
       .eq('gallery_id', gallery.id)
       .order('slot_index', { ascending: true })
-    if (pRes.error) {
+    if (pRes.error && missingLightColumn(pRes.error)) {
       // Migration 0035 (light_override) not applied — the other four axes must survive
       pRes = (await supabase
         .from('placements')

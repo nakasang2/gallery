@@ -1127,7 +1127,10 @@ body:not(.gallery-mode) {
 .purchase-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  /* 100: /me のボトムシート(.me-sheet, 60)より上。50のままだと、シートを開いた
+     まま鍵付き枠や「枠を追加」を押したとき購入モーダルの下半分が隠れて押せない
+     （レビュー指摘 2026-07-30）。.me-modal-overlay と同じ段に揃える。 */
+  z-index: 100;
   background: rgba(11, 10, 9, 0.72);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
