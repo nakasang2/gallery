@@ -588,9 +588,12 @@
   gap: 0.2rem;
   border-bottom: 1px solid var(--hairline);
   margin-top: 1.3rem;
-  /* 6 stages (作品/部屋/配置/公開/芳名帳/プロフィール) can outrun a phone's width;
-     scroll them sideways rather than wrap into a ragged second row. */
+  /* The stages can outrun a phone's width; scroll them sideways rather than wrap
+     into a ragged second row. overflow-y MUST be hidden explicitly — setting only
+     overflow-x makes the y-axis compute to `auto`, which showed a spurious vertical
+     scrollbar from the active tab's -1px bottom margin (ユーザー指摘 2026-07-30). */
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
 }
 .me-stage { flex: 0 0 auto; white-space: nowrap; }
@@ -729,26 +732,18 @@
 }
 
 /* ---- Placement stage ---- */
-/* 他のステージと同じ2カラム（左＝地図＝プレビュー、右＝設定）にする（ユーザー指示
-   2026-07-30）。左列は works-detail の既定で position: sticky なので、スクロール
-   すると地図が上に貼り付き、右列の編集シートだけが動く。PCでは左右が並ぶだけで
-   重ならないため、以前の不透明な黒い下地は不要（＝スクロール時に浮いて見えた
-   ブロックが消える。ユーザー指摘 2026-07-30）。 */
-/* 地図のはみ出し（下の pointer:coarse / 720px の負マージン）はこのステージでは常に
-   殺す。左列や下地からはみ出て、タブレット幅（粗ポインタのiPad等）で下地の外に
-   飛び出す＝スクロール時に編集シートが透ける、というバグがあった（レビュー指摘
-   2026-07-30）。メディアクエリに閉じず、幅に関係なく打ち消す。 */
-.works-detail--map .place-map { margin-inline: 0; width: 100%; }
-@media (max-width: 1024px) {
-  /* 1カラムに畳む幅（スマホ＋タブレット）では地図の下を編集シートがスクロールする
-     ので、透明なSVGの隙間から下の文字が透けないよう不透明な下地が要る。ページ色
-     ではなくカードに溶ける色（カード rgba(15,14,12,.7) を素地 #0b0a09 に重ねた実効色
-     ≒ #0e0d0b）。詳細度を2クラス連結(0,3,0)にして、タブレットの汎用 `.works-detail
-     .we-left` の #12100d(0,2,0) にも順序に関係なく勝たせる。 */
-  .works-detail.works-detail--map .we-left {
-    background: #0e0d0b;
-    border-radius: 10px;
-  }
+/* 「配置だけ」の1カラム全幅（ユーザー指示 2026-07-30）。作品編集はここでは行わない
+   ので右列（編集シート）は無く、地図が全幅で大きく描ける。地図をタップすると
+   PlacementEditor 内の作品ピッカーが下に出る。 */
+.placement-stage { margin-top: 0.4rem; }
+.placement-head { margin-bottom: 0.9rem; }
+.placement-title {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
 }
 
 /* ---- Publish stage: share-cover picker ---- */
@@ -1190,6 +1185,8 @@
 .report-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.7rem; }
 .btn-line.danger { border-color: rgba(240, 132, 124, 0.5); color: #f0847c; }
 
+/* 芳名帳は公開ステージの中の一区画（上に罫線で仕切る） */
+.gb-group { margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid var(--hairline); }
 /* 芳名帳の開閉（作家が閉じられる） */
 .gb-toggle-row {
   display: flex;

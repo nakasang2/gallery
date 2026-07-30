@@ -469,7 +469,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   // profile tabs are gone — ユーザー指示 2026-07-30). The publish flow (works → room →
   // placement → publish) leads, then the two housekeeping stages (guestbook, profile).
   // Order is visible but never enforced — every stage stays reachable.
-  type Stage = 'works' | 'room' | 'placement' | 'publish' | 'guestbook' | 'profile'
+  type Stage = 'works' | 'room' | 'placement' | 'publish' | 'profile'
   const [stage, setStage] = useState<Stage>('works')
   // The work being edited in the shared editor sheet (works + placement stages).
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -1114,7 +1114,8 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     <>
     {/* The stage bar is the only navigation (the header card and the top tabs are
         gone — ユーザー指示 2026-07-30). The publish flow leads with a check for what
-        publishing already has; guestbook + profile follow as housekeeping stages. */}
+        publishing already has; the guestbook lives INSIDE the publish stage, and
+        profile trails as the one housekeeping stage. */}
     <nav className="me-stages" aria-label={t('me.navSections')}>
       {(
         [
@@ -1122,7 +1123,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           ['room', t('me.navRoom'), true, null],
           ['placement', t('me.placement'), cloudArtworks.length > 0, null],
           ['publish', t('me.stagePublish'), row.is_public, null],
-          ['guestbook', t('me.tabGuestbook'), false, null],
           ['profile', t('me.tabProfile'), false, null],
         ] as const
       ).map(([key, label, done, count]) => (
@@ -1141,7 +1141,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     </nav>
     {/* One next step at a time toward publishing — not shown on the housekeeping stages */}
     {(() => {
-      if (stage === 'guestbook' || stage === 'profile') return null
+      if (stage === 'profile') return null
       const hint = cloudArtworks.length === 0
         ? { key: 'me.hintAddWork', to: 'works' as const }
         : !username
@@ -1157,12 +1157,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
       )
     })()}
 
-    {/* The stage’s working surface. Guestbook + profile bring their own card; the
-        four flow stages share the subcard. */}
+    {/* The stage’s working surface. Profile brings its own card; the flow stages
+        share the subcard (the guestbook now lives inside the publish stage). */}
     <div className="me-gallery-body">
-      {stage === 'guestbook' ? (
-        <GuestbookCard galleryId={row.id} enabled={row.guestbook_enabled !== false} />
-      ) : stage === 'profile' ? (
+      {stage === 'profile' ? (
         <ProfileCard />
       ) : (
       <div className="me-card me-subcard">
@@ -1532,57 +1530,37 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           </div>
         </div>
       ) : stage === 'placement' ? (
-        /* Same shape as the other stages now (ユーザー指示 2026-07-30): the map is the
-           "preview" in the sticky left column, the tapped spot's editor is the right
-           column. The 3D view is gone — the map IS the preview. On phones this
-           collapses to one column with the map stuck to the top. */
-        <div className="works-detail works-detail--map">
+        /* Placement ONLY — decide which work hangs on each wall spot. No work editing
+           here (that overlapped the works stage — ユーザー指示 2026-07-30): tapping a
+           spot opens a picker to choose its work, nothing more. Full width so the map
+           and its spots are large and legible. */
+        <div className="placement-stage">
           {cloudArtworks.length > 0 ? (
             <>
-              <div className="we-left">
-                <div className="wd-group wd-group--flush">
-                  <div className="wd-title">
-                    <span className="me-field-label">
-                      {t('me.placement')}
-                      <span
-                        className="field-hint"
-                        tabIndex={0}
-                        role="note"
-                        aria-label={t('me.placementHint')}
-                      >
-                        <InfoIcon />
-                        <span className="field-hint-pop" role="tooltip">
-                          {t('me.placementHint')}
-                        </span>
-                      </span>
-                    </span>
-                  </div>
-                  <PlacementEditor
-                    layoutKey={row.layout}
-                    layoutParams={normalizeLayoutParams(row.layout_params)}
-                    workCap={row.work_cap}
-                    works={cloudArtworks}
-                    arrangement={placement}
-                    onChange={editPlacement}
-                    onBuySlots={(slots) =>
-                      setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
-                    }
-                    onEditWork={(id) => setSelectedId(id)}
-                    disabled={busy}
-                  />
-                </div>
+              <div className="placement-head">
+                <h3 className="placement-title">{t('me.placement')}</h3>
+                <p className="me-note" style={{ marginTop: '0.3rem' }}>{t('me.placementHint')}</p>
               </div>
-              <div className="we-right">
-                {workSheet || <p className="me-note" style={{ marginTop: 0 }}>{t('me.placementEditHint')}</p>}
-              </div>
+              <PlacementEditor
+                layoutKey={row.layout}
+                layoutParams={normalizeLayoutParams(row.layout_params)}
+                workCap={row.work_cap}
+                works={cloudArtworks}
+                arrangement={placement}
+                onChange={editPlacement}
+                onBuySlots={(slots) =>
+                  setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
+                }
+                disabled={busy}
+              />
             </>
           ) : (
-            <div className="we-right">
+            <>
               <p className="me-note" style={{ marginTop: 0 }}>{t('me.hintAddWork')}</p>
               <button type="button" className="btn-line" onClick={() => setStage('works')}>
                 {t('me.addFirstWork')}
               </button>
-            </div>
+            </>
           )}
         </div>
       ) : (
@@ -1772,6 +1750,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 </div>
               </div>
             )}
+            {/* Guestbook moderation lives here — it's part of going public (visitors
+                sign it), so it belongs with the publish controls, not its own stage
+                (ユーザー指示 2026-07-30). */}
+            <GuestbookCard galleryId={row.id} enabled={row.guestbook_enabled !== false} />
             {/* Quiet row for rare / destructive housekeeping — not a peer of the rest */}
             <div className="hako-secondary">
               <button
@@ -1869,8 +1851,11 @@ function GuestbookCard({ galleryId, enabled }: { galleryId: string; enabled: boo
   }
 
   if (entries === null) return null // migration 0008 not applied (or fetch failed) — hide quietly
+  // Rendered inside the publish stage now — a bordered section (no me-card wrapper,
+  // which would nest a card inside the stage's card).
   return (
-    <div className="me-card" style={{ marginTop: '1rem' }}>
+    <div className="wd-group gb-group">
+      <div className="wd-title"><span>{t('me.tabGuestbook')}</span></div>
       <div className="gb-toggle-row">
         <label className="switch" title={open ? t('me.guestbookOpenHint') : t('me.guestbookClosedHint')}>
           <input type="checkbox" checked={open} disabled={busy} onChange={() => void toggle()} />
