@@ -515,6 +515,13 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   // so a placement edit and a layout change never race over one gallery row.
   const [placement, setPlacement] = useState<(string | null)[]>(() => normalizeArrangement(row.arrangement))
   const placeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Every local placement edit bumps editGen; a save stamps savedGen with the gen it
+  // persisted. While editGen ≠ savedGen there's an unsaved (or in-flight) local edit, so
+  // the re-seed effect must not overwrite the map from the row — otherwise a save's row
+  // refresh reverts a drop the user made during its round-trip (a boolean "dirty" flag
+  // fails here: an earlier save's completion would clear it while a newer edit is pending).
+  const editGen = useRef(0)
+  const savedGen = useRef(0)
   // Custom-layout knobs (width/depth/centre wall), editable right here in the dashboard.
   const [custom, setCustom] = useState<CustomLayoutParams>(() => normalizeLayoutParams(row.layout_params))
   const customTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -714,9 +721,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     if (designTimer.current) clearTimeout(designTimer.current)
   }, [])
 
-  // Re-seed placement when the row's saved arrangement changes (e.g. after a save
-  // round-trips, or another device edits it), but never mid-debounce clobber the map.
+  // Re-seed placement when the row's saved arrangement changes (another device edits it,
+  // or our own save round-trips), but never clobber an unsaved/in-flight local edit — a
+  // drag the user made while a save was in flight must survive that save's row refresh.
   useEffect(() => {
+    if (editGen.current !== savedGen.current) return
     setPlacement(normalizeArrangement(row.arrangement))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(row.arrangement)])
@@ -724,6 +733,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   // Manual placement autosave (§11.13): optimistic local update, then persist through
   // the same rowToSettings → saveGallerySpace(+rebuildPlacements) path as theme/layout.
   function editPlacement(next: (string | null)[]) {
+    const gen = ++editGen.current
     setPlacement(next)
     if (placeTimer.current) clearTimeout(placeTimer.current)
     placeTimer.current = setTimeout(() => {
@@ -732,6 +742,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           const s = { ...rowToSettings(row, await mergedOverrides()), arrangement: next }
           await saveGallerySpace(row.id, s)
           if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+          // Stamp BEFORE the row refresh: this gen is now the persisted truth, so if no
+          // newer edit arrived the re-seed may adopt the refreshed row.
+          savedGen.current = gen
           await refreshMyGallery()
           onChanged()
           toast()
