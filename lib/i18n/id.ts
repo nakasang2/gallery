@@ -411,7 +411,6 @@ export const id: PartialDictionary = {
     lighting: 'Pencahayaan', customSize: 'Ukuran sendiri', centreWall: 'Dinding tengah (tambah 4 tempat)',
     lightCeiling: 'Plafon', lightOverhead: 'Di atas karya',
     placement: 'Penempatan',
-    placementEditHint: 'Ketuk sebuah titik di peta untuk mengedit karya itu di sini.',
     cropWarn: 'Sekitar {pct}% gambar dipangkas agar mengisi ukuran ini tanpa mendistorsinya. Gunakan ⇄ untuk membalik rasio.',
     placementHint: 'Tentukan karya mana di tiap tempat: ketuk sebuah tempat di peta lalu pilih karyanya. Menyisakan ruang kosong membuat pameran kecil terasa lega. Tempat di luar kapasitas ruangan ini bertanda kunci — ketuk untuk menambah tempat.',
     ambience: 'Suara ruang',

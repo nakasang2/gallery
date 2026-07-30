@@ -411,7 +411,6 @@ export const fr: PartialDictionary = {
     lighting: 'Éclairage', customSize: 'Dimensions sur mesure', centreWall: 'Mur central (4 emplacements de plus)',
     lightCeiling: 'Plafond', lightOverhead: 'Au-dessus de l’œuvre',
     placement: 'Accrochage',
-    placementEditHint: 'Touchez un emplacement sur le plan pour modifier cette œuvre ici.',
     cropWarn: 'Environ {pct}% de l’image est rognée pour remplir cette taille sans la déformer. Utilisez ⇄ pour inverser le ratio.',
     placementHint: 'Choisissez l’œuvre de chaque place : touchez une place sur le plan puis son œuvre. Laisser des vides aère une petite exposition. Les emplacements au-delà de la capacité de cette salle affichent un cadenas : touchez-en un pour ajouter des emplacements.',
     ambience: 'Ambiance sonore',

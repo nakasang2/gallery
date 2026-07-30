@@ -411,7 +411,6 @@ export const de: PartialDictionary = {
     lighting: 'Licht', customSize: 'Eigene Maße', centreWall: 'Mittelwand (4 Plätze mehr)',
     lightCeiling: 'Decke', lightOverhead: 'Über dem Werk',
     placement: 'Hängung',
-    placementEditHint: 'Tippen Sie auf einen Platz im Plan, um das Werk hier zu bearbeiten.',
     cropWarn: 'Etwa {pct}% des Bildes werden beschnitten, um diese Größe ohne Verzerrung zu füllen. Mit ⇄ das Seitenverhältnis tauschen.',
     placementHint: 'Lege fest, welches Werk an welchem Platz hängt: tippe einen Platz im Plan an und wähle sein Werk. Lücken lassen eine kleine Ausstellung atmen. Plätze über der Kapazität dieses Raums zeigen ein Schloss — tippe darauf, um Plätze hinzuzufügen.',
     ambience: 'Klang des Raums',

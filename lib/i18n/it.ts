@@ -410,7 +410,6 @@ export const it: PartialDictionary = {
     lighting: 'Luci', customSize: 'Misure su misura', centreWall: 'Parete centrale (4 posti in più)',
     lightCeiling: 'Soffitto', lightOverhead: 'Sopra l’opera',
     placement: 'Allestimento',
-    placementEditHint: 'Tocca un punto sulla mappa per modificare quell’opera qui.',
     cropWarn: 'Circa il {pct}% dell’immagine viene ritagliato per riempire questa dimensione senza deformarla. Usa ⇄ per invertire le proporzioni.',
     placementHint: 'Decidi quale opera sta in ogni posto: tocca un posto sulla pianta e poi la sua opera. Lasciare vuoti dà respiro a una mostra piccola. I posti oltre la capienza di questa sala mostrano un lucchetto: toccane uno per aggiungere posti.',
     ambience: 'Suono dello spazio',
