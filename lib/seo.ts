@@ -187,7 +187,10 @@ export function exhibitionJsonLd(ex: PublicExhibition): Node {
         url: pageUrl,
         name,
         description: exhibitionDescription(ex),
-        inLanguage: 'en',
+        // No `inLanguage`. The name and description are whatever the artist wrote —
+        // the first real gallery to carry this had a Japanese statement — while the
+        // page chrome renders in the visitor's locale. There is no one language to
+        // declare, and declaring the wrong one is worse than declaring none.
         isPartOf: { '@id': website()['@id'] },
         about: { '@id': personId },
         ...(coverImage ? { primaryImageOfPage: coverImage } : {}),
@@ -243,7 +246,7 @@ export function artistJsonLd(p: PublicProfile): Node {
         url: pageUrl,
         name: `${p.displayName} — Xibit360`,
         ...(p.bio ? { description: p.bio } : {}),
-        inLanguage: 'en',
+        // See the note on the exhibition graph: the bio is the artist's own words.
         isPartOf: { '@id': website()['@id'] },
         mainEntity: { '@id': person['@id'] },
         hasPart: p.galleries.map((g) => {
