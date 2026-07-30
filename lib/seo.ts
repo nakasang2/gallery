@@ -71,11 +71,22 @@ export function exhibitionTitle(ex: PublicExhibition): string {
     : `${ex.title} | ${ex.ownerName} — Xibit360`
 }
 
+/** The <meta name="description">, which is the sentence a searcher actually reads
+ *  under the link. The artist's own statement when they wrote one.
+ *
+ *  The fallback counts, so it has to inflect: this read "Walk through 1 works" for
+ *  every artist showing a single piece, and "0 works" for an empty room — the same
+ *  class of bug the dictionary was fixed for on 2026-07-29, still living here
+ *  because these single-URL pages are English by decision and never went through
+ *  `translate()`. */
 export function exhibitionDescription(ex: PublicExhibition): string {
-  return (
-    ex.statement ||
-    `A 3D gallery by ${ex.ownerName}. Walk through ${ex.artworks.length} works in your browser.`
-  )
+  if (ex.statement) return ex.statement
+  const n = ex.artworks.length
+  const walk =
+    n === 0
+      ? 'Step inside and walk the room in your browser.'
+      : `Walk through ${n} ${n === 1 ? 'work' : 'works'} in your browser.`
+  return `A 3D gallery by ${ex.ownerName}. ${walk}`
 }
 
 /* ----------------------------- Structured data ----------------------------- */
