@@ -746,15 +746,25 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   }, [])
 
   // Reorder-only placement (ユーザー指示 2026-07-31): the list order is the walk order,
-  // so a move just reorders the works (reorderOwnArtworks persists it + rebuilds the
-  // public room). Drop any leftover per-slot arrangement from the old map THROUGH THE
-  // STORE — the same state reorderOwnArtworks's rebuild reads — so both changes ride
-  // the one debounced sync as {arrangement: [], works: reordered}, instead of two
-  // racing timers that could resurrect the old arrangement (レビュー指摘 2026-07-31).
-  function moveWork(from: number, to: number) {
-    if (to < 0 || to >= cloudArtworks.length || from === to) return
+  // so a move just reorders the works and drops any leftover per-slot arrangement from
+  // the old map, then rebuilds the public room to auto-fill by the new order.
+  //   - updateSettings clears the STORE arrangement so reorderOwnArtworks's own debounced
+  //     rebuild can't resurrect the old fixed slots.
+  //   - the explicit saveGallerySpace + run() write [] to the DB and refresh the MePage
+  //     row, so later room/publish edits (setSpace/editCustom/togglePublic build settings
+  //     from the row) don't write the stale row.arrangement back (レビュー指摘 2026-07-31).
+  async function moveWork(from: number, to: number) {
+    if (to < 0 || to >= cloudArtworks.length || from < 0 || from >= cloudArtworks.length || from === to) return
     updateSettings({ arrangement: [] })
-    void reorderOwnArtworks(from, to)
+    const reordered = cloudArtworks.slice()
+    const [moved] = reordered.splice(from, 1)
+    reordered.splice(to, 0, moved)
+    await run('Reorder', async () => {
+      await reorderOwnArtworks(from, to)
+      const s = { ...rowToSettings(row, await mergedOverrides()), arrangement: [] }
+      await saveGallerySpace(row.id, s)
+      if (row.is_public) await rebuildPlacements(row.id, s, reordered)
+    })
   }
 
   // Custom layout size autosave: optimistic local update, then persist the layout_params
