@@ -55,11 +55,12 @@ export default function PlacementEditor({
   const pad = 0.5
   const w = def.hw * 2 + pad * 2
   const h = def.hd * 2 + pad * 2
-  // Slot square side, in metres. NOT raised past 1.25: the closest two spots in any
-  // layout sit 1.350m apart (portrait's corner pair — measured across all 4 presets
-  // and 72 custom sizes), so 1.25 already leaves only a 10cm gap. Bigger spots come
-  // from drawing the map bigger, not from overlapping squares.
-  const S = 1.25
+  // Slot square side, in metres. 1.0 (not 1.25) so the square sits fully INSIDE the
+  // wall: a spot is nudged NUDGE(0.55) off the wall, so with half-side 0.5 its outer
+  // edge lands 0.05m inside the wall line instead of poking 0.125m past it — the
+  // spots used to straddle the room outline, reading as "not aligned" (ユーザー指摘
+  // 2026-07-30). The map is drawn large, so 1.0m is still a comfortable target.
+  const S = 1.0
 
   // Effective occupancy right now (auto-fill included), snapshotted as an explicit
   // per-slot id array. Writing THIS on every edit makes every shown work explicit, so
@@ -93,7 +94,11 @@ export default function PlacementEditor({
   // (needs ≥ 0.37) without walking a wall's spot into the one round the corner
   // (portrait's corner pairs sit 1.85m apart, so ≤ 0.6). Squares end up sitting on
   // the inner edge of their wall, which also reads better than straddling it.
-  const NUDGE = 0.5
+  // 0.55 (was 0.5): with S/2 = 0.5, this seats each spot 0.05m inside the wall line
+  // (no straddle). Still within the safe band [0.37, 0.6] from 2026-07-29 — clears the
+  // centre-wall pair (needs ≥0.37) without walking a wall spot into its corner
+  // neighbour (portrait's 1.85m corner pairs need ≤0.6).
+  const NUDGE = 0.55
   const at = useMemo(
     () =>
       def.slots.map((s) => ({

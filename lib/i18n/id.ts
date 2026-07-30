@@ -412,6 +412,7 @@ export const id: PartialDictionary = {
     lightCeiling: 'Plafon', lightOverhead: 'Di atas karya',
     placement: 'Penempatan',
     placementEditHint: 'Ketuk sebuah titik di peta untuk mengedit karya itu di sini.',
+    cropWarn: 'Sekitar {pct}% gambar dipangkas agar mengisi ukuran ini tanpa mendistorsinya. Gunakan ⇄ untuk membalik rasio.',
     placementHint: 'Tentukan karya mana di tiap tempat: ketuk sebuah tempat di peta lalu pilih karyanya. Menyisakan ruang kosong membuat pameran kecil terasa lega. Tempat di luar kapasitas ruangan ini bertanda kunci — ketuk untuk menambah tempat.',
     ambience: 'Suara ruang',
     ambienceHint: 'Musik latar yang berputar untuk pengunjung yang menjelajahi ruangmu; mereka bisa mematikannya dengan tombol ♪. MP3/M4A sampai {max}MB — unggah hanya audio yang kamu punya haknya.',

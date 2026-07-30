@@ -136,6 +136,28 @@ export default function Exhibit({
   const videoArt = useVideoArt(art, artWorldPos)
   const artTex = videoArt.texture ?? getArtTexture(art)
 
+  // object-fit: cover. The plane is the artist's real physical size (from artSize),
+  // so when the chosen size's aspect differs from the image, keep the image's aspect
+  // and crop the overflow via UV (repeat/offset) instead of stretching the picture
+  // (ユーザー指示 2026-07-30). Set on the texture directly — each artwork has a unique
+  // src, so its cached texture is used by a single exhibit within any one scene, and
+  // repeat/offset feed the texture matrix (no re-upload). Cleared to full when the
+  // aspects match (a preset size that fits, or size unset → plane already = image).
+  useEffect(() => {
+    if (!artTex) return
+    const imgA = art.ratio[0] / art.ratio[1]
+    const planeA = width / height
+    if (imgA > planeA) {
+      const r = planeA / imgA
+      artTex.repeat.set(r, 1)
+      artTex.offset.set((1 - r) / 2, 0)
+    } else {
+      const r = imgA / planeA
+      artTex.repeat.set(1, r)
+      artTex.offset.set(0, (1 - r) / 2)
+    }
+  }, [artTex, art.ratio, width, height])
+
   const plaqueTex = useMemo(() => makePlaqueTexture(art, index), [art, index])
   useEffect(() => () => disposeAll([plaqueTex]), [plaqueTex])
 

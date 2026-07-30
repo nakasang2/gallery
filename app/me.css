@@ -402,6 +402,13 @@ button.hako-state { cursor: pointer; }
 .hako-danger:hover { color: #e08a7a; border-color: #e08a7a; }
 
 .me-note { font-size: 0.78rem; line-height: 1.9; color: var(--muted); margin-top: 0.8rem; }
+/* 注意喚起の注記（トリミング警告など）。金の左罫と温色で、muted な通常注記と区別する */
+.me-note--warn {
+  color: #d9b779;
+  border-left: 2px solid var(--gold);
+  padding-left: 0.6rem;
+  margin-top: 0.5rem;
+}
 .me-error { font-size: 0.78rem; line-height: 1.8; color: #e08a7a; margin-top: 0.8rem; }
 
 .me-field { display: block; margin: 0.9rem 0; }

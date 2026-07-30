@@ -413,6 +413,7 @@ export const zhHans: PartialDictionary = {
     lightCeiling: '天花板', lightOverhead: '作品正上方',
     placement: '布置',
     placementEditHint: '点按地图上的位置，即可在此编辑该作品。',
+    cropWarn: '为在不变形的情况下填满该尺寸，图像约 {pct}% 会被裁剪。可用 ⇄ 交换长宽。',
     placementHint: '决定每个位置挂哪件作品：在平面图上点一个位置，再选作品。作品少的时候，故意留空会更有余裕。超出本展厅容量的位置会显示锁形标记，点击即可增加作品位。',
     ambience: '空间的声音',
     ambienceHint: '给走进展厅的观众循环播放的背景音，他们可以用 ♪ 按钮关掉。MP3/M4A，最大 {max}MB — 请只上传你有权使用的音频。',

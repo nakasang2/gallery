@@ -358,6 +358,7 @@ export const en = {
     centreWall: 'Centre wall (4 extra slots)',
     placement: 'Placement',
     placementEditHint: 'Tap a spot on the map to edit that work here.',
+    cropWarn: 'About {pct}% of the image is cropped to fill this size without distorting it. Use ⇄ to flip the ratio.',
     placementHint: 'Choose which work hangs on each spot: tap a spot on the map to pick its work. Leave gaps to space a small show out. Spots past this room’s capacity show a lock — tap one to add slots.',
     ambience: 'Ambience',
     ambienceHint: 'A looping background track for visitors walking your room; they can mute it with the ♪ button. MP3/M4A up to {max}MB — upload only audio you have the rights to.',

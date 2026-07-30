@@ -1048,6 +1048,19 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             </div>
           </div>
         </div>
+        {/* Cover-fit crops the image when the chosen size's aspect differs from the
+            image's — warn so the artist knows part of the picture is cut off
+            (ユーザー指示 2026-07-30). The ⇄ swap can flip the ratio to fix it. */}
+        {(() => {
+          const w = parseFloat(widthInput)
+          const h = parseFloat(heightInput)
+          if (!(w > 0 && h > 0)) return null
+          const imgA = selected.ratio[0] / selected.ratio[1]
+          const sizeA = w / h
+          const crop = 1 - Math.min(imgA, sizeA) / Math.max(imgA, sizeA)
+          if (crop <= 0.01) return null
+          return <p className="me-note me-note--warn">{t('me.cropWarn', { pct: Math.round(crop * 100) })}</p>
+        })()}
         <label className="me-field" style={{ margin: '0.45rem 0' }}>
           <FieldLabel hint={t('me.mediumHint')}>{t('me.medium')}</FieldLabel>
           <input
