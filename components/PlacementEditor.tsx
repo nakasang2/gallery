@@ -116,8 +116,8 @@ export default function PlacementEditor({
   const buyable = !!onBuySlots && !disabled && workCap < MAX_WORKS_PER_ROOM
 
   // Finger-sized hit areas. The map is scale-bound: a hall (26×16m) drawn into a
-  // 360px-wide box renders at ~11px per metre, so the 1.25m square is ~14px — a
-  // third of the 44px minimum, and no amount of extra map width fixes that
+  // 360px-wide box renders at ~11px per metre, so the 1.0m square is ~11px — well
+  // under the 44px minimum, and no amount of extra map width fixes that
   // (measured 2026-07-28). So we widen the *hit* area instead of the drawing,
   // out to 90% of the distance to the nearest neighbour so slots can never
   // steal each other's taps. Only live on coarse pointers — see .pe-slot-hit.
@@ -250,7 +250,7 @@ export default function PlacementEditor({
               )}
               <rect className="pe-slot-ring" x={-S / 2} y={-S / 2} width={S} height={S} rx={0.16} />
               {/* A padlock drawn in map units (an icon font would not scale with the
-                  viewBox): body + shackle, sized to sit inside the 1.25m square. */}
+                  viewBox): body + shackle, sized to sit inside the 1.0m square. */}
               {locked ? (
                 <g className="pe-slot-lock" aria-hidden="true">
                   <rect x={-0.25} y={-0.02} width={0.5} height={0.38} rx={0.08} />
