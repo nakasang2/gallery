@@ -1068,6 +1068,15 @@ button.hako-state { cursor: pointer; }
   margin: 0 auto;
   color: var(--ink);
 }
+/* 狭い幅ではスロットの大きさが地図の幅だけで決まるので、カードの左右padding
+   (1.6rem) をちょうど食い返す。-1.2rem だと 0.4rem×2 取り残していた
+   （ユーザー指摘「スロットの枠が小さすぎる」2026-07-30 の実測で判明）。
+   **この2行は .place-map の基本定義より後ろに置くこと** — 詳細度は同じなので、
+   前に置くと後から来る width:100% / margin:0 auto に負けて一切効かない
+   （実測で確認。LESSONS「CSSが書いてあるのに効いていない」）。 */
+@media (max-width: 720px) {
+  .place-map { margin-inline: -1.6rem; width: calc(100% + 3.2rem); }
+}
 /* 壁の線は細く・暗く。空き枠のマスと同じ明るさだと、壁の線と枠が混ざって
    どこが枠なのか読めなかった（ユーザー指摘 2026-07-29）。主役は枠、壁は下地。 */
 .place-map .lp-room { fill: none; stroke: currentColor; stroke-width: 0.22; opacity: 0.34; }
@@ -1277,10 +1286,11 @@ button.hako-state { cursor: pointer; }
      左右paddingを食い返して 360px の上限も外す（はみ出しはしない）。 */
   .place-map {
     max-width: none;
-    margin-inline: -1.2rem;
+    margin-inline: -1.6rem;
     /* 負のマージンだけでは width: 100% の基準が変わらず左にずれるだけなので、
-       幅も同じ分だけ足す（実測 2026-07-28）。 */
-    width: calc(100% + 2.4rem);
+       幅も同じ分だけ足す（実測 2026-07-28）。量はカードの左右padding と同じ
+       1.6rem（2026-07-30 に 1.2rem では足りていなかったのを実測で修正）。 */
+    width: calc(100% + 3.2rem);
     padding: 0.3rem;
   }
 }
