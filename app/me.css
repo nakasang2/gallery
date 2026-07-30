@@ -781,6 +781,52 @@
   color: var(--muted);
   margin: 0;
 }
+/* Reorder list — the walk order of the works (ユーザー指示 2026-07-31) */
+.place-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.place-order-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: rgba(236, 231, 222, 0.02);
+}
+.place-order-n { flex: none; width: 1.4rem; text-align: center; font-size: 0.8rem; color: var(--gold); }
+.place-order-thumb {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+}
+.place-order-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+.place-order-moves { flex: none; display: flex; gap: 0.3rem; }
+.place-order-move {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+.place-order-move:hover:not(:disabled) { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
+.place-order-move:disabled { opacity: 0.3; cursor: default; }
 
 /* ---- Publish stage: share-cover picker ---- */
 .me-cover-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }

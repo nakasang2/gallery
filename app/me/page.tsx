@@ -12,7 +12,6 @@ import { SIZE_GROUPS, matchPreset, presetByLabel } from '@/lib/artSizes'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
 import PurchaseModal from '@/components/PurchaseModal'
-import PlacementEditor from '@/components/PlacementEditor'
 import TopActions from '@/components/TopActions'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, type PaidKind } from '@/lib/pricing'
@@ -455,6 +454,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const updateSettings = useGallery((s) => s.updateSettings)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
+  const reorderOwnArtworks = useGallery((s) => s.reorderOwnArtworks)
   const toast = useToast()
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
@@ -744,6 +744,16 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   useEffect(() => () => {
     if (placeTimer.current) clearTimeout(placeTimer.current)
   }, [])
+
+  // Reorder-only placement (ユーザー指示 2026-07-31): the list order is the walk order,
+  // so a move just reorders the works (reorderOwnArtworks persists it + rebuilds the
+  // public room). If a per-slot arrangement lingers from the old map, drop it first so
+  // the room auto-fills by the new order instead of the pinned slots.
+  function moveWork(from: number, to: number) {
+    if (to < 0 || to >= cloudArtworks.length || from === to) return
+    if (placement.length) editPlacement([])
+    void reorderOwnArtworks(from, to)
+  }
 
   // Custom layout size autosave: optimistic local update, then persist the layout_params
   // through the same saveGallerySpace(+rebuildPlacements) path. Debounced because the
@@ -1115,17 +1125,17 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   return (
     <>
     {/* The stage bar is the only navigation (the header card and the top tabs are
-        gone — ユーザー指示 2026-07-30). The publish flow leads with a check for what
-        publishing already has; the guestbook lives INSIDE the publish stage, and
-        profile trails as the one housekeeping stage. */}
+        gone — ユーザー指示 2026-07-30). Profile leads (who you are), then the publish
+        flow with a check for what publishing already has; the guestbook lives INSIDE
+        the publish stage. */}
     <nav className="me-stages" aria-label={t('me.navSections')}>
       {(
         [
+          ['profile', t('me.tabProfile'), false, null],
           ['works', t('me.stageWorks'), cloudArtworks.length > 0, cloudArtworks.length || null],
           ['room', t('me.navRoom'), true, null],
           ['placement', t('me.placement'), cloudArtworks.length > 0, null],
           ['publish', t('me.stagePublish'), row.is_public, null],
-          ['profile', t('me.tabProfile'), false, null],
         ] as const
       ).map(([key, label, done, count]) => (
         <button
@@ -1532,29 +1542,49 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           </div>
         </div>
       ) : stage === 'placement' ? (
-        /* Placement ONLY — decide which work hangs on each wall spot. No work editing
-           here (that overlapped the works stage — ユーザー指示 2026-07-30): tapping a
-           spot opens a picker to choose its work, nothing more. Full width so the map
-           and its spots are large and legible. */
+        /* Placement is just a reorder list now (ユーザー指示 2026-07-31): the top-down
+           map was too abstract to operate. The order here is walk order — works fill
+           the walls in this sequence. Reordering drops any old per-slot arrangement so
+           the room auto-fills by the new order (moveWork). */
         <div className="placement-stage">
           {cloudArtworks.length > 0 ? (
             <>
               <div className="placement-head">
                 <h3 className="placement-title">{t('me.placement')}</h3>
-                <p className="me-note" style={{ marginTop: '0.3rem' }}>{t('me.placementHint')}</p>
+                <p className="me-note" style={{ marginTop: '0.3rem' }}>{t('me.placementOrderHint')}</p>
               </div>
-              <PlacementEditor
-                layoutKey={row.layout}
-                layoutParams={normalizeLayoutParams(row.layout_params)}
-                workCap={row.work_cap}
-                works={cloudArtworks}
-                arrangement={placement}
-                onChange={editPlacement}
-                onBuySlots={(slots) =>
-                  setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
-                }
-                disabled={busy}
-              />
+              <ol className="place-order">
+                {cloudArtworks.map((art, i) => (
+                  <li key={art.id} className="place-order-row">
+                    <span className="place-order-n" aria-hidden="true">{i + 1}</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img crossOrigin="anonymous" className="place-order-thumb" src={art.poster ?? art.thumb ?? art.src} alt="" loading="lazy" />
+                    <span className="place-order-title">{art.title || t('common.untitled')}</span>
+                    <span className="place-order-moves">
+                      <button
+                        type="button"
+                        className="place-order-move"
+                        aria-label={t('me.moveUp')}
+                        title={t('me.moveUp')}
+                        disabled={busy || i === 0}
+                        onClick={() => moveWork(i, i - 1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="place-order-move"
+                        aria-label={t('me.moveDown')}
+                        title={t('me.moveDown')}
+                        disabled={busy || i === cloudArtworks.length - 1}
+                        onClick={() => moveWork(i, i + 1)}
+                      >
+                        ↓
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ol>
             </>
           ) : (
             <>
