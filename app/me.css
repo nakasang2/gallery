@@ -655,12 +655,20 @@ button.hako-state { cursor: pointer; }
 /* ---- Works stage: the library grid + the shared editor sheet ---- */
 .me-works-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; }
 .me-works-count { font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-.me-works-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+/* 作品は横一列（ユーザー指示 2026-07-30）。15枠まで伸びるので幅を超えたら横に
+   スクロールする。「+追加」は行の先頭に置いてある（末尾だとスクロールの先に
+   隠れる＝2026-07-28 にレールで踏んだ穴）。 */
+.me-works-row {
+  display: flex;
   gap: 0.5rem;
   margin-top: 0.7rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scrollbar-width: thin;
 }
+.me-works-row .me-work-tile { flex: 0 0 auto; width: 64px; }
+/* 文字が入るぶんだけ広い */
+.me-works-row .me-add-tile { width: 78px; }
 .me-work-tile {
   position: relative;
   aspect-ratio: 1;
@@ -673,6 +681,9 @@ button.hako-state { cursor: pointer; }
 }
 .me-work-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .me-work-tile.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+/* いま編集している作品の印。枠の金色だけだと、既定で選ばれている状態が
+   「たまたま最初のが光っている」ようにも見えるため（ユーザー指示 2026-07-30）。 */
+.me-work-tile-mark { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--gold); }
 .me-work-tile-video {
   position: absolute;
   left: 4px;
@@ -694,31 +705,15 @@ button.hako-state { cursor: pointer; }
 .me-add-tile small { font-size: 0.58rem; letter-spacing: 0.06em; color: var(--muted); text-align: center; padding: 0 0.2rem; }
 .me-add-tile-plus { font-size: 1.2rem; line-height: 1; }
 .me-add-tile.busy { opacity: 0.6; cursor: default; }
+/* 編集面はどの幅でもその場に開く（ユーザー指示 2026-07-30）。以前は電話幅だけ
+   position: fixed のハーフモーダルにしていたが、作品ステージは常に1点を選んで
+   いるので、選んでいる行そのものを覆ってしまう。 */
 .me-worksheet { margin-top: 1rem; }
-
-/* ---- 電話幅の編集シート（グリッド/地図の上へ、下からせり上がる） ---- */
-.me-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 60;
-  max-height: 62dvh;
-  overflow-y: auto;
-  background: #14120f;
-  border-top: 1px solid rgba(212, 162, 78, 0.4);
-  border-radius: 14px 14px 0 0;
-  padding: 0 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.55);
-}
-.me-sheet-head {
-  position: sticky;
-  top: 0;
+.me-worksheet-head {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  background: #14120f;
-  padding: 0.55rem 0 0.45rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--hairline);
 }
 .me-sheet-thumb { width: 30px; height: 30px; object-fit: cover; border-radius: 5px; border: 1px solid var(--hairline); flex: none; }
@@ -732,6 +727,15 @@ button.hako-state { cursor: pointer; }
   font-size: 0.9rem;
   color: var(--ink);
 }
+
+/* ---- Placement stage: 地図が主役なので1カラム（ユーザー指摘「スロットの枠が
+   小さすぎる」2026-07-30）。横に3Dプレビューを置くと右列が420pxまで狭まり、
+   26×16mのhallでは1枠が15pxしか描けなかった。 ---- */
+.works-detail--map { grid-template-columns: minmax(0, 1fr); }
+/* 1カラムでは貼り付く意味がない（地図がプレビューの真下に来る） */
+.works-detail--map .we-left { position: static; }
+.works-detail--map .wall-preview3d,
+.works-detail--map .wall-preview--lg { height: 220px; }
 
 /* ---- Publish stage: share-cover picker ---- */
 .me-cover-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -1056,7 +1060,11 @@ button.hako-state { cursor: pointer; }
 .place-map {
   display: block;
   width: 100%;
-  max-width: 360px;
+  /* 680px: the placement stage gives the map the full content column (see
+     .works-detail--map), and a 26×16m hall drawn this wide puts each 1.25m spot at
+     ~31px instead of the ~15px it got inside the old 360px box
+     （ユーザー指摘「スロットの枠が小さすぎる」2026-07-30）。 */
+  max-width: 680px;
   margin: 0 auto;
   color: var(--ink);
 }

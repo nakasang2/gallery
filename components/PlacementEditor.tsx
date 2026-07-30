@@ -48,10 +48,18 @@ export default function PlacementEditor({
   const n = effectiveSlotCount(def.slots.length, workCap)
   const [sel, setSel] = useState<number | null>(null)
 
-  const pad = 1.6
+  // Margin around the room, in metres. Kept just wide enough for the wall stroke
+  // (0.22 wide, so 0.11 sticks out) plus the knockout ring — every extra metre here
+  // shrinks the whole map, and the spots are what people need to hit
+  // (ユーザー指摘「スロットの枠が小さすぎる」2026-07-30).
+  const pad = 0.5
   const w = def.hw * 2 + pad * 2
   const h = def.hd * 2 + pad * 2
-  const S = 1.25 // slot square side, in metres
+  // Slot square side, in metres. NOT raised past 1.25: the closest two spots in any
+  // layout sit 1.350m apart (portrait's corner pair — measured across all 4 presets
+  // and 72 custom sizes), so 1.25 already leaves only a 10cm gap. Bigger spots come
+  // from drawing the map bigger, not from overlapping squares.
+  const S = 1.25
 
   // Effective occupancy right now (auto-fill included), snapshotted as an explicit
   // per-slot id array. Writing THIS on every edit makes every shown work explicit, so

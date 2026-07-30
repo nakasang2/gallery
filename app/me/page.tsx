@@ -569,6 +569,15 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     if (selectedId && !cloudArtworks.some((a) => a.id === selectedId)) setSelectedId(null)
   }, [selectedId, cloudArtworks])
 
+  // The works stage always has one work under the editor, so its fields are visible
+  // without hunting for what to tap first (ユーザー指示 2026-07-30). The placement
+  // stage does NOT pre-select: there you pick a spot on the map.
+  useEffect(() => {
+    if (stage !== 'works') return
+    if (selectedId && cloudArtworks.some((a) => a.id === selectedId)) return
+    setSelectedId(cloudArtworks[0]?.id ?? null)
+  }, [stage, cloudArtworks, selectedId])
+
   // The plate fields follow whichever work is selected
   useEffect(() => {
     setTitleInput(selected?.title ?? '')
@@ -917,90 +926,19 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
 
   const themeDef = THEMES[row.theme] ?? THEMES.chic
 
-  // Template = one tap that sets theme+layout+frame+hanging+caption together. It
-  // used to be pickable only at creation time and in the 3D panel — now the room
-  // stage owns it. Highlighted only while every axis still matches its bundle
-  // (same rule as the 3D panel).
-  const activeTemplate =
-    Object.keys(TEMPLATES).find((key) => {
-      const p = TEMPLATES[key]
-      return (
-        !!p &&
-        p.theme === row.theme &&
-        p.layout === row.layout &&
-        p.frame === row.frame_default &&
-        p.hanging === row.hanging_default &&
-        p.caption === row.caption_default
-      )
-    }) ?? null
-  function applyTemplate(key: string) {
-    const tpl = TEMPLATES[key]
-    if (!tpl) return
-    if (!isTemplateUnlocked(tpl, entitlements)) {
-      // Sell whichever axis is locked — the theme first (the bigger visual change)
-      setPurchaseItem(
-        !isThemeUnlocked(tpl.theme, entitlements)
-          ? { kind: 'theme', key: tpl.theme, label: THEMES[tpl.theme]?.label ?? tpl.theme }
-          : { kind: 'layout', key: tpl.layout, label: t(`presets.layout.${tpl.layout}`) }
-      )
-      return
-    }
-    // A template resets per-work design — never silently (same as the 3D panel)
-    const n = new Set([
-      ...Object.keys(frameOverrides),
-      ...Object.keys(matOverrides),
-      ...Object.keys(hangingOverrides),
-      ...Object.keys(captionOverrides),
-      ...Object.keys(lightOverrides),
-    ]).size
-    if (n > 0 && !confirm(t('artwork.resetPerWork', { count: n }))) return
-    // The space values ride along so the debounce-scheduled store sync carries the
-    // NEW theme/layout — clearing only the override maps would schedule a sync that
-    // still holds the old space and could write it back over run()'s save when the
-    // rebuild takes longer than the 1.2s debounce (レビュー指摘 2026-07-30).
-    updateSettings({
-      theme: tpl.theme,
-      layout: tpl.layout,
-      frame: tpl.frame,
-      mat: 'auto',
-      hanging: tpl.hanging,
-      caption: tpl.caption,
-      frameOverrides: {},
-      matOverrides: {},
-      hangingOverrides: {},
-      captionOverrides: {},
-      lightOverrides: {},
-    })
-    // EMPTY_OVERRIDES, not mergedOverrides(): the maps we just cleared must not ride
-    // back in through the closure and survive the rebuild
-    void run(t('panel.template'), async () => {
-      const s = {
-        ...rowToSettings(row, EMPTY_OVERRIDES),
-        theme: tpl.theme,
-        layout: tpl.layout,
-        frame: tpl.frame,
-        mat: 'auto',
-        hanging: tpl.hanging,
-        caption: tpl.caption,
-      }
-      await saveGallerySpace(row.id, s)
-      if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
-    })
-  }
 
-  // The shared work editor: the same sheet opens from the works grid and from the
-  // placement map (DECISIONS 2026-07-30 — hanging and describing a work used to
-  // live in different views). Phones present it as a bottom sheet over the grid/map.
+  // The shared work editor: opens from the works row and from the placement map
+  // (DECISIONS 2026-07-30 — hanging and describing a work used to live in different
+  // views). Always inline, on every width: the works stage keeps one work selected
+  // at all times, so a half-height modal would cover the row it belongs to
+  // (ユーザー指示 2026-07-30).
   const workSheet = selected ? (
-    <div className={narrow ? 'me-sheet' : 'me-worksheet'}>
-      {narrow && (
-        <div className="me-sheet-head">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img crossOrigin="anonymous" className="me-sheet-thumb" src={selected.poster ?? selected.thumb ?? selected.src} alt="" />
-          <span className="me-sheet-title">{selected.title || t('common.untitled')}</span>
-          <button type="button" className="me-modal-close" aria-label={t('common.close')} onClick={() => setSelectedId(null)}>✕</button>
-        </div>
-      )}
+    <div className="me-worksheet">
+      <div className="me-worksheet-head">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img crossOrigin="anonymous" className="me-sheet-thumb" src={selected.poster ?? selected.thumb ?? selected.src} alt="" />
+        <span className="me-sheet-title">{selected.title || t('common.untitled')}</span>
+      </div>
       <div className="work-actions">
         <button
           type="button"
@@ -1179,21 +1117,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           background: `linear-gradient(90deg, ${hex(themeDef.wall)}, ${hex(themeDef.accentWall)} 45%, ${hex(themeDef.spotColor)})`,
         }}
       />
-      {/* Slim header: the title edits in place; publish state and the 3D door are
-          always visible. Everything else lives in its stage below. */}
+      {/* Slim header: which exhibition you're editing, its publish state, and the
+          door into 3D. The title is EDITED in the publish stage (ユーザー指示
+          2026-07-30) — here it only names the room you're working on. */}
       <div className="hako-head">
-        <input
-          className="hako-title-input"
-          type="text"
-          maxLength={TITLE_MAX}
-          value={nameInput}
-          placeholder={t('me.untitledPlaceholder')}
-          aria-label={t('me.exhibitionTitle')}
-          onChange={(e) => editDetails({ title: e.target.value })}
-        />
-        {detailsState !== 'idle' && (
-          <span className="hako-save-state">{detailsState === 'saving' ? t('common.saving') : t('common.saved')}</span>
-        )}
+        <h2 className="hako-title">{nameInput || t('me.untitledPlaceholder')}</h2>
         <div className="hako-head-actions">
           {/* The badge is a shortcut to the stage that changes it */}
           <button
@@ -1275,28 +1203,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               recolours live as you switch theme. (Design Tools hidden for now.) */}
           <div className="wd-group wd-group--flush">
             <div className="wd-title"><span>{t('me.themeAndLayout')}</span></div>
-            {/* A template sets theme+layout+frame+hanging+caption in one tap. It used
-                to exist only at creation time and in the 3D panel — now the room it
-                configures is also where you can change it. Same locks as the chips. */}
-            <div className="wd-row wd-row-block">
-              <span className="wd-label">{t('panel.template')}</span>
-              <div className="wd-block-body">
-                <div className="tpl-grid">
-                  {unlockedFirst(
-                    Object.keys(TEMPLATES),
-                    (key) => !TEMPLATES[key] || isTemplateUnlocked(TEMPLATES[key], entitlements)
-                  ).map((key) => (
-                    <TemplateCard
-                      key={key}
-                      templateId={key}
-                      active={key === activeTemplate}
-                      locked={!!TEMPLATES[key] && !isTemplateUnlocked(TEMPLATES[key], entitlements)}
-                      onClick={() => applyTemplate(key)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* Templates are a starting point, not a setting: they live in the create
+                card (and in the 3D panel) only. Once the room exists, theme and layout
+                are the two chips below — a template row here just offered a second,
+                coarser way to change the same two things (ユーザー指示 2026-07-30). */}
             <div className="wd-row">
               <span className="wd-label">{t('me.theme')}</span>
               <div className="chips">
@@ -1580,20 +1490,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 {row.work_cap >= MAX_WORKS_PER_ROOM ? t('me.roomFull') : t('me.addSlots')}
               </button>
             </div>
-            <div className="me-works-grid">
-              {cloudArtworks.map((art) => (
-                <button
-                  type="button"
-                  key={art.id}
-                  className={`me-work-tile${selectedId === art.id ? ' active' : ''}`}
-                  title={art.title}
-                  onClick={() => setSelectedId(selectedId === art.id ? null : art.id)}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img crossOrigin="anonymous" src={art.poster ?? art.thumb ?? art.src} alt={art.title} loading="lazy" />
-                  {art.kind === 'video' && <span className="me-work-tile-video" aria-hidden="true"><VideoIcon /></span>}
-                </button>
-              ))}
+            {/* One row, scrolled sideways when it outgrows the width. "Add" sits at
+                the HEAD of the row: at the tail it ends up past the right edge once
+                there are a few works — the same trap the old rail fell into
+                (ユーザー指摘 2026-07-28). */}
+            <div className="me-works-row">
               {cloudArtworks.length < row.work_cap && (
                 <label className={`me-work-tile me-add-tile${uploading ? ' busy' : ''}`} aria-disabled={uploading}>
                   <span className="me-add-tile-plus" aria-hidden="true">{uploading ? '…' : '+'}</span>
@@ -1611,16 +1512,34 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                   />
                 </label>
               )}
+              {cloudArtworks.map((art) => (
+                <button
+                  type="button"
+                  key={art.id}
+                  className={`me-work-tile${selectedId === art.id ? ' active' : ''}`}
+                  title={art.title}
+                  aria-current={selectedId === art.id ? 'true' : undefined}
+                  onClick={() => setSelectedId(art.id)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img crossOrigin="anonymous" src={art.poster ?? art.thumb ?? art.src} alt={art.title} loading="lazy" />
+                  {art.kind === 'video' && <span className="me-work-tile-video" aria-hidden="true"><VideoIcon /></span>}
+                  {/* Points at the editor below, so "this is the one you're editing"
+                      reads without a label the 64px tile has no room for. */}
+                  {selectedId === art.id && <span className="me-work-tile-mark" aria-hidden="true" />}
+                </button>
+              ))}
             </div>
-            {selected ? workSheet : cloudArtworks.length > 0 ? (
-              <p className="me-note">{t('me.pickWorkNote')}</p>
-            ) : null}
+            {workSheet}
           </div>
         </div>
       ) : stage === 'placement' ? (
         /* The placement map + the same editor sheet, so hanging and describing a
-           work no longer live in different views (DECISIONS 2026-07-30) */
-        <div className="works-detail">
+           work no longer live in different views (DECISIONS 2026-07-30). One column
+           on every width: the map is the thing being aimed at, and a side-by-side
+           preview squeezed each spot down to ~15px
+           （ユーザー指摘「スロットの枠が小さすぎる」2026-07-30）。 */
+        <div className="works-detail works-detail--map">
           <GalleryPreview
             art={roomArt}
             src={roomSrc}
@@ -1777,15 +1696,34 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 </div>
               </div>
             )}
-            <textarea
-              className="hako-statement-input"
-              rows={2}
-              maxLength={200}
-              placeholder={t('me.statementBoardPlaceholder')}
-              aria-label={t('me.exhibitionStatement')}
-              value={statementInput}
-              onChange={(e) => editDetails({ statement: e.target.value })}
-            />
+            {/* The exhibition's own words — the title and the statement, edited
+                together where the room goes public (ユーザー指示 2026-07-30). */}
+            <div className="wd-group">
+              <div className="wd-title">
+                <span>{t('me.exhibitionTitle')}</span>
+                {detailsState !== 'idle' && (
+                  <span className="hako-save-state">{detailsState === 'saving' ? t('common.saving') : t('common.saved')}</span>
+                )}
+              </div>
+              <input
+                className="hako-title-input"
+                type="text"
+                maxLength={TITLE_MAX}
+                value={nameInput}
+                placeholder={t('me.untitledPlaceholder')}
+                aria-label={t('me.exhibitionTitle')}
+                onChange={(e) => editDetails({ title: e.target.value })}
+              />
+              <textarea
+                className="hako-statement-input"
+                rows={2}
+                maxLength={200}
+                placeholder={t('me.statementBoardPlaceholder')}
+                aria-label={t('me.exhibitionStatement')}
+                value={statementInput}
+                onChange={(e) => editDetails({ statement: e.target.value })}
+              />
+            </div>
             {cloudArtworks.length > 0 && (
               <div className="wd-group">
                 <div className="wd-title"><span>{t('me.coverPick')}</span></div>
@@ -2255,8 +2193,12 @@ function ProfileCard() {
 // Dashboard menus: gallery editing and profile/account editing are separate concerns
 // Ids only — the labels are translated where they are rendered, since a module
 // constant cannot call a hook.
-const ME_TABS = ['gallery', 'guestbook', 'profile', 'account'] as const
-type MeTab = (typeof ME_TABS)[number]
+// Account settings live in the top-right menu instead of a fourth tab (ユーザー指示
+// 2026-07-30): they're visited rarely, and three tabs leave the row uncrowded.
+// 'account' is still a tab VALUE — the menu switches to it, the tab row just never
+// offers it.
+const ME_TABS = ['gallery', 'guestbook', 'profile'] as const
+type MeTab = (typeof ME_TABS)[number] | 'account'
 
 export default function MePage() {
   const t = useT()
@@ -2357,6 +2299,9 @@ export default function MePage() {
               <Link className="btn-line btn-gold" href="/admin">{t('me.admin')}</Link>
             )}
             {user && (
+              <button className="btn-line" onClick={() => setTab('account')}>{t('me.tabAccount')}</button>
+            )}
+            {user && (
               <button className="btn-line" onClick={() => void signOut()}>{t('me.signOut')}</button>
             )}
           </TopActions>
@@ -2451,7 +2396,12 @@ export default function MePage() {
 
             {tab === 'account' && (
               <section className="me-section">
-                <h2>{t('me.tabAccount')}</h2>
+                {/* Reached from the top-right menu, so the tab row shows no active
+                    tab — this is the way back. */}
+                <div className="me-section-head">
+                  <h2>{t('me.tabAccount')}</h2>
+                  <button className="btn-line" onClick={() => setTab('gallery')}>← {t('me.myGallery')}</button>
+                </div>
                 <AccountCard />
               </section>
             )}
