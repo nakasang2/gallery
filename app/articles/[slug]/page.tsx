@@ -10,6 +10,8 @@ import { getServerT } from '@/lib/i18n/server'
 import { singleLanguageAlternates } from '@/lib/i18n/metadata'
 import { LocaleLink } from '@/components/I18nProvider'
 import ArticleSidebar from '@/components/ArticleSidebar'
+import JsonLd from '@/components/JsonLd'
+import { articleJsonLd } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,6 +69,10 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
   return (
     <main className="article-page">
+      {/* The body is Markdown rendered to elements, so a crawler can already read
+          it — this is what makes the guide eligible for an article rich result
+          (headline, dates, publisher) rather than a plain blue link. */}
+      <JsonLd data={articleJsonLd(a)} />
       <div className="article-inner">
         {/* ロゴを左に置く。検索から本文へ直接来た人にとって、ここが最初の
             「何のサイトか」の手がかりになる（以前は「← Guides」だけだった）。 */}

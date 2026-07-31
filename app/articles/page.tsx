@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { ARTICLE_LOCALE, fetchPublishedArticles } from '@/lib/blog'
 import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
 import ArticleSidebar from '@/components/ArticleSidebar'
+import JsonLd from '@/components/JsonLd'
+import { articlesIndexJsonLd } from '@/lib/seo'
 import { getServerT } from '@/lib/i18n/server'
 import { singleLanguageAlternates } from '@/lib/i18n/metadata'
 
@@ -38,6 +40,7 @@ export default async function ArticlesPage() {
 
   return (
     <main className="artist-page articles-index">
+      <JsonLd data={articlesIndexJsonLd(articles)} />
       <div className="me-inner">
         <div className="me-top">
           <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
