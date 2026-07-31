@@ -458,6 +458,7 @@ export const ko: PartialDictionary = {
     placementOrderHint: '전시실을 둘러볼 때 작품이 걸리는 순서입니다. 화살표로 순서를 바꾸세요.',
     placementDragHint: '작품을 자리로 끌어다 놓거나, 작품을 탭한 뒤 자리를 탭하세요. 작품끼리는 자리가 바뀝니다.',
     placementTrayLabel: '작품',
+    placementRemove: '벽에서 내리기',
     moveUp: '위로',
     moveDown: '아래로',
     cropWarn: '이미지를 왜곡하지 않고 이 크기에 맞추기 위해 약 {pct}%가 잘립니다. ⇄로 가로세로를 바꿀 수 있습니다.',

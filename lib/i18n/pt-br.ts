@@ -414,6 +414,7 @@ export const ptBr: PartialDictionary = {
     placementOrderHint: 'É a ordem em que as obras ficam ao percorrer a sala — reordene com as setas.',
     placementDragHint: 'Arraste uma obra para um ponto — ou toque numa obra e depois num ponto. As obras trocam de lugar.',
     placementTrayLabel: 'Suas obras',
+    placementRemove: 'Tirar da parede',
     moveUp: 'Mover para cima',
     moveDown: 'Mover para baixo',
     cropWarn: 'Cerca de {pct}% da imagem é cortada para preencher este tamanho sem distorcê-la. Use ⇄ para inverter a proporção.',

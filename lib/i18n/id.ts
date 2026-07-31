@@ -414,6 +414,7 @@ export const id: PartialDictionary = {
     placementOrderHint: 'Ini urutan karya saat Anda menyusuri ruangan — ubah urutannya dengan panah.',
     placementDragHint: 'Seret karya ke sebuah titik — atau ketuk karya lalu ketuk titik. Karya akan bertukar tempat.',
     placementTrayLabel: 'Karya Anda',
+    placementRemove: 'Lepas dari dinding',
     moveUp: 'Naikkan',
     moveDown: 'Turunkan',
     cropWarn: 'Sekitar {pct}% gambar dipangkas agar mengisi ukuran ini tanpa mendistorsinya. Gunakan ⇄ untuk membalik rasio.',

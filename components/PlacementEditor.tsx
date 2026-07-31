@@ -193,8 +193,26 @@ export default function PlacementEditor({
     dragRef.current = null
     const target = slotAt(e.clientX, e.clientY)
     if (target != null) drop(target, d.workId, d.fromSlot)
+    // Dragging a hung work back onto the tray takes it off the wall.
+    else if (d.fromSlot != null && overTray(e.clientX, e.clientY)) removeSlot(d.fromSlot)
     setDrag(null)
     setOverSlot(null)
+  }
+  // True when the point is over the tray (so a drop there removes rather than places).
+  // The drag ghost is pointer-events:none, so elementFromPoint sees the tray beneath it.
+  function overTray(x: number, y: number): boolean {
+    if (typeof document === 'undefined') return false
+    const el = document.elementFromPoint(x, y)
+    return !!el?.closest('.place-tray')
+  }
+  // Take a work off the wall — it drops out of the arrangement, so it returns to the tray
+  // and (because a non-empty arrangement is authoritative) is not auto-hung again.
+  function removeSlot(slot: number) {
+    if (current[slot] == null) return
+    const next = [...current]
+    next[slot] = null
+    onChange(next)
+    setPicked(null)
   }
 
   // --- press → tap or drag ---
@@ -340,6 +358,21 @@ export default function PlacementEditor({
           )
         })}
       </div>
+
+      {/* A hung work that's been picked (tapped) — offer to take it off the wall, so
+          removal has a tap path too (dragging it onto the tray does the same). */}
+      {picked && picked.fromSlot != null && (
+        <div className="place-actions">
+          <span className="place-actions-label">{byId.get(picked.workId)?.title || t('common.untitled')}</span>
+          <button
+            type="button"
+            className="btn-line"
+            onClick={() => picked.fromSlot != null && removeSlot(picked.fromSlot)}
+          >
+            {t('me.placementRemove')}
+          </button>
+        </div>
+      )}
 
       {/* The piece that follows the pointer while dragging. */}
       {drag && (() => {

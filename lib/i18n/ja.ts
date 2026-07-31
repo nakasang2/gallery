@@ -334,6 +334,7 @@ export const ja: Dictionary = {
     placementOrderHint: '上から順に、部屋を歩いたときの並びになります。矢印で入れ替えられます。',
     placementDragHint: '作品をスロットにドラッグして掛けます。作品をタップ→置き場所をタップでもOK。作品どうしは入れ替わります。',
     placementTrayLabel: '作品',
+    placementRemove: '壁から外す',
     moveUp: '上へ',
     moveDown: '下へ',
     cropWarn: '歪ませずにこのサイズへ収めるため、画像の約{pct}%がトリミングされます。⇄で縦横を入れ替えられます。',

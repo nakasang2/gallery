@@ -360,6 +360,7 @@ export const en = {
     placementOrderHint: 'This is the order works hang as you walk the room — reorder them with the arrows.',
     placementDragHint: 'Drag a work onto a spot to hang it — or tap a work, then tap a spot. Works swap places.',
     placementTrayLabel: 'Your works',
+    placementRemove: 'Take off the wall',
     moveUp: 'Move up',
     moveDown: 'Move down',
     cropWarn: 'About {pct}% of the image is cropped to fill this size without distorting it. Use ⇄ to flip the ratio.',

@@ -414,6 +414,7 @@ export const es: PartialDictionary = {
     placementOrderHint: 'Es el orden en que se cuelgan las obras al recorrer la sala — reordena con las flechas.',
     placementDragHint: 'Arrastra una obra a un lugar — o toca una obra y luego un lugar. Las obras intercambian su posición.',
     placementTrayLabel: 'Tus obras',
+    placementRemove: 'Quitar de la pared',
     moveUp: 'Subir',
     moveDown: 'Bajar',
     cropWarn: 'Alrededor del {pct}% de la imagen se recorta para llenar este tamaño sin deformarla. Usa ⇄ para invertir la proporción.',

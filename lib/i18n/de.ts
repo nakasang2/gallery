@@ -414,6 +414,7 @@ export const de: PartialDictionary = {
     placementOrderHint: 'Das ist die Reihenfolge, in der die Werke beim Rundgang hängen — mit den Pfeilen umsortieren.',
     placementDragHint: 'Ziehe ein Werk auf einen Platz — oder tippe ein Werk an und dann einen Platz. Werke tauschen die Plätze.',
     placementTrayLabel: 'Deine Werke',
+    placementRemove: 'Von der Wand nehmen',
     moveUp: 'Nach oben',
     moveDown: 'Nach unten',
     cropWarn: 'Etwa {pct}% des Bildes werden beschnitten, um diese Größe ohne Verzerrung zu füllen. Mit ⇄ das Seitenverhältnis tauschen.',

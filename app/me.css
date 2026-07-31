@@ -1178,6 +1178,26 @@
   background: var(--gold);
 }
 .place-tray-item.dragging { opacity: 0.3; }
+/* Shown when a hung work is tapped: its title + a "take off the wall" button. */
+.place-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid rgba(212, 162, 78, 0.4);
+  border-radius: 8px;
+  background: rgba(212, 162, 78, 0.06);
+}
+.place-actions-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
 /* Picked up by a tap — ringed gold, and un-dimmed even if it's already hung, so the
    piece you're about to move stands out. */
 .place-tray-item.picked { opacity: 1; outline: 2px solid var(--gold); outline-offset: -2px; }

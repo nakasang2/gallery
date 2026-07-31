@@ -415,6 +415,7 @@ export const zhHans: PartialDictionary = {
     placementOrderHint: '这是你在展厅走动时作品悬挂的顺序——用箭头调整。',
     placementDragHint: '把作品拖到位置上，或先点作品再点位置。作品之间会互换位置。',
     placementTrayLabel: '你的作品',
+    placementRemove: '从墙上取下',
     moveUp: '上移',
     moveDown: '下移',
     cropWarn: '为在不变形的情况下填满该尺寸，图像约 {pct}% 会被裁剪。可用 ⇄ 交换长宽。',

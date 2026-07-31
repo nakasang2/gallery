@@ -39,11 +39,14 @@ export function balancedFillOrder(layout: LayoutDef): number[] {
  *  Returns an array of length `slotCount`; entry i is the work at slot i, or null when
  *  the slot is empty.
  *  - Works named in `arrangement` go to their slot (first valid occurrence wins).
- *  - Works the arrangement never mentions (new uploads — or every work when the
- *    arrangement is empty) auto-fill the remaining empty slots in order: own works
- *    first, then `extra` (the guest demo collection).
- *  With an empty arrangement this is exactly "hang the works in slots 0,1,2,…",
- *  i.e. the pre-§11.13 behaviour, so existing rooms are unaffected. */
+ *  - When `arrangement` is EMPTY (an un-arranged room, or the guest demo showcase),
+ *    every work auto-fills the slots in order: own works first, then `extra` (the guest
+ *    demo collection) — exactly "hang the works in slots 0,1,2,…", the pre-§11.13
+ *    behaviour, so un-arranged rooms are unaffected.
+ *  - Once `arrangement` is non-empty it is AUTHORITATIVE: only the works it names hang,
+ *    and works it omits stay off the wall (the owner took them down, or never placed a
+ *    new upload). No auto-fill runs, so a manually curated room shows exactly the works
+ *    the owner chose (ユーザー指示 2026-07-31). */
 export function placeWorks(
   slotCount: number,
   arrangement: (string | null)[],
@@ -73,27 +76,25 @@ export function placeWorks(
       placed++
     }
   }
-  // 2. Auto-fill with works the arrangement never names — own first, then demo.
-  //    A gap the arrangement DID leave (null within its range) is intentional and only
-  //    gets filled if there's still an unplaced work looking for a home. The fill
-  //    ORDER walks the balanced sequence so unplaced works spread across the walls
-  //    instead of packing the first wall solid.
-  // Only ids pinned WITHIN the current slot range count as "named": a work pinned
-  // beyond it (the layout shrank since it was arranged) must fall back to auto-fill,
-  // or it would silently vanish from the room.
-  const named = new Set(
-    arrangement.slice(0, n).filter((x): x is string => !!x)
-  )
-  const queue = [...own.filter((a) => !named.has(a.id)), ...extra]
-  const order = fillOrder
-    ? fillOrder.filter((i) => i >= 0 && i < n)
-    : Array.from({ length: n }, (_, i) => i)
-  let q = 0
-  for (const i of order) {
-    if (q >= queue.length || placed >= max) break
-    if (!slots[i]) {
-      slots[i] = queue[q++]
-      placed++
+  // 2. Auto-fill — but ONLY when there is no manual arrangement at all (an empty array).
+  //    Once the owner has arranged the room, `arrangement` is a full-length snapshot
+  //    (every edit writes one, even when it's all nulls), and it is authoritative: a work
+  //    they took off the wall must stay in the tray, and a work they never placed must not
+  //    auto-hang itself (ユーザー指示 2026-07-31「壁から外す＝トレイに戻す・自動で埋め
+  //    戻さない」). The guest demo showcase and every un-arranged room keep the old
+  //    "hang the works in slots 0,1,2,…" behaviour because their arrangement is empty.
+  if (arrangement.length === 0) {
+    const queue = [...own, ...extra]
+    const order = fillOrder
+      ? fillOrder.filter((i) => i >= 0 && i < n)
+      : Array.from({ length: n }, (_, i) => i)
+    let q = 0
+    for (const i of order) {
+      if (q >= queue.length || placed >= max) break
+      if (!slots[i]) {
+        slots[i] = queue[q++]
+        placed++
+      }
     }
   }
   return slots

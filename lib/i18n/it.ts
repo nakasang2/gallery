@@ -413,6 +413,7 @@ export const it: PartialDictionary = {
     placementOrderHint: 'È l’ordine in cui le opere sono appese percorrendo la sala — riordina con le frecce.',
     placementDragHint: 'Trascina un’opera su un posto — oppure tocca un’opera e poi un posto. Le opere si scambiano di posto.',
     placementTrayLabel: 'Le tue opere',
+    placementRemove: 'Togliere dalla parete',
     moveUp: 'Sposta su',
     moveDown: 'Sposta giù',
     cropWarn: 'Circa il {pct}% dell’immagine viene ritagliato per riempire questa dimensione senza deformarla. Usa ⇄ per invertire le proporzioni.',

@@ -413,6 +413,7 @@ export const zhHant: PartialDictionary = {
     placementOrderHint: '這是你在展廳走動時作品懸掛的順序——用箭頭調整。',
     placementDragHint: '把作品拖到位置上，或先點作品再點位置。作品之間會互換位置。',
     placementTrayLabel: '你的作品',
+    placementRemove: '從牆上取下',
     moveUp: '上移',
     moveDown: '下移',
     cropWarn: '為在不變形的情況下填滿該尺寸，圖像約 {pct}% 會被裁切。可用 ⇄ 交換長寬。',
