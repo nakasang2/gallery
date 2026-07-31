@@ -7,7 +7,7 @@
 import type { MetadataRoute } from 'next'
 import { supabase } from '@/lib/supabase'
 import { siteUrl } from '@/lib/publicUrl'
-import { fetchPublishedArticles } from '@/lib/blog'
+import { ARTICLE_LOCALE, fetchPublishedArticles } from '@/lib/blog'
 import { DEFAULT_LOCALE, LOCALES, LOCALE_META, localePath } from '@/lib/i18n'
 
 // Public galleries change as artists edit; keep the file fresh rather than
@@ -39,6 +39,13 @@ function localized(
   }))
 }
 
+/** The single URL a guide lives at. Kept in step with `singleLanguageAlternates`
+ *  in the page's <head> — the sitemap and the canonical tag must name the same URL,
+ *  or the sitemap is asking Google to index a page that disowns itself. */
+function articleUrl(base: string, path: string): string {
+  return `${base}${localePath(ARTICLE_LOCALE, path)}`
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl()
   const now = new Date()
@@ -47,7 +54,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...localized(base, '/', { lastModified: now, changeFrequency: 'weekly', priority: 1 }),
     ...localized(base, '/explore', { lastModified: now, changeFrequency: 'daily', priority: 0.9 }),
     ...localized(base, '/demo', { lastModified: now, changeFrequency: 'monthly', priority: 0.7 }),
-    ...localized(base, '/articles', { lastModified: now, changeFrequency: 'weekly', priority: 0.6 }),
+    // The guides are written once, in English (lib/blog ARTICLE_LOCALE), so they
+    // get ONE URL each — not one per locale. `localized()` would list eleven URLs
+    // claiming to be translations of each other, which is a claim the content
+    // cannot back and which splits one article's signals eleven ways.
+    { url: articleUrl(base, '/articles'), lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
     // The three legal pages stay one URL each (docs/DECISIONS 2026-07-28 / 07-29):
     // English is the governing version of the Terms and the Privacy Policy, and the
     // 特商法 disclosure is Japanese law whose Japanese version is the operative one.
@@ -116,12 +127,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticPages,
     ...artistPages,
     ...rooms,
-    ...articles.flatMap((a) =>
-      localized(base, `/articles/${a.slug}`, {
-        lastModified: a.publishedAt ? new Date(a.publishedAt) : now,
-        changeFrequency: 'monthly' as const,
-        priority: 0.5,
-      }),
-    ),
+    ...articles.map((a) => ({
+      url: articleUrl(base, `/articles/${a.slug}`),
+      lastModified: a.publishedAt ? new Date(a.publishedAt) : now,
+      changeFrequency: 'monthly' as const,
+      priority: 0.5,
+    })),
   ]
 }

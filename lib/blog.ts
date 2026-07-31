@@ -3,6 +3,17 @@
 // RLS is the real gate — these functions are just the calls). Bodies are stored
 // as Markdown and rendered app-side (lib/markdown), so no HTML is ever persisted.
 import { supabase } from './supabase'
+import type { Locale } from './i18n'
+
+/** The language guides are written in. Guides are authored once, in English
+ *  (ユーザー確認 2026-07-31: 英語がベースで、日本語だけの記事は書かない想定) — the
+ *  `articles` table has no language column because there is only ever one version.
+ *
+ *  This is the language the canonical URL and hreflang are built from
+ *  (`singleLanguageAlternates`), so publishing a guide in another language would
+ *  point its canonical at an English URL that does not match. When that day comes,
+ *  add `articles.locale` and read it here instead — no URL changes needed. */
+export const ARTICLE_LOCALE: Locale = 'en'
 
 export interface Article {
   id: string

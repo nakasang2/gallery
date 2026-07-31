@@ -4,10 +4,10 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { fetchArticle, fetchPublishedArticles } from '@/lib/blog'
+import { ARTICLE_LOCALE, fetchArticle, fetchPublishedArticles } from '@/lib/blog'
 import { renderMarkdown } from '@/lib/markdown'
 import { getServerT } from '@/lib/i18n/server'
-import { localeAlternates } from '@/lib/i18n/metadata'
+import { singleLanguageAlternates } from '@/lib/i18n/metadata'
 import { LocaleLink } from '@/components/I18nProvider'
 import ArticleSidebar from '@/components/ArticleSidebar'
 
@@ -33,8 +33,11 @@ export async function generateMetadata({
   const { slug } = await params
   const a = await fetchArticle(slug)
   if (!a) return {}
-  const title = `${a.title} — Xibit360`
-  const description = a.excerpt || `A Xibit360 guide: ${a.title}.`
+  // English on purpose, not a missed translation: the guide itself is an English
+  // document (ARTICLE_LOCALE) and these describe it in search results and share
+  // cards. Translating the frame around an English body would misdescribe it.
+  const title = `${a.title} — Xibit360` // i18n-ok
+  const description = a.excerpt || `A Xibit360 guide: ${a.title}.` // i18n-ok
   return {
     title,
     description,
@@ -42,10 +45,14 @@ export async function generateMetadata({
       title,
       description,
       type: 'article',
+      // Dates a crawler can read without parsing the page (the visible date is
+      // formatted for humans). `updatedAt` doubles as "still maintained".
+      publishedTime: a.publishedAt ?? undefined,
+      modifiedTime: a.updatedAt ?? undefined,
       images: a.coverUrl ? [{ url: a.coverUrl }] : undefined,
     },
     twitter: { card: a.coverUrl ? 'summary_large_image' : 'summary' },
-    alternates: await localeAlternates(`/articles/${slug}`),
+    alternates: singleLanguageAlternates(`/articles/${slug}`, ARTICLE_LOCALE),
   }
 }
 

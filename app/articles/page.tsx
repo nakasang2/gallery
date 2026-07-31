@@ -3,11 +3,11 @@
 // published rows via the anon key + RLS.
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { fetchPublishedArticles } from '@/lib/blog'
+import { ARTICLE_LOCALE, fetchPublishedArticles } from '@/lib/blog'
 import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
 import ArticleSidebar from '@/components/ArticleSidebar'
 import { getServerT } from '@/lib/i18n/server'
-import { localeAlternates } from '@/lib/i18n/metadata'
+import { singleLanguageAlternates } from '@/lib/i18n/metadata'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     openGraph: { title, description },
-    alternates: await localeAlternates('/articles'),
+    alternates: singleLanguageAlternates('/articles', ARTICLE_LOCALE),
   }
 }
 
