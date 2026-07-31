@@ -1094,57 +1094,51 @@
 .wd-block-body { display: flex; flex-direction: column; gap: 0.7rem; width: 100%; min-width: 0; }
 
 .place-editor { display: flex; flex-direction: column; gap: 0.8rem; }
-/* 囲みは持たせない（ユーザー判断 2026-07-29）。設定カードの中でさらに枠を重ねると
-   入れ子の箱に見えるため、地図は地の上に直接置き、部屋の輪郭線に境界を任せる。 */
-.place-map {
-  display: block;
-  width: 100%;
-  /* The map hit-tests presses to drag works between spots — a press-drag must move a
-     piece, not scroll the page. */
+/* Slot tiles: 5 per row, up to 3 rows = 15 (ユーザー指示 2026-07-31). touch-action:none so
+   a press-drag moves a work instead of scrolling. The grid hit-tests presses by cell. */
+.place-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.4rem;
+  max-width: 560px;
+  margin-inline: auto;
   touch-action: none;
-  /* The map fills the placement stage (full width). The cap is generous so the spots
-     read large — they sit centred on the walls, so a wider map makes bigger targets. */
-  max-width: 860px;
-  margin: 0 auto;
-  color: var(--ink);
 }
-/* 狭い幅ではスロットの大きさが地図の幅だけで決まるので、カードの左右padding
-   (1.6rem) をちょうど食い返す。-1.2rem だと 0.4rem×2 取り残していた
-   （ユーザー指摘「スロットの枠が小さすぎる」2026-07-30 の実測で判明）。
-   **この2行は .place-map の基本定義より後ろに置くこと** — 詳細度は同じなので、
-   前に置くと後から来る width:100% / margin:0 auto に負けて一切効かない
-   （実測で確認。LESSONS「CSSが書いてあるのに効いていない」）。 */
-@media (max-width: 720px) {
-  .place-map { margin-inline: -1.6rem; width: calc(100% + 3.2rem); }
+.place-cell {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: rgba(236, 231, 222, 0.04);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
-/* 壁の線は細く・暗く。空き枠のマスと同じ明るさだと、壁の線と枠が混ざって
-   どこが枠なのか読めなかった（ユーザー指摘 2026-07-29）。主役は枠、壁は下地。 */
-.place-map .lp-room { fill: none; stroke: currentColor; stroke-width: 0.22; opacity: 0.34; }
-.place-map .lp-part { fill: currentColor; opacity: 0.34; }
-.place-map .lp-bench { fill: currentColor; opacity: 0.16; }
+.place-cell img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+/* The cell number: centred & faint on an empty cell, a small corner badge on a filled one. */
+.place-cell-num { font-size: 0.95rem; color: var(--muted); opacity: 0.5; pointer-events: none; }
+.place-cell.filled .place-cell-num {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 0.62rem;
+  opacity: 1;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+.place-cell.grab { cursor: grab; }
+.place-cell.grab:active { cursor: grabbing; }
+/* A hung work's outline stays neutral grey like an empty cell; only tap-selection (picked)
+   and the drag drop-target (over) use the primary gold (ユーザー指示 2026-07-31). */
+.place-cell.picked { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.place-cell.over { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
 
-/* マスの下地は不透明にする。枠は壁の線を跨ぐ位置（中心が壁線上）にあるので、線が
-   マスの手前で途切れ、美術館の平面図で作品が壁を占めているように読める。 */
-.pe-slot-bg { fill: #1e1b16; transition: fill 0.12s; }
-.pe-slot.filled .pe-slot-bg { fill: #0e0d0b; }
-.pe-slot-ring { fill: none; stroke: currentColor; stroke-width: 0.07; opacity: 0.4; transition: stroke 0.12s, opacity 0.12s; }
-/* 空き枠は「置ける場所」なので、実線の縁で1つのマスとして閉じる */
-.pe-slot.empty .pe-slot-ring { opacity: 0.62; }
-.pe-slot.filled .pe-slot-ring { stroke: var(--gold); opacity: 0.75; }
-.pe-slot-num { fill: currentColor; opacity: 0.55; font-size: 0.6px; text-anchor: middle; font-family: var(--sans, sans-serif); }
-.pe-slot:hover .pe-slot-ring { opacity: 0.9; }
-/* Filled spots are grab handles (the map itself hit-tests the press). */
-.pe-slot.grab { cursor: grab; }
-.pe-slot.grab:active { cursor: grabbing; }
-/* The picked-up work (tap-to-place): a solid gold ring so you can see what will move. */
-.pe-slot.picked .pe-slot-ring { stroke: var(--gold); stroke-width: 0.14; opacity: 1; }
-.pe-slot.picked .pe-slot-bg { fill: #2a2413; }
-/* The drop target under the pointer while dragging — brighten the fill AND thicken the
-   ring (the group is also scaled 1.16 in the transform), so the target is unmistakable. */
-.pe-slot.over .pe-slot-bg { fill: #3a3220; }
-.pe-slot.over .pe-slot-ring { stroke: var(--gold); stroke-width: 0.2; opacity: 1; }
+/* ↑ from the tray up into the grid — drag a work up to hang it. */
+.place-arrow { text-align: center; color: var(--muted); font-size: 1.15rem; line-height: 1; opacity: 0.7; }
 
-/* ---- Placement tray: the works, ready to drag onto a wall ---- */
+/* ---- Placement tray: the works, ready to drag up into a cell ---- */
 .place-tray {
   display: flex;
   flex-wrap: wrap;
@@ -1166,18 +1160,25 @@
 }
 .place-tray-item.grab { cursor: grab; touch-action: none; }
 .place-tray-item.grab:active { cursor: grabbing; }
-.place-tray-item img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.place-tray-item img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; transition: opacity 0.12s; }
 .place-tray-vid { color: var(--muted); font-size: 1.4rem; display: inline-flex; }
-/* A work already hung is dimmed with a gold dot, so what's left to place reads at a glance. */
-.place-tray-item.placed { opacity: 0.5; }
-.place-tray-item.placed .place-tray-dot {
+/* A work already hung: dim the thumbnail (not the whole tile, so the badge stays crisp) and
+   badge it with the cell number it sits on, so you see at a glance what's placed and where. */
+.place-tray-item.placed img { opacity: 0.35; }
+.place-tray-num {
   position: absolute;
-  top: 3px;
+  top: 2px;
   right: 3px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
   background: var(--gold);
+  color: #14110c;
+  font-size: 0.62rem;
+  line-height: 15px;
+  text-align: center;
+  font-weight: 600;
 }
 .place-tray-item.dragging { opacity: 0.3; }
 /* Shown when a hung work is tapped: its title + a "take off the wall" button. */
@@ -1202,7 +1203,8 @@
 }
 /* Picked up by a tap — ringed gold, and un-dimmed even if it's already hung, so the
    piece you're about to move stands out. */
-.place-tray-item.picked { opacity: 1; outline: 2px solid var(--gold); outline-offset: -2px; }
+.place-tray-item.picked { outline: 2px solid var(--gold); outline-offset: -2px; }
+.place-tray-item.picked img { opacity: 1; }
 
 /* The piece that follows the pointer while dragging (rendered at the document level,
    so it floats above everything and never clips to the map or tray). */
@@ -1353,25 +1355,4 @@
   /* 公開トグルのつまみ（34×20）。見た目は変えず、当たり判定だけ広げる */
   .switch { position: relative; }
   .switch::after { content: ''; position: absolute; inset: -12px; }
-}
-
-/* ============================================================
-   B16（続き）— 配置エディタのスロット（タッチ）
-   当たり判定は PlacementEditor が SVG 座標で行い（最近傍までの距離から許容幅を
-   算出）、指でも掴みやすい。タッチでは枠線を少し太く、地図はカードの左右padding
-   を食い返して広げる。
-   ============================================================ */
-@media (pointer: coarse) {
-  .pe-slot-ring { stroke-width: 0.14; }
-  /* 当たり判定はメートル基準なので、地図が広いほど指に有利。カード自身の
-     左右paddingを食い返して 360px の上限も外す（はみ出しはしない）。 */
-  .place-map {
-    max-width: none;
-    margin-inline: -1.6rem;
-    /* 負のマージンだけでは width: 100% の基準が変わらず左にずれるだけなので、
-       幅も同じ分だけ足す（実測 2026-07-28）。量はカードの左右padding と同じ
-       1.6rem（2026-07-30 に 1.2rem では足りていなかったのを実測で修正）。 */
-    width: calc(100% + 3.2rem);
-    padding: 0.3rem;
-  }
 }
