@@ -411,7 +411,7 @@ export const it: PartialDictionary = {
     lightCeiling: 'Soffitto', lightOverhead: 'Sopra l’opera',
     placement: 'Allestimento',
     placementOrderHint: 'È l’ordine in cui le opere sono appese percorrendo la sala — riordina con le frecce.',
-    placementDragHint: 'Trascina un’opera su un punto della parete per appenderla. Trascina un’opera appesa su un’altra per scambiarle.',
+    placementDragHint: 'Trascina un’opera su un posto — oppure tocca un’opera e poi un posto. Le opere si scambiano di posto.',
     placementTrayLabel: 'Le tue opere',
     moveUp: 'Sposta su',
     moveDown: 'Sposta giù',

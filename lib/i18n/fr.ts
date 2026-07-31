@@ -412,7 +412,7 @@ export const fr: PartialDictionary = {
     lightCeiling: 'Plafond', lightOverhead: 'Au-dessus de l’œuvre',
     placement: 'Accrochage',
     placementOrderHint: 'C’est l’ordre dans lequel les œuvres sont accrochées quand on parcourt la salle — réorganisez avec les flèches.',
-    placementDragHint: 'Faites glisser une œuvre sur un emplacement mural pour l’accrocher. Faites glisser une œuvre accrochée sur une autre pour les échanger.',
+    placementDragHint: 'Faites glisser une œuvre sur un emplacement — ou touchez une œuvre puis un emplacement. Les œuvres échangent leur place.',
     placementTrayLabel: 'Vos œuvres',
     moveUp: 'Monter',
     moveDown: 'Descendre',

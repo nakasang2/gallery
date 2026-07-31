@@ -358,7 +358,7 @@ export const en = {
     centreWall: 'Centre wall (4 extra slots)',
     placement: 'Placement',
     placementOrderHint: 'This is the order works hang as you walk the room — reorder them with the arrows.',
-    placementDragHint: 'Drag a work onto a wall spot to hang it. Drag a hung work onto another to swap them.',
+    placementDragHint: 'Drag a work onto a spot to hang it — or tap a work, then tap a spot. Works swap places.',
     placementTrayLabel: 'Your works',
     moveUp: 'Move up',
     moveDown: 'Move down',

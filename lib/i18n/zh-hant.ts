@@ -411,7 +411,7 @@ export const zhHant: PartialDictionary = {
     lightCeiling: '天花板', lightOverhead: '作品正上方',
     placement: '佈置',
     placementOrderHint: '這是你在展廳走動時作品懸掛的順序——用箭頭調整。',
-    placementDragHint: '把作品拖到牆上的位置即可懸掛。將已掛的作品拖到另一處即可互換。',
+    placementDragHint: '把作品拖到位置上，或先點作品再點位置。作品之間會互換位置。',
     placementTrayLabel: '你的作品',
     moveUp: '上移',
     moveDown: '下移',

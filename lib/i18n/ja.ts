@@ -332,7 +332,7 @@ export const ja: Dictionary = {
     centreWall: '中央の壁（枠が4つ増えます）',
     placement: '配置',
     placementOrderHint: '上から順に、部屋を歩いたときの並びになります。矢印で入れ替えられます。',
-    placementDragHint: '作品を部屋のスロットにドラッグして掛けます。掛けた作品どうしはドラッグで入れ替えられます。',
+    placementDragHint: '作品をスロットにドラッグして掛けます。作品をタップ→置き場所をタップでもOK。作品どうしは入れ替わります。',
     placementTrayLabel: '作品',
     moveUp: '上へ',
     moveDown: '下へ',

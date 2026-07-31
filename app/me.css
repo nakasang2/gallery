@@ -1100,10 +1100,9 @@
   /* The map hit-tests presses to drag works between spots — a press-drag must move a
      piece, not scroll the page. */
   touch-action: none;
-  /* The map fills its column (the sticky left column of the placement stage, or the
-     full width on phones). 680px is just an upper cap that the column width beats in
-     practice — the map is never wider than its column. */
-  max-width: 680px;
+  /* The map fills the placement stage (full width). The cap is generous so the spots
+     read large — they sit centred on the walls, so a wider map makes bigger targets. */
+  max-width: 860px;
   margin: 0 auto;
   color: var(--ink);
 }
@@ -1122,40 +1121,26 @@
 .place-map .lp-part { fill: currentColor; opacity: 0.34; }
 .place-map .lp-bench { fill: currentColor; opacity: 0.16; }
 
-/* マスの下地は**不透明**にする。枠は壁の線に重なる位置にあるので、半透明だと線が
-   マスの中を通り抜けて「枠」に見えない。不透明にすると壁の線が枠の手前で途切れ、
-   美術館の平面図で作品が壁を占めているように読める（ユーザー指摘 2026-07-29）。 */
-/* 枠のまわりで壁の線を消すための縁取り（カードの地の色）。線とマスの縁が平行に
-   並ぶと1本の滲みに見えるので、間に隙間をつくる */
-.pe-slot-knockout { fill: none; stroke: #100e0c; stroke-width: 0.16; }
-.pe-slot-bg { fill: #1e1b16; }
+/* マスの下地は不透明にする。枠は壁の線を跨ぐ位置（中心が壁線上）にあるので、線が
+   マスの手前で途切れ、美術館の平面図で作品が壁を占めているように読める。 */
+.pe-slot-bg { fill: #1e1b16; transition: fill 0.12s; }
 .pe-slot.filled .pe-slot-bg { fill: #0e0d0b; }
-.pe-slot-ring { fill: none; stroke: currentColor; stroke-width: 0.08; opacity: 0.4; }
-/* 空き枠は「置ける場所」なので、破線ではなく実線の縁で1つのマスとして閉じる
-   （破線は壁の線と混ざって輪郭が消えていた） */
+.pe-slot-ring { fill: none; stroke: currentColor; stroke-width: 0.07; opacity: 0.4; transition: stroke 0.12s, opacity 0.12s; }
+/* 空き枠は「置ける場所」なので、実線の縁で1つのマスとして閉じる */
 .pe-slot.empty .pe-slot-ring { opacity: 0.62; }
 .pe-slot.filled .pe-slot-ring { stroke: var(--gold); opacity: 0.75; }
-/* The slot the pointer is over while dragging — the drop target. */
-.pe-slot.over .pe-slot-ring { stroke: var(--gold); stroke-width: 0.16; opacity: 1; }
-.pe-slot-num { fill: currentColor; opacity: 0.55; font-size: 0.62px; text-anchor: middle; font-family: var(--sans, sans-serif); }
+.pe-slot-num { fill: currentColor; opacity: 0.55; font-size: 0.6px; text-anchor: middle; font-family: var(--sans, sans-serif); }
 .pe-slot:hover .pe-slot-ring { opacity: 0.9; }
-/* The map is the drag surface (it hit-tests presses by coordinate), so touch-action:none
-   here lets a press-drag move a piece instead of scrolling the page. Filled spots show a
-   grab cursor as the affordance. */
+/* Filled spots are grab handles (the map itself hit-tests the press). */
 .pe-slot.grab { cursor: grab; }
 .pe-slot.grab:active { cursor: grabbing; }
-
-/* 容量を超えた枠。買えば使えるものなので、ロックのチップと同じ金色で示す。
-   下地は空き枠より暗くして「まだ使えない」ことを明るさの差で伝える */
-.pe-slot.locked .pe-slot-bg { fill: #16130f; }
-.pe-slot.locked .pe-slot-ring { stroke: var(--gold); stroke-dasharray: 0.16 0.16; opacity: 0.45; }
-.pe-slot.locked:hover .pe-slot-ring { opacity: 0.7; }
-/* 既定では10枠が鍵付きなので、明るくしすぎると配置の作業を邪魔する。
-   金色で「買えば使える」ことだけ伝わる濃さに留める */
-.pe-slot-lock rect { fill: var(--gold); opacity: 0.6; }
-.pe-slot-lock path { fill: none; stroke: var(--gold); stroke-width: 0.075; opacity: 0.6; }
-.pe-slot.locked:hover .pe-slot-lock rect,
-.pe-slot.locked:hover .pe-slot-lock path { opacity: 0.9; }
+/* The picked-up work (tap-to-place): a solid gold ring so you can see what will move. */
+.pe-slot.picked .pe-slot-ring { stroke: var(--gold); stroke-width: 0.14; opacity: 1; }
+.pe-slot.picked .pe-slot-bg { fill: #2a2413; }
+/* The drop target under the pointer while dragging — brighten the fill AND thicken the
+   ring (the group is also scaled 1.16 in the transform), so the target is unmistakable. */
+.pe-slot.over .pe-slot-bg { fill: #3a3220; }
+.pe-slot.over .pe-slot-ring { stroke: var(--gold); stroke-width: 0.2; opacity: 1; }
 
 /* ---- Placement tray: the works, ready to drag onto a wall ---- */
 .place-tray {
@@ -1193,6 +1178,9 @@
   background: var(--gold);
 }
 .place-tray-item.dragging { opacity: 0.3; }
+/* Picked up by a tap — ringed gold, and un-dimmed even if it's already hung, so the
+   piece you're about to move stands out. */
+.place-tray-item.picked { opacity: 1; outline: 2px solid var(--gold); outline-offset: -2px; }
 
 /* The piece that follows the pointer while dragging (rendered at the document level,
    so it floats above everything and never clips to the map or tray). */
@@ -1347,16 +1335,12 @@
 }
 
 /* ============================================================
-   B16（続き）— 配置エディタのスロット
-   390px幅・hallで実測12×12px、corridorで9×9px。地図は max-width: 360px で
-   上限が決まっており、hall（26×16m）は約11px/mでしか描けないので、地図を
-   広げても1.25mのスロットは15px程度にしかならない（実測）。そこで描画では
-   なく当たり判定だけを広げる。矩形の寸法は PlacementEditor 側で最近傍まで
-   の距離から算出しており、隣のスロットのタップを奪わない。
+   B16（続き）— 配置エディタのスロット（タッチ）
+   当たり判定は PlacementEditor が SVG 座標で行い（最近傍までの距離から許容幅を
+   算出）、指でも掴みやすい。タッチでは枠線を少し太く、地図はカードの左右padding
+   を食い返して広げる。
    ============================================================ */
-.pe-slot-hit { fill: none; pointer-events: none; }
 @media (pointer: coarse) {
-  .pe-slot-hit { pointer-events: fill; }
   .pe-slot-ring { stroke-width: 0.14; }
   /* 当たり判定はメートル基準なので、地図が広いほど指に有利。カード自身の
      左右paddingを食い返して 360px の上限も外す（はみ出しはしない）。 */

@@ -412,7 +412,7 @@ export const ptBr: PartialDictionary = {
     lightCeiling: 'Teto', lightOverhead: 'Sobre a obra',
     placement: 'Montagem',
     placementOrderHint: 'É a ordem em que as obras ficam ao percorrer a sala — reordene com as setas.',
-    placementDragHint: 'Arraste uma obra para um ponto da parede para pendurá-la. Arraste uma obra pendurada sobre outra para trocá-las.',
+    placementDragHint: 'Arraste uma obra para um ponto — ou toque numa obra e depois num ponto. As obras trocam de lugar.',
     placementTrayLabel: 'Suas obras',
     moveUp: 'Mover para cima',
     moveDown: 'Mover para baixo',

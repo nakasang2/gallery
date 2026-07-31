@@ -412,7 +412,7 @@ export const es: PartialDictionary = {
     lightCeiling: 'Techo', lightOverhead: 'Sobre la obra',
     placement: 'Montaje',
     placementOrderHint: 'Es el orden en que se cuelgan las obras al recorrer la sala — reordena con las flechas.',
-    placementDragHint: 'Arrastra una obra a un punto de la pared para colgarla. Arrastra una obra colgada sobre otra para intercambiarlas.',
+    placementDragHint: 'Arrastra una obra a un lugar — o toca una obra y luego un lugar. Las obras intercambian su posición.',
     placementTrayLabel: 'Tus obras',
     moveUp: 'Subir',
     moveDown: 'Bajar',

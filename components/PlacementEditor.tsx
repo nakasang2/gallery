@@ -1,10 +1,12 @@
 'use client'
-// Manual slot placement (§11.13): a top-down room map where the owner DRAGS a work
-// from the tray onto a wall slot to hang it, and drags a hung work onto another slot
-// to swap the two (ユーザー指示 2026-07-31 — the tap-and-pick picker became drag-and-
-// drop). Writes back a full arrangement array so intentional gaps are stable — see
-// lib/arrangement.placeWorks. Pointer Events unify mouse + touch, so the same drag
-// works on a phone (the draggables set touch-action:none so a press-drag never scrolls).
+// Manual slot placement (§11.13): a top-down room map where the owner arranges works on
+// the walls. Two equal ways to move a work (ユーザー指示 2026-07-31):
+//   • DRAG a work (from the tray or a spot) onto a spot.
+//   • TAP a work to pick it up, then tap a spot to drop it (tap the same work to cancel).
+// Dropping onto an occupied spot swaps the two. Every physical spot is a free target —
+// the plan cap limits how many WORKS a room holds (enforced in the works stage), not
+// which walls they hang on, so there are no locked spots here. Pointer Events unify mouse
+// + touch, and the map sets touch-action:none so a press-drag never scrolls the page.
 import { useMemo, useRef, useState } from 'react'
 import { resolveLayout } from '@/lib/presets'
 import { effectiveSlotCount, MAX_WORKS_PER_ROOM } from '@/lib/limits'
@@ -15,11 +17,14 @@ import type { CustomLayoutParams } from '@/lib/presets'
 import { useT } from '@/components/I18nProvider'
 
 function thumb(a: ArtworkData): string | undefined {
-  // 56px tiles — the 400px thumb is plenty and always exists
   return a.kind === 'video' ? a.poster : a.thumb ?? a.src
 }
 
 type Drag = { workId: string; fromSlot: number | null; x: number; y: number }
+type Pending = { el: Element; pointerId: number; workId: string | null; fromSlot: number | null; x: number; y: number }
+type Picked = { workId: string; fromSlot: number | null }
+// How far a press may drift before it counts as a drag rather than a tap.
+const TAP_SLOP = 6
 
 export default function PlacementEditor({
   layoutKey,
@@ -28,7 +33,6 @@ export default function PlacementEditor({
   works,
   arrangement,
   onChange,
-  onBuySlots,
   disabled,
 }: {
   layoutKey: string
@@ -37,67 +41,48 @@ export default function PlacementEditor({
   works: ArtworkData[]
   arrangement: (string | null)[]
   onChange: (next: (string | null)[]) => void
-  /** Dropping onto (or tapping) a locked spot one past this room's capacity offers the
-   *  slots that would reach it — `slots` is how many more the room needs. Omit to leave
-   *  locked spots inert. */
-  onBuySlots?: (slots: number) => void
   disabled?: boolean
 }) {
   const t = useT()
   const def = useMemo(() => resolveLayout(layoutKey, layoutParams), [layoutKey, layoutParams])
-  const n = effectiveSlotCount(def.slots.length, workCap)
+  // How many works the room can hold — caps the number shown, not which spots are usable.
+  const cap = effectiveSlotCount(def.slots.length, workCap)
 
-  // Margin around the room, in metres — just wide enough for the wall stroke plus the
-  // knockout ring (every extra metre shrinks the whole map). See the geometry notes below.
-  const pad = 0.5
+  // Slot square side, in metres. Big (1.9) so the spots read as generous targets. The
+  // spots sit centred ON the wall line (see `at`), so half the square (0.95) laps outside
+  // the room outline — the margin has to clear that plus the hover-scale, or a wall spot
+  // clips at the viewBox edge.
+  const S = 1.9
+  const pad = 1.35
   const w = def.hw * 2 + pad * 2
   const h = def.hd * 2 + pad * 2
-  // Slot square side, in metres. 1.0 seats the square fully inside the wall (with the
-  // 0.55 nudge below its outer edge lands 0.05m inside the wall line).
-  const S = 1.0
 
-  // Effective occupancy right now (auto-fill included), snapshotted as an explicit
-  // per-slot id array. Writing THIS on every edit makes every shown work explicit, so
-  // clearing a slot leaves a real gap instead of being back-filled by an unplaced work.
   const order = useMemo(() => balancedFillOrder(def), [def])
+  // Explicit placements at any physical spot are honoured up to `cap`; since works never
+  // exceed cap, every hung work survives (see lib/arrangement.placeWorks). rebuildPlacements
+  // uses the identical call, so the public room matches this preview.
   const perSlot = useMemo(
-    () => placeWorks(def.slots.length, arrangement, works, [], order, n),
-    [def, n, arrangement, works, order]
+    () => placeWorks(def.slots.length, arrangement, works, [], order, cap),
+    [def, cap, arrangement, works, order]
   )
   const current = useMemo(() => perSlot.map((a) => a?.id ?? null), [perSlot])
   const byId = useMemo(() => new Map(works.map((w) => [w.id, w] as const)), [works])
-  // EVERY spot the room could ever use is drawn, in walk order — the ones past capacity
-  // read as locked and sell exactly the slots that would reach them. Spots past
-  // MAX_WORKS_PER_ROOM stay hidden (capacity cannot be bought that far).
+  // Every physical spot in walk order (capped at the ceiling), plus any occupied spot.
+  const shownCount = Math.min(def.slots.length, MAX_WORKS_PER_ROOM)
   const shown = useMemo(() => {
-    const set = new Set(order.slice(0, Math.min(def.slots.length, MAX_WORKS_PER_ROOM)))
+    const set = new Set(order.slice(0, shownCount))
     perSlot.forEach((a, i) => {
-      if (a) set.add(i) // an occupied spot is always shown, wherever it sits
+      if (a) set.add(i)
     })
     return [...set].sort((a, b) => a - b)
-  }, [order, def, perSlot])
-  // Where each spot is DRAWN: nudged off its wall, along the way the work faces. 0.55
-  // seats each spot 0.05m inside the wall line and clears the centre-wall pair without
-  // walking a wall spot into its corner neighbour (safe band [0.37, 0.6]).
-  const NUDGE = 0.55
-  const at = useMemo(
-    () =>
-      def.slots.map((s) => ({
-        x: s.x + Math.sin(s.rotY) * NUDGE,
-        z: s.z + Math.cos(s.rotY) * NUDGE,
-      })),
-    [def]
-  )
-  // Capacity unlocks spots in balanced fill order, and that order's prefixes only grow.
-  const unlocked = useMemo(() => new Set(order.slice(0, n)), [order, n])
-  // An occupied spot is never locked: a pre-balance arrangement may pin a work outside
-  // the balanced subset, and that work must stay editable.
-  const isLocked = (i: number) => !unlocked.has(i) && !perSlot[i]
-  const buyable = !!onBuySlots && !disabled && workCap < MAX_WORKS_PER_ROOM
+  }, [order, shownCount, perSlot])
+  // Spots sit centred ON the wall line so the room outline runs through each spot's centre
+  // (ユーザー指示 2026-07-31). No off-wall nudge.
+  const at = useMemo(() => def.slots.map((s) => ({ x: s.x, z: s.z })), [def])
 
-  // Finger-sized hit areas, widened out to 90% of the distance to the nearest neighbour
-  // (Chebyshev, so a diagonal neighbour round a corner doesn't shrink it) so a drop
-  // near a slot still lands on it, and slots never steal each other's drops.
+  // Drop tolerance per spot: out to 90% of the distance to the nearest neighbour
+  // (Chebyshev), so a release near a spot still lands on it and spots never steal each
+  // other's drops.
   const hitSide = useMemo(() => {
     const m = new Map<number, number>()
     for (const i of shown) {
@@ -116,9 +101,10 @@ export default function PlacementEditor({
   const svgRef = useRef<SVGSVGElement>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
   const [overSlot, setOverSlot] = useState<number | null>(null)
+  const [picked, setPicked] = useState<Picked | null>(null)
+  const dragRef = useRef<Drag | null>(null)
+  const pending = useRef<Pending | null>(null)
 
-  // A client (screen) point → the SVG's user units (metres), so a pointer anywhere over
-  // the map can be resolved to the spot it's on.
   function toMap(clientX: number, clientY: number): { x: number; z: number } | null {
     const svg = svgRef.current
     const ctm = svg?.getScreenCTM()
@@ -127,9 +113,8 @@ export default function PlacementEditor({
     p.x = clientX
     p.y = clientY
     const u = p.matrixTransform(ctm.inverse())
-    return { x: u.x, z: u.y } // the viewBox draws the room's z on the y axis
+    return { x: u.x, z: u.y }
   }
-  // The nearest shown slot whose hit square covers the point, or null.
   function slotAt(clientX: number, clientY: number): number | null {
     const u = toMap(clientX, clientY)
     if (!u) return null
@@ -151,30 +136,44 @@ export default function PlacementEditor({
     return best
   }
 
-  // The live drag is mirrored in a ref so the move/up handlers never read a stale
-  // closure (only the ghost's position + the drop-target highlight live in state).
-  const dragRef = useRef<Drag | null>(null)
-  // A locked spot pressed but not dragged — a tap on it (down then up in place) buys.
-  const downLocked = useRef<number | null>(null)
-
-  function buyFor(slot: number) {
-    if (!buyable) return
-    const need = order.indexOf(slot) + 1 - n
-    onBuySlots?.(Math.min(Math.max(1, need), MAX_WORKS_PER_ROOM - workCap))
+  // Hang `workId` on `target`. Onto an occupied spot swaps the two; onto an empty spot
+  // just moves it. A work hangs in one place, so its old spot is vacated.
+  function drop(target: number, workId: string, fromSlot: number | null) {
+    const next = [...current]
+    const displaced = next[target] ?? null
+    if (fromSlot != null && fromSlot !== target) {
+      next[fromSlot] = displaced
+    } else if (fromSlot == null) {
+      const p = next.indexOf(workId)
+      if (p >= 0 && p !== target) next[p] = null
+    }
+    next[target] = workId
+    if (next.some((v, i) => v !== current[i])) onChange(next)
   }
+
+  // --- drag ---
   function startDrag(el: Element, pointerId: number, workId: string, fromSlot: number | null, x: number, y: number) {
     const d = { workId, fromSlot, x, y }
     dragRef.current = d
     try { el.setPointerCapture?.(pointerId) } catch { /* not a live pointer (tests) */ }
     setDrag(d)
     setOverSlot(fromSlot)
+    setPicked(null) // a drag supersedes a tap-selection
   }
   function moveDrag(e: React.PointerEvent) {
-    if (!dragRef.current) return
-    const d = { ...dragRef.current, x: e.clientX, y: e.clientY }
-    dragRef.current = d
-    setDrag(d)
-    setOverSlot(slotAt(e.clientX, e.clientY))
+    if (dragRef.current) {
+      const d = { ...dragRef.current, x: e.clientX, y: e.clientY }
+      dragRef.current = d
+      setDrag(d)
+      setOverSlot(slotAt(e.clientX, e.clientY))
+      return
+    }
+    // Not dragging yet — a press that drifts past the slop turns into a drag.
+    const p = pending.current
+    if (p && p.workId && (Math.abs(e.clientX - p.x) > TAP_SLOP || Math.abs(e.clientY - p.y) > TAP_SLOP)) {
+      pending.current = null
+      startDrag(p.el, p.pointerId, p.workId, p.fromSlot, e.clientX, e.clientY)
+    }
   }
   function endDrag(e: React.PointerEvent) {
     const d = dragRef.current
@@ -185,63 +184,54 @@ export default function PlacementEditor({
     setDrag(null)
     setOverSlot(null)
   }
-  function cancelDrag() {
+
+  // --- press → tap or drag ---
+  function press(el: Element, pointerId: number, workId: string | null, fromSlot: number | null, x: number, y: number) {
+    try { el.setPointerCapture?.(pointerId) } catch { /* ignore */ }
+    pending.current = { el, pointerId, workId, fromSlot, x, y }
+  }
+  function onUp(e: React.PointerEvent) {
+    if (dragRef.current) {
+      endDrag(e)
+      pending.current = null
+      return
+    }
+    const p = pending.current
+    pending.current = null
+    if (p) tap(p)
+  }
+  // A press that never became a drag: place the picked work, switch pick, or pick up.
+  function tap(p: Pending) {
+    const slot = slotAt(p.x, p.y)
+    if (picked) {
+      if (slot != null && slot !== picked.fromSlot) {
+        drop(slot, picked.workId, picked.fromSlot)
+        setPicked(null)
+      } else if (p.workId && p.workId !== picked.workId) {
+        setPicked({ workId: p.workId, fromSlot: p.fromSlot })
+      } else {
+        setPicked(null)
+      }
+      return
+    }
+    if (p.workId) setPicked({ workId: p.workId, fromSlot: p.fromSlot })
+  }
+  function cancel() {
+    pending.current = null
     dragRef.current = null
     setDrag(null)
     setOverSlot(null)
   }
 
-  // The map's slots sit under several stacked SVG rects (bg, knockout, ring), so a
-  // per-slot pointerdown is unreliable — the event may land on a decoration rect that
-  // isn't inside the slot's group. Instead the whole SVG hit-tests by coordinates: a
-  // press on a filled spot starts dragging it, a press on a locked spot arms tap-to-buy.
   function onMapDown(e: React.PointerEvent) {
     if (disabled || (e.button != null && e.button > 0)) return
     const s = slotAt(e.clientX, e.clientY)
-    downLocked.current = null
     if (s == null) return
-    const id = current[s]
-    if (id) {
-      e.preventDefault()
-      startDrag(e.currentTarget, e.pointerId, id, s, e.clientX, e.clientY)
-    } else if (isLocked(s)) {
-      downLocked.current = s
-    }
-  }
-  function onMapUp(e: React.PointerEvent) {
-    if (dragRef.current) {
-      endDrag(e)
-      return
-    }
-    const s = downLocked.current
-    downLocked.current = null
-    if (s != null && isLocked(s) && slotAt(e.clientX, e.clientY) === s) buyFor(s)
+    e.preventDefault()
+    press(e.currentTarget, e.pointerId, current[s], current[s] != null ? s : null, e.clientX, e.clientY)
   }
 
-  // Hang `workId` on `target`. Dropping onto an occupied slot swaps the two (so dragging
-  // a work "next to" another trades places); onto an empty slot just moves it. A work
-  // hangs in exactly one place, so its old slot is vacated.
-  function drop(target: number, workId: string, fromSlot: number | null) {
-    if (isLocked(target)) {
-      if (buyable) {
-        const need = order.indexOf(target) + 1 - n
-        onBuySlots?.(Math.min(Math.max(1, need), MAX_WORKS_PER_ROOM - workCap))
-      }
-      return
-    }
-    const next = [...current]
-    const displaced = next[target] ?? null
-    if (fromSlot != null && fromSlot !== target) {
-      next[fromSlot] = displaced // swap: target's old work takes the source slot (or empties it)
-    } else if (fromSlot == null) {
-      const p = next.indexOf(workId) // dragged from the tray — vacate wherever it currently hangs
-      if (p >= 0 && p !== target) next[p] = null
-    }
-    next[target] = workId
-    if (next.some((v, i) => v !== current[i])) onChange(next)
-  }
-
-  if (n === 0) return null
+  if (cap === 0) return null
 
   return (
     <div className="place-editor">
@@ -253,8 +243,8 @@ export default function PlacementEditor({
         aria-label={t('design.placementMap')}
         onPointerDown={onMapDown}
         onPointerMove={moveDrag}
-        onPointerUp={onMapUp}
-        onPointerCancel={cancelDrag}
+        onPointerUp={onUp}
+        onPointerCancel={cancel}
       >
         <rect className="lp-room" x={-def.hw} y={-def.hd} width={def.hw * 2} height={def.hd * 2} rx={0.6} />
         {def.partitions.map((p, i) => (
@@ -263,51 +253,29 @@ export default function PlacementEditor({
         {def.benches.map((b, i) => (
           <rect key={`b${i}`} className="lp-bench" x={b.x - 1.05} y={b.z - 0.28} width={2.1} height={0.56} rx={0.2} />
         ))}
-        {/* Knockout layer: a ring of the surface colour just outside every spot, all
-            painted BEFORE any cell, so the wall line stops short of a spot and a knockout
-            never eats the neighbouring spot's outline. */}
-        {shown.map((slotIdx) => {
-          const s = at[slotIdx]
-          const side = S + 0.16
-          return (
-            <rect
-              key={`k${slotIdx}`}
-              className="pe-slot-knockout"
-              x={s.x - side / 2}
-              y={s.z - side / 2}
-              width={side}
-              height={side}
-              rx={0.22}
-            />
-          )
-        })}
         {shown.map((slotIdx, pos) => {
           const s = at[slotIdx]
           const art = perSlot[slotIdx]
           const src = art ? thumb(art) : undefined
-          const locked = isLocked(slotIdx)
+          const isOver = slotIdx === overSlot
+          const isPicked = !!picked && (picked.fromSlot === slotIdx || (!!art && picked.workId === art.id))
           const cid = `pe-clip-${slotIdx}`
           return (
             <g
               key={`s${slotIdx}`}
-              className={`pe-slot${slotIdx === overSlot ? ' over' : ''}${art ? ' filled' : ' empty'}${locked ? ' locked' : ''}${art && !disabled ? ' grab' : ''}`}
-              transform={`translate(${s.x} ${s.z})`}
+              className={`pe-slot${isOver ? ' over' : ''}${art ? ' filled' : ' empty'}${isPicked ? ' picked' : ''}${art && !disabled ? ' grab' : ''}`}
+              // Scale about the spot's own centre (children are drawn at 0,0) so the hover
+              // target visibly pops toward the pointer.
+              transform={`translate(${s.x} ${s.z})${isOver ? ' scale(1.16)' : ''}`}
             >
               <title>
-                {locked
-                  ? t('design.spotLocked', { n: pos + 1 })
-                  : art
-                    ? t('design.spotWork', { n: pos + 1, title: art.title || t('common.untitled') })
-                    : t('design.spotEmpty', { n: pos + 1 })}
+                {art
+                  ? t('design.spotWork', { n: pos + 1, title: art.title || t('common.untitled') })
+                  : t('design.spotEmpty', { n: pos + 1 })}
               </title>
               <clipPath id={cid}>
                 <rect x={-S / 2} y={-S / 2} width={S} height={S} rx={0.16} />
               </clipPath>
-              {(() => {
-                const hs = hitSide.get(slotIdx) ?? S
-                // fill は属性でも切る: SVGの既定は黒なので、CSSが載る前でも黒い正方形が出ない。
-                return <rect className="pe-slot-hit" fill="none" x={-hs / 2} y={-hs / 2} width={hs} height={hs} />
-              })()}
               <rect className="pe-slot-bg" x={-S / 2} y={-S / 2} width={S} height={S} rx={0.16} />
               {src && (
                 <image
@@ -321,39 +289,33 @@ export default function PlacementEditor({
                 />
               )}
               <rect className="pe-slot-ring" x={-S / 2} y={-S / 2} width={S} height={S} rx={0.16} />
-              {locked ? (
-                <g className="pe-slot-lock" aria-hidden="true">
-                  <rect x={-0.25} y={-0.02} width={0.5} height={0.38} rx={0.08} />
-                  <path d="M -0.15 -0.02 V -0.17 A 0.15 0.15 0 0 1 0.15 -0.17 V -0.02" />
-                </g>
-              ) : (
-                !art && <text className="pe-slot-num" x={0} y={0.12}>{pos + 1}</text>
-              )}
+              {!art && <text className="pe-slot-num" x={0} y={0.16}>{pos + 1}</text>}
             </g>
           )
         })}
       </svg>
 
-      {/* The tray: every work, ready to drag onto a wall. Works already hung are dimmed
-          with a dot so you can see at a glance what's still to place. */}
+      {/* The tray: every work, ready to place. A work already hung is dimmed with a dot;
+          the picked-up work is ringed. */}
       <div className="place-tray" role="list" aria-label={t('me.placementTrayLabel')}>
         {works.map((art) => {
           const src = thumb(art)
           const placed = current.includes(art.id)
+          const isPicked = picked?.workId === art.id
           return (
             <div
               key={art.id}
               role="listitem"
-              className={`place-tray-item${placed ? ' placed' : ''}${drag?.workId === art.id ? ' dragging' : ''}${disabled ? '' : ' grab'}`}
+              className={`place-tray-item${placed ? ' placed' : ''}${isPicked ? ' picked' : ''}${drag?.workId === art.id ? ' dragging' : ''}${disabled ? '' : ' grab'}`}
               title={art.title || t('common.untitled')}
               onPointerDown={(e) => {
                 if (disabled || (e.button != null && e.button > 0)) return
                 e.preventDefault()
-                startDrag(e.currentTarget, e.pointerId, art.id, null, e.clientX, e.clientY)
+                press(e.currentTarget, e.pointerId, art.id, null, e.clientX, e.clientY)
               }}
               onPointerMove={moveDrag}
-              onPointerUp={endDrag}
-              onPointerCancel={cancelDrag}
+              onPointerUp={onUp}
+              onPointerCancel={cancel}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {src ? (
@@ -367,7 +329,7 @@ export default function PlacementEditor({
         })}
       </div>
 
-      {/* The floating piece that follows the pointer while dragging. */}
+      {/* The piece that follows the pointer while dragging. */}
       {drag && (() => {
         const art = byId.get(drag.workId)
         const src = art ? thumb(art) : undefined

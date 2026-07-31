@@ -1561,9 +1561,6 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 works={cloudArtworks}
                 arrangement={placement}
                 onChange={editPlacement}
-                onBuySlots={(slots) =>
-                  setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots'), qty: slots })
-                }
                 disabled={busy}
               />
             </>

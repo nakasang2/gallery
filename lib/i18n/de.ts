@@ -412,7 +412,7 @@ export const de: PartialDictionary = {
     lightCeiling: 'Decke', lightOverhead: 'Über dem Werk',
     placement: 'Hängung',
     placementOrderHint: 'Das ist die Reihenfolge, in der die Werke beim Rundgang hängen — mit den Pfeilen umsortieren.',
-    placementDragHint: 'Ziehe ein Werk auf einen Wandplatz, um es aufzuhängen. Ziehe ein hängendes Werk auf ein anderes, um beide zu tauschen.',
+    placementDragHint: 'Ziehe ein Werk auf einen Platz — oder tippe ein Werk an und dann einen Platz. Werke tauschen die Plätze.',
     placementTrayLabel: 'Deine Werke',
     moveUp: 'Nach oben',
     moveDown: 'Nach unten',

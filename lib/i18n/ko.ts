@@ -456,7 +456,7 @@ export const ko: PartialDictionary = {
     centreWall: '가운데 벽（걸이 4개 추가）',
     placement: '배치',
     placementOrderHint: '전시실을 둘러볼 때 작품이 걸리는 순서입니다. 화살표로 순서를 바꾸세요.',
-    placementDragHint: '작품을 벽면 자리로 끌어다 걸어 보세요. 걸린 작품을 다른 자리로 끌면 서로 자리가 바뀝니다.',
+    placementDragHint: '작품을 자리로 끌어다 놓거나, 작품을 탭한 뒤 자리를 탭하세요. 작품끼리는 자리가 바뀝니다.',
     placementTrayLabel: '작품',
     moveUp: '위로',
     moveDown: '아래로',
