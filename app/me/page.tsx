@@ -1604,43 +1604,49 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           <div className="we-right">
             {/* The URL and its state live together: flip the switch to open / close the room */}
             {username ? (
+              /* Two lines so the toggle never wraps away from its label (ユーザー指示
+                 2026-07-31): the URL + copy on top, the open/close switch + state below. */
               <div className="hako-url-row">
-                {row.is_public && publicUrl ? (
-                  <a className="hako-url" href={publicUrl} target="_blank" rel="noreferrer">
-                    {publicUrl.replace(/^https?:\/\//, '')}
-                  </a>
-                ) : (
-                  <span className="hako-url off">{(publicUrl || `/@${username}`).replace(/^https?:\/\//, '')}</span>
-                )}
-                {row.is_public && publicUrl && (
-                  <button
-                    className="hako-url-copy"
-                    title={copied ? t('me.copied') : t('me.copyUrl')}
-                    aria-label={copied ? t('me.copied') : t('me.copyUrl')}
-                    onClick={() => {
-                      void navigator.clipboard.writeText(publicUrl).then(() => {
-                        setCopied(true)
-                        setTimeout(() => setCopied(false), 1600)
-                      })
-                    }}
+                <div className="hako-url-line">
+                  {row.is_public && publicUrl ? (
+                    <a className="hako-url" href={publicUrl} target="_blank" rel="noreferrer">
+                      {publicUrl.replace(/^https?:\/\//, '')}
+                    </a>
+                  ) : (
+                    <span className="hako-url off">{(publicUrl || `/@${username}`).replace(/^https?:\/\//, '')}</span>
+                  )}
+                  {row.is_public && publicUrl && (
+                    <button
+                      className="hako-url-copy"
+                      title={copied ? t('me.copied') : t('me.copyUrl')}
+                      aria-label={copied ? t('me.copied') : t('me.copyUrl')}
+                      onClick={() => {
+                        void navigator.clipboard.writeText(publicUrl).then(() => {
+                          setCopied(true)
+                          setTimeout(() => setCopied(false), 1600)
+                        })
+                      }}
+                    >
+                      {copied ? <CheckIcon /> : <CopyIcon />}
+                    </button>
+                  )}
+                </div>
+                <div className="hako-state-line">
+                  <label
+                    className="switch"
+                    title={
+                      row.is_public
+                        ? t('me.openHint')
+                        : cloudArtworks.length
+                          ? t('me.privateHint')
+                          : t('me.needWorkHint')
+                    }
                   >
-                    {copied ? <CheckIcon /> : <CopyIcon />}
-                  </button>
-                )}
-                <label
-                  className="switch"
-                  title={
-                    row.is_public
-                      ? t('me.openHint')
-                      : cloudArtworks.length
-                        ? t('me.privateHint')
-                        : t('me.needWorkHint')
-                  }
-                >
-                  <input type="checkbox" checked={row.is_public} disabled={busy} onChange={() => void togglePublic()} />
-                  <span className="knob" aria-hidden="true" />
-                </label>
-                <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? t('me.open') : t('me.private')}</span>
+                    <input type="checkbox" checked={row.is_public} disabled={busy} onChange={() => void togglePublic()} />
+                    <span className="knob" aria-hidden="true" />
+                  </label>
+                  <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? t('me.open') : t('me.private')}</span>
+                </div>
               </div>
             ) : (
               /* No username means no public URL, so there is nothing for the switch to

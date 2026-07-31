@@ -282,33 +282,37 @@
 }
 
 /* URLと公開状態はワンセット: スイッチで開閉する */
-.hako-url-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; flex-wrap: wrap; }
+/* Two stacked lines: URL + copy on top, switch + state below (ユーザー指示 2026-07-31) */
+.hako-url-row { display: flex; flex-direction: column; align-items: flex-start; gap: 0.55rem; margin-top: 0.6rem; }
+.hako-url-line { display: flex; align-items: center; gap: 0.3rem; min-width: 0; max-width: 100%; }
+.hako-state-line { display: flex; align-items: center; gap: 0.6rem; }
 .hako-url {
   font-size: 0.8rem;
   color: var(--gold);
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
   max-width: 100%;
 }
-/* Icon-only copy button sitting next to the public URL (replaces the old "Copy URL" button) */
+/* Icon-only copy button next to the public URL — same gold as the URL it copies */
 .hako-url-copy {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-left: -0.2rem;
+  flex: none;
   padding: 0;
   border: none;
   background: none;
-  color: var(--muted);
+  color: var(--gold);
   cursor: pointer;
   font-size: 0.95rem; /* sizes the 1em icon */
   line-height: 0;
-  opacity: 0.75;
-  transition: opacity 0.15s, color 0.15s;
+  opacity: 0.85;
+  transition: opacity 0.15s;
 }
 .hako-url-copy:hover,
-.hako-url-copy:focus-visible { opacity: 1; color: var(--gold); outline: none; }
+.hako-url-copy:focus-visible { opacity: 1; outline: none; }
 /* Embed / Catalog pushed to the right end of the URL row */
 .hako-url-actions { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .hako-url:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -326,42 +330,40 @@
 }
 .hako-state.open { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
 
-/* タイトル/説明文はその場で編集(編集モードなし)。見た目は見出し、実体は入力 */
+/* タイトル/説明文はその場で編集(編集モードなし)。他の入力欄と同じ箱の見た目に揃える
+   (ユーザー指示 2026-07-31)。タイトルはセリフで少し大きく、実体は input。 */
 .hako-title-input {
-  flex: 1;
-  min-width: 200px;
+  width: 100%;
   font-family: var(--serif);
-  font-size: 1.35rem;
+  font-size: 1.15rem;
   font-weight: 500;
   color: var(--ink);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
-  padding: 0 0 0.15em;
+  background: rgba(236, 231, 222, 0.05);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.45em 0.7em;
   outline: none;
   transition: border-color 0.2s;
 }
 .hako-title-input::placeholder { color: var(--muted); opacity: 0.75; }
-.hako-title-input:hover { border-bottom-color: var(--hairline); }
-.hako-title-input:focus { border-bottom-color: var(--gold); }
+.hako-title-input:focus { border-color: var(--gold); }
 .hako-statement-input {
   width: 100%;
-  margin-top: 0.35rem;
+  margin-top: 0.5rem;
   font-family: var(--sans);
-  font-size: 0.82rem;
-  line-height: 1.7;
+  font-size: 0.85rem;
+  line-height: 1.6;
   color: #cdc7bd;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
-  padding: 0 0 0.3em;
+  background: rgba(236, 231, 222, 0.05);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.6em 0.7em;
   outline: none;
-  resize: none;
+  resize: vertical;
   transition: border-color 0.2s;
 }
 .hako-statement-input::placeholder { color: var(--muted); opacity: 0.7; }
-.hako-statement-input:hover { border-bottom-color: var(--hairline); }
-.hako-statement-input:focus { border-bottom-color: var(--gold); }
+.hako-statement-input:focus { border-color: var(--gold); }
 .hako-save-state { font-size: 0.62rem; letter-spacing: 0.14em; color: var(--muted); flex: none; }
 .hako-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem; }
 .hako-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.2rem; }
@@ -1220,16 +1222,15 @@
 .place-ghost img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .place-ghost .place-tray-vid { width: 100%; height: 100%; align-items: center; justify-content: center; }
 
-/* 公開できない理由を、公開トグルがあるべき場所に出す */
-.hako-url-locked { flex-wrap: wrap; align-items: center; }
+/* 公開できない理由を、公開トグルがあるべき場所に出す（親は縦積みなので stretch） */
+.hako-url-locked { align-items: stretch; }
 .hako-locked-why {
-  flex: 1 1 100%;
   margin: 0.2rem 0 0.5rem;
   font-size: 0.76rem;
   line-height: 1.6;
   color: var(--muted);
 }
-.hako-url-locked .field-row { flex: 1 1 100%; margin: 0; }
+.hako-url-locked .field-row { margin: 0; }
 
 /* ---- Admin: report queue ---- */
 .report-list { display: flex; flex-direction: column; gap: 0.9rem; }
