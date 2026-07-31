@@ -1,6 +1,73 @@
 /* Guides / blog: the public index (/articles) and a single guide (/articles/[slug]).
    Dark, editorial, in Xibit360's type system. Also styles the Markdown body. */
 
+/* ---- Two-column shell (本文 + サイドバー) ----
+   検索から本文に直接降りてくる人に「何のサービスのブログか」を隣に置き続ける。
+   広い幅だけ2カラム、狭い幅ではサイドバーが本文の下に積まれる。 */
+.article-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2.4rem;
+}
+.article-main { min-width: 0; }
+@media (min-width: 900px) {
+  /* グリッド項目は既定の stretch のままにする（align-items:start にすると
+     .article-side が中身の高さに縮み、中の sticky が動ける余地を失って効かない）。 */
+  .article-layout {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 2.6rem;
+  }
+}
+
+/* 一覧はカードが並ぶので、サイドバーを足したぶん全体を広げる */
+.articles-index .me-inner { width: min(1120px, 100%); }
+
+.article-side-inner { display: flex; flex-direction: column; gap: 1.2rem; }
+@media (min-width: 900px) {
+  /* 本文が長いガイドでも案内が視界から消えないように追従させる */
+  .article-side-inner { position: sticky; top: 1.4rem; }
+}
+.article-side-card {
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 1.2rem 1.2rem 1.3rem;
+  background: rgba(15, 14, 12, 0.6);
+}
+.article-side-title {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 400;
+  margin: 0 0 0.5rem;
+  color: #ece7dd;
+}
+.article-side-body { margin: 0; font-size: 0.84rem; line-height: 1.8; color: #cdc7bd; }
+.article-side-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.1rem; }
+.article-side-actions .btn,
+.article-side-actions .btn-line { flex: 1 1 auto; text-align: center; white-space: nowrap; }
+.article-side-list { list-style: none; margin: 0; padding: 0; }
+.article-side-list li { border-top: 1px solid var(--hairline); }
+.article-side-list li:first-child { border-top: 0; }
+.article-side-list a {
+  display: block;
+  padding: 0.6rem 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: #ddd6ca;
+  text-decoration: none;
+}
+.article-side-list a:hover { color: var(--gold); }
+/* 1カラムに畳んだ本文ページでは、サイドバーは本文末尾の .article-cta の直後に来る。
+   そこで「XIBIT360とは」を出すと同じ売り文句が二度続くので、案内カードだけ畳む
+   （狭い幅でのブランドの手がかりはヘッダのロゴと .article-cta が担う）。
+   一覧ページ(.articles-index)には .article-cta が無いので、そちらでは畳まない。 */
+@media (max-width: 899px) {
+  .article-page .article-side-about { display: none; }
+}
+
+.article-side-explore { margin: 0; font-size: 0.78rem; }
+.article-side-explore a { color: var(--muted); text-decoration: none; }
+.article-side-explore a:hover { color: var(--gold); }
+
 /* ---- Index list ---- */
 .article-list {
   display: grid;
@@ -8,7 +75,14 @@
   gap: 1.4rem;
   margin: 1.4rem 0 2rem;
 }
-@media (min-width: 720px) {
+/* 2枚並べる判断は「本文カラムの広さ」で決まり、ビューポート幅とは一致しない。
+   サイドバーが横に立つ 900〜1023px では本文が 534〜658px しかなく2列だと細すぎる。
+   ①900px未満（1カラム・本文が全幅）は従来どおり 720px から2列
+   ②1024px以上（2カラム）は本文が 700px を超えるので2列 */
+@media (min-width: 720px) and (max-width: 899px) {
+  .article-list { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 1024px) {
   .article-list { grid-template-columns: 1fr 1fr; }
 }
 .article-card {
@@ -46,8 +120,24 @@
 
 /* ---- Single guide ---- */
 .article-page { min-height: 100vh; background: #0f0e0c; color: #ece7dd; }
-.article-inner { max-width: 720px; margin: 0 auto; padding: 1.4rem 1.4rem 4rem; }
-.article-header { margin: 2rem 0 1.4rem; }
+/* 器そのものを読み幅に合わせる（765 = 本文720 + 左右padding 1.4rem×2）。
+   .article-layout 側で絞ると、ヘッダだけが広いまま残って題字と行頭がずれる。
+   2カラムを組む幅でだけ器を広げる — そのとき本文は 1080 − padding − 280 − gap = 714px で、
+   1カラムのときの 720px とほぼ同じ読み幅になる。 */
+.article-inner { max-width: 765px; margin: 0 auto; padding: 1.4rem 1.4rem 4rem; }
+@media (min-width: 900px) {
+  .article-inner { max-width: 1080px; }
+}
+.article-back {
+  display: inline-block;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+}
+.article-back:hover { color: var(--gold); }
+.article-header { margin: 1.4rem 0 1.4rem; }
 .article-title {
   font-family: 'Instrument Serif', Georgia, serif;
   font-size: clamp(2.1rem, 5vw, 3.1rem);
