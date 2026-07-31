@@ -83,18 +83,27 @@ export function placeWorks(
   //    auto-hang itself (ユーザー指示 2026-07-31「壁から外す＝トレイに戻す・自動で埋め
   //    戻さない」). The guest demo showcase and every un-arranged room keep the old
   //    "hang the works in slots 0,1,2,…" behaviour because their arrangement is empty.
+  //    One rescue survives the authoritative rule: a work the arrangement STILL names but
+  //    couldn't seat — pinned at a slot index the layout no longer has (a custom room was
+  //    shrunk) — is re-placed into an open slot, so a resize never silently drops a work
+  //    the owner didn't take down. A work the arrangement doesn't mention at all (taken
+  //    off the wall, or a never-placed new upload) stays off.
+  let queue: ArtworkData[]
   if (arrangement.length === 0) {
-    const queue = [...own, ...extra]
-    const order = fillOrder
-      ? fillOrder.filter((i) => i >= 0 && i < n)
-      : Array.from({ length: n }, (_, i) => i)
-    let q = 0
-    for (const i of order) {
-      if (q >= queue.length || placed >= max) break
-      if (!slots[i]) {
-        slots[i] = queue[q++]
-        placed++
-      }
+    queue = [...own, ...extra]
+  } else {
+    const namedAnywhere = new Set(arrangement.filter((x): x is string => !!x))
+    queue = own.filter((a) => namedAnywhere.has(a.id) && !placedIds.has(a.id))
+  }
+  const order = fillOrder
+    ? fillOrder.filter((i) => i >= 0 && i < n)
+    : Array.from({ length: n }, (_, i) => i)
+  let q = 0
+  for (const i of order) {
+    if (q >= queue.length || placed >= max) break
+    if (!slots[i]) {
+      slots[i] = queue[q++]
+      placed++
     }
   }
   return slots
