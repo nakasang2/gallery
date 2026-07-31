@@ -448,6 +448,7 @@ export const zhHant: PartialDictionary = {
     mediumPlaceholder: '材料（可不填）',
     useAsCover: '用作分享封面（OGP）',
     videoFromRoom: '影片要在 3D 展場裡新增：打開「走進展場」，再進「編輯空間」。已跳過「{name}」。',
+    capReachedSkipped: '已達展場上限（{cap}），部分檔案未新增。',
     uploadFailed: '上傳失敗：{msg}',
 
     guestbookNone: '留言簿裡還沒有留言。',

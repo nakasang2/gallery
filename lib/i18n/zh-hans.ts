@@ -450,6 +450,7 @@ export const zhHans: PartialDictionary = {
     mediumPlaceholder: '材料（可不填）',
     useAsCover: '用作分享封面（OGP）',
     videoFromRoom: '视频要在 3D 展厅里添加：打开「走进展厅」，再进「编辑空间」。已跳过「{name}」。',
+    capReachedSkipped: '已达展厅上限（{cap}），部分文件未添加。',
     uploadFailed: '上传失败：{msg}',
 
     guestbookNone: '留言簿里还没有留言。',

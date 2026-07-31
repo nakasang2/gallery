@@ -384,6 +384,7 @@ export const ja: Dictionary = {
     mediumPlaceholder: '技法・素材（任意）',
     useAsCover: '共有時の表紙に使う（OGP）',
     videoFromRoom: '動画は3Dの部屋から追加します。「部屋を歩く」→「空間を編集」を開いてください。「{name}」は追加していません。',
+    capReachedSkipped: 'スロット上限（{cap}）に達したため、一部のファイルは追加していません。',
     uploadFailed: 'アップロードできませんでした：{msg}',
 
     guestbookNone: 'まだ記帳はありません。',

@@ -410,6 +410,7 @@ export const en = {
     mediumPlaceholder: 'Medium (optional)',
     useAsCover: 'Use as share cover (OGP)',
     videoFromRoom: 'Videos are added from inside the 3D room: open “Walk the room”, then “Edit space”. Skipped “{name}”.',
+    capReachedSkipped: 'That reaches the room’s limit ({cap}), so some files weren’t added.',
     uploadFailed: 'Upload failed: {msg}',
 
     guestbookNone: 'No guestbook entries yet.',

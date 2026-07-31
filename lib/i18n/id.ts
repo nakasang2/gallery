@@ -449,6 +449,7 @@ export const id: PartialDictionary = {
     mediumPlaceholder: 'Bahan (boleh dikosongkan)',
     useAsCover: 'Pakai sebagai gambar bagikan (OGP)',
     videoFromRoom: 'Video ditambahkan dari dalam ruang 3D: buka «Jelajahi ruangnya», lalu «Ubah ruang». «{name}» dilewati.',
+    capReachedSkipped: 'Itu mencapai batas ruang ({cap}), jadi beberapa berkas tidak ditambahkan.',
     uploadFailed: 'Gagal mengunggah: {msg}',
 
     guestbookNone: 'Belum ada pesan di buku tamu.',

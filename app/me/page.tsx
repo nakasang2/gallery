@@ -861,15 +861,26 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     if (!files?.length) return
     setUploading(true)
     try {
+      // Keep the library within the room's cap: a multi-file drop must not push past
+      // work_cap, or the extra works can't hang (placeWorks caps at the plan) and would
+      // vanish from the room (ユーザー指示 2026-07-31「スロット上限より多くは追加不可」).
+      let room = Math.max(0, row.work_cap - cloudArtworks.length)
+      let skipped = 0
       for (const f of Array.from(files)) {
         if (f.type.startsWith('video/')) {
           alert(t('me.videoFromRoom', { name: f.name }))
           continue
         }
+        if (room <= 0) {
+          skipped++
+          continue
+        }
         const title = f.name.replace(/\.[^.]+$/, '') || 'Untitled'
         // Straight from the original file — no data-URL round-trip to re-encode
         await uploadArtwork({ ownerId: user.id, file: f, title })
+        room--
       }
+      if (skipped > 0) alert(t('me.capReachedSkipped', { cap: row.work_cap }))
       await refreshCloud()
     } catch (e) {
       alert(t('me.uploadFailed', { msg: String(e instanceof Error ? e.message : e) }))

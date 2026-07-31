@@ -449,6 +449,7 @@ export const de: PartialDictionary = {
     mediumPlaceholder: 'Technik (freiwillig)',
     useAsCover: 'Als Vorschaubild verwenden (OGP)',
     videoFromRoom: 'Videos werden im 3D-Raum hinzugefügt: öffne „Durch den Raum gehen“, dann „Raum bearbeiten“. „{name}“ wurde übersprungen.',
+    capReachedSkipped: 'Das erreicht das Limit des Raums ({cap}), daher wurden einige Dateien nicht hinzugefügt.',
     uploadFailed: 'Upload fehlgeschlagen: {msg}',
 
     guestbookNone: 'Noch keine Einträge im Gästebuch.',

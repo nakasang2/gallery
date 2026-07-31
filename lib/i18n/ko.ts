@@ -508,6 +508,7 @@ export const ko: PartialDictionary = {
     mediumPlaceholder: '재료 (선택 사항)',
     useAsCover: '공유 대표 이미지로 사용 (OGP)',
     videoFromRoom: '동영상은 3D 전시장 안에서 추가합니다: 「전시장 걸어보기」를 열고 「공간 편집」으로 들어가세요. 「{name}」은 건너뛰었습니다.',
+    capReachedSkipped: '전시장 한도({cap})에 도달하여 일부 파일은 추가하지 않았습니다.',
     uploadFailed: '올리지 못했습니다: {msg}',
 
     guestbookNone: '아직 방명록에 글이 없습니다.',

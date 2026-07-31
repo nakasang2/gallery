@@ -449,6 +449,7 @@ export const fr: PartialDictionary = {
     mediumPlaceholder: 'Technique (facultatif)',
     useAsCover: 'Utiliser comme image de partage (OGP)',
     videoFromRoom: 'Les vidéos s’ajoutent depuis la salle en 3D : ouvrez « Parcourir la salle », puis « Modifier l’espace ». « {name} » a été ignoré.',
+    capReachedSkipped: 'Cela atteint la limite de la salle ({cap}), donc certains fichiers n’ont pas été ajoutés.',
     uploadFailed: 'L’import a échoué : {msg}',
 
     guestbookNone: 'Aucun message dans le livre d’or.',

@@ -76,9 +76,21 @@ export default function PlacementEditor({
     })
     return [...set].sort((a, b) => a - b)
   }, [order, shownCount, perSlot])
-  // Spots sit centred ON the wall line so the room outline runs through each spot's centre
-  // (ユーザー指示 2026-07-31). No off-wall nudge.
-  const at = useMemo(() => def.slots.map((s) => ({ x: s.x, z: s.z })), [def])
+  // Outer-wall spots sit centred ON the wall line so the room outline runs through each
+  // spot's centre (ユーザー指示 2026-07-31). The centre-wall spots (a partition's two
+  // faces, marked noWire) sit only 0.52m apart, so at S=1.9 they'd overlap into one smear
+  // — nudge just those off the partition along the way they face so the two faces read as
+  // two spots.
+  const NUDGE_WALL = 0.8
+  const at = useMemo(
+    () =>
+      def.slots.map((s) =>
+        s.noWire
+          ? { x: s.x + Math.sin(s.rotY) * NUDGE_WALL, z: s.z + Math.cos(s.rotY) * NUDGE_WALL }
+          : { x: s.x, z: s.z }
+      ),
+    [def]
+  )
 
   // Drop tolerance per spot: out to 90% of the distance to the nearest neighbour
   // (Chebyshev), so a release near a spot still lands on it and spots never steal each
