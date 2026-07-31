@@ -103,8 +103,10 @@ export default function PlacementEditor({
     return !!document.elementFromPoint(x, y)?.closest('.place-tray')
   }
 
-  // Hang `workId` on `target`. Onto an occupied cell swaps the two; onto an empty cell just
-  // moves it. A work hangs in one place, so its old cell is vacated.
+  // Hang `workId` on `target`. From a CELL (fromSlot set): onto an occupied cell swaps the
+  // two, onto an empty cell just moves it. From the TRAY (fromSlot null): the work lands on
+  // `target` and whatever was there is pushed back to the tray (not swapped, since the
+  // dragged work had no cell to trade). A work hangs in one place, so its old cell is vacated.
   function drop(target: number, workId: string, fromSlot: number | null) {
     const next = [...current]
     const displaced = next[target] ?? null
