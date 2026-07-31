@@ -1094,6 +1094,25 @@
 .wd-block-body { display: flex; flex-direction: column; gap: 0.7rem; width: 100%; min-width: 0; }
 
 .place-editor { display: flex; flex-direction: column; gap: 0.8rem; }
+/* PC: 2 columns like the other stages — the map on the left, the works tray on the right
+   (ユーザー指示 2026-07-31). Below 720px it stays stacked (map, ↑, tray). */
+@media (min-width: 721px) {
+  .place-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'map tray'
+      'map actions';
+    align-items: start;
+    column-gap: 1.6rem;
+    row-gap: 0.7rem;
+  }
+  .place-map { grid-area: map; }
+  /* The ↑ is a stacked-layout affordance; side by side it has no meaning. */
+  .place-arrow { display: none; }
+  .place-tray { grid-area: tray; max-width: none; margin: 0; }
+  .place-actions { grid-area: actions; margin-top: 0; }
+}
 /* 囲みは持たせない（ユーザー判断 2026-07-29）。設定カードの中でさらに枠を重ねると
    入れ子の箱に見えるため、地図は地の上に直接置き、部屋の輪郭線に境界を任せる。 */
 .place-map {
