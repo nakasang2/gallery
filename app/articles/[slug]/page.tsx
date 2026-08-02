@@ -4,14 +4,14 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ARTICLE_LOCALE, fetchArticle, fetchPublishedArticles } from '@/lib/blog'
+import { ARTICLE_LOCALE, fetchPublishedArticles } from '@/lib/blog'
 import { renderMarkdown } from '@/lib/markdown'
 import { getServerT } from '@/lib/i18n/server'
 import { singleLanguageAlternates } from '@/lib/i18n/metadata'
 import { LocaleLink } from '@/components/I18nProvider'
 import ArticleSidebar from '@/components/ArticleSidebar'
 import JsonLd from '@/components/JsonLd'
-import { articleJsonLd } from '@/lib/seo'
+import { articleJsonLd, getArticle } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,7 +33,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>
 }): Promise<Metadata> {
   const { slug } = await params
-  const a = await fetchArticle(slug)
+  const a = await getArticle(slug)
   if (!a) return {}
   // English on purpose, not a missed translation: the guide itself is an English
   // document (ARTICLE_LOCALE) and these describe it in search results and share
@@ -61,7 +61,7 @@ export async function generateMetadata({
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
   const { t } = await getServerT()
   const { slug } = await params
-  const a = await fetchArticle(slug)
+  const a = await getArticle(slug)
   if (!a) notFound()
 
   // 「ほかのガイド」はサイドバー用。1本しか無ければ自分だけなので空になる。

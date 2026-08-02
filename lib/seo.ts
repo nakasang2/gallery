@@ -29,7 +29,7 @@ import {
   type PublicProfile,
 } from './publish'
 import { allSnsUrls, type SnsLinks } from './sns'
-import { ARTICLE_LOCALE, type Article, type ArticleCard } from './blog'
+import { ARTICLE_LOCALE, fetchArticle, type Article, type ArticleCard } from './blog'
 import { LOCALE_META, localePath } from './i18n'
 import { siteUrl } from './publicUrl'
 import { publicExhibitionWorks } from './roomPlan'
@@ -41,6 +41,8 @@ import type { ArtworkData } from './artworks'
  *  arguments, so the second call inside one request is free. */
 export const getExhibition = cache(fetchPublicExhibition)
 export const getProfile = cache(fetchPublicProfile)
+/** Same deal for a guide: `generateMetadata` and the page body both read it. */
+export const getArticle = cache(fetchArticle)
 
 /* ---------------------------------- URLs ---------------------------------- */
 
