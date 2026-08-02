@@ -29,6 +29,8 @@ import {
   type PublicProfile,
 } from './publish'
 import { allSnsUrls, type SnsLinks } from './sns'
+import { ARTICLE_LOCALE, fetchArticle, type Article, type ArticleCard } from './blog'
+import { LOCALE_META, localePath } from './i18n'
 import { siteUrl } from './publicUrl'
 import { publicExhibitionWorks } from './roomPlan'
 import type { ArtworkData } from './artworks'
@@ -39,6 +41,8 @@ import type { ArtworkData } from './artworks'
  *  arguments, so the second call inside one request is free. */
 export const getExhibition = cache(fetchPublicExhibition)
 export const getProfile = cache(fetchPublicProfile)
+/** Same deal for a guide: `generateMetadata` and the page body both read it. */
+export const getArticle = cache(fetchArticle)
 
 /* ---------------------------------- URLs ---------------------------------- */
 
@@ -188,6 +192,113 @@ function breadcrumbNode(trail: { name: string; path: string }[]): Node {
 
 function website(): Node {
   return { '@type': 'WebSite', '@id': `${siteUrl()}/#website`, name: 'Xibit360', url: `${siteUrl()}/` }
+}
+
+/** Us, as the publisher and author of the guides.
+ *
+ *  No `logo`: there is no logo file on this site to point at (the wordmark is set
+ *  in type), and a URL that 404s is worse than an absent property. Google dropped
+ *  the hard `publisher.logo` requirement for article results, so this stays honest
+ *  rather than complete. */
+function organization(): Node {
+  return { '@type': 'Organization', '@id': `${siteUrl()}/#org`, name: 'Xibit360', url: `${siteUrl()}/` }
+}
+
+/* -------------------------------- Guides ---------------------------------- */
+
+/** The one URL a guide lives at — the same one the canonical tag and the sitemap
+ *  name (docs/DECISIONS 2026-07-31). Structured data that points anywhere else
+ *  describes a page Google is not indexing. */
+function guidePath(slug?: string): string {
+  return localePath(ARTICLE_LOCALE, slug ? `/articles/${slug}` : '/articles')
+}
+
+function blogNode(): Node {
+  const url = abs(guidePath())
+  return {
+    '@type': 'Blog',
+    '@id': `${url}#blog`,
+    url,
+    name: 'Xibit360 Guides',
+    inLanguage: LOCALE_META[ARTICLE_LOCALE].bcp47,
+    isPartOf: { '@id': website()['@id'] },
+    publisher: { '@id': organization()['@id'] },
+  }
+}
+
+/** A guide as a `BlogPosting`. Used whole on the guide's own page and inline in
+ *  the index's `blogPost` list, so both pages describe the same entity (`@id`).
+ *
+ *  `inLanguage` is stated here, unlike the exhibition graph where it was removed
+ *  (LESSONS 2026-07-30): an exhibition's text is whatever the artist wrote and we
+ *  cannot know it, but a guide is English by construction (`ARTICLE_LOCALE`). */
+function blogPostingNode(a: {
+  slug: string
+  title: string
+  excerpt: string
+  coverUrl: string | null
+  publishedAt: string | null
+  updatedAt?: string | null
+}): Node {
+  const url = abs(guidePath(a.slug))
+  const image = absoluteMedia(a.coverUrl)
+  return {
+    '@type': 'BlogPosting',
+    '@id': `${url}#article`,
+    url,
+    mainEntityOfPage: url,
+    // Google may drop an article from rich results when the headline runs past
+    // ~110 characters. Not truncated here on purpose: a shortened headline is a
+    // different title from the one on the page, and disagreeing with the page is
+    // the failure mode structured data is supposed to avoid.
+    headline: a.title,
+    ...(a.excerpt ? { description: a.excerpt } : {}),
+    inLanguage: LOCALE_META[ARTICLE_LOCALE].bcp47,
+    ...(a.publishedAt ? { datePublished: a.publishedAt } : {}),
+    ...(a.updatedAt ? { dateModified: a.updatedAt } : {}),
+    ...(image ? { image: [image] } : {}),
+    // The guides are written and published by us through the admin console —
+    // there is no per-author field, and inventing one would be a claim we cannot back.
+    author: { '@id': organization()['@id'] },
+    publisher: { '@id': organization()['@id'] },
+    isPartOf: { '@id': blogNode()['@id'] },
+  }
+}
+
+/** The graph for one guide (`/en/articles/{slug}`). */
+export function articleJsonLd(a: Article): Node {
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      blogPostingNode(a),
+      blogNode(),
+      organization(),
+      website(),
+      breadcrumbNode([
+        { name: 'Xibit360', path: '/' },
+        { name: 'Guides', path: guidePath() },
+        { name: a.title, path: guidePath(a.slug) },
+      ]),
+    ],
+  }
+}
+
+/** The graph for the guides index (`/en/articles`). The posts are inlined rather
+ *  than referenced by `@id` alone, so the index carries no dangling references to
+ *  nodes that only exist on another page. */
+export function articlesIndexJsonLd(list: ArticleCard[]): Node {
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      { ...blogNode(), blogPost: list.map(blogPostingNode) },
+      organization(),
+      website(),
+      breadcrumbNode([
+        { name: 'Xibit360', path: '/' },
+        { name: 'Guides', path: guidePath() },
+      ]),
+    ],
+  }
 }
 
 /** The graph for a published exhibition, whichever of its two URLs served it.

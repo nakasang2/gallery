@@ -3,10 +3,13 @@
 // published rows via the anon key + RLS.
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { fetchPublishedArticles } from '@/lib/blog'
+import { ARTICLE_LOCALE, fetchPublishedArticles } from '@/lib/blog'
 import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
+import ArticleSidebar from '@/components/ArticleSidebar'
+import JsonLd from '@/components/JsonLd'
+import { articlesIndexJsonLd } from '@/lib/seo'
 import { getServerT } from '@/lib/i18n/server'
-import { localeAlternates } from '@/lib/i18n/metadata'
+import { singleLanguageAlternates } from '@/lib/i18n/metadata'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     openGraph: { title, description },
-    alternates: await localeAlternates('/articles'),
+    alternates: singleLanguageAlternates('/articles', ARTICLE_LOCALE),
   }
 }
 
@@ -36,39 +39,46 @@ export default async function ArticlesPage() {
   const articles = await fetchPublishedArticles()
 
   return (
-    <main className="artist-page">
+    <main className="artist-page articles-index">
+      <JsonLd data={articlesIndexJsonLd(articles)} />
       <div className="me-inner">
         <div className="me-top">
           <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
           <Link href="/signup" className="btn-line">{t('common.startFree')}</Link>
         </div>
 
-        <h1 className="artist-name">{t('articles.title')}</h1>
-        <p className="feed-intro">
-          {t('articles.intro')}
-        </p>
+        <div className="article-layout">
+          <div className="article-main">
+            <h1 className="artist-name">{t('articles.title')}</h1>
+            <p className="feed-intro">
+              {t('articles.intro')}
+            </p>
 
-        {articles.length === 0 ? (
-          <p className="feed-empty">{t('articles.empty')}</p>
-        ) : (
-          <div className="article-list">
-            {articles.map((a) => (
-              <LocaleLink key={a.slug} className="article-card" href={`/articles/${a.slug}`}>
-                {a.coverUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img crossOrigin="anonymous" src={a.coverUrl} alt="" className="article-card-cover" />
-                ) : (
-                  <div className="article-card-cover article-card-cover-empty" />
-                )}
-                <div className="article-card-body">
-                  <h2 className="article-card-title">{a.title}</h2>
-                  {a.excerpt && <p className="article-card-excerpt">{a.excerpt}</p>}
-                  {a.publishedAt && <p className="article-card-date">{fmtDate(a.publishedAt)}</p>}
-                </div>
-              </LocaleLink>
-            ))}
+            {articles.length === 0 ? (
+              <p className="feed-empty">{t('articles.empty')}</p>
+            ) : (
+              <div className="article-list">
+                {articles.map((a) => (
+                  <LocaleLink key={a.slug} className="article-card" href={`/articles/${a.slug}`}>
+                    {a.coverUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img crossOrigin="anonymous" src={a.coverUrl} alt="" className="article-card-cover" />
+                    ) : (
+                      <div className="article-card-cover article-card-cover-empty" />
+                    )}
+                    <div className="article-card-body">
+                      <h2 className="article-card-title">{a.title}</h2>
+                      {a.excerpt && <p className="article-card-excerpt">{a.excerpt}</p>}
+                      {a.publishedAt && <p className="article-card-date">{fmtDate(a.publishedAt)}</p>}
+                    </div>
+                  </LocaleLink>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+
+          <ArticleSidebar />
+        </div>
 
         <footer className="artist-footer">
           <LanguageSwitcher />
