@@ -103,7 +103,7 @@ export const LOCALE_META: Record<Locale, LocaleMeta> = {
  *    page.
  *
  *  `''` is the landing page. A trailing `/*` means the segment and anything under it. */
-export const LOCALIZED_PATHS = ['', '/explore', '/demo', '/articles'] as const
+export const LOCALIZED_PATHS = ['', '/explore', '/demo', '/articles', '/help'] as const
 
 /** Does this path (already stripped of any locale prefix) get a prefix? */
 export function isLocalizedPath(pathname: string): boolean {

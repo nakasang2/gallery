@@ -57,6 +57,8 @@ export function money(amount: number, currency: string): string {
 /** Per-slot price for capacity add-ons (sold by quantity via a picker, §11.5). */
 export const PRICE_PER_SLOT_CENTS = PRICE_USD_CENTS.capacity_addon
 export const PRICE_SLOT = usd(PRICE_PER_SLOT_CENTS) // '$3'
+/** One-time Video Pass price — unlock exhibiting video works forever (§ pricing). */
+export const PRICE_VIDEO_PASS = usd(PRICE_USD_CENTS.video_pass) // '$20'
 // Themes and layouts are both `single_item` purchases but priced apart
 // (docs/DECISIONS 2026-07-24): a theme is a bigger visual change than a layout.
 // These are the BASE prices — what an item costs unless ITEM_PRICE_CENTS below

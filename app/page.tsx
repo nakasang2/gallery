@@ -252,6 +252,7 @@ export default async function LandingPage() {
           <LocaleLink href="/demo">{t('lp.navDemo')}</LocaleLink>
           <LocaleLink href="/explore">{t('footer.explore')}</LocaleLink>
           <LocaleLink href="/articles">{t('footer.guides')}</LocaleLink>
+          <LocaleLink href="/help">{t('help.title')}</LocaleLink>
           <Link href="/signin">{t('common.signIn')}</Link>
           <Link href="/signup">{t('lp.navCreateAccount')}</Link>
         </nav>

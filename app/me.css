@@ -924,7 +924,7 @@
 
 /* ---- 作家ページ(/@username)と法務ページ ---- */
 
-.artist-page, .legal-page {
+.artist-page, .legal-page, .help-page {
   min-height: 100vh;
   min-height: 100dvh;
   padding: 2rem 1.4rem 4rem;
@@ -1057,6 +1057,68 @@
 .legal-body a:hover { color: var(--gold); }
 .legal-body ul { margin: 0 0 1.1rem 1.1rem; }
 .legal-body li { font-size: 0.86rem; line-height: 2; color: #cdc7bd; }
+
+/* ---- Help / FAQ (/help page + dashboard HelpModal share one body) ---- */
+.help-page .me-inner { max-width: 680px; }
+.help-intro {
+  max-width: 56ch;
+  font-size: 0.9rem;
+  line-height: 1.9;
+  color: #cdc7bd;
+  margin: 0.5rem 0 2.2rem;
+}
+.help-body { max-width: 62ch; }
+.help-section { margin-bottom: 2rem; }
+.help-section-title {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: var(--gold);
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--hairline);
+}
+.help-qa-list { margin: 0; }
+.help-qa { margin-bottom: 1.2rem; }
+.help-q {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 0.35rem;
+}
+.help-a {
+  font-size: 0.86rem;
+  line-height: 1.9;
+  color: #cdc7bd;
+  margin: 0;
+}
+.help-a a { color: var(--ink); text-underline-offset: 2px; }
+.help-a a:hover { color: var(--gold); }
+.help-contact { margin-bottom: 0; }
+
+/* Dashboard modal: same body in a dialog. Reuses .purchase-backdrop / .purchase-close. */
+.help-modal {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: rgba(20, 18, 16, 0.98);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 2rem 1.8rem 1.6rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  animation: purchase-modal-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .help-modal { animation: none; }
+}
+.help-modal-title {
+  font-family: var(--serif);
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 0.3rem;
+}
 
 /* 特商法の表記: 項目名と内容の二列。狭幅では縦積みにする */
 .legal-table { margin-top: 1.6rem; }

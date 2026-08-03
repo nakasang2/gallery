@@ -54,6 +54,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...localized(base, '/', { lastModified: now, changeFrequency: 'weekly', priority: 1 }),
     ...localized(base, '/explore', { lastModified: now, changeFrequency: 'daily', priority: 0.9 }),
     ...localized(base, '/demo', { lastModified: now, changeFrequency: 'monthly', priority: 0.7 }),
+    // Help/FAQ is genuinely translated (unlike the guides), so it lists one URL
+    // per locale with the full hreflang set, same as /explore and /demo.
+    ...localized(base, '/help', { lastModified: now, changeFrequency: 'monthly', priority: 0.4 }),
     // The guides are written once, in English (lib/blog ARTICLE_LOCALE), so they
     // get ONE URL each — not one per locale. `localized()` would list eleven URLs
     // claiming to be translations of each other, which is a claim the content

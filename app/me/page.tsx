@@ -13,6 +13,7 @@ import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components
 import WorkDesign from '@/components/WorkDesign'
 import PlacementEditor from '@/components/PlacementEditor'
 import PurchaseModal from '@/components/PurchaseModal'
+import HelpModal from '@/components/HelpModal'
 import TopActions from '@/components/TopActions'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, type PaidKind } from '@/lib/pricing'
@@ -2234,6 +2235,8 @@ export default function MePage() {
   const [usage, setUsage] = useState<number | null>(null)
   // Set when Stripe Checkout sent the user back here (?purchase=success|cancelled)
   const [purchaseReturn, setPurchaseReturn] = useState<'success' | 'cancelled' | null>(null)
+  // Help/FAQ opened in place, so building a room isn't interrupted (DECISIONS 2026-08-03)
+  const [helpOpen, setHelpOpen] = useState(false)
   // Dashboard-wide autosave toast (single slot; each save refreshes it)
   const [toast, setToast] = useState<{ msg: string; n: number } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -2308,11 +2311,13 @@ export default function MePage() {
       {toast && (
         <div className="me-toast" role="status" aria-live="polite" key={toast.n}>{toast.msg}</div>
       )}
+      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
       <div className="me-inner">
         <div className="me-top">
           <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
           <TopActions>
             <LocaleLink className="btn-line" href="/explore">{t('me.explore')}</LocaleLink>
+            <button className="btn-line" onClick={() => setHelpOpen(true)}>{t('help.title')}</button>
             {isAdmin && (
               <Link className="btn-line btn-gold" href="/admin">{t('me.admin')}</Link>
             )}
