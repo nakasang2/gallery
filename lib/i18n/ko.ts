@@ -551,7 +551,9 @@ export const ko: PartialDictionary = {
 
     profileName: '표시 이름(작가명)',
     profileBio: '소개 / 작가의 말',
-    profileSnsNote: 'SNS를 연결해 두면 공개 페이지와 전시장 안에서 보입니다. 관람객이 다른 곳에서도 이어서 볼 수 있습니다.',
+    profileSnsNote: 'SNS를 연결해 두면 공개 페이지와 전시장 안에서 보입니다. 관람객이 다른 곳에서도 이어서 볼 수 있습니다. 각 칸에는 주소창의 URL을 그대로 붙여 넣으세요.',
+    snsWrongPlatform: '{found} 링크로 보입니다 (이 칸은 {expected}).',
+    snsNotPlatform: '{expected} 링크가 아닌 것 같습니다.',
     profileCustomLabel: '라벨 (예: Substack)',
     profileCustomUrl: '링크 URL',
     profileAddLink: '다른 링크 추가',

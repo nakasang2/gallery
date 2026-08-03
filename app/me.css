@@ -389,7 +389,11 @@
   color: var(--muted);
   margin-bottom: 0.4rem;
 }
-.me-field input, .me-field textarea, .spotlight-row input {
+/* ダッシュボードの入力欄。**セレクタの列挙に入れ忘れた欄はブラウザ既定の白地で描かれる**
+   — SNSの欄がそれで、カードの中で白く浮いていた（ユーザー指摘 2026-08-03）。
+   新しい入力欄を足したら、ここに並べたか確認する。 */
+.me-field input, .me-field textarea, .spotlight-row input,
+.sns-field input, .sns-custom-row input {
   width: 100%;
   font-family: var(--sans);
   font-size: 0.9rem;
@@ -402,7 +406,8 @@
   transition: border-color 0.2s;
   resize: vertical;
 }
-.me-field input:focus, .me-field textarea:focus, .spotlight-row input:focus { border-color: var(--gold); }
+.me-field input:focus, .me-field textarea:focus, .spotlight-row input:focus,
+.sns-field input:focus, .sns-custom-row input:focus { border-color: var(--gold); }
 
 /* Size row W×H number inputs — match the dashboard's other fields (were browser-default) */
 .size-num {
@@ -516,6 +521,7 @@
 }
 /* ---- Profile SNS fields: one row per platform (icon + hint + input) ---- */
 .sns-fields { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.7rem; }
+.sns-field-wrap { display: flex; flex-direction: column; gap: 0.25rem; }
 .sns-field { display: flex; align-items: center; gap: 0.5rem; }
 .sns-field-icon {
   flex: none;
@@ -525,15 +531,15 @@
   color: var(--muted);
   font-size: 1rem;
 }
-.sns-field-hint {
-  flex: none;
-  font-size: 0.72rem;
-  color: var(--muted);
-  white-space: nowrap;
-  min-width: 6.5rem;
-  text-align: right;
-}
 .sns-field input { flex: 1; min-width: 0; }
+/* 貼り間違い（Discordの欄にInstagramのURL等）。その行だけ印を付ける */
+.sns-field input.is-wrong { border-color: rgba(240, 132, 124, 0.75); }
+.sns-field-warn {
+  margin: 0 0 0.1rem 1.9rem; /* アイコンぶん下げて、欄の左端に揃える */
+  font-size: 0.72rem;
+  line-height: 1.6;
+  color: #f0847c;
+}
 /* Other links: label + url + remove */
 .sns-custom { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .sns-custom-row { display: flex; align-items: center; gap: 0.5rem; }
@@ -554,8 +560,6 @@
 .sns-custom-del:hover { color: #e08a7a; border-color: #e08a7a; }
 .sns-add { align-self: flex-start; margin-top: 0.2rem; }
 @media (max-width: 480px) {
-  /* Stack the hint above a full-width input so handles fit on phones */
-  .sns-field-hint { min-width: 5rem; }
   .sns-custom-label { flex-basis: 6rem; }
 }
 

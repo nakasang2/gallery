@@ -419,7 +419,9 @@ export const ja: Dictionary = {
 
     profileName: '表示名（作家名）',
     profileBio: 'プロフィール・ステートメント',
-    profileSnsNote: 'SNSを登録すると、公開ページと部屋の中に表示され、来場者が他の場所でもあなたを追えるようになります。',
+    profileSnsNote: 'SNSを登録すると、公開ページと部屋の中に表示され、来場者が他の場所でもあなたを追えるようになります。各欄には、アドレス欄のURLをそのまま貼り付けてください。',
+    snsWrongPlatform: '{found} のリンクのようです（この欄は {expected} です）。',
+    snsNotPlatform: '{expected} のリンクではないようです。',
     profileCustomLabel: 'ラベル（例: Substack）',
     profileCustomUrl: 'リンクのURL',
     profileAddLink: 'その他のリンクを追加',

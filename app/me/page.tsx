@@ -40,7 +40,7 @@ import {
   type GalleryRow,
 } from '@/lib/galleries'
 import { getProfile, saveProfile, setUsername, isPlaceholderTitle, USERNAME_RE } from '@/lib/publish'
-import { SNS_PLATFORMS, type CustomLink } from '@/lib/sns'
+import { SNS_PLATFORMS, normalizeSnsValue, snsDisplayValue, snsMismatch, type CustomLink } from '@/lib/sns'
 import { BRAND_ICONS, GlobeIcon } from '@/components/BrandIcons'
 import {
   getStorageUsage,
@@ -2044,6 +2044,15 @@ function ProfileCard() {
   // Known-platform links keyed by id, plus free-form "other" links
   const [snsLinks, setSnsLinks] = useState<Record<string, string>>({})
   const [snsCustom, setSnsCustom] = useState<CustomLink[]>([])
+  // What is literally in each SNS field while it is being edited. The stored value
+  // is a handle (or a URL — lib/sns), and the field shows the whole URL, so typing
+  // has to survive normalisation: keep the raw text here and fall back to the
+  // canonical URL once the row is left alone. A row whose paste belongs to another
+  // platform stays here and is NOT saved (ユーザー判断 2026-08-03: 注意文だけ出す).
+  const [snsDraft, setSnsDraft] = useState<Record<string, string>>({})
+  // 注意文は「その欄から離れたとき」だけ出す。打っている途中の `https://ins` は
+  // まだどのホストにも当たらないので、live に出すと入力中ずっと赤くなる。
+  const [snsFocus, setSnsFocus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // Profile text (display name / bio / SNS) autosaves like everything else.
   const [profileState, setProfileState] = useState<'idle' | 'saving'>('idle')
@@ -2189,19 +2198,54 @@ function ProfileCard() {
       <div className="sns-fields">
         {SNS_PLATFORMS.map((p) => {
           const Icon = BRAND_ICONS[p.id] ?? GlobeIcon
+          // 欄に出すのは「来場者が開くURL」そのもの。編集中は打った文字を素で見せる
+          const shown = snsDraft[p.id] ?? snsDisplayValue(p.id, snsLinks[p.id] ?? '')
+          const mismatch = snsMismatch(p.id, shown)
+          const wrong = snsFocus === p.id ? null : mismatch
           return (
-            <label key={p.id} className="sns-field">
-              <span className="sns-field-icon" aria-hidden="true"><Icon /></span>
-              <span className="sns-field-hint">{p.hint}</span>
-              <input
-                type="text"
-                aria-label={p.label}
-                // i18n-ok: 入力する値そのものの見本（ハンドル/URLはASCII）
-                placeholder={p.kind === 'url' ? 'yoursite.com' : 'yourhandle'}
-                value={snsLinks[p.id] ?? ''}
-                onChange={(e) => editProfile({ links: { ...snsLinks, [p.id]: e.target.value } })}
-              />
-            </label>
+            <div key={p.id} className="sns-field-wrap">
+              <label className="sns-field">
+                <span className="sns-field-icon" aria-hidden="true"><Icon /></span>
+                <input
+                  type="text"
+                  inputMode="url"
+                  aria-label={p.label}
+                  aria-invalid={wrong ? true : undefined}
+                  className={wrong ? 'is-wrong' : undefined}
+                  // i18n-ok: 貼り付けるURLの見本（lib/sns の sample）
+                  placeholder={p.sample}
+                  value={shown}
+                  onFocus={() => setSnsFocus(p.id)}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    setSnsDraft((d) => ({ ...d, [p.id]: raw }))
+                    // 保存するのは**正規化した値**（`@yusuke` → `yusuke`、末尾の / を落とす）。
+                    // 欄の表示は打った文字のまま（draft）なので、打ちながら書き換えられて
+                    // 邪魔になることはない。取り違えている間は**空を保存する** — 手で打つと
+                    // `h` `ht` `htt` … は URL に見えないので通ってしまい、途中の断片が
+                    // 保存値として残る。
+                    const value = snsMismatch(p.id, raw) ? '' : normalizeSnsValue(p.id, raw)
+                    editProfile({ links: { ...snsLinks, [p.id]: value } })
+                  }}
+                  onBlur={() => {
+                    setSnsFocus(null)
+                    // 正しい値に落ち着いたら、欄の表示を正規化したURLへ揃える
+                    if (mismatch) return
+                    setSnsDraft((d) => {
+                      const { [p.id]: _drop, ...rest } = d
+                      return rest
+                    })
+                  }}
+                />
+              </label>
+              {wrong && (
+                <p className="sns-field-warn" role="status">
+                  {wrong.found
+                    ? t('me.snsWrongPlatform', { found: wrong.found.label, expected: p.label })
+                    : t('me.snsNotPlatform', { expected: p.label })}
+                </p>
+              )}
+            </div>
           )
         })}
       </div>

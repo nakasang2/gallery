@@ -489,7 +489,9 @@ export const es: PartialDictionary = {
     deleteEntry: 'Borrar el mensaje', deleteEntryConfirm: '¿Borrar este mensaje del libro de visitas?',
 
     profileName: 'Nombre visible (nombre artístico)', profileBio: 'Biografía / texto de artista',
-    profileSnsNote: 'Enlaza tus redes — se muestran en tu página pública y mientras recorren tu sala, para que puedan seguirte en otro lado.',
+    profileSnsNote: 'Enlaza tus redes — se muestran en tu página pública y mientras recorren tu sala, para que puedan seguirte en otro lado. Pega en cada fila el enlace completo, el de la barra de direcciones.',
+    snsWrongPlatform: 'Parece un enlace de {found}: esta fila es para {expected}.',
+    snsNotPlatform: 'Esto no parece un enlace de {expected}.',
     profileCustomLabel: 'Etiqueta (p. ej. Substack)',
     profileCustomUrl: 'URL del enlace',
     profileAddLink: 'Añadir otro enlace',

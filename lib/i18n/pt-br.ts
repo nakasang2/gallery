@@ -489,7 +489,9 @@ export const ptBr: PartialDictionary = {
     deleteEntry: 'Apagar o recado', deleteEntryConfirm: 'Apagar este recado do livro de visitas?',
 
     profileName: 'Nome de exibição (nome artístico)', profileBio: 'Bio / texto de artista',
-    profileSnsNote: 'Ligue suas redes — aparecem na sua página pública e durante a visita, para que possam te seguir em outro lugar.',
+    profileSnsNote: 'Ligue suas redes — aparecem na sua página pública e durante a visita, para que possam te seguir em outro lugar. Cole em cada linha o link completo, o da barra de endereços.',
+    snsWrongPlatform: 'Parece um link do {found} — esta linha é para {expected}.',
+    snsNotPlatform: 'Isso não parece um link do {expected}.',
     profileCustomLabel: 'Rótulo (ex.: Substack)',
     profileCustomUrl: 'URL do link',
     profileAddLink: 'Adicionar outro link',

@@ -489,7 +489,9 @@ export const id: PartialDictionary = {
     deleteEntry: 'Hapus pesan', deleteEntryConfirm: 'Hapus pesan buku tamu ini?',
 
     profileName: 'Nama tampilan (nama perupa)', profileBio: 'Bio / catatan perupa',
-    profileSnsNote: 'Tautkan media sosialmu — tampil di halaman publikmu dan saat pengunjung menjelajahi ruangmu, jadi mereka bisa mengikutimu di tempat lain.',
+    profileSnsNote: 'Tautkan media sosialmu — tampil di halaman publikmu dan saat pengunjung menjelajahi ruangmu, jadi mereka bisa mengikutimu di tempat lain. Tempel tautan lengkap dari bilah alamat ke setiap baris.',
+    snsWrongPlatform: 'Ini sepertinya tautan {found} — baris ini untuk {expected}.',
+    snsNotPlatform: 'Ini sepertinya bukan tautan {expected}.',
     profileCustomLabel: 'Label (mis. Substack)',
     profileCustomUrl: 'URL tautan',
     profileAddLink: 'Tambah tautan lain',

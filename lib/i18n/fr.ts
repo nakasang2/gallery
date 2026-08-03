@@ -489,7 +489,9 @@ export const fr: PartialDictionary = {
     deleteEntry: 'Supprimer le message', deleteEntryConfirm: 'Supprimer ce message du livre d’or ?',
 
     profileName: 'Nom affiché (nom d’artiste)', profileBio: 'Bio / texte d’artiste',
-    profileSnsNote: 'Liez vos réseaux — ils apparaissent sur votre page publique et pendant la visite, pour qu’on puisse vous suivre ailleurs.',
+    profileSnsNote: 'Liez vos réseaux — ils apparaissent sur votre page publique et pendant la visite, pour qu’on puisse vous suivre ailleurs. Collez dans chaque ligne le lien complet, celui de la barre d’adresse.',
+    snsWrongPlatform: 'Cela ressemble à un lien {found} — cette ligne est pour {expected}.',
+    snsNotPlatform: 'Cela ne ressemble pas à un lien {expected}.',
     profileCustomLabel: 'Libellé (ex. Substack)',
     profileCustomUrl: 'URL du lien',
     profileAddLink: 'Ajouter un autre lien',

@@ -488,7 +488,9 @@ export const zhHant: PartialDictionary = {
     deleteEntry: '刪除留言', deleteEntryConfirm: '刪除這則留言？',
 
     profileName: '顯示名稱（作者名）', profileBio: '簡介 / 創作自述',
-    profileSnsNote: '把社群帳號連上，會顯示在公開頁面和展場裡，觀眾就能在別處繼續追蹤你。',
+    profileSnsNote: '把社群帳號連上，會顯示在公開頁面和展場裡，觀眾就能在別處繼續追蹤你。每一欄請直接貼上位址欄的完整連結。',
+    snsWrongPlatform: '這看起來是 {found} 的連結（這一欄是 {expected}）。',
+    snsNotPlatform: '這看起來不是 {expected} 的連結。',
     profileCustomLabel: '標籤（如 Substack）',
     profileCustomUrl: '連結 URL',
     profileAddLink: '新增其他連結',

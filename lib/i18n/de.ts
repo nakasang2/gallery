@@ -489,7 +489,9 @@ export const de: PartialDictionary = {
     deleteEntry: 'Eintrag löschen', deleteEntryConfirm: 'Diesen Gästebucheintrag löschen?',
 
     profileName: 'Angezeigter Name (Künstlername)', profileBio: 'Kurzbio / Statement',
-    profileSnsNote: 'Verlinke deine Profile — sie erscheinen auf deiner öffentlichen Seite und während des Besuchs, damit man dir auch woanders folgen kann.',
+    profileSnsNote: 'Verlinke deine Profile — sie erscheinen auf deiner öffentlichen Seite und während des Besuchs, damit man dir auch woanders folgen kann. Füge in jede Zeile die ganze Adresse aus der Adressleiste ein.',
+    snsWrongPlatform: 'Das sieht nach einem {found}-Link aus — diese Zeile ist für {expected}.',
+    snsNotPlatform: 'Das sieht nicht nach einem {expected}-Link aus.',
     profileCustomLabel: 'Bezeichnung (z. B. Substack)',
     profileCustomUrl: 'Link-URL',
     profileAddLink: 'Weiteren Link hinzufügen',
