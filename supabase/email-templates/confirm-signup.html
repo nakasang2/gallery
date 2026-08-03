@@ -2,50 +2,53 @@
   Supabase → Authentication → Email Templates → "Confirm signup"
   Subject:  Confirm your XIBIT360 account
   Variables used: {{ .ConfirmationURL }}
-  Dark brand theme. bgcolor attributes duplicate the CSS backgrounds so Outlook
-  (which ignores CSS background on many elements) still renders dark, and every
-  text colour is set explicitly so dark-mode clients don't invert it.
+  Dark brand theme. Full document with <meta name="x-apple-disable-message-reformatting">
+  — without it, Apple Mail's automatic message reformatting strips the outer
+  background color while leaving inline-styled content (buttons etc.) intact,
+  which is exactly the failure mode found by testing (LESSONS 2026-08-03).
+  color-scheme meta + bgcolor attributes are extra insurance, not the actual fix.
   English only (see supabase/email-templates/README.md).
 -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d0c0a" style="background:#0d0c0a;margin:0;padding:32px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <tr>
-    <td align="center">
-      <table role="presentation" width="480" cellpadding="0" cellspacing="0" bgcolor="#16130f" style="width:480px;max-width:100%;background:#16130f;border:1px solid #2a2620;border-radius:16px;overflow:hidden;">
-        <tr>
-          <td style="padding:34px 40px 8px;">
-            <div style="font-family:Georgia,'Times New Roman',serif;font-size:15px;letter-spacing:6px;color:#ece7de;">XIBIT360</div>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:14px 40px 0;">
-            <h1 style="margin:0 0 14px;font-size:22px;font-weight:500;color:#f2ede4;">Confirm your email</h1>
-            <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#a8a196;">
-              Welcome to XIBIT360. Confirm this address to open your dashboard and start building your exhibition.
-            </p>
-            <table role="presentation" cellpadding="0" cellspacing="0">
-              <tr>
-                <td bgcolor="#d4a24e" style="border-radius:100px;background:#d4a24e;">
-                  <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 32px;font-size:14px;letter-spacing:1px;color:#14110c;text-decoration:none;font-weight:600;">Confirm email</a>
-                </td>
-              </tr>
-            </table>
-            <p style="margin:24px 0 0;font-size:12px;line-height:1.7;color:#7d766a;">
-              If the button doesn’t work, copy and paste this link:<br>
-              <a href="{{ .ConfirmationURL }}" style="color:#d4a24e;word-break:break-all;">{{ .ConfirmationURL }}</a>
-            </p>
-            <p style="margin:18px 0 0;font-size:12px;line-height:1.7;color:#7d766a;">
-              If you didn’t create a XIBIT360 account, you can safely ignore this email.
-            </p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:28px 40px 32px;border-top:1px solid #262019;">
-            <p style="margin:18px 0 0;font-size:11px;line-height:1.7;color:#6f695e;">
-              XIBIT360 · <a href="https://www.xibit360.art" style="color:#6f695e;">xibit360.art</a> · Questions? <a href="mailto:support@xibit360.art" style="color:#6f695e;">support@xibit360.art</a>
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<meta name="supported-color-schemes" content="dark light">
+<meta name="x-apple-disable-message-reformatting">
+<title>Confirm your XIBIT360 account</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0d0c0a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0d0c0a" style="background-color:#0d0c0a;width:100%;border-collapse:collapse;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <tr><td align="center" bgcolor="#0d0c0a" style="background-color:#0d0c0a;padding:32px 16px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#16130f;border:1px solid #2a2620;border-radius:14px;overflow:hidden;">
+      <tr><td style="padding:28px 32px 4px;">
+        <span style="font-family:Georgia,'Times New Roman',serif;font-size:16px;letter-spacing:0.3em;color:#ece7de;">XIBIT360</span>
+      </td></tr>
+      <tr><td style="padding:14px 32px 0;">
+        <h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#f2ede4;">Confirm your email</h1>
+        <p style="margin:0 0 26px;font-size:14px;line-height:1.65;color:#9a968e;">
+          Welcome to XIBIT360. Confirm this address to open your dashboard and start building your exhibition.
+        </p>
+      </td></tr>
+      <tr><td align="center" style="padding:0 32px 8px;">
+        <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#d4a24e;color:#14110c;text-decoration:none;font-size:14px;font-weight:700;padding:13px 30px;border-radius:9px;">
+          Confirm email
+        </a>
+      </td></tr>
+      <tr><td style="padding:22px 32px 26px;">
+        <p style="margin:0 0 6px;font-size:12px;color:#6e6a62;">If the button doesn't work, paste this link into your browser:</p>
+        <p style="margin:0;font-size:12px;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#d4a24e;">{{ .ConfirmationURL }}</a></p>
+      </td></tr>
+      <tr><td style="padding:18px 32px;border-top:1px solid #2a2620;">
+        <p style="margin:0;font-size:11px;color:#5c584f;line-height:1.7;">
+          If you didn't create a XIBIT360 account, you can safely ignore this email.<br>
+          Need help? <a href="mailto:support@xibit360.art" style="color:#8a857b;">support@xibit360.art</a>
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
 </table>
+</body>
+</html>

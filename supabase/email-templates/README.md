@@ -43,5 +43,13 @@ Supabase Dashboard → **Authentication → Email Templates** の各タブに、
   ボタンに `bgcolor` 属性を併記（Outlook は多くの要素で CSS の background を無視
   するため）。全テキストに明示的な色を指定し、ダークモードのクライアントが色を
   反転させないようにしている。
+- **⚠️ 最重要（実機で発見・2026-08-03）**: `<head>` に
+  `<meta name="x-apple-disable-message-reformatting">` が無いと、**Apple Mail が
+  独自に「読みやすく」メールを作り替える際、外側の背景色だけを剥がす**（中の
+  カード・ボタンの色は保持されるので原因に気づきにくい）。`color-scheme` の
+  宣言だけでは止まらず、この作り替え自体を無効化する専用メタタグが必須。
+  詳しい切り分け経緯は `docs/LESSONS.md` の該当エントリを参照。
+  **4テンプレートすべてこのメタタグ込みの完全なHTML文書（`<!DOCTYPE html>`〜
+  `</html>`）**になっている。断片（`<table>`から始まる）に戻さないこと。
 - 送信元は `no-reply@xibit360.art`、問い合わせ先は `support@xibit360.art`
   （後者は Cloudflare Email Routing の受信設定が別途必要＝STATE の残タスク）。
