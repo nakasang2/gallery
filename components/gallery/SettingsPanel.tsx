@@ -17,7 +17,7 @@ import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isFrameUnlocked, is
 import { usePurchasedIds } from '@/lib/purchases'
 import PurchaseModal from '@/components/PurchaseModal'
 import { LockIcon, VideoIcon } from '@/components/icons'
-import { type PaidKind } from '@/lib/pricing'
+import { type PaidKind, PRICE_USD_CENTS, usd } from '@/lib/pricing'
 import {
   ThemeSwatch,
   LayoutPlan,
@@ -243,7 +243,7 @@ export default function SettingsPanel() {
 
   const [igNote, setIgNote] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [purchaseItem, setPurchaseItem] = useState<{ kind: PaidKind; key: string; label: string } | null>(null)
+  const [purchaseItem, setPurchaseItem] = useState<{ kind: PaidKind | 'video_pass'; key: string; label: string } | null>(null)
   const titleRef = useRef<HTMLInputElement>(null!)
   const artistRef = useRef<HTMLInputElement>(null)
   const urlRef = useRef<HTMLInputElement>(null!)
@@ -507,6 +507,14 @@ export default function SettingsPanel() {
         <p className="settings-note">
           {t('panel.videoPassNote', { active: entitlements.videoEnabled ? t('panel.videoPassActive') : '' })}
         </p>
+        {!entitlements.videoEnabled && (
+          <button
+            className="btn-line"
+            onClick={() => setPurchaseItem({ kind: 'video_pass', key: '', label: t('panel.videoPass') })}
+          >
+            {t('panel.buyVideoPass', { price: usd(PRICE_USD_CENTS.video_pass) })}
+          </button>
+        )}
         <div className="field-row">
           <input ref={urlRef} type="url" placeholder={t('panel.pasteUrl')} />
           <button className="btn-line" onClick={() => void onAddUrl()}>{t('common.add')}</button>
@@ -706,7 +714,7 @@ export default function SettingsPanel() {
           <PurchaseModal
             itemLabel={purchaseItem.label}
             preview={
-              purchaseItem.kind === 'theme' ? (
+              purchaseItem.kind === 'video_pass' ? undefined : purchaseItem.kind === 'theme' ? (
                 <WallPreview
                   themeKey={purchaseItem.key}
                   frameKey={(THEMES[purchaseItem.key] ?? THEMES.chic).recommends.frame}
@@ -720,7 +728,8 @@ export default function SettingsPanel() {
                 <LayoutPlan layoutKey={purchaseItem.key} className="purchase-plan-preview" />
               )
             }
-            item={{ kind: purchaseItem.kind, itemKey: purchaseItem.key }}
+            item={purchaseItem.kind === 'video_pass' ? undefined : { kind: purchaseItem.kind, itemKey: purchaseItem.key }}
+            flat={purchaseItem.kind === 'video_pass' ? { cents: PRICE_USD_CENTS.video_pass } : undefined}
             intent={{ kind: purchaseItem.kind, itemKey: purchaseItem.key }}
             onClose={() => setPurchaseItem(null)}
           />

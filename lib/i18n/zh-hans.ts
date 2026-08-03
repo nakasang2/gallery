@@ -171,6 +171,8 @@ export const zhHans: PartialDictionary = {
   panel: {
     igMockNote: '正式对接需要 Instagram Graph API（商业/创作者账号），所以这里是临时实现。请改用下面的上传或图片网址。',
     videoPassNote: '图片一直免费。视频（Reels 等，40MB 以内）需要 Video Pass{active}。视频会在展厅里循环播放，靠近就能听到声音。',
+    videoPass: 'Video Pass',
+    buyVideoPass: '购买 Video Pass — {price}',
     videoPassActive: '（这个账号已开通）',
     matNote: '选择「按画框」时，会用每种画框的推荐衬边。木框绷布（画框：无）没有衬边。',
     editSpace: '编辑空间',
@@ -307,6 +309,8 @@ export const zhHans: PartialDictionary = {
     eyebrowLayout: '新布局',
     eyebrowFrame: '新画框',
     eyebrowCapacity: '展厅容量',
+    eyebrowVideo: '视频',
+    unlocksVideo: '在展厅中展出（循环播放的）视频作品。',
     soloItem: '仅 {name}',
     unlocksTheme: '只解锁这一个主题，买一次就一直用。',
     unlocksLayout: '只解锁这一个布局，买一次就一直用。',

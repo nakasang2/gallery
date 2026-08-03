@@ -507,6 +507,8 @@ export const en = {
     eyebrowLayout: 'New layout',
     eyebrowFrame: 'New frame',
     eyebrowCapacity: 'Room capacity',
+    eyebrowVideo: 'Video',
+    unlocksVideo: 'Exhibit looping video works in your room.',
     soloItem: '{name} only',
     unlocksTheme: 'Unlocks just this theme, once, forever.',
     unlocksLayout: 'Unlocks just this layout, once, forever.',
@@ -676,6 +678,8 @@ export const en = {
   panel: {
     igMockNote: 'Official integration requires the Instagram Graph API (business/creator accounts), so this is a mock in the prototype. Use the upload or image URL below instead.',
     videoPassNote: 'Images are always free. Videos (reels etc.) up to 40MB need Video Pass{active}; they loop in the room and become audible as you approach.',
+    videoPass: 'Video Pass',
+    buyVideoPass: 'Get Video Pass — {price}',
     videoPassActive: ' — active on your account',
     matNote: '“Frame default” uses each frame\u2019s recommended mat. Stretched canvas (frame: None) has no mat.',
     editSpace: 'Edit space',

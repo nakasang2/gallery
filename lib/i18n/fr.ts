@@ -170,6 +170,8 @@ export const fr: PartialDictionary = {
   panel: {
     igMockNote: 'Une intégration officielle demande l’API Instagram Graph (comptes professionnels/créateurs) ; ceci n’est donc qu’une maquette. Utilisez plutôt l’import ou l’URL d’image ci-dessous.',
     videoPassNote: 'Les images sont toujours gratuites. Les vidéos (reels, etc.) jusqu’à 40 Mo demandent le Video Pass{active}. Elles tournent en boucle dans la salle et deviennent audibles quand on s’approche.',
+    videoPass: 'Video Pass',
+    buyVideoPass: 'Obtenir le Video Pass — {price}',
     videoPassActive: ' — actif sur votre compte',
     matNote: 'Avec « selon le cadre », chaque cadre applique le passe-partout recommandé. Une toile sur châssis (cadre : aucun) n’a pas de passe-partout.',
     editSpace: 'Modifier l’espace',
@@ -306,6 +308,8 @@ export const fr: PartialDictionary = {
     eyebrowLayout: 'Nouvelle disposition',
     eyebrowFrame: 'Nouveau cadre',
     eyebrowCapacity: 'Capacité de la salle',
+    eyebrowVideo: 'Vidéo',
+    unlocksVideo: 'Exposez des œuvres vidéo (en boucle) dans votre salle.',
     soloItem: '{name} uniquement',
     unlocksTheme: 'Débloque uniquement ce thème, une fois, pour toujours.',
     unlocksLayout: 'Débloque uniquement cette disposition, une fois, pour toujours.',

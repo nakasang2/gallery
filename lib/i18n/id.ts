@@ -170,6 +170,8 @@ export const id: PartialDictionary = {
   panel: {
     igMockNote: 'Integrasi resmi butuh Instagram Graph API (akun bisnis atau kreator), jadi yang ini baru contoh. Pakai unggahan atau URL gambar di bawah saja.',
     videoPassNote: 'Gambar selalu gratis. Video (reel dsb.) sampai 40MB butuh Video Pass{active}. Videonya berputar terus di ruang dan mulai terdengar saat kamu mendekat.',
+    videoPass: 'Video Pass',
+    buyVideoPass: 'Dapatkan Video Pass — {price}',
     videoPassActive: ' — sudah aktif di akunmu',
     matNote: 'Dengan «sesuai bingkai», tiap bingkai memakai mat yang disarankan. Kanvas berspanram (bingkai: tidak ada) tidak punya mat.',
     editSpace: 'Ubah ruang',
@@ -306,6 +308,8 @@ export const id: PartialDictionary = {
     eyebrowLayout: 'Tata letak baru',
     eyebrowFrame: 'Bingkai baru',
     eyebrowCapacity: 'Kapasitas ruang',
+    eyebrowVideo: 'Video',
+    unlocksVideo: 'Pamerkan karya video (berulang) di ruangmu.',
     soloItem: 'Hanya {name}',
     unlocksTheme: 'Membuka hanya tema ini, sekali beli, selamanya.',
     unlocksLayout: 'Membuka hanya tata letak ini, sekali beli, selamanya.',

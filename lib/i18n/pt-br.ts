@@ -170,6 +170,8 @@ export const ptBr: PartialDictionary = {
   panel: {
     igMockNote: 'A integração oficial precisa da API Graph do Instagram (contas comerciais ou de criador), então aqui é só um esboço. Use o envio de arquivo ou a URL de imagem abaixo.',
     videoPassNote: 'Imagens são sempre de graça. Vídeos (reels etc.) de até 40 MB precisam do Video Pass{active}. Eles rodam em loop na sala e ficam audíveis quando você se aproxima.',
+    videoPass: 'Video Pass',
+    buyVideoPass: 'Obter o Video Pass — {price}',
     videoPassActive: ' — ativo na sua conta',
     matNote: 'Com «conforme a moldura», vale o passepartout recomendado de cada moldura. Tela esticada no chassi (moldura: nenhuma) não tem passepartout.',
     editSpace: 'Editar o espaço',
@@ -306,6 +308,8 @@ export const ptBr: PartialDictionary = {
     eyebrowLayout: 'Layout novo',
     eyebrowFrame: 'Moldura nova',
     eyebrowCapacity: 'Capacidade da sala',
+    eyebrowVideo: 'Vídeo',
+    unlocksVideo: 'Exiba obras em vídeo (em loop) na sua sala.',
     soloItem: 'Só {name}',
     unlocksTheme: 'Libera só este tema, de uma vez, para sempre.',
     unlocksLayout: 'Libera só este layout, de uma vez, para sempre.',

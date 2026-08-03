@@ -170,6 +170,8 @@ export const de: PartialDictionary = {
   panel: {
     igMockNote: 'Eine offizielle Anbindung braucht die Instagram Graph API (Business-/Creator-Konten), deshalb ist das hier nur ein Platzhalter. Nutze stattdessen den Upload oder die Bild-URL unten.',
     videoPassNote: 'Bilder sind immer kostenlos. Videos (Reels usw.) bis 40 MB brauchen den Video Pass{active}. Sie laufen im Raum in einer Schleife und werden hörbar, wenn du näher kommst.',
+    videoPass: 'Video Pass',
+    buyVideoPass: 'Video Pass holen — {price}',
     videoPassActive: ' — für dein Konto freigeschaltet',
     matNote: 'Bei „nach Rahmen“ gilt das empfohlene Passepartout des jeweiligen Rahmens. Eine Leinwand auf Keilrahmen (Rahmen: keiner) hat kein Passepartout.',
     editSpace: 'Raum bearbeiten',
@@ -306,6 +308,8 @@ export const de: PartialDictionary = {
     eyebrowLayout: 'Neue Anordnung',
     eyebrowFrame: 'Neuer Rahmen',
     eyebrowCapacity: 'Raumkapazität',
+    eyebrowVideo: 'Video',
+    unlocksVideo: 'Zeige (loopende) Videowerke in deinem Raum.',
     soloItem: 'Nur {name}',
     unlocksTheme: 'Schaltet nur dieses Thema frei — einmal gekauft, dauerhaft.',
     unlocksLayout: 'Schaltet nur diese Anordnung frei — einmal gekauft, dauerhaft.',

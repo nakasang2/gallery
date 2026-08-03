@@ -33,6 +33,7 @@ const UNLOCKS: Record<PaidKind, string> = {
 export default function PurchaseModal({
   itemLabel,
   item,
+  flat,
   preview,
   quantity,
   intent,
@@ -43,6 +44,9 @@ export default function PurchaseModal({
    *  the price table, so the modal quotes exactly what checkout will charge.
    *  Omit when using `quantity`. */
   item?: { kind: PaidKind; itemKey: string }
+  /** Flat one-time unlock with no item id or quantity (Video Pass): just the price;
+   *  the modal owns the eyebrow + "unlocks" copy (purchase.*Video). */
+  flat?: { cents: number }
   preview?: React.ReactNode
   /** Quantity-picker mode (capacity): pay for N units in one checkout.
    *  The unit is always a work slot, so its name is written into each language's
@@ -86,6 +90,7 @@ export default function PurchaseModal({
 
   const qtyMax = quantity ? Math.max(1, quantity.max) : 1
   const clampedQty = Math.min(qty, qtyMax)
+  const eyebrowKey = flat ? 'purchase.eyebrowVideo' : EYEBROW[item?.kind ?? 'capacity']
 
   async function onCta() {
     if (!intent) {
@@ -122,7 +127,7 @@ export default function PurchaseModal({
       >
         <button className="purchase-close" aria-label={t('purchase.close')} onClick={onClose}>×</button>
         {preview && <div className="purchase-preview">{preview}</div>}
-        <p className="purchase-eyebrow">{t(EYEBROW[item?.kind ?? 'capacity'])}</p>
+        <p className="purchase-eyebrow">{t(eyebrowKey)}</p>
         <h3 className="purchase-title">{itemLabel}</h3>
 
         {quantity ? (
@@ -173,6 +178,20 @@ export default function PurchaseModal({
                   <span className="purchase-price">{usd(itemPriceCents(item.kind, item.itemKey))}</span>
                 </div>
                 <div className="purchase-option-desc">{t(UNLOCKS[item.kind])}</div>
+              </div>
+            </label>
+          </div>
+        ) : flat ? (
+          /* Flat one-time unlock (Video Pass): one row, fixed price, no picker. */
+          <div className="purchase-options">
+            <label className="purchase-option selected">
+              <input type="radio" name="purchase-option" checked readOnly />
+              <div>
+                <div className="purchase-option-label">
+                  <span>{itemLabel}</span>
+                  <span className="purchase-price">{usd(flat.cents)}</span>
+                </div>
+                <div className="purchase-option-desc">{t('purchase.unlocksVideo')}</div>
               </div>
             </label>
           </div>

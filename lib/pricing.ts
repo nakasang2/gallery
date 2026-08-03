@@ -10,7 +10,7 @@ export const PRICE_USD_CENTS = {
   single_item: 500, // base for one layout ($5); themes/frames have their own base
   theme_collection: 0, // retired (docs/DECISIONS 2026-07-24)
   design_tools: 0, // now free for everyone
-  video_pass: 0, // not sold (subscription, unwired)
+  video_pass: 2000, // one-time $20 — buy once, exhibit video forever (ユーザー決定 2026-08-03)
 } as const
 export type Sku = keyof typeof PRICE_USD_CENTS
 

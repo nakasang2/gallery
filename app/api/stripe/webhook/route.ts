@@ -118,6 +118,12 @@ export async function POST(req: NextRequest) {
         await insertPurchase(db, { user_id: userId, kind: 'design_tools', item_key: '', sku, amount_jpy: amount, currency })
         break
       }
+      case 'video_pass': {
+        // Flat one-time unlock: a single ledger row (kind='video_pass', item_key='')
+        // flips videoEnabled on. Idempotent via the (user_id, kind, item_key) unique key.
+        await insertPurchase(db, { user_id: userId, kind: 'video_pass', item_key: '', sku, amount_jpy: amount, currency })
+        break
+      }
       case 'capacity_addon': {
         const galleryId = meta.gallery_id ?? ''
         if (!galleryId) {

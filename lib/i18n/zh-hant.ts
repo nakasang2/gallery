@@ -169,6 +169,8 @@ export const zhHant: PartialDictionary = {
   panel: {
     igMockNote: '正式對接需要 Instagram Graph API（商業/創作者帳號），所以這裡是暫時的實作。請改用下面的上傳或圖片網址。',
     videoPassNote: '圖片一直免費。影片（Reels 等，40MB 以內）需要 Video Pass{active}。影片會在展場裡循環播放，靠近就能聽到聲音。',
+    videoPass: 'Video Pass',
+    buyVideoPass: '購買 Video Pass — {price}',
     videoPassActive: '（這個帳號已開通）',
     matNote: '選擇「依畫框」時，會採用每種畫框的建議襯邊。木框繃布（畫框：無）沒有襯邊。',
     editSpace: '編輯空間',
@@ -305,6 +307,8 @@ export const zhHant: PartialDictionary = {
     eyebrowLayout: '新版面',
     eyebrowFrame: '新畫框',
     eyebrowCapacity: '展場容量',
+    eyebrowVideo: '影片',
+    unlocksVideo: '在展場中展出（循環播放的）影片作品。',
     soloItem: '僅 {name}',
     unlocksTheme: '只解鎖這一個主題，買一次就一直用。',
     unlocksLayout: '只解鎖這一個版面，買一次就一直用。',

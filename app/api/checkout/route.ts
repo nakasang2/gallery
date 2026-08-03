@@ -14,7 +14,7 @@ export const runtime = 'nodejs'
 // Only these one-time SKUs are purchasable. Retired/unwired: theme_collection
 // (bundle, retired), design_tools (now free), video_pass (subscription, unwired),
 // room (no UI/entitlement). See docs/DECISIONS 2026-07-24.
-const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item']
+const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item', 'video_pass']
 
 // Managed Payments (enabled on the account — Stripe acts as merchant of record
 // and remits tax globally) requires an eligible tax code on every line item.

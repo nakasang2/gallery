@@ -171,6 +171,8 @@ export const ko: PartialDictionary = {
   panel: {
     igMockNote: '공식 연동에는 Instagram Graph API(비즈니스/크리에이터 계정)가 필요하므로, 여기서는 임시 구현입니다. 아래의 업로드나 이미지 URL을 사용해 주세요.',
     videoPassNote: '이미지는 언제나 무료입니다. 동영상(릴 등, 40MB까지)에는 Video Pass가 필요합니다{active}. 동영상은 전시장 안에서 반복 재생되고, 가까이 가면 소리가 들립니다.',
+    videoPass: 'Video Pass',
+    buyVideoPass: 'Video Pass 구매 — {price}',
     videoPassActive: '（이 계정에서는 사용할 수 있습니다）',
     matNote: '「액자에 맞춤」을 고르면 액자별 권장 매트가 적용됩니다. 캔버스 목틀（액자: 없음）에는 매트가 없습니다.',
     editSpace: '공간 편집',
@@ -307,6 +309,8 @@ export const ko: PartialDictionary = {
     eyebrowLayout: '새 레이아웃',
     eyebrowFrame: '새 액자',
     eyebrowCapacity: '전시장 걸이 수',
+    eyebrowVideo: '동영상',
+    unlocksVideo: '동영상 작품(반복 재생)을 전시장에 걸 수 있습니다.',
     soloItem: '{name}만',
     unlocksTheme: '이 테마만 사용할 수 있게 됩니다. 한 번 구입하면 계속 사용합니다.',
     unlocksLayout: '이 레이아웃만 사용할 수 있게 됩니다. 한 번 구입하면 계속 사용합니다.',

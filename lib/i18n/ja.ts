@@ -483,6 +483,8 @@ export const ja: Dictionary = {
     eyebrowLayout: '新しい間取り',
     eyebrowFrame: '新しい額縁',
     eyebrowCapacity: '部屋の収容枠',
+    eyebrowVideo: '動画',
+    unlocksVideo: '動画作品（ループ再生）を部屋に展示できるようになります。',
     soloItem: '{name} のみ',
     unlocksTheme: 'このテーマだけを使えるようにします。一度きりのお支払いで、ずっと使えます。',
     unlocksLayout: 'この間取りだけを使えるようにします。一度きりのお支払いで、ずっと使えます。',
@@ -644,6 +646,8 @@ export const ja: Dictionary = {
   panel: {
     igMockNote: '公式連携には Instagram Graph API（ビジネス/クリエイターアカウント）が必要なため、ここでは仮の実装です。下のアップロードか画像URLをお使いください。',
     videoPassNote: '画像はいつでも無料です。動画（リールなど・40MBまで）には Video Pass が必要です{active}。動画は部屋の中でループ再生され、近づくと音が聞こえます。',
+    videoPass: 'Video Pass',
+    buyVideoPass: 'Video Passを購入 — {price}',
     videoPassActive: '（このアカウントでは有効です）',
     matNote: '「額に合わせる」を選ぶと、額ごとの推奨マットが使われます。木枠張り（額：なし）にはマットがありません。',
     editSpace: '空間を編集',
