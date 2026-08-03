@@ -2,43 +2,44 @@
   Supabase → Authentication → Email Templates → "Change Email Address"
   Subject:  Confirm your new email for XIBIT360
   Variables used: {{ .ConfirmationURL }}, {{ .Email }}
-  English only (see supabase/email-templates/README.md).
+  Dark brand theme (bgcolor attributes for Outlook + explicit text colours for
+  dark-mode clients). English only (see supabase/email-templates/README.md).
 -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f2ec;margin:0;padding:32px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d0c0a" style="background:#0d0c0a;margin:0;padding:32px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <tr>
     <td align="center">
-      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:100%;background:#ffffff;border:1px solid #e6e0d5;border-radius:16px;overflow:hidden;">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" bgcolor="#16130f" style="width:480px;max-width:100%;background:#16130f;border:1px solid #2a2620;border-radius:16px;overflow:hidden;">
         <tr>
           <td style="padding:34px 40px 8px;">
-            <div style="font-family:Georgia,'Times New Roman',serif;font-size:15px;letter-spacing:6px;color:#14110c;">XIBIT360</div>
+            <div style="font-family:Georgia,'Times New Roman',serif;font-size:15px;letter-spacing:6px;color:#ece7de;">XIBIT360</div>
           </td>
         </tr>
         <tr>
           <td style="padding:14px 40px 0;">
-            <h1 style="margin:0 0 14px;font-size:22px;font-weight:500;color:#14110c;">Confirm your new email</h1>
-            <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#4a453d;">
-              Confirm <strong style="color:#14110c;">{{ .Email }}</strong> as the new address for your XIBIT360 account.
+            <h1 style="margin:0 0 14px;font-size:22px;font-weight:500;color:#f2ede4;">Confirm your new email</h1>
+            <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#a8a196;">
+              Confirm <strong style="color:#f2ede4;">{{ .Email }}</strong> as the new address for your XIBIT360 account.
             </p>
             <table role="presentation" cellpadding="0" cellspacing="0">
               <tr>
-                <td style="border-radius:100px;background:#d4a24e;">
+                <td bgcolor="#d4a24e" style="border-radius:100px;background:#d4a24e;">
                   <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 32px;font-size:14px;letter-spacing:1px;color:#14110c;text-decoration:none;font-weight:600;">Confirm new email</a>
                 </td>
               </tr>
             </table>
-            <p style="margin:24px 0 0;font-size:12px;line-height:1.7;color:#8a8377;">
+            <p style="margin:24px 0 0;font-size:12px;line-height:1.7;color:#7d766a;">
               If the button doesn’t work, copy and paste this link:<br>
-              <a href="{{ .ConfirmationURL }}" style="color:#a9782f;word-break:break-all;">{{ .ConfirmationURL }}</a>
+              <a href="{{ .ConfirmationURL }}" style="color:#d4a24e;word-break:break-all;">{{ .ConfirmationURL }}</a>
             </p>
-            <p style="margin:18px 0 0;font-size:12px;line-height:1.7;color:#8a8377;">
+            <p style="margin:18px 0 0;font-size:12px;line-height:1.7;color:#7d766a;">
               If you didn’t request this change, please contact support right away.
             </p>
           </td>
         </tr>
         <tr>
-          <td style="padding:28px 40px 32px;border-top:1px solid #efeae0;">
-            <p style="margin:18px 0 0;font-size:11px;line-height:1.7;color:#a49d90;">
-              XIBIT360 · <a href="https://www.xibit360.art" style="color:#a49d90;">xibit360.art</a> · Questions? <a href="mailto:support@xibit360.art" style="color:#a49d90;">support@xibit360.art</a>
+          <td style="padding:28px 40px 32px;border-top:1px solid #262019;">
+            <p style="margin:18px 0 0;font-size:11px;line-height:1.7;color:#6f695e;">
+              XIBIT360 · <a href="https://www.xibit360.art" style="color:#6f695e;">xibit360.art</a> · Questions? <a href="mailto:support@xibit360.art" style="color:#6f695e;">support@xibit360.art</a>
             </p>
           </td>
         </tr>
