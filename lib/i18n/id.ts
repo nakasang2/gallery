@@ -254,6 +254,7 @@ export const id: PartialDictionary = {
     caption: { side: 'Label di samping', under: 'Label di bawah', none: 'Tanpa label' },
   },
   auth: {
+    marketingOptIn: 'Kirimi saya kabar produk dan tips lewat email',
     errInvalidCredentials: 'Email atau kata sandi salah.',
     errEmailNotConfirmed: 'Email Anda belum dikonfirmasi. Periksa kotak masuk, atau kirim ulang di bawah.',
     errUserExists: 'Akun dengan email ini sudah ada. Coba masuk saja.',

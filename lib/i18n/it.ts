@@ -253,6 +253,7 @@ export const it: PartialDictionary = {
     caption: { side: 'Didascalia di lato', under: 'Didascalia sotto', none: 'Nessuna' },
   },
   auth: {
+    marketingOptIn: 'Inviami via e-mail novità e consigli sul prodotto',
     errInvalidCredentials: 'E-mail o password non corretti.',
     errEmailNotConfirmed: 'La tua e-mail non è ancora confermata. Controlla la casella di posta o rinviala qui sotto.',
     errUserExists: 'Esiste già un account con questa e-mail. Prova ad accedere.',

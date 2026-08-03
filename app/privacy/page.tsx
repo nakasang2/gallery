@@ -29,7 +29,8 @@ export default function PrivacyPage() {
 
           <h2>2. Why we use it, and on what basis</h2>
           <p>To run the service: signing you in, storing and serving your works, rendering your public pages, and showing artists how many people visited (performance of our contract with you). To keep the service secure and lawful, and to act on reports of infringing or illegal content (our legitimate interests, and our legal obligations). To take payment for upgrades (performance of contract). Where we ask for consent — such as reading a caption aloud — you can withdraw it at any time.</p>
-          <p>We do not sell your data, we do not use it for advertising, and we never use your uploaded works to train AI models or provide them to third parties for AI training (see the <Link href="/terms">Terms</Link>).</p>
+          <p>If you opt in — when you create your account, or later in your account settings — we send occasional product news and tips to your email address. This is based on your consent; you can withdraw it at any time by turning it off in your account settings, or with the unsubscribe link in any such email. Opting out does not affect the service messages we must send to run your account, such as sign-in links and password resets.</p>
+          <p>We do not sell your data, we do not use it for third-party advertising, and we never use your uploaded works to train AI models or provide them to third parties for AI training (see the <Link href="/terms">Terms</Link>).</p>
 
           <h2>3. Who processes it for us</h2>
           <p>We use a small number of providers, each acting on our instructions:</p>

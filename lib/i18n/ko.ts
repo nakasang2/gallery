@@ -255,6 +255,7 @@ export const ko: PartialDictionary = {
     caption: { side: '옆에 명제표', under: '아래에 명제표', none: '없음' },
   },
   auth: {
+    marketingOptIn: '제품 소식과 사용 팁을 이메일로 받기',
     errInvalidCredentials: '이메일 또는 비밀번호가 올바르지 않습니다.',
     errEmailNotConfirmed: '이메일이 아직 확인되지 않았습니다. 받은편지함을 확인하거나 아래에서 다시 보내세요.',
     errUserExists: '이 이메일로 등록된 계정이 이미 있습니다. 로그인해 보세요.',

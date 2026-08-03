@@ -177,6 +177,7 @@ export const en = {
   },
 
   auth: {
+    marketingOptIn: 'Email me occasional product news and tips',
     errInvalidCredentials: 'Email or password is incorrect.',
     errEmailNotConfirmed: 'Your email isn’t confirmed yet — check your inbox, or resend below.',
     errUserExists: 'An account with this email already exists. Try signing in instead.',

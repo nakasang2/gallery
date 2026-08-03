@@ -255,6 +255,7 @@ export const zhHans: PartialDictionary = {
     caption: { side: '说明牌在侧', under: '说明牌在下', none: '无' },
   },
   auth: {
+    marketingOptIn: '通过邮件接收产品动态和使用技巧',
     errInvalidCredentials: '邮箱或密码不正确。',
     errEmailNotConfirmed: '您的邮箱尚未验证。请查收邮件，或在下方重新发送。',
     errUserExists: '该邮箱已注册账户，请尝试登录。',

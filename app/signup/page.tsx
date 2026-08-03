@@ -29,6 +29,10 @@ export default function SignUpPage() {
   // a footer link: this is where the contract is formed, and paid upgrades hang
   // off it. Gates the Google button too — that path skips the form entirely.
   const [agreed, setAgreed] = useState(false)
+  // Marketing consent is SEPARATE from the required terms agreement and defaults
+  // to off: bundling it into the mandatory consent would make it invalid under
+  // GDPR, and Japan's Act on Specified Commercial Transactions requires opt-in.
+  const [marketing, setMarketing] = useState(false)
 
   if (!supabase) {
     return (
@@ -55,11 +59,16 @@ export default function SignUpPage() {
     }
     setBusy(true)
     setError('')
+    // Record the marketing choice (and, when opted in, a timestamp as consent
+    // proof) in the user's metadata. No new table needed.
+    const meta: Record<string, unknown> = { marketing_opt_in: marketing }
+    if (name.trim()) meta.name = name.trim()
+    if (marketing) meta.marketing_opt_in_at = new Date().toISOString()
     const { data, error } = await supabase!.auth.signUp({
       email: email.trim(),
       password,
       options: {
-        data: name.trim() ? { name: name.trim() } : undefined,
+        data: meta,
         emailRedirectTo: `${location.origin}/me`,
       },
     })
@@ -162,6 +171,16 @@ export default function SignUpPage() {
           <span id="consent-text">
             {t('auth.consent')}
           </span>
+        </label>
+        {/* Optional, unchecked by default, and does NOT gate the submit button —
+            marketing consent must be separate and freely given. */}
+        <label className="auth-consent">
+          <input
+            type="checkbox"
+            checked={marketing}
+            onChange={(e) => setMarketing(e.target.checked)}
+          />
+          <span>{t('auth.marketingOptIn')}</span>
         </label>
         {error && <p className="auth-error">{error}</p>}
         <button className="auth-submit" disabled={busy || !agreed} type="submit">

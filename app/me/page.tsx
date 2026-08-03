@@ -1931,6 +1931,27 @@ function AccountCard() {
   const [newEmail, setNewEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  // Marketing opt-in lives in Supabase user_metadata (not the app's slim AuthUser),
+  // so read it straight from the auth user. null = still loading.
+  const [marketing, setMarketing] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let active = true
+    void supabase!.auth.getUser().then(({ data }) => {
+      if (active) setMarketing(Boolean(data.user?.user_metadata?.marketing_opt_in))
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  async function toggleMarketing(next: boolean) {
+    setMarketing(next)
+    const { error } = await supabase!.auth.updateUser({
+      data: { marketing_opt_in: next, ...(next ? { marketing_opt_in_at: new Date().toISOString() } : {}) },
+    })
+    if (error) setMarketing(!next) // revert on failure
+  }
 
   async function changeEmail() {
     const email = newEmail.trim()
@@ -1982,6 +2003,18 @@ function AccountCard() {
           {t('me.accountEmailSent')}
         </p>
       )}
+      <label
+        className="me-field"
+        style={{ flexDirection: 'row', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}
+      >
+        <input
+          type="checkbox"
+          checked={marketing ?? false}
+          disabled={marketing === null || busy}
+          onChange={(e) => void toggleMarketing(e.target.checked)}
+        />
+        <span style={{ margin: 0 }}>{t('auth.marketingOptIn')}</span>
+      </label>
       <div className="hako-actions">
         <Link className="btn-line" href="/reset">{t('me.accountPassword')}</Link>
         <button className="btn-line hako-danger" disabled={busy} onClick={() => void removeAccount()}>

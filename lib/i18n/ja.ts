@@ -153,6 +153,7 @@ export const ja: Dictionary = {
   },
 
   auth: {
+    marketingOptIn: 'お知らせや使い方のヒントをメールで受け取る',
     errInvalidCredentials: 'メールアドレスまたはパスワードが正しくありません。',
     errEmailNotConfirmed: 'メールアドレスがまだ確認されていません。受信箱をご確認いただくか、下から再送してください。',
     errUserExists: 'このメールアドレスのアカウントは既に存在します。サインインをお試しください。',

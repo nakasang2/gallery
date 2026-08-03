@@ -254,6 +254,7 @@ export const es: PartialDictionary = {
     caption: { side: 'Ficha al lado', under: 'Ficha debajo', none: 'Ninguna' },
   },
   auth: {
+    marketingOptIn: 'Enviarme por correo novedades y consejos del producto',
     errInvalidCredentials: 'El correo o la contraseña no son correctos.',
     errEmailNotConfirmed: 'Tu correo aún no está confirmado. Revisa tu bandeja de entrada o reenvíalo abajo.',
     errUserExists: 'Ya existe una cuenta con este correo. Prueba a iniciar sesión.',

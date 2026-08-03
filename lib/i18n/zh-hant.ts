@@ -253,6 +253,7 @@ export const zhHant: PartialDictionary = {
     caption: { side: '說明牌在側', under: '說明牌在下', none: '無' },
   },
   auth: {
+    marketingOptIn: '透過電子郵件接收產品消息與使用技巧',
     errInvalidCredentials: '電子郵件或密碼不正確。',
     errEmailNotConfirmed: '您的電子郵件尚未驗證。請查收郵件，或在下方重新寄送。',
     errUserExists: '此電子郵件已註冊帳戶，請嘗試登入。',
