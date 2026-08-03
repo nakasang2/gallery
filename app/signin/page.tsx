@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
 import PasswordField from '@/components/auth/PasswordField'
+import GoogleButton from '@/components/auth/GoogleButton'
 import { useCooldown } from '@/components/auth/useCooldown'
 import { authErrorKey, isEmailNotConfirmed } from '@/lib/authErrors'
 import { useT } from '@/components/I18nProvider'
@@ -133,9 +134,7 @@ export default function SignInPage() {
         >
           {cooldown > 0 && linkSent ? t('auth.retryIn', { sec: cooldown }) : t('auth.magicLink')}
         </button>
-        <button className="btn-line" onClick={() => void google()}>
-          {t('auth.continueWithGoogle')}
-        </button>
+        <GoogleButton onClick={() => void google()} />
         {linkSent && <p className="auth-note">{t('auth.magicSent')}</p>}
       </div>
       <p className="auth-links">

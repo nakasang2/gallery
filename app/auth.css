@@ -157,6 +157,39 @@
 }
 .auth-alt .btn-line { width: 100%; }
 
+/* Google sign-in button. Keeps the auth card's dark aesthetic while carrying the
+   unaltered four-colour "G" mark (brand guidelines). Sized to match .btn-line. */
+.auth-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.04);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 0.72em 1.1em;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.auth-google:hover:not(:disabled) { border-color: var(--muted); background: rgba(236, 231, 222, 0.08); }
+.auth-google:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.auth-google:disabled { opacity: 0.45; cursor: default; }
+/* White tile behind the mark so the coloured G stays legible on the dark button. */
+.auth-google-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: #fff;
+}
+
 .auth-error {
   font-size: 0.78rem;
   line-height: 1.6;

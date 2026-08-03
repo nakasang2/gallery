@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
 import PasswordField from '@/components/auth/PasswordField'
+import GoogleButton from '@/components/auth/GoogleButton'
 import { useCooldown } from '@/components/auth/useCooldown'
 import { authErrorKey } from '@/lib/authErrors'
 import { TextWithSlot, useT } from '@/components/I18nProvider'
@@ -168,18 +169,15 @@ export default function SignUpPage() {
         </button>
       </form>
       <div className="auth-alt">
-        <button
-          className="btn-line"
+        <GoogleButton
           disabled={!agreed}
           onClick={() => {
             if (!agreed) return
             void supabase!.auth
               .signInWithOAuth({ provider: 'google', options: { redirectTo: `${location.origin}/me` } })
-              .then(({ error }) => error && setError(error.message))
+              .then(({ error }) => error && setError(t(authErrorKey(error.message))))
           }}
-        >
-          {t('auth.continueWithGoogle')}
-        </button>
+        />
       </div>
       <p className="auth-links">
         <Link href="/signin">{t('auth.haveAccount')}</Link>
