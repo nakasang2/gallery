@@ -1934,6 +1934,10 @@ function AccountCard() {
   // Marketing opt-in lives in Supabase user_metadata (not the app's slim AuthUser),
   // so read it straight from the auth user. null = still loading.
   const [marketing, setMarketing] = useState<boolean | null>(null)
+  // Separate in-flight flag so a rapid on/off can't fire overlapping updateUser
+  // calls whose responses resolve out of order and leave the saved consent
+  // disagreeing with the UI (consent accuracy matters for compliance).
+  const [savingMarketing, setSavingMarketing] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -1947,9 +1951,11 @@ function AccountCard() {
 
   async function toggleMarketing(next: boolean) {
     setMarketing(next)
+    setSavingMarketing(true)
     const { error } = await supabase!.auth.updateUser({
       data: { marketing_opt_in: next, ...(next ? { marketing_opt_in_at: new Date().toISOString() } : {}) },
     })
+    setSavingMarketing(false)
     if (error) setMarketing(!next) // revert on failure
   }
 
@@ -2010,7 +2016,7 @@ function AccountCard() {
         <input
           type="checkbox"
           checked={marketing ?? false}
-          disabled={marketing === null || busy}
+          disabled={marketing === null || busy || savingMarketing}
           onChange={(e) => void toggleMarketing(e.target.checked)}
         />
         <span style={{ margin: 0 }}>{t('auth.marketingOptIn')}</span>
