@@ -6,9 +6,13 @@ import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
+import PasswordField from '@/components/auth/PasswordField'
+import { useCooldown } from '@/components/auth/useCooldown'
+import { authErrorKey } from '@/lib/authErrors'
 import { TextWithSlot, useT } from '@/components/I18nProvider'
 
 const MIN_PASSWORD = 8
+const RESEND_COOLDOWN = 30
 
 export default function ResetPage() {
   const t = useT()
@@ -19,6 +23,7 @@ export default function ResetPage() {
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
   const [updated, setUpdated] = useState(false)
+  const [cooldown, startCooldown] = useCooldown()
 
   // The recovery link signs the user in on arrival; a session here means "set a new password"
   useEffect(() => {
@@ -42,15 +47,18 @@ export default function ResetPage() {
 
   async function requestLink(e: FormEvent) {
     e.preventDefault()
-    if (busy) return
+    if (busy || cooldown > 0) return
     setBusy(true)
     setError('')
     const { error } = await supabase!.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${location.origin}/reset`,
     })
     setBusy(false)
-    if (error) setError(error.message)
-    else setSent(true)
+    if (error) setError(t(authErrorKey(error.message)))
+    else {
+      setSent(true)
+      startCooldown(RESEND_COOLDOWN)
+    }
   }
 
   async function updatePassword(e: FormEvent) {
@@ -65,7 +73,7 @@ export default function ResetPage() {
     setError('')
     const { error } = await supabase!.auth.updateUser({ password })
     setBusy(false)
-    if (error) setError(error.message)
+    if (error) setError(t(authErrorKey(error.message)))
     else setUpdated(true)
   }
 
@@ -84,17 +92,15 @@ export default function ResetPage() {
     return (
       <AuthShell title={t('auth.setNewTitle')}>
         <form onSubmit={(e) => void updatePassword(e)}>
-          <label className="auth-field">
-            <span>{t('auth.newPasswordLabel', { min: MIN_PASSWORD })}</span>
-            <input
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={MIN_PASSWORD}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
+          <PasswordField
+            label={t('auth.newPasswordLabel', { min: MIN_PASSWORD })}
+            value={password}
+            onChange={setPassword}
+            autoComplete="new-password"
+            minLength={MIN_PASSWORD}
+            required
+            showStrength
+          />
           {error && <p className="auth-error">{error}</p>}
           <button className="auth-submit" disabled={busy} type="submit">
             {t('auth.updatePassword')}
@@ -126,8 +132,8 @@ export default function ResetPage() {
             />
           </label>
           {error && <p className="auth-error">{error}</p>}
-          <button className="auth-submit" disabled={busy} type="submit">
-            {t('auth.resetSend')}
+          <button className="auth-submit" disabled={busy || cooldown > 0} type="submit">
+            {cooldown > 0 ? t('auth.retryIn', { sec: cooldown }) : t('auth.resetSend')}
           </button>
         </form>
       )}

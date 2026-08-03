@@ -5,9 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
+import PasswordField from '@/components/auth/PasswordField'
+import { useCooldown } from '@/components/auth/useCooldown'
+import { authErrorKey } from '@/lib/authErrors'
 import { TextWithSlot, useT } from '@/components/I18nProvider'
 
 const MIN_PASSWORD = 8
+const RESEND_COOLDOWN = 30
 
 export default function SignUpPage() {
   const t = useT()
@@ -19,6 +23,7 @@ export default function SignUpPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
+  const [cooldown, startCooldown] = useCooldown()
   // Accepting the terms is part of creating the account, not something buried in
   // a footer link: this is where the contract is formed, and paid upgrades hang
   // off it. Gates the Google button too — that path skips the form entirely.
@@ -59,22 +64,28 @@ export default function SignUpPage() {
     })
     setBusy(false)
     if (error) {
-      setError(error.message)
+      setError(t(authErrorKey(error.message)))
       return
     }
     // With email confirmation disabled the session opens immediately; otherwise a
     // confirmation email is on its way
     if (data.session) router.push('/me')
-    else setSent(true)
+    else {
+      setSent(true)
+      startCooldown(RESEND_COOLDOWN)
+    }
   }
 
   async function resend() {
-    if (busy) return
+    if (busy || cooldown > 0) return
     setBusy(true)
     const { error } = await supabase!.auth.resend({ type: 'signup', email: email.trim() })
     setBusy(false)
-    if (error) setError(error.message)
-    else setError('')
+    if (error) setError(t(authErrorKey(error.message)))
+    else {
+      setError('')
+      startCooldown(RESEND_COOLDOWN)
+    }
   }
 
   if (sent) {
@@ -87,8 +98,8 @@ export default function SignUpPage() {
           </TextWithSlot>
         </p>
         <div className="auth-alt">
-          <button className="btn-line" disabled={busy} onClick={() => void resend()}>
-            {t('auth.resend')}
+          <button className="btn-line" disabled={busy || cooldown > 0} onClick={() => void resend()}>
+            {cooldown > 0 ? t('auth.retryIn', { sec: cooldown }) : t('auth.resend')}
           </button>
         </div>
         {error && <p className="auth-error">{error}</p>}
@@ -122,27 +133,22 @@ export default function SignUpPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
         </label>
-        <label className="auth-field">
-          <span>{t('auth.password', { min: MIN_PASSWORD })}</span>
-          <input
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={MIN_PASSWORD}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
-        <label className="auth-field">
-          <span>{t('auth.confirmPassword')}</span>
-          <input
-            type="password"
-            autoComplete="new-password"
-            required
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-        </label>
+        <PasswordField
+          label={t('auth.password', { min: MIN_PASSWORD })}
+          value={password}
+          onChange={setPassword}
+          autoComplete="new-password"
+          minLength={MIN_PASSWORD}
+          required
+          showStrength
+        />
+        <PasswordField
+          label={t('auth.confirmPassword')}
+          value={confirm}
+          onChange={setConfirm}
+          autoComplete="new-password"
+          required
+        />
         {/* Not a <button>: a labelable element inside <label> would steal the
             label from the checkbox (LESSONS 2026-07-21) — links are fine. */}
         <label className="auth-consent">

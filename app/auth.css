@@ -79,6 +79,57 @@
 }
 .auth-textarea:focus { border-color: var(--gold); }
 
+/* Password input with the show/hide toggle sitting inside the box. */
+.auth-pw { position: relative; }
+.auth-pw input { padding-right: 2.9rem; }
+.auth-pw-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.auth-pw-toggle:hover { color: var(--ink); }
+.auth-pw-toggle:focus-visible { outline: 1px solid var(--gold); outline-offset: 1px; }
+
+/* Strength meter under the new-password field. Four segments fill left-to-right by
+   score; the fill colour warms from weak (red) to strong (gold). */
+.auth-strength { margin-top: 0.5rem; }
+.auth-strength-track { display: flex; gap: 4px; }
+.auth-strength-seg {
+  flex: 1 1 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--hairline);
+  transition: background 0.2s;
+}
+.auth-strength[data-score='1'] .auth-strength-seg:nth-child(-n + 1),
+.auth-strength[data-score='2'] .auth-strength-seg:nth-child(-n + 2),
+.auth-strength[data-score='3'] .auth-strength-seg:nth-child(-n + 3),
+.auth-strength[data-score='4'] .auth-strength-seg:nth-child(-n + 4) {
+  background: var(--gold);
+}
+.auth-strength[data-score='1'] .auth-strength-seg:nth-child(-n + 1) { background: #e08a7a; }
+.auth-strength[data-score='2'] .auth-strength-seg:nth-child(-n + 2) { background: #d9b45a; }
+.auth-strength-label {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
 .auth-submit {
   width: 100%;
   margin-top: 0.4rem;

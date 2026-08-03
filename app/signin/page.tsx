@@ -5,7 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
+import PasswordField from '@/components/auth/PasswordField'
+import { useCooldown } from '@/components/auth/useCooldown'
+import { authErrorKey, isEmailNotConfirmed } from '@/lib/authErrors'
 import { useT } from '@/components/I18nProvider'
+
+const RESEND_COOLDOWN = 30
 
 export default function SignInPage() {
   const t = useT()
@@ -17,6 +22,7 @@ export default function SignInPage() {
   const [linkSent, setLinkSent] = useState(false)
   const [needsConfirm, setNeedsConfirm] = useState(false)
   const [confirmSent, setConfirmSent] = useState(false)
+  const [cooldown, startCooldown] = useCooldown()
 
   if (!supabase) {
     return (
@@ -35,23 +41,27 @@ export default function SignInPage() {
     setBusy(false)
     if (error) {
       // "Email not confirmed" is a dead end without a resend path
-      setNeedsConfirm(/confirm/i.test(error.message))
-      setError(error.message)
+      setNeedsConfirm(isEmailNotConfirmed(error.message))
+      setError(t(authErrorKey(error.message)))
       return
     }
     router.push('/me')
   }
 
   async function resendConfirmation() {
-    if (!email.trim() || busy) return
+    if (!email.trim() || busy || cooldown > 0) return
     setBusy(true)
     const { error } = await supabase!.auth.resend({ type: 'signup', email: email.trim() })
     setBusy(false)
-    if (error) setError(error.message)
-    else setConfirmSent(true)
+    if (error) setError(t(authErrorKey(error.message)))
+    else {
+      setConfirmSent(true)
+      startCooldown(RESEND_COOLDOWN)
+    }
   }
 
   async function magicLink() {
+    if (busy || cooldown > 0) return
     if (!email.trim()) {
       setError(t('auth.magicNeedsEmail'))
       return
@@ -64,8 +74,11 @@ export default function SignInPage() {
       options: { emailRedirectTo: `${location.origin}/me`, shouldCreateUser: false },
     })
     setBusy(false)
-    if (error) setError(error.message)
-    else setLinkSent(true)
+    if (error) setError(t(authErrorKey(error.message)))
+    else {
+      setLinkSent(true)
+      startCooldown(RESEND_COOLDOWN)
+    }
   }
 
   async function google() {
@@ -73,7 +86,7 @@ export default function SignInPage() {
       provider: 'google',
       options: { redirectTo: `${location.origin}/me` },
     })
-    if (error) setError(error.message)
+    if (error) setError(t(authErrorKey(error.message)))
   }
 
   return (
@@ -89,20 +102,22 @@ export default function SignInPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
         </label>
-        <label className="auth-field">
-          <span>{t('auth.password2')}</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
+        <PasswordField
+          label={t('auth.password2')}
+          value={password}
+          onChange={setPassword}
+          autoComplete="current-password"
+          required
+        />
         {error && <p className="auth-error">{error}</p>}
         {needsConfirm && !confirmSent && (
-          <button type="button" className="btn-line" disabled={busy} onClick={() => void resendConfirmation()}>
-            {t('auth.resendConfirm')}
+          <button
+            type="button"
+            className="btn-line"
+            disabled={busy || cooldown > 0}
+            onClick={() => void resendConfirmation()}
+          >
+            {cooldown > 0 ? t('auth.retryIn', { sec: cooldown }) : t('auth.resendConfirm')}
           </button>
         )}
         {confirmSent && <p className="auth-note">{t('auth.confirmResent')}</p>}
@@ -111,8 +126,12 @@ export default function SignInPage() {
         </button>
       </form>
       <div className="auth-alt">
-        <button className="btn-line" disabled={busy} onClick={() => void magicLink()}>
-          {t('auth.magicLink')}
+        <button
+          className="btn-line"
+          disabled={busy || cooldown > 0}
+          onClick={() => void magicLink()}
+        >
+          {cooldown > 0 && linkSent ? t('auth.retryIn', { sec: cooldown }) : t('auth.magicLink')}
         </button>
         <button className="btn-line" onClick={() => void google()}>
           {t('auth.continueWithGoogle')}
