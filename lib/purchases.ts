@@ -12,7 +12,7 @@ export interface OwnedIds {
   frameIds: string[]
   /** ③ Design Tools bought (buy-once) */
   designTools: boolean
-  /** ① Video Pass active (subscription) */
+  /** ① Video Pass owned (buy-once) */
   videoPass: boolean
 }
 

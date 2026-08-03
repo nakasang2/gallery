@@ -6,7 +6,7 @@
 import { THEMES, LAYOUTS, FRAMES, CUSTOM_LAYOUT_RELEASED } from './presets'
 
 export interface Entitlements {
-  /** ① Video Pass (subscription) — video exhibits enabled */
+  /** ① Video Pass (buy-once) — video exhibits enabled */
   videoEnabled: boolean
   /** Design Tools (custom colour/lighting/branding) — now FREE for everyone
    *  (docs/DECISIONS 2026-07-24); kept as a flag so callers don't change. */
