@@ -693,6 +693,10 @@
    隠れる＝2026-07-28 にレールで踏んだ穴）。 */
 .me-works-row {
   display: flex;
+  /* タイルの高さで揃える（stretch だと +追加タイルの背が高いぶん画像スロットが伸び、
+     中の画像は aspect-ratio 1 のまま＝スロットだけ低く見えて不揃いになる。
+     ユーザー指摘 2026-08-04）。 */
+  align-items: flex-start;
   gap: 0.5rem;
   margin-top: 0.7rem;
   overflow-x: auto;
@@ -702,8 +706,12 @@
 /* サムネはラッパ（削除の×をタイルの兄弟として置くため）。+追加タイルも同じ 64px 角に
    揃える（ユーザー指摘 2026-08-04: add work のサイズが画像スロットと違う）。 */
 .me-works-row .me-work-tile-wrap { position: relative; flex: 0 0 auto; width: 64px; }
-.me-work-tile-wrap .me-work-tile { width: 100%; }
-.me-works-row .me-add-tile { flex: 0 0 auto; width: 64px; }
+/* block にしないと <button> の inline-block ベースライン下に行の余白が付き、ラッパが
+   タイルより背が高くなる（実測 72 vs 64 → +追加64px と不揃い。ユーザー指摘 2026-08-04）。 */
+.me-work-tile-wrap .me-work-tile { display: block; width: 100%; }
+/* +追加タイルも画像スロットと同じ 64×64 の正方形に固定（中身が縦に膨らんで背が
+   高くなっていた＝ユーザー指摘 2026-08-04）。box-sizing:border-box なので枠込み 64。 */
+.me-works-row .me-add-tile { flex: 0 0 auto; width: 64px; height: 64px; overflow: hidden; }
 /* Video Pass offer in the works stage — buy here, add video from the 3D room's Edit space */
 .me-video-upsell {
   margin-top: 0.9rem;
@@ -767,14 +775,14 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
+  gap: 0.15rem;
   color: var(--gold);
   border-style: dashed;
   border-color: rgba(212, 162, 78, 0.5);
   font-family: var(--sans);
 }
-.me-add-tile small { font-size: 0.58rem; letter-spacing: 0.06em; color: var(--muted); text-align: center; padding: 0 0.2rem; }
-.me-add-tile-plus { font-size: 1.2rem; line-height: 1; }
+.me-add-tile small { font-size: 0.5rem; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); text-align: center; padding: 0 0.15rem; }
+.me-add-tile-plus { font-size: 1.05rem; line-height: 1; }
 .me-add-tile.busy { opacity: 0.6; cursor: default; }
 /* 編集面はどの幅でもその場に開く（ユーザー指示 2026-07-30）。以前は電話幅だけ
    position: fixed のハーフモーダルにしていたが、作品ステージは常に1点を選んで
