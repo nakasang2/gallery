@@ -516,6 +516,7 @@ export const id: PartialDictionary = {
     changeAvatar: 'Ganti foto profil',
     uploadAvatar: 'Unggah foto profil',
     addWorkSlots: 'Tambah tempat karya',
+    videoUpsell: 'Ingin memamerkan video juga? Beli Video Pass, lalu tambahkan video dari «Ubah ruang» di dalam ruangmu.',
     copyEmbed: 'Salin kode sematan',
     setAsCover: 'Jadikan sampul',
   },

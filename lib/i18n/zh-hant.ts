@@ -515,6 +515,7 @@ export const zhHant: PartialDictionary = {
     changeAvatar: '更換頭像',
     uploadAvatar: '上傳頭像',
     addWorkSlots: '增加作品位',
+    videoUpsell: '也想展出影片嗎？購買 Video Pass 後，可在展場的「編輯空間」中加入影片。',
     copyEmbed: '複製嵌入碼',
     setAsCover: '設為封面',
   },

@@ -516,6 +516,7 @@ export const de: PartialDictionary = {
     changeAvatar: 'Profilbild ersetzen',
     uploadAvatar: 'Profilbild hochladen',
     addWorkSlots: 'Plätze für Werke hinzufügen',
+    videoUpsell: 'Auch Videos zeigen? Kaufe den Video Pass und füge Videos dann in deinem Raum unter „Raum bearbeiten“ hinzu.',
     copyEmbed: 'Einbettungscode kopieren',
     setAsCover: 'Als Titelbild festlegen',
   },

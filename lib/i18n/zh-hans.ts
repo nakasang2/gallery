@@ -517,6 +517,7 @@ export const zhHans: PartialDictionary = {
     changeAvatar: '更换头像',
     uploadAvatar: '上传头像',
     addWorkSlots: '增加作品位',
+    videoUpsell: '也想展出视频吗？购买 Video Pass 后，可在展厅的「编辑空间」中添加视频。',
     copyEmbed: '复制嵌入代码',
     setAsCover: '设为封面',
   },

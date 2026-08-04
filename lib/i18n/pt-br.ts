@@ -516,6 +516,7 @@ export const ptBr: PartialDictionary = {
     changeAvatar: 'Trocar a foto de perfil',
     uploadAvatar: 'Enviar uma foto de perfil',
     addWorkSlots: 'Adicionar lugares para obras',
+    videoUpsell: 'Quer exibir vídeo também? Compre o Video Pass e adicione vídeos em «Editar o espaço» dentro da sua sala.',
     copyEmbed: 'Copiar o código de incorporação',
     setAsCover: 'Definir como capa',
   },

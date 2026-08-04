@@ -581,6 +581,7 @@ export const ko: PartialDictionary = {
     changeAvatar: '프로필 사진 교체',
     uploadAvatar: '프로필 사진 업로드',
     addWorkSlots: '작품 걸이 추가',
+    videoUpsell: '동영상도 전시하고 싶으세요? Video Pass를 구매한 뒤, 전시장 안의 「공간 편집」에서 동영상을 추가할 수 있습니다.',
     copyEmbed: '임베드 코드 복사',
     setAsCover: '대표 이미지로 지정',
   },

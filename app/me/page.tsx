@@ -16,7 +16,7 @@ import PurchaseModal from '@/components/PurchaseModal'
 import HelpModal from '@/components/HelpModal'
 import TopActions from '@/components/TopActions'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
-import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, type PaidKind } from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_USD_CENTS, type PaidKind } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
@@ -501,7 +501,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     // `qty` is only read in capacity mode: tapping a locked spot on the placement
     // map knows how many slots it takes to reach that spot, so the stepper opens
     // on that number instead of 1.
-    { kind: PaidKind | 'capacity'; key: string; label: string; qty?: number } | null
+    { kind: PaidKind | 'capacity' | 'video_pass'; key: string; label: string; qty?: number } | null
   >(null)
   const owned = usePurchasedIds(user.id)
   const entitlements = getEntitlements(user.id, owned)
@@ -1552,6 +1552,21 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 </div>
               ))}
             </div>
+            {/* Video is a paid axis and is uploaded from inside the 3D room, so here we
+                only surface the offer — buy the pass, then add video from "Edit space"
+                (ユーザー指示 2026-08-04: put a Video Pass entry in the works stage). */}
+            {!entitlements.videoEnabled && (
+              <div className="me-video-upsell">
+                <p className="me-note">{t('me.videoUpsell')}</p>
+                <button
+                  type="button"
+                  className="btn-line"
+                  onClick={() => setPurchaseItem({ kind: 'video_pass', key: '', label: t('panel.videoPass') })}
+                >
+                  {t('panel.buyVideoPass', { price: PRICE_VIDEO_PASS })}
+                </button>
+              </div>
+            )}
             {workSheet}
           </div>
         </div>
@@ -1821,10 +1836,11 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
             ) : undefined
           }
           item={
-            purchaseItem.kind === 'capacity'
+            purchaseItem.kind === 'capacity' || purchaseItem.kind === 'video_pass'
               ? undefined
               : { kind: purchaseItem.kind, itemKey: purchaseItem.key }
           }
+          flat={purchaseItem.kind === 'video_pass' ? { cents: PRICE_USD_CENTS.video_pass } : undefined}
           quantity={
             purchaseItem.kind === 'capacity'
               ? {
@@ -1836,7 +1852,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           }
           intent={{
             kind: purchaseItem.kind,
-            itemKey: purchaseItem.kind === 'capacity' ? '' : purchaseItem.key,
+            itemKey: purchaseItem.kind === 'capacity' || purchaseItem.kind === 'video_pass' ? '' : purchaseItem.key,
             galleryId: purchaseItem.kind === 'capacity' ? row.id : undefined,
           }}
           onClose={() => setPurchaseItem(null)}

@@ -449,6 +449,7 @@ export const ja: Dictionary = {
     changeAvatar: 'プロフィール画像を差し替える',
     uploadAvatar: 'プロフィール画像をアップロード',
     addWorkSlots: '作品の枠を追加',
+    videoUpsell: '動画も展示したいですか？ Video Pass を購入すると、部屋の「空間を編集」から動画を追加できます。',
     copyEmbed: '埋め込みコードをコピー',
     setAsCover: '共有時の表紙にする',
   },

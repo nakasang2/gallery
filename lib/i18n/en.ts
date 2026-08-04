@@ -475,6 +475,7 @@ export const en = {
     changeAvatar: 'Change avatar',
     uploadAvatar: 'Upload avatar',
     addWorkSlots: 'Add work slots',
+    videoUpsell: 'Want to exhibit video too? Buy Video Pass, then add video from “Edit space” inside your room.',
     copyEmbed: 'Copy embed code',
     setAsCover: 'Set as cover',
   },

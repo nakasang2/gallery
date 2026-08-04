@@ -693,6 +693,19 @@
 .me-works-row .me-work-tile-wrap { position: relative; flex: 0 0 auto; width: 64px; }
 .me-work-tile-wrap .me-work-tile { width: 100%; }
 .me-works-row .me-add-tile { flex: 0 0 auto; width: 78px; }
+/* Video Pass offer in the works stage — buy here, add video from the 3D room's Edit space */
+.me-video-upsell {
+  margin-top: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(212, 162, 78, 0.35);
+  border-radius: 10px;
+  background: rgba(212, 162, 78, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.me-video-upsell .me-note { margin: 0; }
 /* 各サムネ右上の削除ボタン（ユーザー指示 2026-07-30 — 編集シートの「作品を削除」を
    ここへ移した）。タイルとは別要素なので選択のクリックを奪わない。押すと確認
    （removeWork）が出る。行の overflow-x クリップに切られないよう角の内側に置く。 */
