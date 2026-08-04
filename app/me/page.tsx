@@ -1014,7 +1014,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         </label>
         <div className="wd-row" style={{ margin: '0.45rem 0' }}>
           <span className="wd-label">{t('me.size')}</span>
-          <div className="design-controls" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="design-controls wd-size" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
             {/* Pick a standard size (号 / A / B), or "Custom" to type cm. The W×H
                 fields only appear in custom mode; a preset shows just the ⇄ swap. */}
             <select

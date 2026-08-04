@@ -314,7 +314,9 @@
 .hako-url-copy:hover,
 .hako-url-copy:focus-visible { opacity: 1; outline: none; }
 /* Embed / Catalog pushed to the right end of the URL row */
-.hako-url-actions { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+/* 公開トグル(hako-url-row)の直下に来る操作ボタン列。間隔を空けてトグルと隣接させない
+   （ユーザー指摘 2026-08-04: スマホでセクション同士に余白が無い）。 */
+.hako-url-actions { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .hako-url:hover { text-decoration: underline; text-underline-offset: 3px; }
 .hako-url.off { color: var(--muted); }
 .hako-state {
@@ -345,7 +347,6 @@
   outline: none;
   transition: border-color 0.2s;
 }
-.hako-title-input::placeholder { color: var(--muted); opacity: 0.75; }
 .hako-title-input:focus { border-color: var(--gold); }
 .hako-statement-input {
   width: 100%;
@@ -362,7 +363,6 @@
   resize: vertical;
   transition: border-color 0.2s;
 }
-.hako-statement-input::placeholder { color: var(--muted); opacity: 0.7; }
 .hako-statement-input:focus { border-color: var(--gold); }
 .hako-save-state { font-size: 0.62rem; letter-spacing: 0.14em; color: var(--muted); flex: none; }
 .hako-meta { font-size: 0.72rem; color: var(--muted); margin-top: 0.5rem; }
@@ -423,6 +423,16 @@
   transition: border-color 0.2s;
 }
 .size-num:focus { border-color: var(--gold); }
+/* サイズ行のコントロールは高さを揃える（ユーザー指摘 2026-08-04: ⇄スワップボタンと
+   サイズのプルダウンの高さが違う）。box-sizing:border-box なので padding は高さに含む。 */
+.wd-size .ent-select,
+.wd-size .size-num,
+.wd-size .btn-line { height: 2.2rem; }
+@media (pointer: coarse) {
+  .wd-size .ent-select,
+  .wd-size .size-num,
+  .wd-size .btn-line { height: 44px; }
+}
 
 /* Field label + inline info bubble. The "why/how" that used to trail each label as a
    sentence now lives in this ⓘ beside the label — hover on desktop, tap (focus) on touch. */
@@ -689,10 +699,11 @@
   padding-bottom: 0.35rem;
   scrollbar-width: thin;
 }
-/* サムネはラッパ（削除の×をタイルの兄弟として置くため）。文字が入る +追加は広い */
+/* サムネはラッパ（削除の×をタイルの兄弟として置くため）。+追加タイルも同じ 64px 角に
+   揃える（ユーザー指摘 2026-08-04: add work のサイズが画像スロットと違う）。 */
 .me-works-row .me-work-tile-wrap { position: relative; flex: 0 0 auto; width: 64px; }
 .me-work-tile-wrap .me-work-tile { width: 100%; }
-.me-works-row .me-add-tile { flex: 0 0 auto; width: 78px; }
+.me-works-row .me-add-tile { flex: 0 0 auto; width: 64px; }
 /* Video Pass offer in the works stage — buy here, add video from the 3D room's Edit space */
 .me-video-upsell {
   margin-top: 0.9rem;
