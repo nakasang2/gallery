@@ -340,3 +340,51 @@ F2（セッション要約）は他が全部落ちても単体で意味を持つ
 3. 管理 → カスタム定義で、使うパラメータを**イベントスコープのカスタムディメンションとして登録**（`artwork_id` `via` `stage` `surface` `kind` `reason` `result` あたり）。登録しないと標準レポートに出ない。
 4. 作品別ランキングを本気でやるなら **BigQueryエクスポートを有効化**（GA4のUIは高カーディナリティを丸める）。
 5. **同意バナーを出すか決める**。出さない限りEEA/UK/CHはクッキーレスの推計のまま。出すなら11言語のUI文言が要る（AGENTS 5.1）。
+
+
+---
+
+## 9. GA4 管理画面のセットアップ手順（依頼用・コード側は完了済み）
+
+コードの計測は入っており、**`NEXT_PUBLIC_GA_ID` が入るまで何も送信しない**状態で待っている。以下はすべてGA4/Vercelの管理画面作業で、リポジトリを触る必要はない。
+
+### 9.1 必須（この順で）
+
+1. **GA4プロパティ＋ウェブデータストリームを作る** — 対象は `https://www.xibit360.art`。取得する `G-XXXXXXXXXX` が成果物。
+2. **Vercel に環境変数 `NEXT_PUBLIC_GA_ID` を設定** — 値は `G-XXXXXXXXXX`。**Production のみ**（Preview/Development は未設定のままにする＝プレビュー配信がプロパティを汚さない）。
+3. **再デプロイする** — `NEXT_PUBLIC_*` は**ビルド時にJSへ焼き込まれる**。環境変数を足しただけでは既存の配信は変わらない。ここを飛ばすと「設定したのに何も来ない」になる。
+4. **データ保持を14か月に** — 管理→データ設定→データ保持。**既定は2か月**で、過ぎた分は探索レポートから消える。
+5. **Googleシグナル OFF・広告向けデータ共有 OFF** — 管理→データの収集と修正→データ収集。**プライバシーポリシーに「広告に使わない／広告機能とデータ共有はオフ」と明記して公開済み**なので、ここをオンにすると公開文書と食い違う。
+6. **User-ID機能は設定しない** — 同じくポリシーで「アカウントIDをGoogleに渡さない」と書いている。
+
+### 9.2 レポートを使えるようにする
+
+7. **カスタムディメンションを登録**（管理→カスタム定義→イベントスコープ。上限50）。**登録しないと標準レポートに列として出ない**（BigQueryには入る）。優先順:
+
+   | 範囲 | パラメータ |
+   |---|---|
+   | 最優先 | `artwork_id` `via` `surface` `stage` `kind` `reason` `result` `room_opened` |
+   | 次点 | `from_stage` `method` `referrer` `embed` `first_time` `reached_end` `timed_out` `has_price` |
+   | 余裕があれば | `gallery_id` `item_key` `theme` `layout` `did_like` `did_share` `did_sign` `on` `recording` `has_name` `from` |
+
+   数値パラメータ（`ms` `total_ms` `hidden_ms` `depth` `max_depth` `works_focused` `count` `bytes` `cap` `qty` `loaded` `total` `seq` `index` `at_index` `x` `z` `yaw` ほか）は**カスタム指標**として登録すると平均・合計が出せる。まずは `ms` `total_ms` `depth` `max_depth` `works_focused` だけで足りる。
+
+8. **キーイベント（旧・コンバージョン）に指定** — `me_publish_on`（部屋の公開＝最重要）／`gallery_work_buy_click`（作品の購入リンク）／`checkout_return`（課金の完了/離脱）／`gallery_signup_cta`（訪問者→作家）。
+9. **内部トラフィックの除外** — 管理→データストリーム→タグ設定→内部トラフィックの定義に自分のIPを入れ、データフィルタを「有効」に。自分の閲覧で数字が膨らむのを防ぐ。
+10. **（任意・推奨）BigQueryエクスポートを有効化** — `artwork_id` のような値の多いディメンションはGA4標準レポートで `(other)` に丸められる。作品別ランキングを本気でやるなら要る。無料枠で足りる。
+
+### 9.3 動作確認（DebugView / リアルタイム）
+
+再デプロイ後、本番の公開ギャラリーを開いて以下が出るか見る:
+
+- 入場時 … `gallery_arrive` → `gallery_loading_done`
+- 歩く … `gallery_move_first`、しばらくして `gallery_move_sample`
+- 作品をクリック … `gallery_work_focus`（`via=click`）→ 離れると `gallery_work_dwell`
+- ‹ › で送る … `gallery_work_focus`（`via=stepper`）
+- タブを閉じる … `gallery_session_summary` が**1件**
+
+> **⚠️ ここだけ要確認**: `page_view` が**1ページにつき1件**か。コード側は `send_page_view:false` にして自前で1回だけ送っているが、GA4の**拡張計測機能「ブラウザの履歴イベントに基づくページ変更」**が同時に発火すると二重計上になり得る。ローカル検証では gtag.js をブロックして計測したため、**この組み合わせだけ未検証**。DebugViewで `page_view` が2件出るようなら、管理→データストリーム→拡張計測機能→ページビューの詳細設定で当該オプションをオフにする。
+
+### 9.4 判断が要る（作業ではなく決定）
+
+- **同意バナーを出すか。** 現状 EEA/UK/CH は Consent Mode v2 で `analytics_storage: denied` 既定＝Cookieを置かないクッキーレス計測（Googleの推計が混じる）。バナーを出せば実数になるが、**11言語のUI文言**が必要（AGENTS 5.1）。コード側の呼び口 `grantAnalyticsConsent()` は用意済み。
