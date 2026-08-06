@@ -16,7 +16,7 @@
 |---|---|
 | プライバシーポリシーの改訂 | **実施済み**（§1に計測内容、§3に処理者としてGoogle、§8にCookieの記述。「第三者アナリティクスを使わない」の一文は削除した — 実装と食い違う文言を残すのは最悪） |
 | EEA/UK/CH の同意 | **Consent Mode v2 の地域別デフォルトで `analytics_storage: denied`**。当該地域ではCookieを置かずクッキーレス計測になる。広告系（`ad_storage` 等）は**全地域で常時denied** |
-| 同意バナー | **未実装**。`grantAnalyticsConsent()` という呼び口だけ用意してある（`lib/analytics.ts`）。バナーを出すまでEEAは推計値のまま＝**ユーザー判断待ち** |
+| 同意バナー | **実装済み**（ユーザー判断 2026-08-06「同意バナーは出すよ」）。`components/ConsentBanner.tsx`。**表示は必要な地域だけ** — `x-vercel-ip-country` を root layout で読み、`CONSENT_DENIED_REGIONS` に入る国にだけ出す。撤回はプライバシーページの `ConsentReset`（GDPR 7(3)） |
 | 広告連携 | 使わない。GA4管理画面で **Google シグナル と 広告向けデータ共有はオフのままにすること**（コード側では止められない） |
 
 ### 0.2 GA4 で「できないこと」（設計に効く制約）
@@ -385,6 +385,14 @@ F2（セッション要約）は他が全部落ちても単体で意味を持つ
 
 > **⚠️ ここだけ要確認**: `page_view` が**1ページにつき1件**か。コード側は `send_page_view:false` にして自前で1回だけ送っているが、GA4の**拡張計測機能「ブラウザの履歴イベントに基づくページ変更」**が同時に発火すると二重計上になり得る。ローカル検証では gtag.js をブロックして計測したため、**この組み合わせだけ未検証**。DebugViewで `page_view` が2件出るようなら、管理→データストリーム→拡張計測機能→ページビューの詳細設定で当該オプションをオフにする。
 
-### 9.4 判断が要る（作業ではなく決定）
+### 9.4 同意バナー（実装済み 2026-08-06）
 
-- **同意バナーを出すか。** 現状 EEA/UK/CH は Consent Mode v2 で `analytics_storage: denied` 既定＝Cookieを置かないクッキーレス計測（Googleの推計が混じる）。バナーを出せば実数になるが、**11言語のUI文言**が必要（AGENTS 5.1）。コード側の呼び口 `grantAnalyticsConsent()` は用意済み。
+EEA/UK/CH の訪問者にだけ下部バーで尋ね、答えるまでは `analytics_storage: denied` のまま。GA4側の追加作業は不要。
+
+- **表示条件** — root layout が Vercel の `x-vercel-ip-country` を読み、`CONSENT_DENIED_REGIONS`（EU27＋IS/LI/NO/GB/CH）の国にだけ出す。**ヘッダが無いとき（ローカル・自前ホスト）は出さない**。この向きが安全側 = 最悪でも「測れない」で終わり、Consent Mode の地域別デフォルトが EEA のCookieを止める仕事はバーの有無と関係なく続く。
+- **答えは `localStorage`（`xibit360.consent.v1`）** に持ち、**インライン bootstrap が同期的に読む**。再訪した同意済みの人が毎回クッキーレスの1ヒット目を過ごさずに済む（`consent update` の 500ms レースを踏まない）。
+- **拒否は同意と同じ容易さ**（GDPR）— ボタンは同じ見た目・同じ高さ44px・1タップずつ。金色の「主ボタン」を置いていないのは意図的。
+- **撤回** — `/privacy` §8 の `ConsentReset` が現在の選択を表示し、「変更する」で記憶を消して再読込＝バーがもう一度出る。Consent Mode の既定は bootstrap で一度しか読まないので、やり直しは新しい文書で始めるのが正しい。
+- **文言は11言語**（`consent.*` 7キー）。
+
+**実測（2026-08-06）**: DE→バー表示・JP→非表示・ヘッダ無し→非表示／「許可」で `consent update: granted`＋`localStorage=granted`、再訪の既定が初手から granted／「拒否」で denied のまま再訪でも聞き直さない／`/privacy` の撤回でクリアされバーが再表示／ボタン 44px 高・1280px と 375px で横あふれ0／3Dギャラリー（`body.gallery-mode`）でも `position:fixed` z-index 120 で最前面（HUDに埋もれない）。

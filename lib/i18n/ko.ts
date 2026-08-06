@@ -746,6 +746,15 @@ export const ko: PartialDictionary = {
     walkThrough_other: '작품 {count}점 · 3D로 걸어보기 →',
     loadMore: '더 보기',
   },
+  consent: {
+    body: 'Google 애널리틱스로 이 사이트의 사용 방식을 측정하고자 합니다. 동의하시기 전까지는 꺼져 있으며, 광고에는 전혀 사용하지 않습니다.',
+    accept: '허용',
+    decline: '허용 안 함',
+    aria: '애널리틱스 동의',
+    stateOn: '이 브라우저에서는 애널리틱스를 허용하고 있습니다.',
+    stateOff: '이 브라우저에서는 애널리틱스를 허용하지 않고 있습니다.',
+    change: '변경하기',
+  },
   footer: {
     terms: '이용약관',
     privacy: '개인정보',

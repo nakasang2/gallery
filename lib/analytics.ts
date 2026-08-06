@@ -96,12 +96,57 @@ export function trackPageView(path: string): void {
   })
 }
 
-/** Grant analytics storage — the hook a consent banner would call. Nothing calls
- *  this yet: outside the regions above consent is granted by default, and inside
- *  them GA4 runs in cookieless Consent Mode until a banner exists. */
+/* ================= Consent ================= */
+
+/** Where the visitor's own choice is remembered. Read synchronously by the
+ *  bootstrap script in components/Analytics so a returning visitor who already
+ *  agreed is measured from their very first hit, with no consent-update race. */
+export const CONSENT_KEY = 'xibit360.consent.v1'
+
+export type ConsentChoice = 'granted' | 'denied'
+
+/** The stored choice, or null when this visitor has never answered. */
+export function readConsent(): ConsentChoice | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const v = localStorage.getItem(CONSENT_KEY)
+    return v === 'granted' || v === 'denied' ? v : null
+  } catch {
+    return null // private mode — treat as unanswered, the banner will ask again
+  }
+}
+
+/** Record the visitor's choice and tell gtag about it immediately. */
+export function setConsent(choice: ConsentChoice): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(CONSENT_KEY, choice)
+  } catch {
+    /* the gtag update below still applies to this page view */
+  }
+  if (!gaConfigured) return
+  gtag('consent', 'update', { analytics_storage: choice })
+}
+
+/** Grant analytics storage. */
 export function grantAnalyticsConsent(): void {
-  if (!gaConfigured || typeof window === 'undefined') return
-  gtag('consent', 'update', { analytics_storage: 'granted' })
+  setConsent('granted')
+}
+
+/** Withdraw it. Withdrawing has to be as easy as giving it (GDPR art. 7(3)),
+ *  which is what components/ConsentReset offers on the privacy page. */
+export function denyAnalyticsConsent(): void {
+  setConsent('denied')
+}
+
+/** Forget the choice so the banner asks again. */
+export function clearConsent(): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.removeItem(CONSENT_KEY)
+  } catch {
+    /* nothing to forget */
+  }
 }
 
 /* ================= Cross-cutting state ================= */

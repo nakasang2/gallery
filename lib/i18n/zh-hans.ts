@@ -681,6 +681,15 @@ export const zhHans: PartialDictionary = {
     walkThrough_other: '{count} 件作品 · 以 3D 走进去 →',
     loadMore: '加载更多',
   },
+  consent: {
+    body: '我们希望通过 Google Analytics 了解本网站的使用情况。在您同意之前不会启用，且绝不用于广告。',
+    accept: '允许',
+    decline: '拒绝',
+    aria: '分析统计同意',
+    stateOn: '此浏览器目前允许分析统计。',
+    stateOff: '此浏览器目前拒绝分析统计。',
+    change: '更改',
+  },
   footer: {
     terms: '服务条款',
     privacy: '隐私',

@@ -4,20 +4,34 @@
 import { useEffect } from 'react'
 import Script from 'next/script'
 import { usePathname } from 'next/navigation'
-import { CONSENT_DENIED_REGIONS, GA_ID, gaConfigured, trackPageView } from '@/lib/analytics'
+import { CONSENT_DENIED_REGIONS, CONSENT_KEY, GA_ID, gaConfigured, trackPageView } from '@/lib/analytics'
 
-// Consent Mode v2 defaults, inlined so they are queued BEFORE gtag.js loads —
-// a default set after the library initialises is too late to stop the first
-// write. Regional entries take precedence over the catch-all, so EEA/UK/CH
-// visitors run cookieless until something calls grantAnalyticsConsent().
-// ad_storage is denied everywhere and unconditionally: we run no advertising.
+// Consent Mode v2 defaults, inlined so they are queued BEFORE gtag.js loads — a
+// default set after the library initialises is too late to stop the first write.
+//
+// The visitor's own answer wins when they have given one, and it is read from
+// localStorage *here*, synchronously, rather than by the banner component after
+// hydration: a returning visitor who already agreed would otherwise spend their
+// first hit in cookieless mode every single visit.
+//
+// With no stored answer we fall back to region: EEA/UK/CH default to denied
+// (the banner will ask), everywhere else to granted. Regional entries take
+// precedence over the catch-all. ad_storage is denied everywhere and
+// unconditionally — we run no advertising.
+const ADS_DENIED = "'ad_storage':'denied','ad_user_data':'denied','ad_personalization':'denied'"
 const bootstrap = `
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
-gtag('consent','default',{'analytics_storage':'denied','ad_storage':'denied','ad_user_data':'denied','ad_personalization':'denied','region':${JSON.stringify(
-  CONSENT_DENIED_REGIONS
-)},'wait_for_update':500});
-gtag('consent','default',{'analytics_storage':'granted','ad_storage':'denied','ad_user_data':'denied','ad_personalization':'denied'});
+var c = null;
+try { c = localStorage.getItem(${JSON.stringify(CONSENT_KEY)}); } catch (e) {}
+if (c === 'granted' || c === 'denied') {
+  gtag('consent','default',{'analytics_storage':c,${ADS_DENIED}});
+} else {
+  gtag('consent','default',{'analytics_storage':'denied',${ADS_DENIED},'region':${JSON.stringify(
+    CONSENT_DENIED_REGIONS
+  )},'wait_for_update':500});
+  gtag('consent','default',{'analytics_storage':'granted',${ADS_DENIED}});
+}
 gtag('js', new Date());
 gtag('config','${GA_ID}',{'send_page_view':false});
 `

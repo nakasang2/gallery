@@ -248,6 +248,24 @@ export const en = {
     unavailable: 'Reporting is not available (Supabase is not configured).',
   },
 
+  consent: {
+
+    body: 'We\'d like to measure how this site is used, with Google Analytics. It stays off until you agree, and we never use it for advertising.',
+
+    accept: 'Allow',
+
+    decline: 'Decline',
+
+    aria: 'Analytics consent',
+
+    stateOn: 'Analytics is currently allowed on this browser.',
+
+    stateOff: 'Analytics is currently declined on this browser.',
+
+    change: 'Change this',
+
+  },
+
   footer: {
     terms: 'Terms',
     privacy: 'Privacy',

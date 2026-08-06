@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from 'next'
+import { headers } from 'next/headers'
 import Analytics from '@/components/Analytics'
+import ConsentBanner from '@/components/ConsentBanner'
+import { CONSENT_DENIED_REGIONS } from '@/lib/analytics'
 import { I18nProvider } from '@/components/I18nProvider'
 import { getDictionary, LOCALE_META } from '@/lib/i18n'
 import { getRequestLocale } from '@/lib/i18n/server'
@@ -45,6 +48,13 @@ export const viewport: Viewport = {
 // a shared link makes its impression.
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getRequestLocale()
+  // Ask for consent only where it is actually required. Vercel resolves the
+  // visitor's country into this header at the edge; absent (local dev, a
+  // self-hosted run) we do NOT show the bar. That direction is the safe one:
+  // the worst case is under-measuring, because Consent Mode's regional default
+  // already keeps EEA/UK/CH cookieless whether or not this bar ever appears.
+  const country = (await headers()).get('x-vercel-ip-country')?.toUpperCase() ?? ''
+  const consentRequired = CONSENT_DENIED_REGIONS.includes(country)
   const dictionary = getDictionary(locale)
   const meta = LOCALE_META[locale]
   return (
@@ -67,6 +77,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <I18nProvider locale={locale} dictionary={dictionary}>
           {children}
+          {/* Inside the provider — the bar is translated, so it needs useT(). */}
+          <ConsentBanner required={consentRequired} />
         </I18nProvider>
         {/* Renders nothing unless NEXT_PUBLIC_GA_ID is set, so local dev, preview
             deploys and forks send no data (components/Analytics). */}

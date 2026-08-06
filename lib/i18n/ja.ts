@@ -222,6 +222,24 @@ export const ja: Dictionary = {
     unavailable: '報告機能を利用できません（Supabase が未設定です）。',
   },
 
+  consent: {
+
+    body: 'このサイトの使われ方を Google アナリティクスで計測させてください。同意いただくまで無効のままで、広告には一切利用しません。',
+
+    accept: '許可する',
+
+    decline: '許可しない',
+
+    aria: 'アナリティクスの同意',
+
+    stateOn: 'このブラウザではアナリティクスを許可しています。',
+
+    stateOff: 'このブラウザではアナリティクスを許可していません。',
+
+    change: '変更する',
+
+  },
+
   footer: {
     terms: '利用規約',
     privacy: 'プライバシー',

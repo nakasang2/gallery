@@ -679,6 +679,15 @@ export const zhHant: PartialDictionary = {
     walkThrough_other: '{count} 件作品 · 以 3D 走進去 →',
     loadMore: '載入更多',
   },
+  consent: {
+    body: '我們希望透過 Google Analytics 了解本網站的使用情況。在您同意之前不會啟用，且絕不用於廣告。',
+    accept: '允許',
+    decline: '拒絕',
+    aria: '分析統計同意',
+    stateOn: '此瀏覽器目前允許分析統計。',
+    stateOff: '此瀏覽器目前拒絕分析統計。',
+    change: '變更',
+  },
   footer: {
     terms: '服務條款',
     privacy: '隱私',

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import ConsentReset from '@/components/ConsentReset'
 import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 
 export const metadata: Metadata = { title: 'Privacy Policy — Xibit360' }
@@ -58,7 +59,8 @@ export default function PrivacyPage() {
 
           <h2>8. Cookies and local storage</h2>
           <p>We use browser storage for your sign-in session, to remember which works you have already hearted, and — in guest mode — to hold works you are exhibiting locally before you have an account. These are necessary for the service to function.</p>
-          <p>Google Analytics sets its own cookie to tell one visit apart from the next. In the UK, the EEA and Switzerland this is switched off by default and no analytics cookie is set unless you allow it; elsewhere it is on. We set no advertising cookies anywhere.</p>
+          <p>Google Analytics sets its own cookie to tell one visit apart from the next. In the UK, the EEA and Switzerland it is switched off by default and no analytics cookie is set unless you allow it — we ask with a bar at the bottom of the page, and declining is one tap, exactly like accepting. Elsewhere it is on. We set no advertising cookies anywhere.</p>
+          <ConsentReset />
 
           <h2>9. Children</h2>
           <p>Xibit360 is for people aged 18 and over, and we do not knowingly collect data from children. If you believe a child has created an account, please tell us and we will remove it.</p>

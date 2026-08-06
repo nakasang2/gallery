@@ -684,6 +684,15 @@ export const fr: PartialDictionary = {
     walkThrough_other: '{count} œuvres · parcourir en 3D →',
     loadMore: 'Voir plus',
   },
+  consent: {
+    body: 'Nous aimerions mesurer l’utilisation de ce site avec Google Analytics. C’est désactivé tant que vous n’acceptez pas, et jamais utilisé à des fins publicitaires.',
+    accept: 'Autoriser',
+    decline: 'Refuser',
+    aria: 'Consentement aux statistiques',
+    stateOn: 'Les statistiques sont actuellement autorisées sur ce navigateur.',
+    stateOff: 'Les statistiques sont actuellement refusées sur ce navigateur.',
+    change: 'Modifier',
+  },
   footer: {
     terms: 'Conditions',
     privacy: 'Confidentialité',

@@ -684,6 +684,15 @@ export const id: PartialDictionary = {
     walkThrough_other: '{count} karya · jelajahi dalam 3D →',
     loadMore: 'Muat lebih banyak',
   },
+  consent: {
+    body: 'Kami ingin mengukur cara situs ini digunakan, dengan Google Analytics. Ini nonaktif sampai Anda setuju, dan tidak pernah kami pakai untuk iklan.',
+    accept: 'Izinkan',
+    decline: 'Tolak',
+    aria: 'Persetujuan analitik',
+    stateOn: 'Analitik saat ini diizinkan di peramban ini.',
+    stateOff: 'Analitik saat ini ditolak di peramban ini.',
+    change: 'Ubah',
+  },
   footer: {
     terms: 'Ketentuan',
     privacy: 'Privasi',

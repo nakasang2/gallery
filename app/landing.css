@@ -1211,3 +1211,64 @@ html { scroll-padding-top: 72px; }
 .hero-title { font-size: calc(clamp(2.8rem, 6.4vw, 5.4rem) * var(--display-scale)); }
 .concept-statement { font-size: calc(clamp(2.6rem, 6vw, 5rem) * var(--display-scale)); }
 .closing-title { font-size: calc(clamp(3rem, 7.5vw, 6rem) * var(--display-scale)); }
+
+/* ===== Analytics consent bar (components/ConsentBanner) =====
+   Shown only where consent is required, and only until the visitor answers.
+   Fixed to the bottom so it never displaces the 3D canvas or a page's layout,
+   and above the gallery HUD (which tops out below this) so it can't be buried
+   under a room's chrome. */
+.consent-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 120;
+  background: var(--bg-2);
+  border-top: 1px solid var(--hairline);
+  /* Clear of the iOS home bar — the root layout opts into the safe area. */
+  padding: 0.9rem 1.2rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
+}
+.consent-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+}
+.consent-text {
+  flex: 1 1 22rem;
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.consent-link { color: var(--ink); text-decoration: underline; }
+.consent-actions { display: flex; gap: 0.6rem; flex-shrink: 0; }
+/* Both buttons are identical on purpose: refusing must be no harder than
+   agreeing, so neither gets the gold "primary" treatment used elsewhere. */
+.consent-btn {
+  font: inherit;
+  font-size: 0.84rem;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+  /* 44px tall including the border — a real touch target on a phone. */
+  min-height: 44px;
+}
+.consent-btn:hover { border-color: var(--ink); }
+
+/* "Change your analytics choice" on the privacy page (components/ConsentReset) */
+.consent-reset { margin-top: 0.4rem; }
+.consent-reset-btn {
+  font: inherit;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
