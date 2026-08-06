@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useGallery } from '@/lib/store'
 import { showToast } from '@/lib/toast'
 import { listGuestbook, addGuestbookEntry, type GuestbookEntry } from '@/lib/engagement'
+import { sessionFlags, track } from '@/lib/analytics'
 import { useT } from '@/components/I18nProvider'
 
 function fmtDate(iso: string): string {
@@ -49,6 +50,12 @@ export default function GuestbookPanel() {
     setBusy(true)
     try {
       await addGuestbookEntry(galleryId, name, message)
+      sessionFlags.signed = true
+      track('gallery_guestbook_submit', {
+        gallery_id: galleryId,
+        len: message.trim().length,
+        has_name: !!name.trim(),
+      })
       setMessage('')
       setThanks(true)
       setTimeout(() => setThanks(false), 2400)

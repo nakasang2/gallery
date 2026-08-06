@@ -7,6 +7,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { EYE, type LayoutDef } from '@/lib/presets'
 import { artSize, getSolids } from '@/lib/exhibition'
 import { walkRef, camPose } from '@/lib/controller'
+import { setFocusIntent } from '@/lib/analytics'
 import { useGallery } from '@/lib/store'
 import { galleryAudio } from '@/lib/audio'
 import type { ArtworkData } from '@/lib/artworks'
@@ -373,6 +374,7 @@ export default function WalkControls({
         const dy = e.clientY - s.startY
         if (Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.4) {
           s.swipeConsumed = true
+          setFocusIntent('swipe')
           focusStep(dx < 0 ? 1 : -1)
         }
         return
@@ -419,8 +421,14 @@ export default function WalkControls({
         // Preview mode is sticky: sideways keys page through works, the rest do
         // nothing — walking out of the mode is reserved for the close button
         if (useGallery.getState().focusedIndex >= 0) {
-          if (k === 'a' || k === 'arrowleft') focusStep(-1)
-          if (k === 'd' || k === 'arrowright') focusStep(1)
+          if (k === 'a' || k === 'arrowleft') {
+            setFocusIntent('key')
+            focusStep(-1)
+          }
+          if (k === 'd' || k === 'arrowright') {
+            setFocusIntent('key')
+            focusStep(1)
+          }
           return
         }
         s.keys.add(k)
@@ -433,8 +441,14 @@ export default function WalkControls({
         g.setSettingsOpen(false)
       }
       // Step through the exhibition (move + face the next/previous work)
-      if (k === '.' || k === '>') focusStep(1)
-      if (k === ',' || k === '<') focusStep(-1)
+      if (k === '.' || k === '>') {
+        setFocusIntent('key')
+        focusStep(1)
+      }
+      if (k === ',' || k === '<') {
+        setFocusIntent('key')
+        focusStep(-1)
+      }
     }
     const onKeyUp = (e: KeyboardEvent) => s.keys.delete(e.key.toLowerCase())
 

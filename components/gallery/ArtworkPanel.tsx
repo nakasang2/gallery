@@ -7,6 +7,7 @@ import { useExhibitionList, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor
 import { frameDefFor, applyMat, resolveTheme } from '@/lib/presets'
 import { useGallery, useSettings } from '@/lib/store'
 import { addLike, hasLiked, likeCount } from '@/lib/engagement'
+import { sessionFlags, track } from '@/lib/analytics'
 import { audioGuide, useGuidePlaying, guideSourceFor, type GuideSource } from '@/lib/guide'
 import WorkDesign from '@/components/WorkDesign'
 import { useT } from '@/components/I18nProvider'
@@ -60,6 +61,8 @@ function LikeButton({ galleryId, artworkId }: { galleryId: string; artworkId: st
       await addLike(galleryId, artworkId)
       setLiked(true)
       setCount((c) => (c ?? 0) + 1)
+      sessionFlags.liked = true
+      track('gallery_like', { gallery_id: galleryId, artwork_id: artworkId })
     } catch {
       /* likes must never interrupt viewing */
     } finally {
@@ -96,6 +99,7 @@ export default function ArtworkPanel() {
 
   // Full-screen "handle it" preview. Reset when the work changes or the panel closes.
   const [preview3d, setPreview3d] = useState(false)
+  const preview3dAt = useRef(0)
   useEffect(() => {
     setPreview3d(false)
   }, [art?.id, open])
@@ -183,7 +187,14 @@ export default function ArtworkPanel() {
           {/* The visitor's one reaction deserves a real touch target, not an afterthought */}
           {visitor && <LikeButton galleryId={visitor.galleryId} artworkId={art.id} />}
           {/* Lift the work off the wall into a dedicated preview space to rotate/zoom it */}
-          <button className="panel-view3d" onClick={() => setPreview3d(true)}>
+          <button
+            className="panel-view3d"
+            onClick={() => {
+              preview3dAt.current = Date.now()
+              track('gallery_work_preview3d', { gallery_id: visitor?.galleryId, artwork_id: art.id })
+              setPreview3d(true)
+            }}
+          >
             <span aria-hidden="true">⛶</span> {t('artwork.viewIn3D')}
           </button>
           <p className="panel-desc">{art.desc}</p>
@@ -194,7 +205,19 @@ export default function ArtworkPanel() {
           </div>
           {guide && <AudioGuideButton source={guide} />}
           {art.purchaseUrl ? (
-            <a className="panel-buy" href={toHref(art.purchaseUrl)} target="_blank" rel="noopener noreferrer">
+            <a
+              className="panel-buy"
+              href={toHref(art.purchaseUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() =>
+                track('gallery_work_buy_click', {
+                  gallery_id: visitor?.galleryId,
+                  artwork_id: art.id,
+                  has_price: !!art.price,
+                })
+              }
+            >
               {art.price ? `${art.price} · ` : ''}{t('artwork.forSale')}
             </a>
           ) : (
@@ -244,7 +267,19 @@ export default function ArtworkPanel() {
       )}
     </aside>
     {preview3d && art && frameDef && (
-      <ArtworkPreview3D art={art} frameDef={frameDef} theme={theme} onClose={() => setPreview3d(false)} />
+      <ArtworkPreview3D
+        art={art}
+        frameDef={frameDef}
+        theme={theme}
+        onClose={() => {
+          track('gallery_work_preview3d_close', {
+            gallery_id: visitor?.galleryId,
+            artwork_id: art.id,
+            ms: Date.now() - preview3dAt.current,
+          })
+          setPreview3d(false)
+        }}
+      />
     )}
     </>
   )

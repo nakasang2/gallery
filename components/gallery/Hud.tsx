@@ -9,6 +9,7 @@ import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
 import { showToast } from '@/lib/toast'
+import { sessionFlags, setFocusIntent, track } from '@/lib/analytics'
 import { SendIcon } from '@/components/icons'
 import { useWalkRecorder } from './RecordButton'
 import { LocaleLink, useT } from '@/components/I18nProvider'
@@ -38,6 +39,7 @@ export function HudTop() {
           href={`/@${visitor.username}/${visitor.slug}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => track('embed_open_full', { gallery_id: visitor.galleryId })}
         >
           {t('hud.open')}
         </a>
@@ -59,7 +61,13 @@ export function HudTop() {
           <span className="hud-identity-main">{untitled ? visitor.ownerName : visitor.title}</span>
           {!untitled && <span className="hud-identity-sub">{visitor.ownerName}</span>}
         </div>
-        <Link className="hud-signup-cta" href="/signup">{t('common.startFree')}</Link>
+        <Link
+          className="hud-signup-cta"
+          href="/signup"
+          onClick={() => track('gallery_signup_cta', { gallery_id: visitor.galleryId, embed: false })}
+        >
+          {t('common.startFree')}
+        </Link>
       </header>
     )
   }
@@ -159,6 +167,7 @@ export function HudActions() {
     galleryAudio.unlock()
     const on = galleryAudio.toggle()
     setAudioOn(on)
+    track('gallery_bgm_toggle', { gallery_id: visitor?.galleryId, on })
     if (!on) audioGuide.stop() // one mute silences the narration too
   }
 
@@ -166,7 +175,13 @@ export function HudActions() {
     if (!visitor) return
     const url = `${location.origin}/@${visitor.username}/${visitor.slug}`
     const title = isPlaceholderTitle(visitor.title) ? `${visitor.ownerName} — XIBIT360` : visitor.title
-    if (typeof navigator !== 'undefined' && navigator.share) {
+    sessionFlags.shared = true
+    // `typeof … === 'function'` rather than a truthiness test: lib.dom types
+    // navigator.share as always present, so the plain check trips TS2774.
+    const method =
+      typeof navigator !== 'undefined' && typeof navigator.share === 'function' ? 'web_share' : 'clipboard'
+    track('gallery_share', { gallery_id: visitor.galleryId, method })
+    if (method === 'web_share') {
       void navigator.share({ title, url }).catch(() => {})
     } else {
       navigator.clipboard?.writeText(url).then(() => showToast(t('hud.linkCopied'))).catch(() => {})
@@ -229,6 +244,7 @@ export function HudActions() {
                 role="menuitem"
                 href={`/report?about=${encodeURIComponent(`@${visitor!.username}/${visitor!.slug}`)}`}
                 aria-label={t('hud.reportAria')}
+                onClick={() => track('gallery_report_click', { gallery_id: visitor!.galleryId })}
               >
                 <span className="hud-action-label">{t('hud.report')}</span>
                 <span className="hud-action-icon" aria-hidden="true">⚑</span>
@@ -287,13 +303,27 @@ export function HudStepper() {
       aria-hidden={tucked}
       inert={tucked}
     >
-      <button className="step-btn" aria-label={t('artwork.previous')} onClick={() => walkRef.current?.focusStep(-1)}>
+      <button
+        className="step-btn"
+        aria-label={t('artwork.previous')}
+        onClick={() => {
+          setFocusIntent('stepper')
+          walkRef.current?.focusStep(-1)
+        }}
+      >
         ‹
       </button>
       <span className={`step-count${focusedIndex < 0 ? ' idle' : ''}`}>
         {current} <span className="step-sep">/</span> {String(count).padStart(2, '0')}
       </span>
-      <button className="step-btn" aria-label={t('artwork.next')} onClick={() => walkRef.current?.focusStep(1)}>
+      <button
+        className="step-btn"
+        aria-label={t('artwork.next')}
+        onClick={() => {
+          setFocusIntent('stepper')
+          walkRef.current?.focusStep(1)
+        }}
+      >
         ›
       </button>
     </div>

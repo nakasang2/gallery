@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useGallery } from '@/lib/store'
 import { recordVisit } from '@/lib/engagement'
+import { track } from '@/lib/analytics'
+import AnalyticsProbe from '@/components/gallery/AnalyticsProbe'
 import LoadingScreen from '@/components/gallery/LoadingScreen'
 import FlatWorkList from '@/components/gallery/FlatWorkList'
 import { publicExhibitionWorks } from '@/lib/roomPlan'
@@ -36,7 +38,17 @@ export default function VisitorGallery({
   useEffect(() => {
     document.body.classList.add('gallery-mode')
     useGallery.setState({ visitor: exhibition, embed })
-    if (!ownerPreview) recordVisit(exhibition.galleryId) // analytics: one count per tab session
+    if (!ownerPreview) {
+      recordVisit(exhibition.galleryId) // one count per tab session (drives the ghost crowd)
+      // The raw arrival, before any dedupe — `visits` counts a tab session, this
+      // counts a page open, and the gap between them is real (docs/ANALYTICS.md A1).
+      track('gallery_arrive', {
+        gallery_id: exhibition.galleryId,
+        embed,
+        works: exhibition.artworks.length,
+        referrer: document.referrer ? new URL(document.referrer).host : 'direct',
+      })
+    }
     setArmed(true)
     return () => {
       document.body.classList.remove('gallery-mode')
@@ -46,6 +58,15 @@ export default function VisitorGallery({
 
   return (
     <>
+      {/* Outside the dynamic() below on purpose: mounted inside GalleryApp it
+          could not see a visitor leave while the loading screen is still up. */}
+      {armed && !ownerPreview && (
+        <AnalyticsProbe
+          galleryId={exhibition.galleryId}
+          embed={embed}
+          works={exhibition.artworks.length}
+        />
+      )}
       {armed && <GalleryApp onShellReady={() => setShellUp(true)} />}
       {/* The exhibition as plain HTML. This is what the server sends, so a client
           that never runs JS — a crawler included — gets the works, the artist and

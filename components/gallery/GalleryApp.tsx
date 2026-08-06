@@ -13,6 +13,7 @@ import { walkRef, canvasRef, QUALITY } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
 import { unlockVideoAudio, suspendVideoAudio } from '@/lib/videohub'
+import { sessionFlags, track } from '@/lib/analytics'
 import GalleryScene from './GalleryScene'
 import FlatGallery from './FlatGallery'
 import MiniMap from './MiniMap'
@@ -173,19 +174,31 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   const [dpr, setDpr] = useState<[number, number]>(
     QUALITY === 'high' ? [1, 2] : QUALITY === 'medium' ? [1, 1.5] : [1, 1.25]
   )
+  const dprRef = useRef(dpr)
   const entryRef = useRef(
     resolveLayout(useGallery.getState().layout, useGallery.getState().layoutParams).entry
   )
 
   useTour()
 
+  // Which room this is, so entry failures can be split between a visitor's shared
+  // link, the /demo showcase and an owner looking at their own space.
+  const surface = demo ? 'demo' : visitor ? 'visitor' : user ? 'owner' : 'guest'
+  const galleryId = visitor?.galleryId
+
   useEffect(() => {
+    let ok = false
     try {
       const c = document.createElement('canvas')
-      setWebgl(!!(c.getContext('webgl2') || c.getContext('webgl')))
+      ok = !!(c.getContext('webgl2') || c.getContext('webgl'))
     } catch {
-      setWebgl(false)
+      ok = false
     }
+    setWebgl(ok)
+    // No WebGL means this visitor never sees the 3D room at all — they get the
+    // flat list. Until now that happened in complete silence.
+    if (!ok) track('gallery_webgl_unsupported', { surface, gallery_id: galleryId })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Prototype: expose internal state on the console for inspection
@@ -238,11 +251,44 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
     }
   }, [])
 
+  // Read inside the 12s timeout below without making it a dependency (re-arming
+  // that clock on every asset that lands would mean it never fires).
+  const assetsLoadedRef = useRef(assetsLoaded)
+  const assetsTotalRef = useRef(assetsTotal)
+  assetsLoadedRef.current = assetsLoaded
+  assetsTotalRef.current = assetsTotal
+  const mountedAt = useRef(Date.now())
+
   // A stalled or missing asset must never trap a visitor behind the door.
   useEffect(() => {
-    const t = setTimeout(() => setWaitedOut(true), 12_000)
+    const t = setTimeout(() => {
+      setWaitedOut(true)
+      // We are opening the doors on a room whose assets never finished. Whatever
+      // is missing, the visitor is about to see a hole where a work should be.
+      track('gallery_loading_timeout', {
+        surface,
+        gallery_id: galleryId,
+        loaded: assetsLoadedRef.current,
+        total: assetsTotalRef.current,
+      })
+    }, 12_000)
     return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Time from mount to the doors opening — the visitor's real wait.
+  useEffect(() => {
+    if (!loadingDone) return
+    sessionFlags.roomOpened = true
+    track('gallery_loading_done', {
+      surface,
+      gallery_id: galleryId,
+      ms: Date.now() - mountedAt.current,
+      assets: assetsTotalRef.current,
+      timed_out: waitedOut,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingDone])
 
   // Open the doors once the room is really there. The 400ms is a debounce as much
   // as a beat: assets register in waves (GLBs, then artwork textures), and if a
@@ -274,13 +320,23 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
     if (!ready || !webgl) return
     let el: HTMLCanvasElement | null = null
     let retry: ReturnType<typeof setTimeout> | undefined
+    let lostAt = 0
     const onLost = (e: Event) => {
       e.preventDefault()
       setContextLost(true)
+      lostAt = Date.now()
+      // The browser took the GPU away and the room went black. Silent until now,
+      // and indistinguishable from "the visitor lost interest".
+      track('gallery_context_lost', { surface, gallery_id: galleryId })
     }
     const onRestored = () => {
       setContextLost(false)
       setCanvasKey((k) => k + 1) // rebuild the scene against the new context
+      track('gallery_context_restored', {
+        surface,
+        gallery_id: galleryId,
+        ms: lostAt ? Date.now() - lostAt : undefined,
+      })
     }
     const attach = (tries = 0) => {
       el = document.querySelector<HTMLCanvasElement>('canvas')
@@ -356,7 +412,19 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
               flipflops={2}
               onDecline={() => {
                 if (document.visibilityState !== 'visible') return
-                setDpr((d) => (d[1] > 1.5 ? [1, 1.5] : [1, 1.25])) // 2 → 1.5 → 1.25
+                // Read through a ref and track outside the updater: a state
+                // updater must stay pure (StrictMode invokes it twice in dev,
+                // which would double-count the event).
+                const from = dprRef.current[1]
+                const next: [number, number] = from > 1.5 ? [1, 1.5] : [1, 1.25] // 2 → 1.5 → 1.25
+                dprRef.current = next
+                setDpr(next)
+                track('gallery_perf_downgrade', {
+                  surface,
+                  gallery_id: galleryId,
+                  from_dpr: from,
+                  to_dpr: next[1],
+                })
               }}
             />
           )}

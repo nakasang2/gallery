@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { itemPriceCents, usd, type PaidKind } from '@/lib/pricing'
 import { startCheckout, type PurchaseIntent } from '@/lib/checkout'
+import { track } from '@/lib/analytics'
 import { TextWithSlot, useT } from '@/components/I18nProvider'
 
 const EYEBROW: Record<PaidKind | 'capacity', string> = {
@@ -95,13 +96,19 @@ export default function PurchaseModal({
   async function onCta() {
     if (!intent) {
       setBlocked('not-live')
+      track('checkout_blocked', { kind: item?.kind, reason: 'no_intent' })
       return
     }
     setBusy(true)
     setError(null)
+    const evt = { kind: intent.kind, item_key: intent.itemKey, qty: clampedQty }
+    track('checkout_start', evt)
     try {
       const start = await startCheckout(intent, clampedQty)
       if (start.kind === 'redirect') {
+        // Last event before we hand the buyer to Stripe. The gap between this and
+        // checkout_return is the drop-off on Stripe's own page.
+        track('checkout_redirect', evt)
         window.location.assign(start.url)
         // Stay busy while the browser navigates. This used to be a `return` with
         // `setBusy(false)` in a `finally`, which runs on the way out anyway — the
@@ -110,7 +117,12 @@ export default function PurchaseModal({
         return
       }
       setBlocked(start.kind === 'signed-out' ? 'signed-out' : 'not-live')
+      // Not an error the buyer caused: either billing is off or their sign-in
+      // lapsed. Both used to be invisible (docs/LESSONS 2026-07-29).
+      track('checkout_blocked', { ...evt, reason: start.kind })
     } catch (e) {
+      const msg = e instanceof Error ? e.message : 'unknown'
+      track('checkout_error', { ...evt, reason: msg })
       setError(e instanceof Error ? e.message : t('purchase.failed'))
     }
     setBusy(false)

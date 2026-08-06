@@ -7,6 +7,7 @@ import type { ArtworkData } from '@/lib/artworks'
 import { CEIL_H, type CaptionDef, type FrameDef, type HangingDef, type SlotDef, type ThemeDef } from '@/lib/presets'
 import { artSize } from '@/lib/exhibition'
 import { walkRef, QUALITY } from '@/lib/controller'
+import { setFocusIntent } from '@/lib/analytics'
 import { getArtTexture, makePlaqueTexture, getFrameFinish, getSoftShadowTexture, getCanvasWeave, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import LightCone from './LightCone'
@@ -180,6 +181,7 @@ export default function Exhibit({
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
     if (e.delta > 10) return // it was a drag (matches WalkControls.TAP_THRESHOLD)
+    setFocusIntent('click') // the visitor picked this work themselves
     walkRef.current?.focusExhibit(index)
   }
   const onOver = () => (gl.domElement.style.cursor = 'pointer')

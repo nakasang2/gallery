@@ -1,34 +1,40 @@
 # ANALYTICS.md — 計測ポイントの棚卸し（実装前の設計メモ）
 
-> 目的: アナリティクスを仕込む前に、**このコードベースのどこに何を差せるか**を全部洗い出す。
-> ユーザー指示 2026-08-06「ビジターのギャラリー内での行動は結構細かく／出展者も」。
-> ここは**棚卸しと設計案**であって実装ではない。採用するイベントを選んでから `lib/analytics.ts` を作る。
+> 目的: **このコードベースのどこに何を差せるか**の全量と、その中から実装したものの記録。
+> ユーザー指示 2026-08-06「ビジターのギャラリー内での行動は結構細かく／出展者も」→「gaがいいな」。
+> §3〜§4 の表は**採用・不採用を問わない全量カタログ**（優先度つき）。何が実装済みかは §0.4 と §8。
 
 ---
 
-## 0. 先に決めないといけないこと（ユーザー判断）
+## 0. 決定: Google Analytics 4（ユーザー判断 2026-08-06「gaがいいな」）
 
-**現在のプライバシーポリシーは「第三者アナリティクスを使っていない」と明言している。**
+計測手段は **GA4（gtag.js）** に確定。`NEXT_PUBLIC_GA_ID` が未設定のときは**何も読み込まず何も送らない**（ローカル・プレビュー・fork が本番プロパティを汚さない。Stripe/OpenAI が鍵なしで501を返すのと同じ規律）。
 
-- `app/privacy/page.tsx:28` — "We do not use advertising trackers or third-party analytics."
-- `app/privacy/page.tsx:58` — "we set no advertising or analytics cookies."
+### 0.1 この選択に伴って必ず起きること
 
-したがって計測手段の選択は**法務文書の書き換えとセット**になる。3案:
+| 事項 | 状態 |
+|---|---|
+| プライバシーポリシーの改訂 | **実施済み**（§1に計測内容、§3に処理者としてGoogle、§8にCookieの記述。「第三者アナリティクスを使わない」の一文は削除した — 実装と食い違う文言を残すのは最悪） |
+| EEA/UK/CH の同意 | **Consent Mode v2 の地域別デフォルトで `analytics_storage: denied`**。当該地域ではCookieを置かずクッキーレス計測になる。広告系（`ad_storage` 等）は**全地域で常時denied** |
+| 同意バナー | **未実装**。`grantAnalyticsConsent()` という呼び口だけ用意してある（`lib/analytics.ts`）。バナーを出すまでEEAは推計値のまま＝**ユーザー判断待ち** |
+| 広告連携 | 使わない。GA4管理画面で **Google シグナル と 広告向けデータ共有はオフのままにすること**（コード側では止められない） |
 
-| 案 | 中身 | privacy 改訂 | EU同意バナー | 実装量 |
-|---|---|---|---|---|
-| **A. 自前テーブル（推奨）** | `events` テーブルを1本足し、`visits`/`likes` と同じ RLS で anon insert | §1に「どんなイベントを取るか」を1段落追加すれば足りる。「第三者アナリティクスなし」は**維持できる** | 端末IDを持たない設計なら不要にできる（後述） | 中 |
-| B. GA4 / PostHog 等 | SDKを入れる | §1・§3（処理者一覧）・§8（Cookie）を全面改訂 | ほぼ必須 | 小 |
-| C. Vercel Web Analytics | `@vercel/analytics` | §3に処理者を追加 | 事業者次第 | 極小。ただし**ページビューしか取れず、今回の要望（部屋の中の行動）にはほぼ無力** |
+### 0.2 GA4 で「できないこと」（設計に効く制約）
 
-**推奨は A。** 理由は3つ:
-1. 欲しいデータの大半（どの作品が何秒見られたか）は汎用SDKの語彙に無く、どのみち自前でカスタムイベントを設計することになる。
-2. 出展者ダッシュボードに「この作品が一番見られました」を出すなら、**データは自分のDBに要る**（GA4のUIを作家に見せるわけにいかない）。
-3. 「広告トラッカーも第三者アナリティクスも使わない」は、作品を預ける作家に対する売り文句として実際に効いている。手放す前に一度考えるべき。
+1. **作家向けの数字には使えない。** `/me` の訪問数・♡は今後も Supabase の `visits`/`likes` が出どころ。GA4のデータは自分のDBに戻ってこないので、「あなたの作品でこれが一番見られました」を作家に見せたくなった時点で、**その集計だけは別途DBに持つ工事が要る**（本ドキュメント §6.2 の `events` テーブル案は捨てずに残してある）。
+2. **広告ブロッカーで落ちる。** gtag.js は素直にブロックされる。ここで出る数字は**下限であって全数ではない**。`visits` テーブル（自前・ブロックされない）と突き合わせると、実際の欠測率が測れる。
+3. **高カーディナリティは潰れる。** `artwork_id` のような値はGA4の標準レポートで `(other)` に丸められることがある。作品別ランキングを真面目にやるなら BigQuery エクスポート（無料枠で可）を有効にすること。
+4. **カスタムパラメータは登録するまでレポートに出ない。** 管理→カスタム定義でイベントスコープのカスタムディメンションとして登録が必要（上限50）。登録前でもBigQueryには入っている。
 
-**Aを採る場合に決めること（後述 §6.3 で詳述）**: 訪問者に匿名IDを振るか否か。振らなければ ePrivacy の同意要件をほぼ回避できるが、「同じ人が何周したか」は測れなくなる。
+### 0.3 イベント名の規約（GA4準拠）
 
----
+GA4のイベント名は **`[A-Za-z][A-Za-z0-9_]{0,39}`** で、**ドットは使えない**。本ドキュメントが当初使っていた `gallery.work.focus` 記法は、実装では **`gallery_work_focus`** というスネークケースになっている。以下の表の名前は読みやすさのためドット記法のままだが、**コード上の正はスネークケース**（`lib/analytics.ts` が不正名を実行時に弾いてconsoleに出す）。
+
+パラメータは共通で `gallery_id` / `surface` / `embed` / `works` を付与。GA4の上限（1イベント25個・値100文字）は `track()` が機械的に切り詰める。
+
+### 0.4 実装済みの範囲
+
+第1弾として **39イベント**を実装済み（`git log` の `feat(analytics)`）。内訳は §7 の推奨セットに加えて、検証中に安く取れると分かったものを足したもの。**未実装は §3〜§4 の ★★ 以下の多く**（移動ヒートマップの本格運用、動画再生、音声ガイド、`/explore` と LP の細目、アカウント削除）。
 
 ## 1. 現状すでに測れているもの / 測れていないもの
 
@@ -70,16 +76,17 @@
 
 移動と視線は毎フレーム更新で、意図的に React の再描画経路から外してある（`WalkControls.tsx` 冒頭のコメント）。カメラ姿勢は `lib/controller.ts` の `camPose`（`WalkControls.tsx:534-537` で毎フレーム publish）にあるので、**1秒間隔のサンプラで `camPose` を読む**のが正しい。`useFrame` の中で track を呼んではいけない。
 
-### 2.3 送信
+### 2.3 送信（GA4採用後）
 
-- キューに貯めて **5〜10秒ごとに1回 POST**。1イベント1リクエストは3Dの上では重すぎる。
-- 退場は `visibilitychange`（hidden）＋ `pagehide` で `navigator.sendBeacon`。`beforeunload` はモバイルSafariで発火しないので当てにしない。
-- **絶対に描画を止めない**。`recordVisit` が `void ... .then()` の fire-and-forget にしてある（`lib/engagement.ts:19`）のと同じ規律で、失敗は握り潰して console だけ。
+自前でバッチを組む必要は無くなった。gtag.js が送信の面倒を見る（GA4は既定で `sendBeacon` を使うので、退場時のイベントもページが消える途中で落ちにくい）。**代わりに守るべきは投げ方のほう**:
+
+- `track()` は `window.dataLayer` に**直接push**する。`window.gtag` を呼ぶと、gtag.js のダウンロードが終わる前に投げたイベントが落ちる — そして落ちて困るのは、まさに一番早く起きる `gallery_loading_timeout` や退場イベント。
+- 退場は `visibilitychange`（hidden）と `pagehide` の**両方**を見る。`beforeunload` はモバイルSafariで発火しないので当てにしない。バックグラウンド化したタブはpagehideを出さずに殺されるので、**最初の hidden を終了とみなす**（戻ってきたら `seq` を上げて撃ち直す＝`AnalyticsProbe`）。
+- **絶対に描画を止めない**。`recordVisit` の fire-and-forget（`lib/engagement.ts:19`）と同じ規律で、`track()` は throw せず、失敗は握り潰す。
 
 ### 2.4 イベント名の規約
 
-`<面>.<対象>.<動作>` のドット区切り、全部小文字スネーク。例: `gallery.work.focus` / `me.stage.view` / `checkout.start`。
-プロパティは共通で `gallery_id` / `session` / `locale` / `device`（coarse pointer か）/ `embed` / `ts` を自動付与。
+→ **§0.3 に移動**（GA4がドットを許さないため、当初のドット記法からスネークケースへ変更）。
 
 ---
 
@@ -280,11 +287,11 @@
 - スキーマ案: `id / gallery_id (nullable) / name text / props jsonb / created_at`。作家ダッシュボード用の集計は後からマテビューでよい。
 - **anon insert を開けるテーブルは荒らせる**。既存 `visits` も同じ露出だが、`events` は props が自由なぶん被害が大きい。`props` にサイズ上限、`name` に許可リストの check 制約を入れる。
 
-### 6.3 プライバシー（要ユーザー判断）
+### 6.3 プライバシー（GA4採用後の状態）
 
-- **端末IDを振るか**。振らない設計（イベントは全部そのページ滞在に閉じ、`session` はメモリ上のランダム値でストレージに書かない）なら、Cookie/ストレージへの書き込みが発生しないので **ePrivacy の同意要件を回避できる可能性が高い**。代償は「リピーター」「デモ→サインアップの連結（G6→H3）」が測れないこと。
-- 現行ポリシーの `app/privacy/page.tsx:26` は訪問者について「a count that a visit happened」としか書いていない。**作品ごとの滞在時間まで取るなら、ここは書き換えが必須**（書かずに取れば、その行の記述と実装が食い違う）。
-- 出展者（ログイン済み）側の計測は契約の履行として説明しやすく、ハードルは低い。**ハードルが高いのはビジター側**。
+- **プライバシーポリシーは改訂済み**（`app/privacy/page.tsx`）。§1に計測内容と「氏名・メール・アカウントIDをGoogleに渡さない／広告に使わない」、§3の処理者一覧にGoogle Analytics、§8にCookieの扱い。**規約・プライバシーは英語版が正**（`scripts/check-i18n.mjs` の `ALLOW`）なので、11言語の作業は発生しない。
+- **EEA/UK/CH は `analytics_storage: denied` の既定**。Cookieを置かないので、そこは同意なしで運用できる形になっている。ただし**バナーを出すまで当該地域の数値はGoogleの推計**であり、全数ではない。
+- コード側で止められないものが1つある: **GA4管理画面の Googleシグナル／広告向けデータ共有**。ここをオンにすると privacy に書いた内容と食い違う。オフのままにすること。
 
 ### 6.4 番人（AGENTS.md 5.x）
 
@@ -302,3 +309,34 @@
 **出展者**: I1（ステージ遷移）、I3（アップロード）、J1（公開）、K1→K6（課金ファネル）
 
 F2（セッション要約）は他が全部落ちても単体で意味を持つので、**最初の1本にするならこれ**。
+
+
+---
+
+## 8. 実装済みイベント一覧（2026-08-06 時点）
+
+`lib/analytics.ts` の `track()` を経由するもの。名前はコード上の正（スネークケース）。
+
+**ビジター（ギャラリー内）** — `components/gallery/AnalyticsProbe.tsx` がストア購読で出すものが中心
+`gallery_arrive` / `gallery_loading_done` / `gallery_loading_timeout` / `gallery_webgl_unsupported` / `gallery_context_lost` / `gallery_context_restored` / `gallery_perf_downgrade` / `gallery_move_first` / `gallery_move_sample` / `gallery_stuck` / `gallery_work_focus` / `gallery_work_dwell` / `gallery_work_preview3d` / `gallery_work_preview3d_close` / `gallery_work_buy_click` / `gallery_like` / `gallery_share` / `gallery_tour_start` / `gallery_tour_end` / `gallery_guestbook_open` / `gallery_guestbook_submit` / `gallery_info_open` / `gallery_bgm_toggle` / `gallery_report_click` / `gallery_signup_cta` / `gallery_session_summary` / `embed_open_full`
+
+**出展者**
+`me_stage_view` / `me_work_upload_start` / `me_work_upload_done` / `me_work_upload_error` / `me_work_limit_hit` / `me_publish_on` / `me_publish_off` / `me_publish_blocked` / `checkout_modal_open` / `checkout_start` / `checkout_redirect` / `checkout_return` / `checkout_blocked` / `checkout_error`
+
+### 検証で確かめたこと（2026-08-06）
+
+- `track()` の GA4ガード: 不正名（ドット入り）を弾いてconsoleに出す／null・undefinedを落とす／値を100文字で切る／パラメータを25個で打ち切る。
+- 未設定時（`NEXT_PUBLIC_GA_ID` 空）は **`window.dataLayer` すら作らない**＝完全に無音。
+- 実ブラウザで Consent Mode v2 の並び順を実測: `consent default(EEA=denied, region配列あり)` → `consent default(granted)` → `js` → `config(send_page_view:false)` の順に積まれ、gtag.js のリクエストは1回。広告系は全地域 denied。
+- `page_view` は**1ページにつき1件**（`send_page_view:false` と手動送信の二重計上が無いこと）。
+- 合成データの一時ページ（検証後に削除）で `AnalyticsProbe` を実駆動: `via` が click / stepper / tour を正しく撃ち分け（**ツアー中の focus はツアーが勝つ**）、dwell は 1500ms 待ちに対し 1505ms、`gallery_session_summary` が `works_focused:3` `max_depth:3` `reached_end:true` `did_like:true` で1件。
+- **hidden時間の除外**を実測: 1秒視聴 → 3秒バックグラウンド → 1秒視聴 で、dwell は 1006ms と 1003ms の2件（計 約2秒）。素朴な実装なら約5000msと報告していた。
+- `/demo` の実ブラウザ走行で `gallery_loading_timeout`（`loaded:8 total:21`）と `gallery_loading_done` が実際に発火することを確認（ヘッドレスはソフトウェアレンダリングのため遅い）。
+
+### 残（ユーザー作業）
+
+1. **GA4プロパティを作り `NEXT_PUBLIC_GA_ID` を Vercel の環境変数に設定**（未設定の間は何も起きない）。
+2. GA4管理 → **Googleシグナルと広告向けデータ共有をオフのままにする**（privacy に「広告に使わない」と書いたため）。
+3. 管理 → カスタム定義で、使うパラメータを**イベントスコープのカスタムディメンションとして登録**（`artwork_id` `via` `stage` `surface` `kind` `reason` `result` あたり）。登録しないと標準レポートに出ない。
+4. 作品別ランキングを本気でやるなら **BigQueryエクスポートを有効化**（GA4のUIは高カーディナリティを丸める）。
+5. **同意バナーを出すか決める**。出さない限りEEA/UK/CHはクッキーレスの推計のまま。出すなら11言語のUI文言が要る（AGENTS 5.1）。

@@ -60,6 +60,7 @@ import {
   type EngagementSummary,
   type GuestbookEntry,
 } from '@/lib/engagement'
+import { track } from '@/lib/analytics'
 import { loadImage } from '@/lib/upload'
 import type { ArtworkData } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
@@ -505,6 +506,20 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   >(null)
   const owned = usePurchasedIds(user.id)
   const entitlements = getEntitlements(user.id, owned)
+  // One tap-point for all five places that open the modal (locked theme, locked
+  // layout, custom layout, capacity, video pass) — instrumenting the state they
+  // set rather than each button keeps the funnel's first step honest when a new
+  // entry point is added later.
+  useEffect(() => {
+    if (!purchaseItem) return
+    track('checkout_modal_open', {
+      kind: purchaseItem.kind,
+      item_key: purchaseItem.key,
+      from_stage: stage,
+      qty: purchaseItem.qty,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseItem])
   const [design, setDesign] = useState<DesignOverrides>(() => normalizeDesignOverrides(row.design_overrides))
   const [logoUploading, setLogoUploading] = useState(false)
   // Ambient BGM (§P3-12): the gallery row's bgm_url is the source of truth; mirror it locally
@@ -684,12 +699,20 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
 
   async function togglePublic() {
     if (!row.is_public && cloudArtworks.length === 0) {
+      // The single most common reason a finished-looking room never goes live.
+      track('me_publish_blocked', { reason: 'no_works' })
       alert(t('me.needWorkAlert'))
       return
     }
+    const going = !row.is_public
     await run(row.is_public ? 'Making private' : 'Publishing', async () =>
-      setGalleryPublic(row, !row.is_public, rowToSettings(row, await mergedOverrides()), cloudArtworks)
+      setGalleryPublic(row, going, rowToSettings(row, await mergedOverrides()), cloudArtworks)
     )
+    track(going ? 'me_publish_on' : 'me_publish_off', {
+      works: cloudArtworks.length,
+      theme: row.theme,
+      layout: row.layout,
+    })
   }
 
   // Quick space change without opening the editor. Theme changes are cosmetic;
@@ -861,6 +884,9 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   async function onFiles(files: FileList | null) {
     if (!files?.length) return
     setUploading(true)
+    const startedAt = Date.now()
+    const bytes = Array.from(files).reduce((n, f) => n + f.size, 0)
+    track('me_work_upload_start', { count: files.length, bytes })
     try {
       // Keep the library within the room's cap: a multi-file drop must not push past
       // work_cap, or the extra works can't hang (placeWorks caps at the plan) and would
@@ -881,10 +907,18 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         await uploadArtwork({ ownerId: user.id, file: f, title })
         room--
       }
-      if (skipped > 0) alert(t('me.capReachedSkipped', { cap: row.work_cap }))
+      if (skipped > 0) {
+        // Hitting the cap is the moment the capacity add-on has real demand.
+        track('me_work_limit_hit', { cap: row.work_cap, skipped, attempted: files.length })
+        alert(t('me.capReachedSkipped', { cap: row.work_cap }))
+      }
+      track('me_work_upload_done', { count: files.length - skipped, bytes, ms: Date.now() - startedAt })
       await refreshCloud()
     } catch (e) {
-      alert(t('me.uploadFailed', { msg: String(e instanceof Error ? e.message : e) }))
+      const msg = String(e instanceof Error ? e.message : e)
+      // Upload failure is the most damaging silent exit in the whole product.
+      track('me_work_upload_error', { count: files.length, bytes, reason: msg })
+      alert(t('me.uploadFailed', { msg }))
     } finally {
       setUploading(false)
     }
@@ -1158,7 +1192,10 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
           type="button"
           className={`me-stage${stage === key ? ' active' : ''}`}
           aria-current={stage === key ? 'page' : undefined}
-          onClick={() => setStage(key)}
+          onClick={() => {
+            track('me_stage_view', { stage: key, from: stage })
+            setStage(key)
+          }}
         >
           {label}
           {count != null && <span className="me-stage-count">{count}</span>}
@@ -2358,6 +2395,9 @@ export default function MePage() {
     const purchase = params.get('purchase')
     if (purchase === 'success' || purchase === 'cancelled') {
       setPurchaseReturn(purchase)
+      // Closes the funnel opened by checkout_modal_open → checkout_redirect.
+      // `purchases` only ever records the successes; this also sees the give-ups.
+      track('checkout_return', { result: purchase })
       window.history.replaceState(null, '', '/me')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

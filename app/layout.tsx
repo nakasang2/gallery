@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Analytics from '@/components/Analytics'
 import { I18nProvider } from '@/components/I18nProvider'
 import { getDictionary, LOCALE_META } from '@/lib/i18n'
 import { getRequestLocale } from '@/lib/i18n/server'
@@ -67,6 +68,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <I18nProvider locale={locale} dictionary={dictionary}>
           {children}
         </I18nProvider>
+        {/* Renders nothing unless NEXT_PUBLIC_GA_ID is set, so local dev, preview
+            deploys and forks send no data (components/Analytics). */}
+        <Analytics />
       </body>
     </html>
   )

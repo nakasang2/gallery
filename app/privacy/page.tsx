@@ -25,7 +25,8 @@ export default function PrivacyPage() {
           <p><strong>If you have an account:</strong> your email address, display name, and the optional username, bio, avatar and social links you add; the works you upload and their titles, captions and settings; your galleries; and a record of any upgrade you buy.</p>
           <p><strong>If you visit someone&apos;s gallery:</strong> a count that a visit happened, any hearts you leave, and the name and message you type into a guestbook if you choose to. We do not ask visitors to sign in and we do not build profiles of them.</p>
           <p><strong>Automatically:</strong> our hosting and CDN providers process technical request data, including IP addresses, to serve the site and protect it from abuse.</p>
-          <p>We do not use advertising trackers or third-party analytics.</p>
+          <p><strong>Analytics:</strong> we use Google Analytics to understand how the service is used — which pages and galleries are opened, how long a 3D room takes to load and whether it loaded at all, which works in a gallery are opened and for how long, and which buttons are used. This is measured per visit, not per person: we do not give Google your name, email address or account ID, we do not use Google Analytics for advertising, and advertising features and data sharing are turned off. In the UK, the EEA and Switzerland, analytics storage is switched off by default, so no analytics cookie is set unless you allow it.</p>
+          <p>We do not use advertising trackers, and we do not sell or share this data for advertising.</p>
 
           <h2>2. Why we use it, and on what basis</h2>
           <p>To run the service: signing you in, storing and serving your works, rendering your public pages, and showing artists how many people visited (performance of our contract with you). To keep the service secure and lawful, and to act on reports of infringing or illegal content (our legitimate interests, and our legal obligations). To take payment for upgrades (performance of contract). Where we ask for consent — such as reading a caption aloud — you can withdraw it at any time.</p>
@@ -40,6 +41,7 @@ export default function PrivacyPage() {
             <li><strong>Vercel</strong> — hosting of the website itself.</li>
             <li><strong>Stripe</strong> — payment processing. Stripe collects your payment details directly; we never receive or store your card number.</li>
             <li><strong>OpenAI</strong> — if a caption is read aloud, that caption text is sent to OpenAI to generate the audio. Nothing else about you is sent, and your images are never sent.</li>
+            <li><strong>Google Analytics</strong> — usage measurement, as described in section 1.</li>
           </ul>
 
           <h2>4. Where your data goes</h2>
@@ -55,7 +57,8 @@ export default function PrivacyPage() {
           <p>You can ask us to give you a copy of your data, correct it, delete it, restrict or object to how we use it, or provide it in a portable form. Most of this you can do yourself in the dashboard. For anything else, email us and we will respond within 30 days. If you are in the UK or EEA and you think we have got something wrong, you can also complain to your local data protection authority; in Japan, to the Personal Information Protection Commission.</p>
 
           <h2>8. Cookies and local storage</h2>
-          <p>We use browser storage for your sign-in session, to remember which works you have already hearted, and — in guest mode — to hold works you are exhibiting locally before you have an account. These are necessary for the service to function; we set no advertising or analytics cookies.</p>
+          <p>We use browser storage for your sign-in session, to remember which works you have already hearted, and — in guest mode — to hold works you are exhibiting locally before you have an account. These are necessary for the service to function.</p>
+          <p>Google Analytics sets its own cookie to tell one visit apart from the next. In the UK, the EEA and Switzerland this is switched off by default and no analytics cookie is set unless you allow it; elsewhere it is on. We set no advertising cookies anywhere.</p>
 
           <h2>9. Children</h2>
           <p>Xibit360 is for people aged 18 and over, and we do not knowingly collect data from children. If you believe a child has created an account, please tell us and we will remove it.</p>
