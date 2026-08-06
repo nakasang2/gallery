@@ -538,7 +538,7 @@ export const es: PartialDictionary = {
     exhibitions: 'Exposiciones', noGalleries: 'Todavía no hay galerías.',
     colTitle: 'Título', colArtist: 'Artista', colState: 'Estado', colVisits: 'Visitas',
     colTheme: 'Tema', colUpdated: 'Actualizada',
-    noUsers: 'Todavía no hay usuarios.', colUsername: 'Usuario', colPackages: 'Mejoras',
+    noUsers: 'Todavía no hay usuarios.', colUsername: 'Usuario', colPaid: 'Pagado', colPackages: 'Mejoras',
     unlockFor: 'Desbloquear para un usuario:', selectUser: 'Elegir usuario…', grant: 'Conceder',
   },
   adminUi: {

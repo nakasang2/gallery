@@ -11,6 +11,7 @@ import {
   revokeEntitlement,
   setReportStatus,
   setGalleryPublic,
+  sumByCurrency,
   type AdminOverview,
 } from '@/lib/admin'
 import { useT } from '@/components/I18nProvider'
@@ -313,18 +314,31 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                   <th style={th}>{t('admin.colUsername')}</th>
                   <th style={th}>{t('admin.galleries')}</th>
                   <th style={th}>{t('admin.works')}</th>
+                  <th style={th}>{t('admin.colPaid')}</th>
                   <th style={th}>{t('admin.colPackages')}</th>
                 </>
               }
             >
               {data.users.map((u) => {
                 const purchases = purchasesByUser.get(u.id) ?? []
+                const paid = sumByCurrency(purchases)
                 return (
                   <tr key={u.id}>
                     <td style={cell}>{u.displayName}</td>
                     <td style={cell}>{u.username ? `@${u.username}` : '—'}</td>
                     <td style={cell}>{u.galleryCount}{u.publicCount ? ` ${t('adminUi.publicCount', { count: u.publicCount })}` : ''}</td>
                     <td style={cell}>{u.workCount}</td>
+                    {/* One figure per currency, exactly like the house total above:
+                        with a single currency (the usual case) it reads as one
+                        number, and a buyer charged in two currencies gets both
+                        side by side rather than a sum that was never charged. */}
+                    <td style={cell}>
+                      {paid.length === 0 ? (
+                        <span style={{ color: 'var(--muted)' }}>—</span>
+                      ) : (
+                        paid.map((r) => money(r.amount, r.currency)).join(' · ')
+                      )}
+                    </td>
                     <td style={cell}>
                       {purchases.length === 0 ? (
                         <span style={{ color: 'var(--muted)' }}>{t('common.free')}</span>

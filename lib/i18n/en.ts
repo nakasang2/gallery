@@ -579,6 +579,7 @@ export const en = {
     colUpdated: 'Updated',
     noUsers: 'No users yet.',
     colUsername: 'Username',
+    colPaid: 'Paid',
     colPackages: 'Packages',
     unlockFor: 'Unlock for a user:',
     selectUser: 'Select user…',

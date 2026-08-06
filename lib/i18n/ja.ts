@@ -555,6 +555,7 @@ export const ja: Dictionary = {
     colUpdated: '更新',
     noUsers: 'まだユーザーはいません。',
     colUsername: 'ユーザー名',
+    colPaid: '課金額',
     colPackages: '所有',
     unlockFor: 'ユーザーに付与：',
     selectUser: 'ユーザーを選択…',

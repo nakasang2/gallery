@@ -56,6 +56,36 @@ export interface AdminReportRow {
   match: { galleryId: string; username: string; slug: string; isPublic: boolean } | null
 }
 
+/** One currency's worth of money. Never collapse several of these into one
+ *  number: `500` is $5.00 in usd and ¥500 in jpy, so a cross-currency sum is a
+ *  value that was never charged to anyone (migration 0031). */
+export interface CurrencyTotal {
+  currency: string
+  amount: number
+  count: number
+}
+
+/**
+ * Total a set of purchases, split by the currency each was actually billed in.
+ *
+ * Used for the house revenue figure AND for what a single artist has paid, so
+ * the "don't add yen to dollars" rule lives in exactly one place. Rows with a
+ * null amount contribute 0 on purpose: the Theme Collection writes its price on
+ * the collection row and null on each granted theme, so counting those would
+ * bill the same purchase twice (app/api/stripe/webhook).
+ */
+export function sumByCurrency(rows: { amount: number | null; currency: string }[]): CurrencyTotal[] {
+  const by = new Map<string, CurrencyTotal>()
+  for (const r of rows) {
+    const currency = (r.currency || 'usd').toLowerCase()
+    const c = by.get(currency) ?? { currency, amount: 0, count: 0 }
+    c.count += 1
+    c.amount += r.amount ?? 0
+    by.set(currency, c)
+  }
+  return [...by.values()].sort((a, b) => b.amount - a.amount)
+}
+
 export interface AdminOverview {
   users: AdminUserRow[]
   galleries: AdminGalleryRow[]
@@ -71,7 +101,7 @@ export interface AdminOverview {
   reports: AdminReportRow[]
   /** One total per currency actually charged. Summing across currencies would
    *  be meaningless, so the UI shows them side by side (migration 0031). */
-  revenueByCurrency: { currency: string; amount: number; count: number }[]
+  revenueByCurrency: CurrencyTotal[]
   revenueByKind: { key: string; currency: string; count: number; amount: number }[]
 }
 
@@ -294,21 +324,15 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
   // Group by SKU *and* currency: 500 means $5.00 in usd and ¥500 in jpy, so a
   // single sum across currencies would be a made-up number (migration 0031).
   const byKind = new Map<string, { key: string; currency: string; count: number; amount: number }>()
-  const byCurrency = new Map<string, { currency: string; amount: number; count: number }>()
   for (const p of purchaseRows) {
-    const amt = p.amount ?? 0
     const kindKey = `${p.sku || p.kind}|${p.currency}`
     const k = byKind.get(kindKey) ?? { key: p.sku || p.kind, currency: p.currency, count: 0, amount: 0 }
     k.count += 1
-    k.amount += amt
+    k.amount += p.amount ?? 0
     byKind.set(kindKey, k)
-    const c = byCurrency.get(p.currency) ?? { currency: p.currency, amount: 0, count: 0 }
-    c.count += 1
-    c.amount += amt
-    byCurrency.set(p.currency, c)
   }
   const revenueByKind = [...byKind.values()].sort((a, b) => b.amount - a.amount)
-  const revenueByCurrency = [...byCurrency.values()].sort((a, b) => b.amount - a.amount)
+  const revenueByCurrency = sumByCurrency(purchaseRows)
 
   // Reports name their target in free text ("@me/room", a full URL, sometimes just
   // a title). Resolve what we can to a real gallery so the queue can act on it.

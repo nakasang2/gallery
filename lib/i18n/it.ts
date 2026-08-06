@@ -537,7 +537,7 @@ export const it: PartialDictionary = {
     exhibitions: 'Mostre', noGalleries: 'Nessuna galleria per ora.',
     colTitle: 'Titolo', colArtist: 'Artista', colState: 'Stato', colVisits: 'Visite',
     colTheme: 'Tema', colUpdated: 'Modificata',
-    noUsers: 'Nessun utente per ora.', colUsername: 'Nome utente', colPackages: 'Estensioni',
+    noUsers: 'Nessun utente per ora.', colUsername: 'Nome utente', colPaid: 'Pagato', colPackages: 'Estensioni',
     unlockFor: 'Sbloccare per un utente:', selectUser: 'Scegli un utente…', grant: 'Concedi',
   },
   adminUi: {

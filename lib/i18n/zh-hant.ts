@@ -537,7 +537,7 @@ export const zhHant: PartialDictionary = {
     exhibitions: '展覽', noGalleries: '還沒有展覽。',
     colTitle: '標題', colArtist: '作者', colState: '狀態', colVisits: '造訪',
     colTheme: '主題', colUpdated: '更新',
-    noUsers: '還沒有使用者。', colUsername: '使用者名稱', colPackages: '方案',
+    noUsers: '還沒有使用者。', colUsername: '使用者名稱', colPaid: '已付金額', colPackages: '方案',
     unlockFor: '為某個使用者開通：', selectUser: '選擇使用者…', grant: '開通',
   },
   adminUi: {

@@ -539,7 +539,7 @@ export const zhHans: PartialDictionary = {
     exhibitions: '展览', noGalleries: '还没有展览。',
     colTitle: '标题', colArtist: '作者', colState: '状态', colVisits: '访问',
     colTheme: '主题', colUpdated: '更新',
-    noUsers: '还没有用户。', colUsername: '用户名', colPackages: '套餐',
+    noUsers: '还没有用户。', colUsername: '用户名', colPaid: '已付金额', colPackages: '套餐',
     unlockFor: '给某个用户开通：', selectUser: '选择用户…', grant: '开通',
   },
   adminUi: {

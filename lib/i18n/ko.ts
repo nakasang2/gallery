@@ -603,7 +603,7 @@ export const ko: PartialDictionary = {
     exhibitions: '전시', noGalleries: '아직 전시가 없습니다.',
     colTitle: '제목', colArtist: '작가', colState: '상태', colVisits: '방문',
     colTheme: '테마', colUpdated: '수정',
-    noUsers: '아직 사용자가 없습니다.', colUsername: '사용자명', colPackages: '패키지',
+    noUsers: '아직 사용자가 없습니다.', colUsername: '사용자명', colPaid: '결제액', colPackages: '패키지',
     unlockFor: '사용자에게 부여:', selectUser: '사용자 선택…', grant: '부여',
   },
   adminUi: {

@@ -538,7 +538,7 @@ export const id: PartialDictionary = {
     exhibitions: 'Pameran', noGalleries: 'Belum ada galeri.',
     colTitle: 'Judul', colArtist: 'Perupa', colState: 'Keadaan', colVisits: 'Kunjungan',
     colTheme: 'Tema', colUpdated: 'Diperbarui',
-    noUsers: 'Belum ada pengguna.', colUsername: 'Nama pengguna', colPackages: 'Tambahan',
+    noUsers: 'Belum ada pengguna.', colUsername: 'Nama pengguna', colPaid: 'Dibayar', colPackages: 'Tambahan',
     unlockFor: 'Buka untuk pengguna:', selectUser: 'Pilih pengguna…', grant: 'Berikan',
   },
   adminUi: {
