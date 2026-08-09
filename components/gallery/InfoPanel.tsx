@@ -3,6 +3,7 @@
 // the board's counterpart to the per-work ArtworkPanel. Reuses the .panel drawer.
 import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
+import { roomExhibitor } from '@/lib/roomPlan'
 import { DEFAULT_TITLE_TEXT } from './textures'
 import { useT } from '@/components/I18nProvider'
 
@@ -24,10 +25,13 @@ export default function InfoPanel() {
   let artistBio = ''
 
   if (visitor) {
-    title = isPlaceholderTitle(visitor.title) ? visitor.ownerName : visitor.title
-    exhibitor = visitor.ownerName
+    // Same derivation as the board it belongs to (lib/roomPlan.roomExhibitor): the
+    // artist when this room is theirs alone, the collective when the walls are mixed.
+    const by = roomExhibitor(visitor)
+    title = isPlaceholderTitle(visitor.title) ? by.name : visitor.title
+    exhibitor = by.name
     statement = visitor.statement
-    artistBio = visitor.ownerBio
+    artistBio = by.bio
   } else if (user && myGallery) {
     title = isPlaceholderTitle(myGallery.title) ? displayName || 'Your exhibition' : myGallery.title
     exhibitor = displayName || ''

@@ -26,6 +26,31 @@ function missingLightColumn(e: { code?: string; message?: string } | null): bool
   return !!e && (e.code === 'PGRST204' || e.code === '42703' || /light_override/.test(e.message ?? ''))
 }
 
+/** The `placements → artworks → profiles` embed. Named once because the fallback query
+ *  below has to be the same minus the profile join, and a typo between the two would
+ *  silently credit the wrong person. */
+const ARTWORK_WITH_ARTIST = 'artworks (*, profiles (username, display_name, bio, avatar_url, sns))'
+
+/** The shape the embed above adds to each artwork row. */
+interface ArtistEmbed {
+  username: string | null
+  display_name: string | null
+  bio: string | null
+  avatar_url: string | null
+  sns: unknown
+}
+
+/** An artist with at least one work hanging in a room. In a solo show there is exactly
+ *  one and it is the room's owner; a joint exhibition has several. */
+export interface PublicArtist {
+  /** Null only if the artist never set a username (so no `/@handle` to link to). */
+  username: string | null
+  name: string
+  bio: string
+  avatarUrl: string | null
+  sns: SnsLinks
+}
+
 /** One public room of the same artist, as the doors and the room list need it. */
 export interface SiblingRoom {
   slug: string
@@ -84,6 +109,12 @@ export interface PublicExhibition {
    *  page of its own and canonicalises to itself (docs/DECISIONS 2026-07-30 SEO).
    *  Fails soft to true: the worst case is a self-canonical page. */
   isMain: boolean
+  /** Every artist with a work hanging here, keyed by profile id (`ArtworkData.ownerId`).
+   *  The name plates already carry the credit; this is for what a NAME alone cannot
+   *  give — the bio, handle, avatar and links the title wall and the structured data
+   *  need. Empty on a database whose PostgREST could not resolve the profile embed, in
+   *  which case every work is credited to the room's owner (the pre-joint behaviour). */
+  artists: Record<string, PublicArtist>
   artworks: ArtworkData[]
 }
 
@@ -335,11 +366,26 @@ async function fetchPublicExhibitionInner(
     | null
   if (!gallery) return null
 
+  // Each work is embedded WITH ITS OWN OWNER's profile. A room can hold works by
+  // several people (a joint exhibition, once invites are wired — migration 0037), and
+  // the name plate has to credit the artist rather than whoever owns the room. The
+  // embed rides the `artworks.owner_id → profiles` foreign key and needs no extra
+  // policy: `profiles_select_all` is `using (true)`.
   let pRes = await supabase!
     .from('placements')
-    .select('slot_index, frame_override, mat_override, hanging_override, caption_override, light_override, artworks (*)')
+    .select(`slot_index, frame_override, mat_override, hanging_override, caption_override, light_override, ${ARTWORK_WITH_ARTIST}`)
     .eq('gallery_id', gallery.id)
     .order('slot_index', { ascending: true })
+  if (pRes.error) {
+    // The nested profile embed is the only new thing here; if PostgREST cannot resolve
+    // it (stale schema cache), fall back to the flat shape and credit the room's owner
+    // for every work — what this page did before joint exhibitions existed.
+    pRes = (await supabase!
+      .from('placements')
+      .select('slot_index, frame_override, mat_override, hanging_override, caption_override, light_override, artworks (*)')
+      .eq('gallery_id', gallery.id)
+      .order('slot_index', { ascending: true })) as unknown as typeof pRes
+  }
   if (pRes.error && missingLightColumn(pRes.error)) {
     // Migration 0035 (light_override) not applied — the other four axes must survive
     pRes = (await supabase!
@@ -365,6 +411,9 @@ async function fetchPublicExhibitionInner(
   const captionOverrides: Record<string, string> = {}
   const lightOverrides: Record<string, string> = {}
   const artworks: ArtworkData[] = []
+  // Collected as the works are read, so it holds exactly the artists with something on
+  // these walls — not everyone the owner ever invited.
+  const artists: Record<string, PublicArtist> = {}
   // Rebuild the manual arrangement (§11.13) from each placement's slot_index, so a
   // published room hangs works on the same walls (and keeps the same empty slots) the
   // owner arranged — not just packed from slot 0.
@@ -378,9 +427,23 @@ async function fetchPublicExhibitionInner(
     light_override?: string | null
     artworks: unknown
   }>) {
-    const row = p.artworks as Parameters<typeof rowToArtwork>[0] | null
+    const row = p.artworks as (Parameters<typeof rowToArtwork>[0] & { profiles?: ArtistEmbed }) | null
     if (!row) continue
-    artworks.push(rowToArtwork(row, ownerName))
+    // Credit the WORK's owner. `profiles` is absent when the embed could not be
+    // resolved (the fallback query above), and then the room's owner is the honest
+    // answer: every work in a room predating joint exhibitions is the owner's own.
+    const embed = row.profiles ?? null
+    const artistName = embed ? embed.display_name || embed.username || ownerName : ownerName
+    if (embed && row.owner_id && !artists[row.owner_id]) {
+      artists[row.owner_id] = {
+        username: embed.username ?? null,
+        name: artistName,
+        bio: embed.bio ?? '',
+        avatarUrl: embed.avatar_url ?? null,
+        sns: readSns(embed.sns),
+      }
+    }
+    artworks.push(rowToArtwork(row, artistName))
     if (typeof p.slot_index === 'number' && p.slot_index >= 0) arrangement[p.slot_index] = row.id
     if (p.frame_override) frameOverrides[row.id] = p.frame_override
     if (p.mat_override) matOverrides[row.id] = p.mat_override
@@ -466,6 +529,7 @@ async function fetchPublicExhibitionInner(
     publicGalleryCount,
     rooms,
     isMain,
+    artists,
     frameOverrides,
     matOverrides,
     hangingOverrides,
@@ -589,6 +653,10 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       // to ship. The room list in the HUD hides itself on an empty list.
       rooms: [],
       isMain: true,
+      // An owner previewing their own draft: every work here is theirs, so the room's
+      // owner IS the artist and the map adds nothing. `roomExhibitor` falls back to the
+      // account for an empty map, which is the same answer.
+      artists: {},
       frameOverrides,
       matOverrides,
       hangingOverrides,

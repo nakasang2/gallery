@@ -9,7 +9,15 @@ type StyleFn = (ctx: CanvasRenderingContext2D, w: number, h: number, pal: string
 export interface ArtworkData {
   id: string
   title: string
+  /** Who made it — the ARTWORK's own owner, not the room's. In a joint exhibition a
+   *  room holds works by several people, so this differs per work. The 3D name plate,
+   *  the artwork drawer, the printable catalogue and the structured data all read it. */
   artist: string
+  /** The artist's profile id. Present on works loaded from the cloud; absent on the
+   *  built-in demo collection. Two jobs: grouping works by artist (the title wall
+   *  derives its exhibitor from it — lib/roomPlan.roomExhibitor) and looking the
+   *  artist up in `PublicExhibition.artists` for their bio, handle and links. */
+  ownerId?: string
   year: number
   desc: string
   tags: string[]

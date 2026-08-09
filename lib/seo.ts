@@ -32,7 +32,7 @@ import { allSnsUrls, type SnsLinks } from './sns'
 import { ARTICLE_LOCALE, fetchArticle, type Article, type ArticleCard } from './blog'
 import { LOCALE_META, localePath } from './i18n'
 import { siteUrl } from './publicUrl'
-import { publicExhibitionWorks } from './roomPlan'
+import { publicExhibitionWorks, roomExhibitor } from './roomPlan'
 import type { ArtworkData } from './artworks'
 
 /** Per-request memoised reads. `generateMetadata` and the page body both need the
@@ -149,12 +149,12 @@ function workImageUrl(art: ArtworkData): string | undefined {
   return absoluteMedia(art.kind === 'video' ? art.poster ?? art.src : art.src)
 }
 
-function imageNode(art: ArtworkData, url: string, pageUrl: string, personId: string): Node {
+function imageNode(art: ArtworkData, url: string, pageUrl: string, creatorId: string): Node {
   return {
     '@type': 'ImageObject',
     '@id': `${pageUrl}#image-${art.id}`,
     contentUrl: url,
-    creator: { '@id': personId },
+    creator: { '@id': creatorId },
     creditText: art.artist,
     ...(art.year ? { copyrightNotice: `© ${art.year} ${art.artist}` } : {}),
   }
@@ -167,7 +167,9 @@ function imageNode(art: ArtworkData, url: string, pageUrl: string, personId: str
  *  No `offers`: `price` is free text the artist typed in whatever currency and
  *  format they like ("Ask", "¥50,000"), and an Offer needs a machine-readable
  *  price. Claiming one from that string would be inventing data. */
-function artworkNode(art: ArtworkData, pageUrl: string, personId: string): Node {
+/** @param creatorId the @id of the person who MADE this work — not the page's subject.
+ *  They differ in a joint exhibition, where one room holds several artists' work. */
+function artworkNode(art: ArtworkData, pageUrl: string, creatorId: string): Node {
   const image = workImageUrl(art)
   const cm = (v: number) => ({ '@type': 'QuantitativeValue', value: v, unitCode: 'CMT' })
   return {
@@ -179,8 +181,8 @@ function artworkNode(art: ArtworkData, pageUrl: string, personId: string): Node 
     ...(art.medium ? { artMedium: art.medium } : {}),
     ...(art.widthCm ? { width: cm(art.widthCm) } : {}),
     ...(art.heightCm ? { height: cm(art.heightCm) } : {}),
-    ...(image ? { image: imageNode(art, image, pageUrl, personId) } : {}),
-    creator: { '@id': personId },
+    ...(image ? { image: imageNode(art, image, pageUrl, creatorId) } : {}),
+    creator: { '@id': creatorId },
     isPartOf: { '@id': `${pageUrl}#page` },
   }
 }
@@ -314,17 +316,40 @@ export function articlesIndexJsonLd(list: ArticleCard[]): Node {
  *  claiming one would trade a real omission for a wrong answer. */
 export function exhibitionJsonLd(ex: PublicExhibition): Node {
   const pageUrl = abs(exhibitionPath(ex))
-  const person = personNode({
-    username: ex.username,
-    displayName: ex.ownerName,
-    bio: ex.ownerBio,
-    avatarUrl: ex.ownerAvatar,
-    sns: ex.ownerSns,
-  })
-  const personId = person['@id'] as string
   // Slot order — the same order the room hangs them in, and the same list the
   // plain-HTML fallback prints. Works past the room's capacity are not exhibited.
   const works = publicExhibitionWorks(ex)
+  // Who the PAGE is about: the exhibitor, derived from whose work hangs here (the
+  // artist for a room that is theirs alone, the collective when mixed).
+  const by = roomExhibitor(ex)
+  const person = personNode({
+    username: by.username ?? ex.username,
+    displayName: by.name,
+    bio: by.bio,
+    avatarUrl: by.avatarUrl,
+    sns: by.sns,
+  })
+  const personId = person['@id'] as string
+  // A Person node for every OTHER artist with work on these walls, so each work credits
+  // the person who actually made it. One `creator` for the whole page used to send every
+  // work in a joint room to the room's owner — which is a false authorship claim, and
+  // also throws away the reason an artist would want to be in a group show: their own
+  // name in the graph. Keyed by profile id; `personNode` @ids by `/@handle`, so two
+  // artists can never collide and the same artist across rooms is one entity.
+  const creators = new Map<string, Node>()
+  for (const w of works) {
+    const a = w.ownerId ? ex.artists[w.ownerId] : undefined
+    if (!w.ownerId || !a || !a.username || creators.has(w.ownerId)) continue
+    creators.set(
+      w.ownerId,
+      personNode({ username: a.username, displayName: a.name, bio: a.bio, avatarUrl: a.avatarUrl, sns: a.sns })
+    )
+  }
+  /** The @id to credit a work to: its own artist when we have one, else the page's. */
+  const creatorIdFor = (w: (typeof works)[number]): string =>
+    (w.ownerId && (creators.get(w.ownerId)?.['@id'] as string | undefined)) || personId
+  // The exhibitor's own node is already in the graph as `person`; drop the duplicate.
+  const otherCreators = [...creators.values()].filter((n) => n['@id'] !== personId)
   // `primaryImageOfPage` expects an ImageObject, NOT a URL — unlike `image`, which
   // takes either. Handing it a bare string made validators read the URL as the
   // object's `name`, so the cover was the one image on the page that did not count
@@ -363,10 +388,11 @@ export function exhibitionJsonLd(ex: PublicExhibition): Node {
         itemListElement: works.map((art, i) => ({
           '@type': 'ListItem',
           position: i + 1,
-          item: artworkNode(art, pageUrl, personId),
+          item: artworkNode(art, pageUrl, creatorIdFor(art)),
         })),
       },
       person,
+      ...otherCreators,
       website(),
       // The front-door room IS `/@name`, so its trail stops there; a sub-room adds
       // itself as a third crumb under the artist.

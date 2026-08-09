@@ -12,7 +12,7 @@ import { ARTWORKS, type ArtworkData } from './artworks'
 import { resolveLayout } from './presets'
 import { effectiveSlotCount } from './limits'
 import { placeWorks, toPlacement, balancedFillOrder, type Placement } from './arrangement'
-import type { PublicExhibition } from './publish'
+import type { PublicArtist, PublicExhibition } from './publish'
 import type { Settings } from './store'
 
 /** True when this scene is the guest sample show (no own works, demo collection on):
@@ -88,6 +88,37 @@ export function visitorSettings(ex: PublicExhibition): Settings {
     designOverrides: ex.designOverrides,
     arrangement: ex.arrangement,
   }
+}
+
+/**
+ * Whose name the room's title wall carries.
+ *
+ * Derived from the works actually hanging rather than configured, so it is right for
+ * every shape a show can take without the owner declaring which shape it is
+ * (ユーザー決定 2026-08-09):
+ *   - one room per artist  → that artist (walk through a door, see whose room it is)
+ *   - mixed hanging        → the account (the collective), with each plate crediting its own artist
+ *   - themed rooms, mixed  → the account
+ *   - an artist's own show  → themselves, exactly as before
+ *   - an empty room        → the account
+ *
+ * "One artist" means one DISTINCT owner among the hanging works. A room with a single
+ * guest work in it is mixed, which is the honest reading.
+ */
+export function roomExhibitor(ex: PublicExhibition): PublicArtist {
+  const account: PublicArtist = {
+    username: ex.username,
+    name: ex.ownerName,
+    bio: ex.ownerBio,
+    avatarUrl: ex.ownerAvatar,
+    sns: ex.ownerSns,
+  }
+  const owners = new Set<string>()
+  for (const w of publicExhibitionWorks(ex)) if (w.ownerId) owners.add(w.ownerId)
+  if (owners.size !== 1) return account
+  // The map is empty when the profile embed could not be resolved; the account is then
+  // the only name we have, and it is also the correct one for a solo room.
+  return ex.artists[[...owners][0]] ?? account
 }
 
 /** The works actually on the walls of a published room, in slot order. What both the

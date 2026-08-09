@@ -9,6 +9,7 @@ import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { useGallery, useSettings } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
+import { roomExhibitor } from '@/lib/roomPlan'
 import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll, type TitleWallText } from './textures'
 import { walkRef } from '@/lib/controller'
 import { loadImage } from '@/lib/upload'
@@ -53,15 +54,19 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
   // Whose board is this?
   const { text, avatarUrl } = useMemo((): { text: TitleWallText; avatarUrl: string | null } => {
     if (visitor) {
+      // Not `visitor.ownerName` — the board names whoever is EXHIBITING in this room,
+      // which in a joint show is the artist when the room is theirs alone and the
+      // collective when the walls are mixed (lib/roomPlan.roomExhibitor).
+      const by = roomExhibitor(visitor)
       return {
         text: boardText({
           title: visitor.title,
-          name: visitor.ownerName,
-          username: visitor.username,
+          name: by.name,
+          username: by.username,
           statement: visitor.statement,
-          bio: visitor.ownerBio,
+          bio: by.bio,
         }),
-        avatarUrl: visitor.ownerAvatar,
+        avatarUrl: by.avatarUrl,
       }
     }
     if (user && myGallery) {

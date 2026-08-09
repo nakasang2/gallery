@@ -120,12 +120,17 @@ async function deleteArtworkFiles(artworkId: string): Promise<void> {
   }
 }
 
+/** @param artistName the name to credit — the ARTWORK's own owner. Callers that hold a
+ *  room rather than a library must pass the work's artist, not the room owner's name:
+ *  a joint exhibition hangs several people's work on one wall, and this string is what
+ *  the name plate prints. */
 export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
   const video = row.kind === 'video'
   return {
     id: row.id,
     title: row.title,
     artist: artistName,
+    ownerId: row.owner_id,
     year: row.year ?? new Date(row.created_at).getFullYear(),
     desc: row.description,
     tags: row.tags.length ? row.tags : [video ? 'Video' : 'Exhibited'],
