@@ -91,11 +91,31 @@ async function putFiles(specs: UploadSpec[]): Promise<string[]> {
     uploads.map(async ({ url }, i) => {
       // Content-Length is set by the browser from the Blob and was signed into
       // the URL, so a mismatch here would be rejected by R2.
-      const put = await fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': specs[i].contentType },
-        body: specs[i].body,
-      })
+      let put: Response
+      try {
+        put = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': specs[i].contentType },
+          body: specs[i].body,
+        })
+      } catch (e) {
+        // **ここは唯一のクロスオリジン通信**（署名付きURLの相手は R2 の S3 エンドポイント。
+        // 同一オリジンの `/api/upload-url` とは別）。R2 のCORSは**書き込みを自分の
+        // オリジンだけに限定**しているので（DECISIONS 2026-07-27）、許可されていない
+        // オリジン ── Vercel のプレビューURLなど ── から呼ぶと preflight が落ち、
+        // fetch は `TypeError: Failed to fetch` を投げる。
+        //
+        // 素のまま見せると「Failed to fetch」だけが画面に出て**何も分からない**
+        // （ユーザーがプレビュー環境で踏んだ 2026-08-09）。何が起きたかと、
+        // どのオリジンを許可すればよいかを文面に入れる。
+        const origin = typeof location === 'undefined' ? '(unknown)' : location.origin
+        throw new Error(
+          `Could not reach the storage service from ${origin}. ` +
+            `If this is a preview or local build, that origin is probably not in the ` +
+            `R2 bucket's CORS allow-list for PUT (writes are limited to known origins). ` +
+            `Original error: ${e instanceof Error ? e.message : String(e)}`
+        )
+      }
       if (!put.ok) throw new Error(`Upload failed (${put.status}).`)
     })
   )
