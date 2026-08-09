@@ -1,5 +1,5 @@
-// One room of a subdomain-served exhibition: `tokyo-expo.xibit360.art/painting`.
-// See ../page.tsx for why this route exists and why it has no listing fallback.
+// One room of an exhibition: `xibit360.art/expo/tokyo-geidai-2026/painting`.
+// See ../page.tsx for why this URL shape was chosen and why there is no listing fallback.
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import VisitorGallery from '@/components/gallery/VisitorGallery'
@@ -11,13 +11,13 @@ import {
   exhibitionUrl,
   getExhibition,
 } from '@/lib/seo'
-import { getUsernameForSubdomain } from '@/lib/expoResolve'
+import { getUsernameForExpoSlug } from '@/lib/expoResolve'
 
 export const dynamic = 'force-dynamic'
 
-async function resolve(params: Promise<{ sub: string; room: string }>) {
-  const { sub, room } = await params
-  const username = await getUsernameForSubdomain(sub)
+async function resolve(params: Promise<{ slug: string; room: string }>) {
+  const { slug, room } = await params
+  const username = await getUsernameForExpoSlug(slug)
   if (!username) return null
   return (await getExhibition(username, room)) ?? null
 }
@@ -25,7 +25,7 @@ async function resolve(params: Promise<{ sub: string; room: string }>) {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ sub: string; room: string }>
+  params: Promise<{ slug: string; room: string }>
 }): Promise<Metadata> {
   const ex = await resolve(params)
   if (!ex) return {}
@@ -45,7 +45,7 @@ export default async function ExpoRoomPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ sub: string; room: string }>
+  params: Promise<{ slug: string; room: string }>
   searchParams: Promise<{ embed?: string }>
 }) {
   const ex = await resolve(params)

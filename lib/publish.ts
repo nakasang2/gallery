@@ -109,10 +109,10 @@ export interface PublicExhibition {
    *  page of its own and canonicalises to itself (docs/DECISIONS 2026-07-30 SEO).
    *  Fails soft to true: the worst case is a self-canonical page. */
   isMain: boolean
-  /** The exhibition's own subdomain when one is assigned (migration 0039), else null.
-   *  Only changes which URL is CANONICAL — `/@username/...` keeps serving the same
-   *  page either way (lib/expoHost explains why it is an alias rather than a move). */
-  subdomain: string | null
+  /** The exhibition's own public name when one is assigned (migration 0040), else null.
+   *  Only changes which URL is CANONICAL — `/@username/...` keeps serving the same page
+   *  either way (lib/expoHost explains the shape and why the host route is dormant). */
+  expoSlug: string | null
   /** Every artist with a work hanging here, keyed by profile id (`ArtworkData.ownerId`).
    *  The name plates already carry the credit; this is for what a NAME alone cannot
    *  give — the bio, handle, avatar and links the title wall and the structured data
@@ -189,9 +189,9 @@ export interface PublicProfile {
   bio: string
   avatarUrl: string | null
   sns: SnsLinks
-  /** The exhibition subdomain assigned to this account (migration 0039), else null.
+  /** The exhibition's public name assigned to this account (migration 0040), else null.
    *  Only decides the canonical URL — `/@username` serves the page either way. */
-  subdomain: string | null
+  expoSlug: string | null
   galleries: {
     slug: string
     title: string
@@ -212,11 +212,11 @@ export interface PublicProfile {
 export async function fetchPublicProfile(username: string): Promise<PublicProfile | null> {
   if (!supabase) return null
   try {
-    // `subdomain` is newest (0039); retry without it so an unapplied migration means
-    // "no alias" rather than a dead artist page.
+    // `expo_slug` is newest (0040); retry without it so an unapplied migration means
+    // "no slug" rather than a dead artist page.
     let pRes = await supabase
       .from('profiles')
-      .select('id, username, display_name, bio, avatar_url, sns, subdomain')
+      .select('id, username, display_name, bio, avatar_url, sns, expo_slug')
       .eq('username', username)
       .maybeSingle()
     if (pRes.error) {
@@ -227,7 +227,7 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
         .maybeSingle()) as unknown as typeof pRes
     }
     const profile = pRes.data as
-      | { id: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null; sns: unknown; subdomain?: string | null }
+      | { id: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null; sns: unknown; expo_slug?: string | null }
       | null
     if (!profile) return null
 
@@ -259,7 +259,7 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
       bio: profile.bio ?? '',
       avatarUrl: profile.avatar_url ?? null,
       sns: readSns(profile.sns),
-      subdomain: profile.subdomain ?? null,
+      expoSlug: profile.expo_slug ?? null,
       galleries: [],
     }
     for (const g of galleries ?? []) {
@@ -295,22 +295,22 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
 }
 
 /**
- * The account an exhibition subdomain belongs to, or null.
+ * The account an exhibition slug belongs to, or null.
  *
- * Returns the USERNAME rather than the exhibition, because the subdomain names an
- * account and which of its rooms to show is then the ordinary `/@username` question —
- * so the subdomain routes reuse the same fetches as the handle routes instead of
- * growing a parallel read path.
+ * Returns the USERNAME rather than the exhibition, because the slug names an account and
+ * which of its rooms to show is then the ordinary `/@username` question — so the `/expo`
+ * routes reuse the same fetches as the handle routes instead of growing a parallel read
+ * path.
  */
-export async function fetchUsernameBySubdomain(subdomain: string): Promise<string | null> {
+export async function fetchUsernameByExpoSlug(slug: string): Promise<string | null> {
   if (!supabase) return null
   try {
     const { data, error } = await supabase
       .from('profiles')
       .select('username')
-      .eq('subdomain', subdomain.toLowerCase())
+      .eq('expo_slug', slug.toLowerCase())
       .maybeSingle()
-    // A missing column (0039 unapplied) means no account has an alias yet.
+    // A missing column (0040 unapplied) means no account has a slug yet.
     if (error) return null
     return (data?.username as string | undefined) ?? null
   } catch {
@@ -336,12 +336,12 @@ async function fetchPublicExhibitionInner(
   username: string,
   slug: string
 ): Promise<PublicExhibition | null> {
-  // `subdomain` is the newest column; drop it and carry on when 0039 has not been
-  // applied, in which case no exhibition has an alias and every canonical stays on
-  // `/@username` — exactly the behaviour before subdomains existed.
+  // `expo_slug` is the newest column; drop it and carry on when 0040 has not been
+  // applied, in which case no exhibition has a slug and every canonical stays on
+  // `/@username` — exactly the behaviour before exhibition URLs existed.
   let pfRes = await supabase!
     .from('profiles')
-    .select('id, username, display_name, avatar_url, bio, sns, subdomain')
+    .select('id, username, display_name, avatar_url, bio, sns, expo_slug')
     .eq('username', username)
     .maybeSingle()
   if (pfRes.error) {
@@ -352,7 +352,7 @@ async function fetchPublicExhibitionInner(
       .maybeSingle()) as unknown as typeof pfRes
   }
   const profile = pfRes.data as
-    | { id: string; username: string | null; display_name: string | null; avatar_url: string | null; bio: string | null; sns: unknown; subdomain?: string | null }
+    | { id: string; username: string | null; display_name: string | null; avatar_url: string | null; bio: string | null; sns: unknown; expo_slug?: string | null }
     | null
   if (!profile) return null
 
@@ -586,7 +586,7 @@ async function fetchPublicExhibitionInner(
     publicGalleryCount,
     rooms,
     isMain,
-    subdomain: profile.subdomain ?? null,
+    expoSlug: profile.expo_slug ?? null,
     artists,
     frameOverrides,
     matOverrides,
@@ -710,8 +710,8 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       // a 404, if none is public yet) is not a preview of anything the owner is about
       // to ship. The room list in the HUD hides itself on an empty list.
       rooms: [],
-      // A private draft is never the canonical anything, so the alias is irrelevant here.
-      subdomain: null,
+      // A private draft is never the canonical anything, so the slug is irrelevant here.
+      expoSlug: null,
       isMain: true,
       // An owner previewing their own draft: every work here is theirs, so the room's
       // owner IS the artist and the map adds nothing. `roomExhibitor` falls back to the

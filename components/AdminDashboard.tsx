@@ -9,14 +9,14 @@ import { paidThemeIds, paidLayoutIds, paidFrameIds } from '@/lib/entitlements'
 import {
   grantEntitlement,
   revokeEntitlement,
-  setExpoSubdomain,
+  setExpoSlug,
   setReportStatus,
   setGalleryPublic,
   sumByCurrency,
   type AdminOverview,
 } from '@/lib/admin'
 import { useT } from '@/components/I18nProvider'
-import { expoHostsEnabled, expoSubdomainError, expoZone } from '@/lib/expoHost'
+import { expoSlugError } from '@/lib/expoHost'
 
 /** Encode a product as "kind|itemKey" for the <select> value. */
 function productKey(kind: string, itemKey: string): string {
@@ -379,19 +379,19 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
             </Table>
           )}
 
-          {/* Assign an exhibition subdomain (admin-only RPC, migration 0039).
+          {/* Assign the exhibition's `/expo/{slug}` name (admin-only RPC, migration 0040).
               Admin-only on purpose: the row does nothing until the host exists in
-              Vercel AND Cloudflare, and an account whose canonical points at a host
-              that 404s is worse than one with no alias. Clearing the field frees the
-              name — and the Vercel domain slot, which is capped per project. */}
-          {expoHostsEnabled && (
+              the slug decides the CANONICAL url, and a name handed out by mistake is on
+              somebody's flyer before it can be taken back. Clearing the field frees the
+              name for reuse. */}
+          {(
             <div className="ent-grant">
-              <span className="ent-grant-label">{t('adminUi.subdomainFor')}</span>
+              <span className="ent-grant-label">{t('adminUi.expoSlugFor')}</span>
               <select className="ent-select" value={subUser} onChange={(e) => setSubUser(e.target.value)}>
                 <option value="">{t('admin.selectUser')}</option>
                 {data.users.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.displayName}{u.username ? ` (@${u.username})` : ''}{u.subdomain ? ` — ${u.subdomain}` : ''}
+                    {u.displayName}{u.username ? ` (@${u.username})` : ''}{u.expoSlug ? ` — ${u.expoSlug}` : ''}
                   </option>
                 ))}
               </select>
@@ -399,8 +399,8 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                 className="ent-select"
                 type="text"
                 spellCheck={false}
-                aria-label={t('adminUi.subdomainFor')}
-                placeholder={t('adminUi.subdomainPlaceholder', { zone: expoZone() })}
+                aria-label={t('adminUi.expoSlugFor')}
+                placeholder={t('adminUi.expoSlugPlaceholder')}
                 value={subValue}
                 onChange={(e) => setSubValue(e.target.value)}
               />
@@ -413,9 +413,9 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                     // Empty clears the alias. Anything else has to be a name we would
                     // actually serve — the reserved list lives in lib/expoHost, so the
                     // check here and the host parser can never disagree.
-                    const why = v ? expoSubdomainError(v) : null
-                    if (why) throw new Error(t(why === 'reserved' ? 'adminUi.subdomainReserved' : 'adminUi.subdomainInvalid'))
-                    await setExpoSubdomain(subUser, v)
+                    const why = v ? expoSlugError(v) : null
+                    if (why) throw new Error(t(why === 'reserved' ? 'adminUi.expoSlugReserved' : 'adminUi.expoSlugInvalid'))
+                    await setExpoSlug(subUser, v)
                     setSubValue('')
                   })
                 }

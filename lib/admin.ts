@@ -29,8 +29,8 @@ export interface AdminUserRow {
   workCount: number
   /** Owned entitlements, e.g. ['design_tools', 'theme:noir'] */
   packages: string[]
-  /** The exhibition subdomain assigned to this account, or null (migration 0039). */
-  subdomain: string | null
+  /** The exhibition's `/expo/{slug}` name, or null (migration 0040). */
+  expoSlug: string | null
 }
 
 export interface AdminPurchaseRow {
@@ -116,17 +116,17 @@ export async function grantEntitlement(userId: string, kind: string, itemKey = '
 }
 
 /** Admin: remove a previously-granted (or purchased) entitlement from a user. */
-/** Assign (or clear, with '') an exhibition subdomain. Admin-only RPC, migration 0039:
- *  the row alone does nothing until the host exists in Vercel and Cloudflare, so a
- *  self-serve write would let an account canonicalise to a URL that 404s. */
-export async function setExpoSubdomain(userId: string, subdomain: string): Promise<void> {
-  const { error } = await supabase!.rpc('set_expo_subdomain', {
+/** Assign (or clear, with '') an exhibition's public name — its `/expo/{slug}` URL.
+ *  Admin-only RPC (migration 0040): the slug decides the canonical URL, and a name
+ *  handed out by mistake is printed on a flyer before it can be taken back. */
+export async function setExpoSlug(userId: string, slug: string): Promise<void> {
+  const { error } = await supabase!.rpc('set_expo_slug', {
     p_user: userId,
-    p_subdomain: subdomain.trim().toLowerCase() || null,
+    p_slug: slug.trim().toLowerCase() || null,
   })
   if (error) {
-    if (error.code === '23505') throw new Error('That subdomain is already taken.')
-    if (error.code === 'PGRST202') throw new Error('Subdomains need migration 0039 applied first.')
+    if (error.code === '23505') throw new Error('That name is already taken.')
+    if (error.code === 'PGRST202') throw new Error('Exhibition URLs need migration 0040 applied first.')
     throw error
   }
 }
@@ -190,7 +190,7 @@ export function useIsAdmin(userId: string | null): boolean {
   return isAdmin
 }
 
-type ProfileRow = { id: string; username: string | null; display_name: string | null; subdomain?: string | null }
+type ProfileRow = { id: string; username: string | null; display_name: string | null; expo_slug?: string | null }
 type GalleryRow = {
   id: string
   slug: string
@@ -271,9 +271,9 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
   if (!supabase) return empty
 
   const [profiles, galleries, placements, artworks, purchases, visits, reports] = await Promise.all([
-    // `subdomain` is newest (0039). `fetchAll` degrades on a select error, so an
-    // unapplied migration just leaves the column undefined everywhere.
-    fetchAll<ProfileRow>('profiles', 'id, username, display_name, subdomain', 'id, username, display_name'),
+    // `expo_slug` is newest (0040) — the fallback list keeps an unapplied migration from
+    // emptying the whole table (see fetchAll).
+    fetchAll<ProfileRow>('profiles', 'id, username, display_name, expo_slug', 'id, username, display_name'),
     fetchAll<GalleryRow>('galleries', 'id, slug, title, is_public, theme, layout, work_cap, updated_at, owner_id'),
     fetchAll<{ gallery_id: string }>('placements', 'gallery_id'),
     fetchAll<{ id: string; owner_id: string }>('artworks', 'id, owner_id'),
@@ -341,7 +341,7 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
         publicCount: gs.filter((g) => g.is_public).length,
         workCount: worksByOwner.get(pr.id) ?? 0,
         packages: packagesByUser.get(pr.id) ?? [],
-        subdomain: pr.subdomain ?? null,
+        expoSlug: pr.expo_slug ?? null,
       }
     })
     .sort((a, b) => b.workCount - a.workCount)

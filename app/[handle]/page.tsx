@@ -43,10 +43,10 @@ export async function generateMetadata({
   if (!username) return {}
   const p = await getProfile(username)
   if (!p) return {}
-  // Whether this URL is the exhibition or a listing, it is canonical for itself —
-  // unless the account has an exhibition subdomain, which then owns the canonical
+  // Whether this URL is the exhibition or a listing, it is canonical for itself — unless
+  // the exhibition has its own `/expo/{slug}` URL, which then owns the canonical
   // (ユーザー決定 2026-08-09). `/@name` keeps serving the page either way.
-  const canonical = artistUrl({ username, subdomain: p.subdomain })
+  const canonical = artistUrl({ username, expoSlug: p.expoSlug })
 
   // /@name IS an exhibition — the front-door room's (ユーザー決定 2026-08-09; with a
   // single public room that is simply that room, exactly as before).
@@ -59,7 +59,8 @@ export async function generateMetadata({
       return {
         title,
         description,
-        // The room's own canonical, which follows the subdomain when there is one.
+        // The room's own canonical, which follows the exhibition's `/expo/{slug}` URL
+        // when it has one.
         alternates: { canonical: exhibitionUrl(ex) },
         openGraph: { title, description, type: 'website', url: canonical },
         twitter: { card: 'summary_large_image' },

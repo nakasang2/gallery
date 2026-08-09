@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { siteUrl } from '@/lib/publicUrl'
 import { ARTICLE_LOCALE, fetchPublishedArticles } from '@/lib/blog'
 import { DEFAULT_LOCALE, LOCALES, LOCALE_META, localePath } from '@/lib/i18n'
-import { expoHostsEnabled, expoUrl } from '@/lib/expoHost'
+import { expoHostsEnabled, expoPath, expoUrl } from '@/lib/expoHost'
 
 // Public galleries change as artists edit; keep the file fresh rather than
 // letting a build-time snapshot go stale.
@@ -18,7 +18,7 @@ export const revalidate = 3600
 type GalleryRow = {
   slug: string
   updated_at: string | null
-  profiles: { username: string | null; subdomain?: string | null } | null
+  profiles: { username: string | null; expo_slug?: string | null } | null
   /** The front-door room, rendered at `/@name` (migration 0036). Absent on a database
    *  without 0036 — see the grouping below for what stands in then. */
   is_main?: boolean | null
@@ -84,7 +84,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // identifiable when 0036 has not been applied.
       const { data, error } = await supabase!
         .from('galleries')
-        .select('slug, updated_at, is_main, profiles (username, subdomain)')
+        .select('slug, updated_at, is_main, profiles (username, expo_slug)')
         .eq('is_public', true)
         .order('created_at', { ascending: true })
       if (!error) return (data ?? []) as unknown as GalleryRow[]
@@ -121,11 +121,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const t = g.updated_at ? new Date(g.updated_at) : now
       return t > acc ? t : acc
     }, new Date(0))
-    // An exhibition with a subdomain canonicalises there, so THAT is the URL to list.
-    // Listing `/@name` as well would put a non-canonical duplicate in the sitemap — the
-    // exact problem the SEO pass of 2026-07-30 fixed for `/@name` vs `/@name/{slug}`.
-    const sub = rows.find((g) => g.profiles?.subdomain)?.profiles?.subdomain ?? null
-    const artistBase = sub && expoHostsEnabled ? expoUrl(sub) : `${base}/@${username}`
+    // An exhibition with a slug canonicalises to `/expo/{slug}`, so THAT is the URL to
+    // list. Listing `/@name` as well would put a non-canonical duplicate in the sitemap —
+    // the exact problem the SEO pass of 2026-07-30 fixed for `/@name` vs `/@name/{slug}`.
+    const slug = rows.find((g) => g.profiles?.expo_slug)?.profiles?.expo_slug ?? null
+    const artistBase = slug
+      ? expoHostsEnabled
+        ? expoUrl(slug)
+        : `${base}${expoPath(slug)}`
+      : `${base}/@${username}`
     artistPages.push({
       url: artistBase,
       lastModified: newest,
@@ -141,7 +145,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     for (const g of rows) {
       if (g.slug === frontSlug) continue
       rooms.push({
-        url: sub && expoHostsEnabled ? expoUrl(sub, `/${g.slug}`) : `${base}/@${username}/${g.slug}`,
+        url: slug
+          ? expoHostsEnabled
+            ? expoUrl(slug, `/${g.slug}`)
+            : `${base}${expoPath(slug, `/${g.slug}`)}`
+          : `${base}/@${username}/${g.slug}`,
         lastModified: g.updated_at ? new Date(g.updated_at) : now,
         changeFrequency: 'weekly',
         priority: 0.8,

@@ -32,7 +32,7 @@ import { allSnsUrls, type SnsLinks } from './sns'
 import { ARTICLE_LOCALE, fetchArticle, type Article, type ArticleCard } from './blog'
 import { LOCALE_META, localePath } from './i18n'
 import { siteUrl } from './publicUrl'
-import { expoHostsEnabled, expoUrl } from './expoHost'
+import { expoHostsEnabled, expoPath, expoUrl } from './expoHost'
 import { publicExhibitionWorks, roomExhibitor } from './roomPlan'
 import type { ArtworkData } from './artworks'
 
@@ -71,24 +71,27 @@ function abs(path: string): string {
  * The ONE absolute URL that represents this exhibition — what the canonical tag, the
  * structured data and the sitemap all point at.
  *
- * An exhibition with a subdomain canonicalises there (ユーザー決定 2026-08-09): that is
- * the URL it is promoted under, so it is the one that should accumulate the links.
- * `/@username/...` keeps serving the same page — the owner needs it to preview drafts,
- * where the subdomain cannot help because the session lives in localStorage and is
- * therefore per-origin — but it is not the indexed URL.
+ * An exhibition with a slug canonicalises to `/expo/{slug}` (ユーザー決定 2026-08-09):
+ * that is the URL it is promoted under, so it is the one that should accumulate the
+ * links. `/@username/...` keeps serving the same page — the owner needs it to preview
+ * drafts — but it is not the indexed URL.
  *
- * Without a subdomain this is exactly what it always was.
+ * `expoHostsEnabled` swaps in the subdomain form instead. That is off (no
+ * `NEXT_PUBLIC_EXPO_DOMAIN`), and exists so switching to hosts later is configuration
+ * rather than a rewrite — see lib/expoHost.
+ *
+ * Without a slug this is exactly what it always was.
  */
 export function exhibitionUrl(ex: PublicExhibition): string {
-  if (ex.subdomain && expoHostsEnabled) {
-    return expoUrl(ex.subdomain, ex.isMain ? '' : `/${ex.slug}`)
-  }
-  return abs(exhibitionPath(ex))
+  if (!ex.expoSlug) return abs(exhibitionPath(ex))
+  const room = ex.isMain ? '' : `/${ex.slug}`
+  return expoHostsEnabled ? expoUrl(ex.expoSlug, room) : abs(expoPath(ex.expoSlug, room))
 }
 
-/** The artist/exhibition landing URL — the subdomain root when there is one. */
-export function artistUrl(p: { username: string; subdomain?: string | null }): string {
-  return p.subdomain && expoHostsEnabled ? expoUrl(p.subdomain) : abs(artistPath(p.username))
+/** The exhibition's landing URL — `/expo/{slug}` when it has one, else `/@username`. */
+export function artistUrl(p: { username: string; expoSlug?: string | null }): string {
+  if (!p.expoSlug) return abs(artistPath(p.username))
+  return expoHostsEnabled ? expoUrl(p.expoSlug) : abs(expoPath(p.expoSlug))
 }
 
 /** Keep relative media out of the structured data: an unconfigured CDN base makes
