@@ -13,6 +13,7 @@ import {
   type DesignOverrides,
 } from './presets'
 import { placeWorks, balancedFillOrder } from './arrangement'
+import { listSubmittedArtworks } from './invites'
 import type { Settings } from './store'
 import type { ArtworkData } from './artworks'
 
@@ -445,14 +446,29 @@ function missingOverrideColumns(error: { code?: string; message?: string }): boo
 export async function rebuildPlacements(
   galleryId: string,
   settings: Settings,
-  ownArtworks: ArtworkData[]
+  ownArtworks: ArtworkData[],
+  /** 合同展示で他の作家がこの部屋に出した作品。**既定は「自分で取ってくる」**。
+   *
+   *  最初は呼び手に渡させる引数にしたが、別視点レビューが**渡し忘れを2箇所**見つけた
+   *  （`setGalleryPublic` と store の `runGallerySync`）。この関数は arrangement を
+   *  解決できた分だけを upsert して**残りを delete する**ので、渡し忘れは
+   *  「公開したら他作家の作品だけ消える」という静かなデータ損失になる。しかも既定値が
+   *  `[]` だったので **tsc は何も言わない**。
+   *
+   *  なので既定を安全側にした: 省略すると自分で取る。渡すのは「たった今取ったものが
+   *  手元にある」呼び手だけの最適化。 */
+  guestArtworks?: ArtworkData[]
 ): Promise<void> {
   const sb = supabase!
+  // 取得の失敗は**投げる**。ゼロ件として続けると下の delete が他作家の作品を落とす。
+  // （0041 未適用のDBは `listSubmittedArtworks` が [] を返すので落ちない。）
+  const guests = guestArtworks ?? (await listSubmittedArtworks(galleryId))
   const layout = resolveLayout(settings.layout, settings.layoutParams)
   const cap = effectiveSlotCount(layout.slots.length, settings.workCap)
   // Honour the room's manual arrangement (§11.13): a work hangs on its chosen slot,
   // and an intentionally-empty slot is simply skipped. No demo collection on a real
-  // published gallery, so `extra` is empty and this reduces to the owner's own works.
+  // published gallery, so `extra` is empty and this reduces to the owner's own works
+  // plus whatever guests the organiser actually hung.
   // Auto-filled works spread across the walls (same balanced order the live scene uses).
   const perSlot = placeWorks(
     layout.slots.length,
@@ -460,7 +476,8 @@ export async function rebuildPlacements(
     ownArtworks,
     [],
     balancedFillOrder(layout),
-    cap
+    cap,
+    guests
   )
   const rows = perSlot
     .map((art, i) =>

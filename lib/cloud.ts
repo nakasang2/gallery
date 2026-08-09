@@ -11,7 +11,7 @@ import { loadImage, loadImageFile } from './upload'
 import { publicUrl } from './publicUrl'
 import { GALLERY_BGM_MAX_BYTES } from './limits'
 
-interface ArtworkRow {
+export interface ArtworkRow {
   id: string
   owner_id: string
   storage_path: string
@@ -152,10 +152,24 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
   }
 }
 
-export async function listMyArtworks(artistName: string): Promise<ArtworkData[]> {
+/** The signed-in artist's OWN library.
+ *
+ *  `owner_id` is not decoration: RLS on `artworks` is a UNION of "mine"
+ *  (`artworks_owner_all`) and **"hanging in anyone's public gallery"**
+ *  (`artworks_select_in_public_gallery`, needed so visitors can see a show). Without
+ *  the filter this returned every publicly exhibited work on the platform — stamped
+ *  with the VIEWER's name by `rowToArtwork` below, counted in their works badge, and
+ *  draggable onto their own wall (0037 then rejects the placement, so a publish fails
+ *  instead of quietly mis-crediting). Measured on a real database 2026-08-09: artist B
+ *  got 2 rows, one of them artist A's. Invisible only while nobody else has published.
+ *
+ *  Works OTHER artists offer to a joint exhibition arrive by their own route
+ *  (`lib/invites.ts`), where they keep their own artist's name. */
+export async function listMyArtworks(ownerId: string, artistName: string): Promise<ArtworkData[]> {
   const { data, error } = await supabase!
     .from('artworks')
     .select('*')
+    .eq('owner_id', ownerId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
   if (error) throw error

@@ -15,6 +15,8 @@ import { SIZE_GROUPS, matchPreset, presetByLabel } from '@/lib/artSizes'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
 import PlacementEditor from '@/components/PlacementEditor'
+import { InviteInbox, ParticipantsPanel } from '@/components/me/RoomInvites'
+import { listRoomInvites, listSubmittedArtworks } from '@/lib/invites'
 import PurchaseModal from '@/components/PurchaseModal'
 import HelpModal from '@/components/HelpModal'
 import TopActions from '@/components/TopActions'
@@ -501,8 +503,11 @@ function GalleryCard({
   // profile tabs are gone — ユーザー指示 2026-07-30). The publish flow (works → room →
   // placement → publish) leads, then the two housekeeping stages (guestbook, profile).
   // Order is visible but never enforced — every stage stays reachable.
-  type Stage = 'works' | 'room' | 'placement' | 'publish' | 'profile'
+  type Stage = 'works' | 'room' | 'placement' | 'publish' | 'profile' | 'participants'
   const [stage, setStage] = useState<Stage>('works')
+  /** 参加者ステージを**明示的に**開いた（招待がまだ0件のとき）。招待が1件でも入れば
+   *  ステージは常設になるので、この旗は「最初の1件を作るまで」だけ効く。 */
+  const [wantParticipants, setWantParticipants] = useState(false)
   // The work being edited in the shared editor sheet (works + placement stages).
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // Phones render the editor sheet as a bottom sheet over the grid/map.
@@ -559,6 +564,31 @@ function GalleryCard({
   // so a placement edit and a layout change never race over one gallery row.
   const [placement, setPlacement] = useState<(string | null)[]>(() => normalizeArrangement(row.arrangement))
   const placeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 合同展示（migration 0041）。`guests` は他の作家がこの部屋に出した作品で、掛けられる
+  // が自動では並ばない。**`rebuildPlacements` の全呼び出しに渡す** — 渡さないと掛けて
+  // あった他作家の作品が保存のたびに壁から消える。
+  // ここの `guests` は**表示だけ**に使う（配置トレイ）。保存時は
+  // `rebuildPlacements` が自分で取り直す — この state を保存経路に渡すと、読み込みに
+  // 失敗したときや初回描画の取得前に「提出ゼロ」として壁から消してしまう。
+  const [guests, setGuests] = useState<ArtworkData[]>([])
+  // 参加者ステージを出すかどうかの唯一の根拠。招待が1件も無ければステージバーに
+  // 出さない（99%の個展でタブが1つ増えるのを避ける — ユーザーが私の推しに委任）。
+  const [inviteCount, setInviteCount] = useState(0)
+  const reloadGuests = useCallback(async () => {
+    try {
+      const [subs, invs] = await Promise.all([listSubmittedArtworks(row.id), listRoomInvites(row.id)])
+      setGuests(subs)
+      setInviteCount(invs.length)
+    } catch (e) {
+      // 0041 未適用のDBでは表が無い。合同展示が無いのと同じ扱いにする（個展を壊さない）。
+      // **前の値は消さない** — 読めなかっただけかもしれず、トレイから他作家の作品が
+      // 消えると「取り下げられた」と誤解する。
+      console.error('could not load submissions (is migration 0041 applied?):', e)
+    }
+  }, [row.id])
+  useEffect(() => {
+    void reloadGuests()
+  }, [reloadGuests])
   // Per-work design (frame / mat / hanging / caption / light), keyed by artwork id and
   // scoped to THIS ROOM. These live in the room's own placements, not in the zustand
   // store: the store carries one set of maps for the whole browser, which the store only
@@ -1272,6 +1302,11 @@ function GalleryCard({
           ['profile', t('me.tabProfile'), null],
           ['works', t('me.stageWorks'), cloudArtworks.length || null],
           ['room', t('me.navRoom'), null],
+          // 参加者は**招待があるときだけ**（または「作家を招く」を押したとき）。
+          // 配置の直前に置く: 誰が出しているかを見てから壁に掛ける順番になる。
+          ...(inviteCount > 0 || wantParticipants
+            ? ([['participants', t('invite.stageParticipants'), inviteCount || null]] as const)
+            : ([] as const)),
           ['placement', t('me.placement'), null],
           ['publish', t('me.stagePublish'), null],
         ] as const
@@ -1747,10 +1782,28 @@ function GalleryCard({
                 layoutParams={normalizeLayoutParams(row.layout_params)}
                 workCap={row.work_cap}
                 works={cloudArtworks}
+                guests={guests}
                 arrangement={placement}
                 onChange={editPlacement}
                 disabled={busy}
               />
+              {/* 参加者ステージへの入口。招待が0件のあいだステージバーには出ないので、
+                  これが無いと合同展示に**辿り着く道が存在しない**。ここに置いたのは
+                  「壁が埋まらない／他の作家の作品を並べたい」と思う場所がここだから。
+                  1件でも招待が入ればステージは常設になり、この行は消える。 */}
+              {inviteCount === 0 && (
+                <button
+                  type="button"
+                  className="me-stage-hint"
+                  onClick={() => {
+                    track('me_stage_view', { stage: 'participants', from: 'placement' })
+                    setWantParticipants(true)
+                    setStage('participants')
+                  }}
+                >
+                  → {t('invite.openParticipants')}
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -1761,6 +1814,10 @@ function GalleryCard({
             </>
           )}
         </div>
+      ) : stage === 'participants' ? (
+        /* 合同展示: 誰を招いたか・誰が何を出したか。掛けるのは配置ステージ
+           （招く＝許可、掛ける＝編集で、別の判断なので混ぜない）。 */
+        <ParticipantsPanel galleryId={row.id} onChanged={() => void reloadGuests()} />
       ) : (
         /* Publish: everything about going public in one place — the URL name gate,
            the statement, the share cover, the switch, and the numbers */
@@ -2725,6 +2782,10 @@ export default function MePage() {
             {tab === 'gallery' && (
               <>
                 <GuestImportCard />
+                {/* 招待の受信箱。招待が無ければ何も描かない（GuestImportCard と同じ作法）。
+                    ここに置いたのは、**招かれたことに気づく場所が他に無い**から
+                    （通知の仕組みは無く、主催者は「送った」と思っている）。 */}
+                <InviteInbox />
                 <section className="me-section">
                   {/* A bare heading only while there's no gallery card yet (loading / empty).
                       The card itself carries the stage bar and needs no separate header. */}

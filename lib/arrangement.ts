@@ -46,7 +46,11 @@ export function balancedFillOrder(layout: LayoutDef): number[] {
  *  - Once `arrangement` is non-empty it is AUTHORITATIVE: only the works it names hang,
  *    and works it omits stay off the wall (the owner took them down, or never placed a
  *    new upload). No auto-fill runs, so a manually curated room shows exactly the works
- *    the owner chose (ユーザー指示 2026-07-31). */
+ *    the owner chose (ユーザー指示 2026-07-31).
+ *  - `guests` (合同展示で他の作家が出した作品) can be NAMED by the arrangement but are
+ *    **never auto-filled**. A submission is an offer, not a decision: the organiser has
+ *    to hang it. Passing them in `own` or `extra` instead would auto-hang a stranger's
+ *    work in any room whose arrangement is still empty. */
 export function placeWorks(
   slotCount: number,
   arrangement: (string | null)[],
@@ -56,12 +60,14 @@ export function placeWorks(
   fillOrder?: number[],
   /** Max works shown (plan capacity). Defaults to every slot. Explicit arrangement
    *  entries count toward it; auto-fill stops once it's reached. */
-  cap: number = slotCount
+  cap: number = slotCount,
+  /** Placeable but never auto-filled — see the note above. */
+  guests: ArtworkData[] = []
 ): (ArtworkData | null)[] {
   const n = Math.max(0, Math.floor(slotCount))
   const max = Math.max(0, Math.min(n, Math.floor(cap)))
   const slots: (ArtworkData | null)[] = new Array(n).fill(null)
-  const byId = new Map(own.map((a) => [a.id, a]))
+  const byId = new Map([...own, ...guests].map((a) => [a.id, a]))
   const placedIds = new Set<string>()
   let placed = 0
   // 1. Honour explicit placements at ANY physical slot (skip ids that no longer
@@ -93,7 +99,10 @@ export function placeWorks(
     queue = [...own, ...extra]
   } else {
     const namedAnywhere = new Set(arrangement.filter((x): x is string => !!x))
-    queue = own.filter((a) => namedAnywhere.has(a.id) && !placedIds.has(a.id))
+    // Guests are included HERE but not in the auto-fill branch above: this is the
+    // rescue for a work the arrangement still names but whose slot the layout lost,
+    // and dropping a guest's work on a resize would be the same silent loss.
+    queue = [...own, ...guests].filter((a) => namedAnywhere.has(a.id) && !placedIds.has(a.id))
   }
   const order = fillOrder
     ? fillOrder.filter((i) => i >= 0 && i < n)

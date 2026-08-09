@@ -279,6 +279,48 @@ export const en = {
     explore: 'Explore',
   },
 
+  // 合同展示（migration 0041）。「招く側」と「招かれる側」の両方の文言。
+  invite: {
+    // 作家側の受信箱（/me の一番上）
+    inboxTitle: 'Exhibition invitations',
+    from: 'from {name}',
+    explain: 'You have been invited to show work in this exhibition. Nothing appears until you accept and choose which works to offer.',
+    accept: 'Accept',
+    decline: 'Decline',
+    leave: 'Leave',
+    leaveConfirm: 'Leave this exhibition? Your works come down from its walls straight away.',
+    youDeclined: 'you declined',
+    chooseWorks: 'Choose works to offer',
+    hideWorks: 'Done choosing',
+    chooseHint: 'Only the works you pick here are visible to the organiser. Tap a work again to take it back.',
+    noneSubmitted: 'You have not offered any works yet.',
+    submittedCount_one: 'You have offered {count} work.',
+    submittedCount_other: 'You have offered {count} works.',
+    noWorks: 'Add a work to your library first, then come back to offer it.',
+    // 主催者側の参加者ステージ
+    stageParticipants: 'Artists',
+    participantsTitle: 'Artists in this room',
+    participantsHelp: 'Invite an artist by their handle. They choose which of their works to offer, and you hang them on the placement map. You never see works they have not offered.',
+    handlePlaceholder: '@handle',
+    handleLabel: 'Artist handle',
+    invite: 'Invite',
+    inviting: 'Inviting…',
+    noParticipants: 'No one is invited yet. This stays a solo exhibition until you invite someone.',
+    openParticipants: 'Invite other artists (joint exhibition)',
+    revoke: 'Remove',
+    revokeConfirm: 'Remove {name}? Their works come down from this room straight away.',
+    statusPending: 'invited',
+    statusDeclined: 'declined',
+    statusSubmitted_one: '{count} work offered',
+    statusSubmitted_other: '{count} works offered',
+    // 失敗理由。DBの例外文をそのまま出さないためのキー（lib/invites.inviteErrorKey）
+    errNotFound: 'No artist with that handle. Check the spelling — a handle looks like @yuki.',
+    errSelf: 'That is you. Your own works can already hang here.',
+    errEmpty: 'Enter the artist\'s handle first.',
+    errNotYours: 'That room is not yours to invite into.',
+    errGeneric: 'That did not work. Please try again.',
+  },
+
   me: {
     dashboard: 'Dashboard',
     sections: 'Dashboard sections',

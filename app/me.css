@@ -1595,3 +1595,121 @@
 .me-capacity-choice:hover { border-color: var(--gold); color: var(--ink); }
 .me-capacity-choice strong { font-size: 0.82rem; color: var(--ink); font-weight: 500; }
 .me-capacity-choice span { font-size: 0.72rem; line-height: 1.5; }
+
+/* ================= 合同展示（招待・参加者・提出） ================= */
+/* 作家側の受信箱。/me の一番上に出るので、既存のカードと同じ器（.me-card）に載せて
+   「もう一枚カードが増えた」以上の主張をしない。 */
+.invite-inbox-title {
+  margin: 0 0 0.2rem;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.invite-row {
+  padding-top: 0.9rem;
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--hairline);
+}
+.invite-row:first-of-type { border-top: 0; margin-top: 0.4rem; padding-top: 0; }
+.invite-row-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.6rem;
+}
+.invite-room { font-family: var(--serif); font-size: 1.02rem; color: var(--ink); }
+.invite-who { font-size: 0.72rem; letter-spacing: 0.06em; color: var(--muted); }
+.invite-explain { margin-top: 0.35rem; }
+/* 辞退した行は畳んで残す（消すと「あの招待はどうなった」が分からなくなる）。 */
+.invite-row-declined { opacity: 0.55; }
+.invite-tray { margin-top: 0.8rem; }
+
+/* 主催者側の参加者ステージ。 */
+.participants-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+.participants-handle {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 0.55em 0.7em;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: rgba(236, 231, 222, 0.05);
+  font-family: var(--sans);
+  font-size: 0.84rem;
+  color: var(--ink);
+}
+.participants-handle:focus { outline: none; border-color: var(--gold); }
+.participants-list { list-style: none; margin: 1.1rem 0 0; padding: 0; }
+.participants-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--hairline);
+}
+.participants-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.86rem;
+  color: var(--ink);
+}
+.participants-status {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.2em 0.6em;
+  border-radius: 100px;
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+}
+/* 受諾済みだけ金にする。保留と辞退は「まだ何も起きていない」ので同じ灰色でよい。 */
+.participants-status.is-accepted { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
+.participants-remove {
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--muted);
+  line-height: 1;
+  cursor: pointer;
+}
+.participants-remove:hover { border-color: #e08a7a; color: #e08a7a; }
+
+/* 配置トレイの中の「他の作家の作品」。作家名をタイルに焼く — title 属性だけだと
+   タッチでは読めず、誰の作品を掛けているか分からないまま公開してしまう。 */
+.place-tray-item.guest { border-color: rgba(212, 162, 78, 0.45); }
+.place-tray-artist {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.15em 0.3em;
+  background: rgba(10, 9, 8, 0.82);
+  font-family: var(--sans);
+  font-size: 0.52rem;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  color: var(--gold);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (pointer: coarse) {
+  .participants-remove { width: 44px; height: 44px; }
+}

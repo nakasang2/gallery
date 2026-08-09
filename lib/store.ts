@@ -319,7 +319,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         .maybeSingle()
       const artist = profile?.display_name || user.displayName
       set({
-        cloudArtworks: await listMyArtworks(artist),
+        cloudArtworks: await listMyArtworks(user.id, artist),
         profileUsername: profile?.username ?? null,
         profileDisplayName: artist,
         profileAvatarUrl: profile?.avatar_url ?? null,

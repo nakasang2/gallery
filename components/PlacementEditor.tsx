@@ -31,6 +31,7 @@ export default function PlacementEditor({
   layoutParams,
   workCap,
   works,
+  guests = [],
   arrangement,
   onChange,
   disabled,
@@ -39,6 +40,11 @@ export default function PlacementEditor({
   layoutParams: CustomLayoutParams
   workCap: number
   works: ArtworkData[]
+  /** 合同展示で他の作家が出した作品。掛けられるが**自動では並ばない**
+   *  （提出は申し出であって決定ではない — lib/arrangement.placeWorks 参照）。
+   *  トレイでは作家名を出して区別する: 名前が無いと、誰の作品を掛けているのか
+   *  分からないまま公開ボタンを押すことになる。 */
+  guests?: ArtworkData[]
   arrangement: (string | null)[]
   onChange: (next: (string | null)[]) => void
   disabled?: boolean
@@ -62,11 +68,15 @@ export default function PlacementEditor({
   // exceed cap, every hung work survives (see lib/arrangement.placeWorks). rebuildPlacements
   // uses the identical call, so the public room matches this preview.
   const perSlot = useMemo(
-    () => placeWorks(def.slots.length, arrangement, works, [], order, cap),
-    [def, cap, arrangement, works, order]
+    () => placeWorks(def.slots.length, arrangement, works, [], order, cap, guests),
+    [def, cap, arrangement, works, order, guests]
   )
   const current = useMemo(() => perSlot.map((a) => a?.id ?? null), [perSlot])
-  const byId = useMemo(() => new Map(works.map((w) => [w.id, w] as const)), [works])
+  // The tray, and every lookup below, spans both sets — dragging, swapping and taking
+  // down have to work identically for a guest's work or the map goes half-dead.
+  const trayWorks = useMemo(() => [...works, ...guests], [works, guests])
+  const guestIds = useMemo(() => new Set(guests.map((g) => g.id)), [guests])
+  const byId = useMemo(() => new Map(trayWorks.map((w) => [w.id, w] as const)), [trayWorks])
   // Every physical spot in walk order (capped at the ceiling), plus any occupied spot.
   const shownCount = Math.min(def.slots.length, MAX_WORKS_PER_ROOM)
   const shown = useMemo(() => {
@@ -340,16 +350,21 @@ export default function PlacementEditor({
       {/* The tray: every work, 5 per row. A hung work is dimmed and badged with the spot
           number it's on; the picked-up work is ringed. */}
       <div className="place-tray" role="list" aria-label={t('me.placementTrayLabel')}>
-        {works.map((art) => {
+        {trayWorks.map((art) => {
           const src = thumb(art)
           const pos = placedPos.get(art.id)
           const isPicked = picked?.workId === art.id
+          const guest = guestIds.has(art.id)
           return (
             <div
               key={art.id}
               role="listitem"
-              className={`place-tray-item${pos ? ' placed' : ''}${isPicked ? ' picked' : ''}${drag?.workId === art.id ? ' dragging' : ''}${disabled ? '' : ' grab'}`}
-              title={art.title || t('common.untitled')}
+              className={`place-tray-item${pos ? ' placed' : ''}${isPicked ? ' picked' : ''}${drag?.workId === art.id ? ' dragging' : ''}${disabled ? '' : ' grab'}${guest ? ' guest' : ''}`}
+              title={
+                guest
+                  ? `${art.title || t('common.untitled')} — ${art.artist}`
+                  : art.title || t('common.untitled')
+              }
               onPointerDown={(e) => {
                 if (disabled || (e.button != null && e.button > 0)) return
                 e.preventDefault()
@@ -366,6 +381,8 @@ export default function PlacementEditor({
                 <span className="place-tray-vid" aria-hidden="true"><VideoIcon /></span>
               )}
               {pos && <span className="place-tray-num" aria-hidden="true">{pos}</span>}
+              {/* 作家名は**タイルの上に出す**（title 属性だけだとタッチでは読めない）。 */}
+              {guest && <span className="place-tray-artist">{art.artist}</span>}
             </div>
           )
         })}

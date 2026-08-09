@@ -6,7 +6,7 @@
 
 ### かんたん(推奨): 一発適用
 
-**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0040 が
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0041 が
 一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
 
 Postgres 16.14 で検証済み(2026-07-29、0034まで):
@@ -62,12 +62,13 @@ authenticated・service_role の3ロール)を最小限スタブした素のPost
    - `0038_room_grade.sql` — **無料枠のロンダリングを塞ぐ**(`galleries.slots_included`＝その部屋のキャパが部屋購入に含まれて来たか。部屋数を作成順ではなく等級で数える `enforce_room_allowance` に差し替え＋等級を後から書き換えられない `guard_room_grade`。0036 は作成順で推定していたため、無料部屋を消して作り直すと15枠になった)
    - `0039_expo_subdomain.sql` — 展示ごとのサブドメイン(`profiles.subdomain`)。**0040 でパス方式に切り替えたので、列も関数もそこで改名される**。0040 と続けて流せばよい
    - `0040_expo_slug.sql` — 展示のURLを `/expo/{slug}` に(`profiles.subdomain` → `expo_slug` へ改名、制約・索引・RPC・トリガも `set_expo_slug`/`guard_expo_slug` に。0039 を飛ばしていても番号順に流せば同じ結果になる)
+   - `0041_room_submissions.sql` — **合同展示の招待を成立させる**(`room_submissions` 表＝作家が出す作品を選ぶ＋主催者が提出作品だけを読める `artworks_select_submitted_to_my_room`＋`may_place_artwork` を「受諾済み招待**かつ**提出済み」に締める＋取り下げで壁から下りるトリガ＋`invite_artist_by_handle` RPC。0037 は招待の表を作っただけで、**主催者が招待した作家の作品を見る経路が無く**UIが作れなかった。述語はすべて `security definer` の関数に出す＝ポリシー内に直接書くと `room_submissions` ⇄ `artworks` で**RLSが無限再帰する**)
 3. 「Success. No rows returned」が出れば完了
 
 **番号順に流すこと**が前提です。後の番号が前の番号を上書きする箇所があります —
 `purchases_kind_check`(0019→0034)、`record_capacity_purchase`(0019→0028→0031)、
 `grant_entitlement`(0022→0034)、`guestbook_insert_public`(0008→0033)、
-`placements_owner_all`(0001→0037)、`enforce_room_allowance`(0036→0038)、`profiles.subdomain`→`expo_slug`(0039→0040)。
+`placements_owner_all`(0001→0037)、`enforce_room_allowance`(0036→0038)、`profiles.subdomain`→`expo_slug`(0039→0040)、`may_place_artwork`(0037→0041)、`drop_placements_on_revoke`(0037→0041)。
 
 作られるもの: `profiles` / `artworks` / `galleries` / `placements` テーブル(RLS付き)、
 `artworks` ストレージバケット、サインアップ時のプロフィール自動作成トリガー。
