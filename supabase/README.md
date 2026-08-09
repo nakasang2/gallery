@@ -6,7 +6,7 @@
 
 ### かんたん(推奨): 一発適用
 
-**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0042 が
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0043 が
 一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
 
 **未適用ぶんだけを1枚に束ねたいとき**は `npm run sql:pending -- <開始番号>`
@@ -74,6 +74,7 @@ authenticated・service_role の3ロール)を最小限スタブした素のPost
    - `0040_expo_slug.sql` — 展示のURLを `/expo/{slug}` に(`profiles.subdomain` → `expo_slug` へ改名、制約・索引・RPC・トリガも `set_expo_slug`/`guard_expo_slug` に。0039 を飛ばしていても番号順に流せば同じ結果になる)
    - `0041_room_submissions.sql` — **合同展示の招待を成立させる**(`room_submissions` 表＝作家が出す作品を選ぶ＋主催者が提出作品だけを読める `artworks_select_submitted_to_my_room`＋`may_place_artwork` を「受諾済み招待**かつ**提出済み」に締める＋取り下げで壁から下りるトリガ＋`invite_artist_by_handle` RPC。0037 は招待の表を作っただけで、**主催者が招待した作家の作品を見る経路が無く**UIが作れなかった。述語はすべて `security definer` の関数に出す＝ポリシー内に直接書くと `room_submissions` ⇄ `artworks` で**RLSが無限再帰する**)
    - `0042_notifications.sql` — **通知**(`notifications` 表＋トリガ5本＋管理者の一斉送信 RPC)。行を書くのは definer のトリガと RPC だけで **insert ポリシーを1つも作らない**（許すと他人宛に偽の通知を作れる）。いいねは作品ごと1日1件にまとめ、部屋名・作品名は書いた時点の値を焼き込む（source を消しても読める）。**冒頭で 0041 の権限事故も直す** — 0041 のポリシー関数の execute が `authenticated` だけだったため、**未ログインの来場者から公開サイトが全滅していた**（0041 適用済みの環境は 0042 で回復する）
+   - `0043_admin_add_room.sql` — 管理者の「展示室を追加」で**部屋が実際に増える**(`admin_add_room` RPC。台帳への記録と `galleries` の作成を1トランザクションで。**台帳→部屋の順**でないと 0038 の `enforce_room_allowance` が自分のinsertを弾く。部屋は有料等級=`slots_included`/15枠で作る。slugは空いている `room-N`。**冪等にしない**=押した回数だけ増える)
 3. 「Success. No rows returned」が出れば完了
 
 **番号順に流すこと**が前提です。後の番号が前の番号を上書きする箇所があります —

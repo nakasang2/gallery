@@ -115,6 +115,25 @@ export async function grantEntitlement(userId: string, kind: string, itemKey = '
   if (error) throw error
 }
 
+/**
+ * Admin: **部屋を1室ふやす**（migration 0043）。台帳への記録と `galleries` の作成を
+ * 1回で行う。
+ *
+ * `grantEntitlement(kind: 'room')` との違い: あれは枠を開けるだけで**部屋はできない**
+ * （作るのは本人が /me で「新しい部屋をつくる」を押したとき）。管理者から見ると
+ * 「追加したのに増えない」ので、こちらを使う（ユーザー指示 2026-08-09）。
+ *
+ * 返り値は作られた部屋のid。**冪等ではない** — 押した回数だけ増える。
+ */
+export async function adminAddRoom(userId: string, title?: string): Promise<string> {
+  const { data, error } = await supabase!.rpc('admin_add_room', {
+    p_user: userId,
+    p_title: title?.trim() || null,
+  })
+  if (error) throw error
+  return typeof data === 'string' ? data : ''
+}
+
 /** Admin: remove a previously-granted (or purchased) entitlement from a user. */
 /** Assign (or clear, with '') an exhibition's public name — its `/expo/{slug}` URL.
  *  Admin-only RPC (migration 0040): the slug decides the canonical URL, and a name

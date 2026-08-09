@@ -53,7 +53,11 @@ export const SNS_PLATFORMS: SnsPlatform[] = [
   { id: 'behance', label: 'Behance', kind: 'handle', prefix: 'https://behance.net/', sample: 'https://behance.net/yourname', hosts: ['behance.net'] },
   { id: 'pinterest', label: 'Pinterest', kind: 'handle', prefix: 'https://pinterest.com/', sample: 'https://pinterest.com/yourname', hosts: ['pinterest.com'] },
   { id: 'facebook', label: 'Facebook', kind: 'handle', prefix: 'https://facebook.com/', sample: 'https://facebook.com/yourname', hosts: ['facebook.com', 'fb.com', 'fb.me'] },
-  { id: 'threads', label: 'Threads', kind: 'handle', prefix: 'https://threads.net/@', sample: 'https://threads.net/@yourname', hosts: ['threads.net', 'threads.com'] },
+  // Threads は 2025年に threads.net → **threads.com** へ移行した。前置きが古いままだと、
+  // 貼った threads.com のURLが threads.net に書き換わって返ってくる（ユーザー指摘
+  // 2026-08-09「正規のURLが変わっちゃった」）。`hosts` は両方残す — 旧ドメインを貼られても
+  // 取り違え扱いにしないため。
+  { id: 'threads', label: 'Threads', kind: 'handle', prefix: 'https://threads.com/@', sample: 'https://threads.com/@yourname', hosts: ['threads.com', 'threads.net'] },
   // Discord と LINE は「プロフィール」ではなく招待/友だち追加のリンクなので、
   // ハンドルを組み立てず貼られたURLをそのまま持つ（Website と同じ扱い）。
   { id: 'discord', label: 'Discord', kind: 'url', sample: 'https://discord.gg/yourinvite', hosts: ['discord.gg', 'discord.com', 'discordapp.com'] },

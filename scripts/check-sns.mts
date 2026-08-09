@@ -34,7 +34,7 @@ const CASES: Case[] = [
   /* ---- ドット入りハンドル（この番人の主目的） ---- */
   { id: 'instagram', input: 'art.by.jane', stored: 'art.by.jane', opens: 'https://instagram.com/art.by.jane' },
   { id: 'instagram', input: 'https://www.instagram.com/art.by.jane/', stored: 'art.by.jane', opens: 'https://instagram.com/art.by.jane' },
-  { id: 'threads', input: 'art.by.jane', stored: 'art.by.jane', opens: 'https://threads.net/@art.by.jane' },
+  { id: 'threads', input: 'art.by.jane', stored: 'art.by.jane', opens: 'https://threads.com/@art.by.jane' },
   // Bluesky のハンドルは**必ず**ドットを含む
   { id: 'bluesky', input: 'you.bsky.social', stored: 'you.bsky.social', opens: 'https://bsky.app/profile/you.bsky.social' },
 
@@ -43,8 +43,11 @@ const CASES: Case[] = [
   { id: 'instagram', input: '@yourname', stored: 'yourname', opens: 'https://instagram.com/yourname' },
   { id: 'instagram', input: 'https://www.instagram.com/yourname', stored: 'yourname', opens: 'https://instagram.com/yourname' },
   { id: 'instagram', input: 'https://instagram.com/yourname?igsh=abc', stored: 'yourname', opens: 'https://instagram.com/yourname' },
-  { id: 'threads', input: 'https://www.threads.net/@yourname', stored: 'yourname', opens: 'https://threads.net/@yourname' },
-  { id: 'threads', input: 'https://www.threads.com/@yourname', stored: 'yourname', opens: 'https://threads.net/@yourname' },
+  // **貼ったドメインが勝手に変わらないこと。** ハンドル欄は正規の前置きからURLを組み直す
+  // ので、前置きが古いと「貼ったものと違うURL」が返る（Threads は 2025年に .net → .com）。
+  { id: 'threads', input: 'https://www.threads.com/@yourname', stored: 'yourname', opens: 'https://threads.com/@yourname' },
+  // 旧ドメインを貼られても取り違え警告は出さず、現行ドメインに寄せる
+  { id: 'threads', input: 'https://www.threads.net/@yourname', stored: 'yourname', opens: 'https://threads.com/@yourname' },
   { id: 'x', input: 'https://x.com/yourname', stored: 'yourname', opens: 'https://x.com/yourname' },
   { id: 'tiktok', input: 'https://www.tiktok.com/@yourname', stored: 'yourname', opens: 'https://tiktok.com/@yourname' },
   { id: 'youtube', input: 'https://www.youtube.com/@yourname', stored: 'yourname', opens: 'https://youtube.com/@yourname' },

@@ -7,6 +7,7 @@ import { money } from '@/lib/pricing'
 import { THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
 import { paidThemeIds, paidLayoutIds, paidFrameIds } from '@/lib/entitlements'
 import {
+  adminAddRoom,
   grantEntitlement,
   revokeEntitlement,
   setExpoSlug,
@@ -447,14 +448,17 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
               className="btn-line btn-gold"
               disabled={busy || !grantUser || !grantProduct}
               onClick={() =>
-                void mutate(() => {
+                void mutate(async () => {
                   const [kind, itemKey = ''] = grantProduct.split('|')
-                  // `grant_entitlement` is `on conflict (user_id, kind, item_key) do
-                  // nothing`, so a repeatable product granted with a fixed key would
-                  // silently no-op from the second time on. Rooms get a unique key, the
-                  // same way a real purchase uses the Checkout session id.
-                  const key = kind === 'room' ? `admin-${Date.now().toString(36)}` : itemKey
-                  return grantEntitlement(grantUser, kind, key)
+                  // 部屋は**枠を開けるだけでは足りない**（ユーザー指示 2026-08-09
+                  // 「部屋がちゃんと追加されるようにして欲しい」）。`admin_add_room`
+                  // が台帳と `galleries` を1回で作る（migration 0043）。台帳の
+                  // `item_key` もその中で毎回ちがう値になるので、2回目が
+                  // `on conflict do nothing` で消えることもない。
+                  // `mutate` は void を待つので、部屋idは捨てる（画面は一覧を
+                  // 引き直して反映する）。
+                  if (kind === 'room') await adminAddRoom(grantUser)
+                  else await grantEntitlement(grantUser, kind, itemKey)
                 })
               }
             >
