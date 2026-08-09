@@ -675,6 +675,7 @@ export const ko: PartialDictionary = {
     themeItem: '테마 · {name}',
     layoutItem: '레이아웃 · {name}',
     frameItem: '액자 · {name}',
+    roomItem: '전시실 추가',
     stateOpen: '공개',
     statePrivate: '비공개',
     usersCount: '사용자（{count}）',

@@ -940,6 +940,7 @@ export const en = {
     themeItem: 'Theme · {name}',
     layoutItem: 'Layout · {name}',
     frameItem: 'Frame · {name}',
+    roomItem: 'Extra room',
     stateOpen: 'OPEN',
     statePrivate: 'PRIVATE',
     usersCount: 'Users ({count})',

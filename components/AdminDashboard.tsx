@@ -31,6 +31,11 @@ function useGrantableProducts() {
       // 商品名はテーマ名（Chic / Noir）と同じ扱いで、どの言語でも英語のまま出す
       { kind: 'design_tools', itemKey: '', label: 'Design Tools' }, // i18n-ok: 商品名
       { kind: 'video_pass', itemKey: '', label: 'Video Pass' }, // i18n-ok: 商品名
+      // An extra exhibition room. Unlike every other entry here this one is
+      // REPEATABLE — the allowance counts ledger rows — so the grant below gives it a
+      // unique item_key instead of ''. Needed for comping a room, handling a refund,
+      // and for exercising the multi-room flow without a real $25 charge.
+      { kind: 'room', itemKey: '', label: t('adminUi.roomItem') },
     ]
     for (const id of paidThemeIds()) list.push({ kind: 'theme', itemKey: id, label: t('adminUi.themeItem', { name: THEMES[id].label }) })
     for (const id of paidLayoutIds()) list.push({ kind: 'layout', itemKey: id, label: t('adminUi.layoutItem', { name: LAYOUTS[id]?.label ?? id }) })
@@ -89,6 +94,10 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
     if (kind === 'frame') return t('adminUi.frameItem', { name: FRAMES[itemKey]?.label ?? itemKey })
     if (kind === 'design_tools') return 'Design Tools' // i18n-ok: 商品名
     if (kind === 'video_pass') return 'Video Pass' // i18n-ok: 商品名
+    // Rooms are repeatable, so each one is its own row keyed by the Checkout session
+    // (or `admin-…` when comped). The key is noise on screen — the chip just says which
+    // product it is, and there is one chip per room the account holds.
+    if (kind === 'room') return t('adminUi.roomItem')
     return itemKey ? `${kind}:${itemKey}` : kind
   }
 
@@ -390,7 +399,12 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
               onClick={() =>
                 void mutate(() => {
                   const [kind, itemKey = ''] = grantProduct.split('|')
-                  return grantEntitlement(grantUser, kind, itemKey)
+                  // `grant_entitlement` is `on conflict (user_id, kind, item_key) do
+                  // nothing`, so a repeatable product granted with a fixed key would
+                  // silently no-op from the second time on. Rooms get a unique key, the
+                  // same way a real purchase uses the Checkout session id.
+                  const key = kind === 'room' ? `admin-${Date.now().toString(36)}` : itemKey
+                  return grantEntitlement(grantUser, kind, key)
                 })
               }
             >

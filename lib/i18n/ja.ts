@@ -907,6 +907,7 @@ export const ja: Dictionary = {
     themeItem: 'テーマ · {name}',
     layoutItem: '間取り · {name}',
     frameItem: '額縁 · {name}',
+    roomItem: '展示室の追加',
     stateOpen: '公開',
     statePrivate: '非公開',
     usersCount: 'ユーザー（{count}）',

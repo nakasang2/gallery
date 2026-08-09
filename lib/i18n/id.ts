@@ -610,6 +610,7 @@ export const id: PartialDictionary = {
     themeItem: 'Tema · {name}',
     layoutItem: 'Tata letak · {name}',
     frameItem: 'Bingkai · {name}',
+    roomItem: 'Ruang tambahan',
     stateOpen: 'TERBUKA',
     statePrivate: 'PRIBADI',
     usersCount: 'Pengguna ({count})',

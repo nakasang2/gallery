@@ -611,6 +611,7 @@ export const zhHans: PartialDictionary = {
     themeItem: '主题 · {name}',
     layoutItem: '布局 · {name}',
     frameItem: '画框 · {name}',
+    roomItem: '增加展厅',
     stateOpen: '公开',
     statePrivate: '不公开',
     usersCount: '用户（{count}）',

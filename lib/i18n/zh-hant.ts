@@ -609,6 +609,7 @@ export const zhHant: PartialDictionary = {
     themeItem: '主題 · {name}',
     layoutItem: '版面 · {name}',
     frameItem: '畫框 · {name}',
+    roomItem: '增加展廳',
     stateOpen: '公開',
     statePrivate: '不公開',
     usersCount: '使用者（{count}）',

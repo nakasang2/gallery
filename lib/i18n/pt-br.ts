@@ -610,6 +610,7 @@ export const ptBr: PartialDictionary = {
     themeItem: 'Tema · {name}',
     layoutItem: 'Layout · {name}',
     frameItem: 'Moldura · {name}',
+    roomItem: 'Sala adicional',
     stateOpen: 'ABERTA',
     statePrivate: 'PRIVADA',
     usersCount: 'Usuários ({count})',

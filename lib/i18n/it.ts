@@ -609,6 +609,7 @@ export const it: PartialDictionary = {
     themeItem: 'Tema · {name}',
     layoutItem: 'Allestimento · {name}',
     frameItem: 'Cornice · {name}',
+    roomItem: 'Sala aggiuntiva',
     stateOpen: 'APERTA',
     statePrivate: 'PRIVATA',
     usersCount: 'Utenti ({count})',
