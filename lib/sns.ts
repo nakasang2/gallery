@@ -82,6 +82,35 @@ export function hostOf(value: string): string {
   }
 }
 
+/**
+ * 入力が「サイトの住所」か（＝アカウント名ではないか）。
+ *
+ * **ドットの有無で決めてはいけない。** `looksLikeUrl` は「どこかにドットがあれば URL」と
+ * 見るので、**ドットを含むハンドルを住所と誤判定する** — これが実害を出していた
+ * （ユーザー指摘 2026-08-09「正規のURLを入れてもエラーが出る」）:
+ *
+ *   - Instagram の `art.by.jane`（ドット入りは普通）→ 住所扱い → `new URL()` の
+ *     パスが空なので保存値が**空**になり、さらに「別のサイトに見える」警告まで出る
+ *   - Bluesky のハンドルは `you.bsky.social` のように**必ずドットが入る**ので、
+ *     自分のハンドルを打つと毎回そうなる
+ *   - `https://www.instagram.com/art.by.jane/` を貼ると保存値は正しく `art.by.jane` に
+ *     なるが、`snsUrl` が今度はその**保存値**を住所と誤判定して前置きを落とし、
+ *     `https://art.by.jane` を開こうとする（欄にもそれが表示され、次の保存で空になる）
+ *
+ * 住所と言えるのは次の3つだけ:
+ *   ①スキームがある ②`/` を含む（`instagram.com/yourname` の形）
+ *   ③既知のSNSのホストそのもの（`instagram.com` だけ貼られた）
+ * ③を入れておくと「ホストだけ貼られた」を今までどおり弾ける。ハンドルは `/` を
+ * 含まないので、ドットが何個あっても①〜③に当たらない。
+ */
+export function looksLikeAddress(value: string): boolean {
+  const v = value.trim()
+  if (!v) return false
+  if (/^https?:\/\//i.test(v)) return true
+  if (v.includes('/')) return looksLikeUrl(v)
+  return platformFromUrl(v) !== null
+}
+
 /** Compare on the registrable part, so `m.facebook.com` / `jp.pinterest.com` /
  *  `page.line.me` all belong to their platform. */
 const hostBelongs = (host: string, hosts: string[]) =>
@@ -103,7 +132,9 @@ export function platformFromUrl(value: string): SnsPlatform | null {
 export function normalizeHandle(value: string): string {
   const v = value.trim()
   if (!v) return ''
-  if (looksLikeUrl(v)) {
+  // ドットを含むハンドル（`art.by.jane` / `you.bsky.social`）を URL と読まないこと。
+  // `looksLikeAddress` の説明を参照。
+  if (looksLikeAddress(v)) {
     try {
       const u = new URL(/^https?:\/\//i.test(v) ? v : `https://${v}`)
       const segs = u.pathname.split('/').filter(Boolean)
@@ -130,9 +161,11 @@ export function normalizeUrl(value: string): string {
 export function snsUrl(id: string, value: string): string {
   const p = PLATFORM_BY_ID.get(id)
   if (!p) return normalizeUrl(value)
-  // 保存値がすでにURLの形（プロフィールが一本道でない場合。normalizeHandle 参照）なら
-  // 前置きを足さずそのまま開く
-  if (p.kind === 'url' || looksLikeUrl(value)) return normalizeUrl(value)
+  // 保存値がすでにURLなら前置きを足さずそのまま開く（プロフィールが一本道でない場合。
+  // `normalizeHandle` が `segs.length > 1` で返す値は `normalizeUrl` 通しなので**必ず
+  // スキームを持つ**）。判定を `looksLikeUrl` にすると、**ドット入りハンドルの前置きが
+  // 落ちて** `https://art.by.jane` を開こうとする（ユーザー指摘 2026-08-09）。
+  if (p.kind === 'url' || /^https?:\/\//i.test(value)) return normalizeUrl(value)
   return (p.prefix ?? '') + value
 }
 
@@ -141,10 +174,36 @@ export function snsUrl(id: string, value: string): string {
  *  its last segment); URL rows keep the whole address with a scheme. Used both by
  *  the dashboard as it edits and by `sanitizeSns` on the way to the DB, so the
  *  field cannot show one thing and the row store another. */
+/**
+ * その欄**自身の**前置きで始まる入力から、残りをハンドルとして取り出す。当たらなければ null。
+ *
+ * これが無いと、**欄に表示した値をもう一度保存すると保存形が変わる**。前置きが2階層ある
+ * 欄（Bluesky の `https://bsky.app/profile/`）では `normalizeHandle` が「パスが2つ以上＝
+ * 一本道のプロフィールではない」と判断してURLを丸ごと持つので、
+ * `you.bsky.social` → 表示 `https://bsky.app/profile/you.bsky.social` → 再保存で
+ * **フルURL**に化けた（`npm run check:sns` が検出 2026-08-09）。開くURLは正しいままなので
+ * 画面では気づけない。
+ */
+function handleFromOwnPrefix(p: SnsPlatform, raw: string): string | null {
+  if (!p.prefix) return null
+  const bare = (u: string) => u.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '')
+  const v = bare(raw)
+  const pre = bare(p.prefix)
+  if (!v.toLowerCase().startsWith(pre.toLowerCase())) return null
+  const rest = v
+    .slice(pre.length)
+    .replace(/[?#].*$/, '') // 追跡パラメータ（`?igsh=…`）を落とす
+    .replace(/\/+$/, '') // 末尾のスラッシュ
+    .replace(/^@+/, '')
+  // まだ `/` が残っているならプロフィールではない（`/channel/UC…` 等）。呼び手に任せる。
+  return rest && !rest.includes('/') ? rest : null
+}
+
 export function normalizeSnsValue(id: string, raw: string): string {
   const p = PLATFORM_BY_ID.get(id)
   if (!p) return normalizeUrl(raw)
-  return p.kind === 'url' ? normalizeUrl(raw) : normalizeHandle(raw)
+  if (p.kind === 'url') return normalizeUrl(raw)
+  return handleFromOwnPrefix(p, raw) ?? normalizeHandle(raw)
 }
 
 /** What the dashboard shows in the field: the whole URL a visitor would open.
@@ -164,7 +223,8 @@ export function snsMismatch(id: string, raw: string): { found: SnsPlatform | nul
   const p = PLATFORM_BY_ID.get(id)
   if (!p || p.hosts.length === 0) return null // Website / 不明な欄は何でも受ける
   const v = raw.trim()
-  if (!v || !looksLikeUrl(v)) return null
+  // ドット入りハンドルに「別のサイトに見える」と言わせないこと（それが出ていた）。
+  if (!v || !looksLikeAddress(v)) return null
   const host = hostOf(v)
   if (!host || hostBelongs(host, p.hosts)) return null
   return { found: platformFromUrl(v) }

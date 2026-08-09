@@ -4,7 +4,7 @@
 // grants another (lib/limits → gradeForNewRoom). The RoomBar below picks which room the
 // rest of this screen is editing; one room means it renders as a single static label,
 // so nothing about the single-room screen changes until a second room exists.
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState , type ReactNode } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
@@ -468,9 +468,15 @@ function GalleryCard({
   onChanged,
   roomCount,
   isMain,
+  roomAdd,
 }: {
   row: GalleryRow
   onChanged: () => void
+  /** 「新しい部屋をつくる」／購入の誘い。**部屋ステージの中に置く**（ユーザー指示
+   *  2026-08-09「部屋の中に追加して欲しい」）。判定と処理はページ側が持ち、ここは
+   *  置き場所だけを提供する ── 部屋数・購入状況はダッシュボード全体の話で、
+   *  1つの部屋の設定ではないため。 */
+  roomAdd?: ReactNode
   /** How many rooms this account owns. Multi-room controls (the URL slug, "make this
    *  the front door") only appear once a second room exists — with one room they would
    *  ask about a distinction that does not exist yet. */
@@ -506,9 +512,6 @@ function GalleryCard({
   // Order is visible but never enforced — every stage stays reachable.
   type Stage = 'works' | 'room' | 'placement' | 'publish' | 'profile' | 'participants'
   const [stage, setStage] = useState<Stage>('works')
-  /** 参加者ステージを**明示的に**開いた（招待がまだ0件のとき）。招待が1件でも入れば
-   *  ステージは常設になるので、この旗は「最初の1件を作るまで」だけ効く。 */
-  const [wantParticipants, setWantParticipants] = useState(false)
   // The work being edited in the shared editor sheet (works + placement stages).
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // Phones render the editor sheet as a bottom sheet over the grid/map.
@@ -1301,13 +1304,12 @@ function GalleryCard({
       {(
         [
           ['profile', t('me.tabProfile'), null],
-          ['works', t('me.stageWorks'), cloudArtworks.length || null],
+          // 部屋 → 作品 の順（ユーザー指示 2026-08-09。空間を決めてから中身を入れる）。
           ['room', t('me.navRoom'), null],
-          // 参加者は**招待があるときだけ**（または「作家を招く」を押したとき）。
-          // 配置の直前に置く: 誰が出しているかを見てから壁に掛ける順番になる。
-          ...(inviteCount > 0 || wantParticipants
-            ? ([['participants', t('invite.stageParticipants'), inviteCount || null]] as const)
-            : ([] as const)),
+          ['works', t('me.stageWorks'), cloudArtworks.length || null],
+          // **参加者はタブに出さない**（ユーザー指示 2026-08-09: 合同展示はオプションで、
+          // 既定で見せるものではない）。到達経路は配置ステージの「作家を招く」だけ
+          // ── 恒久的な置き場所は未決なので、**新しい入口を勝手に作らない**。
           ['placement', t('me.placement'), null],
           ['publish', t('me.stagePublish'), null],
         ] as const
@@ -1353,7 +1355,8 @@ function GalleryCard({
       ) : (
       <div className="me-card me-subcard">
       {stage === 'room' ? (
-        /* The room's editing surface: sticky 3D preview on the left, its design on the right */
+        <>
+        {/* The room's editing surface: sticky 3D preview on the left, its design on the right */}
         <div className="works-detail">
         <GalleryPreview
           art={roomArt}
@@ -1632,6 +1635,8 @@ function GalleryCard({
           )}
         </div>
       </div>
+        {roomAdd}
+        </>
       ) : stage === 'works' ? (
         /* The works library: grid + the shared editor sheet */
         <div className="works-detail">
@@ -1788,21 +1793,23 @@ function GalleryCard({
                 onChange={editPlacement}
                 disabled={busy}
               />
-              {/* 参加者ステージへの入口。招待が0件のあいだステージバーには出ないので、
-                  これが無いと合同展示に**辿り着く道が存在しない**。ここに置いたのは
-                  「壁が埋まらない／他の作家の作品を並べたい」と思う場所がここだから。
-                  1件でも招待が入ればステージは常設になり、この行は消える。 */}
-              {inviteCount === 0 && (
+              {/* 参加者ステージへの唯一の入口。ステージバーから参加者タブを外した
+                  （ユーザー指示 2026-08-09）ので、**これを隠すと合同展示に辿り着く道が
+                  完全に消える** — 招待済みの主催者が参加者を管理できなくなる。だから
+                  `inviteCount` で出し入れせず**常に出す**。置き場所がここなのは
+                  「壁が埋まらない／他の作家の作品を並べたい」と思う場所だから。
+                  恒久的な置き場所はユーザーが決める（未決）。 */}
+              {(
                 <button
                   type="button"
                   className="me-stage-hint"
                   onClick={() => {
                     track('me_stage_view', { stage: 'participants', from: 'placement' })
-                    setWantParticipants(true)
                     setStage('participants')
                   }}
                 >
                   → {t('invite.openParticipants')}
+                  {inviteCount > 0 && <span className="me-stage-count">{inviteCount}</span>}
                 </button>
               )}
             </>
@@ -2832,38 +2839,41 @@ export default function MePage() {
                       onChanged={() => void reload()}
                       roomCount={rooms.length}
                       isMain={current.id === frontDoor?.id}
+                      /* 未使用の部屋枠、または購入の誘い。**「部屋」ステージの中**に置く
+                         （ユーザー指示 2026-08-09「部屋の中に追加して欲しい」）。以前は
+                         ダッシュボード直下＝どのステージを見ていても足元に居たので、
+                         「いま編集している部屋の設定」と見分けがつかなかった。 */
+                      roomAdd={
+                        galleries !== null && rooms.length > 0 ? (
+                          <div className="me-room-add">
+                            {canBuildRoom ? (
+                              <>
+                                <p className="me-note" style={{ marginTop: 0 }}>
+                                  {t('me.roomGrantWaiting', { count: waiting })}
+                                </p>
+                                <button
+                                  type="button"
+                                  className="btn-line btn-gold"
+                                  disabled={creatingRoom}
+                                  onClick={() => void buildRoom()}
+                                >
+                                  {creatingRoom ? t('me.roomAdding') : t('me.roomBuild')}
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <p className="me-note" style={{ marginTop: 0 }}>
+                                  {t('me.roomAddWhy', { price: PRICE_ROOM, slots: MAX_WORKS_PER_ROOM })}
+                                </p>
+                                <button type="button" className="btn-line" onClick={() => setRoomOfferOpen(true)}>
+                                  {t('me.roomAdd')}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        ) : null
+                      }
                     />
-                  )}
-                  {/* An unused room grant, or the offer to buy one. Sits under the room
-                      being edited: adding a room is a step out of the current room, not a
-                      setting inside it. */}
-                  {galleries !== null && rooms.length > 0 && (
-                    <div className="me-room-add">
-                      {canBuildRoom ? (
-                        <>
-                          <p className="me-note" style={{ marginTop: 0 }}>
-                            {t('me.roomGrantWaiting', { count: waiting })}
-                          </p>
-                          <button
-                            type="button"
-                            className="btn-line btn-gold"
-                            disabled={creatingRoom}
-                            onClick={() => void buildRoom()}
-                          >
-                            {creatingRoom ? t('me.roomAdding') : t('me.roomBuild')}
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <p className="me-note" style={{ marginTop: 0 }}>
-                            {t('me.roomAddWhy', { price: PRICE_ROOM, slots: MAX_WORKS_PER_ROOM })}
-                          </p>
-                          <button type="button" className="btn-line" onClick={() => setRoomOfferOpen(true)}>
-                            {t('me.roomAdd')}
-                          </button>
-                        </>
-                      )}
-                    </div>
                   )}
                   {usage !== null && (
                     <p className="me-note">
