@@ -188,14 +188,23 @@ export async function createGallery(
   if (existing.length >= allowance) {
     throw new Error(`Your plan allows ${allowance} ${allowance === 1 ? 'room' : 'rooms'}.`)
   }
-  // Default new rooms to the "studio" template (whitecube / corridor) — the free
-  // tier's theme + layout — so a free gallery never starts on paid content (the
-  // DB column default is the older chic/hall, which only paying users can keep).
-  // A bought room is no exception: the room price does not include a theme or a
-  // layout (ユーザー決定 2026-08-09), and anything the owner already bought is
-  // account-wide, so they can switch to it right away at no extra cost.
-  const t = TEMPLATES[opts.templateId ?? 'studio'] ?? TEMPLATES.studio
   const firstRoom = existing.length === 0
+  // The FIRST room starts from the "studio" template (whitecube / corridor) — the free
+  // tier's theme + layout — so a free gallery never starts on paid content (the DB
+  // column default is the older chic/hall, which only paying users can keep).
+  //
+  // A LATER room copies the front-door room's look instead (ユーザー決定 2026-08-09):
+  // the rooms of one show read as one show, and switching is free anyway because
+  // themes/layouts/frames are owned per ACCOUNT (lib/entitlements has no gallery scope)
+  // while the choice is per room (`galleries.theme`/`.layout` are columns). Starting a
+  // bought room on the white default made it look like the artist's theme had been taken
+  // away — the room price genuinely does not include a theme, but they already own theirs.
+  // Not a new grant either: the source room is this same owner's, so nothing gets
+  // unlocked that was not already unlocked.
+  const look = firstRoom ? null : mainRoomOf(existing)
+  const t = TEMPLATES[opts.templateId ?? 'studio'] ?? TEMPLATES.studio
+  const theme = look?.theme ?? t.theme
+  const layout = look?.layout ?? t.layout
   const row = {
     owner_id: userId,
     slug: freeSlug(opts.title, new Set(existing.map((g) => g.slug)), existing.length + 1),
@@ -218,12 +227,22 @@ export async function createGallery(
     // next door, and the new doorway would walk visitors into a duplicate show. An
     // array of explicit nulls is the "intentionally empty" state (§11.13), so the owner
     // chooses what goes on these walls.
-    arrangement: firstRoom ? null : new Array(resolveLayout(t.layout, null).slots.length).fill(null),
-    theme: t.theme,
-    layout: t.layout,
-    frame_default: t.frame,
-    hanging_default: t.hanging,
-    caption_default: t.caption,
+    arrangement: firstRoom
+      ? null
+      : new Array(resolveLayout(layout, look?.layout_params ?? null).slots.length).fill(null),
+    theme,
+    layout,
+    // Carried with the layout, or a copied `custom` room would come out at the default
+    // dimensions instead of the ones the artist actually shaped.
+    layout_params: look?.layout === 'custom' ? look.layout_params : null,
+    frame_default: look?.frame_default ?? t.frame,
+    mat_default: look?.mat_default ?? 'auto',
+    hanging_default: look?.hanging_default ?? t.hanging,
+    caption_default: look?.caption_default ?? t.caption,
+    // Design Tools (wall/floor/light colour, the artist's mark) is part of "the look" and
+    // is free for everyone, so it travels too. The STATEMENT and the cover deliberately
+    // do not: those are about this particular exhibition, not about the room's design.
+    design_overrides: look?.design_overrides ?? null,
   }
   let res = await supabase!.from('galleries').insert(row).select(COLS).single()
   if (res.error && missingOverrideColumns(res.error)) {
@@ -238,20 +257,20 @@ export async function createGallery(
     res = (await supabase!.from('galleries').insert(rowNoArr).select(COLS_NO_ARR).single()) as unknown as typeof res
   }
   if (res.error && missingOverrideColumns(res.error)) {
-    // 0014 not applied — design_overrides was never in the insert payload,
-    // only the ?select= shape needs to shrink
-    const { is_main: _isMain, arrangement: _arr, ...rowNoDesign } = row
+    // 0014 not applied — no design_overrides column, so a copied room keeps the
+    // theme/layout but not the Design Tools colours
+    const { is_main: _isMain, arrangement: _arr, design_overrides: _design, ...rowNoDesign } = row
     res = (await supabase!.from('galleries').insert(rowNoDesign).select(COLS_NO_DESIGN).single()) as unknown as typeof res
   }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0013 not applied — an unknown column in the insert payload fails before it runs
-    const { work_cap: _workCap, is_main: _isMain, arrangement: _arr, ...rowNoCap } = row
+    const { work_cap: _workCap, is_main: _isMain, arrangement: _arr, design_overrides: _design, ...rowNoCap } = row
     res = (await supabase!.from('galleries').insert(rowNoCap).select(COLS_NO_CAP).single()) as unknown as typeof res
   }
   if (res.error && missingOverrideColumns(res.error)) {
-    // 0012 not applied either — mat_default was never in the insert payload,
-    // only the ?select= shape needs to shrink further
-    const { work_cap: _workCap, is_main: _isMain, arrangement: _arr, ...rowLegacy } = row
+    // 0012 not applied either — no mat_default column, so the copied room falls back
+    // to the automatic mat
+    const { work_cap: _workCap, is_main: _isMain, arrangement: _arr, design_overrides: _design, mat_default: _mat, ...rowLegacy } = row
     res = (await supabase!.from('galleries').insert(rowLegacy).select(LEGACY_COLS).single()) as unknown as typeof res
   }
   if (res.error) throw res.error
