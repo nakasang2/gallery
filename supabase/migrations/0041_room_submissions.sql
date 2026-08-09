@@ -95,12 +95,20 @@ as $$
   );
 $$;
 
-revoke all on function public.owns_artwork(uuid) from public, anon;
-revoke all on function public.may_submit_artwork(uuid, uuid) from public, anon;
-revoke all on function public.artwork_submitted_to_my_room(uuid) from public, anon;
-grant execute on function public.owns_artwork(uuid) to authenticated, service_role;
-grant execute on function public.may_submit_artwork(uuid, uuid) to authenticated, service_role;
-grant execute on function public.artwork_submitted_to_my_room(uuid) to authenticated, service_role;
+-- **`anon` にも execute を渡す**。ここを `authenticated` だけにすると
+-- **公開サイトが全滅する**（実測 2026-08-09）: RLS のポリシーは**問い合わせたロールと
+-- して評価される**ので、下の `artworks_select_submitted_to_my_room` が載っている
+-- `artworks` を未ログインの来場者が読むだけで
+-- `permission denied for function artwork_submitted_to_my_room` になる。
+-- ポリシーは OR で並ぶが、**評価をスキップしてはくれない**。
+--
+-- 渡しても漏れない: どれも `auth.uid()` を見るので、anon では常に false を返す。
+revoke all on function public.owns_artwork(uuid) from public;
+revoke all on function public.may_submit_artwork(uuid, uuid) from public;
+revoke all on function public.artwork_submitted_to_my_room(uuid) from public;
+grant execute on function public.owns_artwork(uuid) to anon, authenticated, service_role;
+grant execute on function public.may_submit_artwork(uuid, uuid) to anon, authenticated, service_role;
+grant execute on function public.artwork_submitted_to_my_room(uuid) to anon, authenticated, service_role;
 
 -- 作家: 自分の作品を、**受諾済みの招待がある部屋にだけ**出せる。
 drop policy if exists "room_submissions_artist_insert" on public.room_submissions;
@@ -150,8 +158,11 @@ as $$
   );
 $$;
 
-revoke all on function public.invited_to_room(uuid) from public, anon;
-grant execute on function public.invited_to_room(uuid) to authenticated, service_role;
+-- `anon` にも渡す（下の `galleries_select_invited` は `galleries` に載るので、
+-- **未ログインの来場者が公開ギャラリーを開くだけでこの関数を通る**）。上の
+-- `artwork_submitted_to_my_room` と同じ理由。anon では常に false。
+revoke all on function public.invited_to_room(uuid) from public;
+grant execute on function public.invited_to_room(uuid) to anon, authenticated, service_role;
 
 -- 辞退したあとも読めるままにする（受諾し直せるわけではないが、履歴として
 -- 「辞退した展示」を出せないと、受信箱から行が消えて何が起きたのか分からなくなる）。
