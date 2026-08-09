@@ -1,7 +1,7 @@
 'use client'
 // Dashboard: manage your gallery (create / rename / publish / delete), profile, and links.
 // Multi-room since 2026-08-09: the free plan grants one room and each $25 purchase
-// grants another (lib/limits → roomAllowance). The RoomBar below picks which room the
+// grants another (lib/limits → gradeForNewRoom). The RoomBar below picks which room the
 // rest of this screen is editing; one room means it renders as a single static label,
 // so nothing about the single-room screen changes until a second room exists.
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
@@ -23,7 +23,7 @@ import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_U
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
-import { PLAN, MAX_WORKS_PER_ROOM, GALLERY_BGM_MAX_BYTES, roomAllowance } from '@/lib/limits'
+import { PLAN, MAX_WORKS_PER_ROOM, GALLERY_BGM_MAX_BYTES, tallyRooms, unbuiltRooms } from '@/lib/limits'
 import {
   listMyGalleries,
   createGallery,
@@ -2606,14 +2606,16 @@ export default function MePage() {
 
   // How many rooms this account may own: the free one plus one per $25 purchase.
   const owned = usePurchasedIds(user?.id ?? null)
-  const allowance = roomAllowance(owned.rooms)
   const rooms = galleries ?? []
+  // Grants held but not yet built against, counted by GRADE (free vs. paid) so a
+  // deleted free room cannot be rebuilt as a paid one — see lib/limits.gradeForNewRoom.
+  const waiting = unbuiltRooms(tallyRooms(rooms), owned.rooms)
   // `mainRoomOf` owns the pre-0036 fallback (no flag → the oldest room), so every
   // consumer here agrees on which room `/@name` renders.
   const frontDoor = mainRoomOf(rooms)
   const current = rooms.find((g) => g.id === roomId) ?? frontDoor
   /** An unused room grant — bought a room but hasn't built it yet. */
-  const canBuildRoom = rooms.length > 0 && rooms.length < allowance
+  const canBuildRoom = rooms.length > 0 && waiting > 0
 
   // Stable across renders so the context value doesn't invalidate every consumer.
   const openRoomOffer = useCallback(() => setRoomOfferOpen(true), [])
@@ -2778,7 +2780,7 @@ export default function MePage() {
                       {canBuildRoom ? (
                         <>
                           <p className="me-note" style={{ marginTop: 0 }}>
-                            {t('me.roomGrantWaiting', { count: allowance - rooms.length })}
+                            {t('me.roomGrantWaiting', { count: waiting })}
                           </p>
                           <button
                             type="button"

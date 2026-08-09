@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0037 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0038 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -1713,4 +1713,104 @@ begin
     raise notice '0037: no cross-owner placements found (expected).';
   end if;
 end $$;
+
+-- ============================================================================
+-- # 0038_room_grade.sql — 無料枠のロンダリングを塞ぐ(ユーザー指示 2026-08-09)
+-- ============================================================================
+-- 「無料の1室を消して作り直すと5枠が15枠になる」を塞ぐ。等級(`slots_included`)を
+-- 行に持ち、部屋数を作成順ではなく等級で数える。0036 の enforce_room_allowance を
+-- 置き換える(同名・同シグネチャなので 0036 の版はこれに差し替わる)。
+/* ================= 1. 等級の列 ================= */
+alter table public.galleries add column if not exists slots_included boolean not null default false;
+
+-- バックフィル: 所有者ごとに**最古の1室を無料枠**、それ以外を有料とする。0036〜0038 の
+-- あいだに作られた部屋は「1室目=5枠 / 以降=15枠」で作られているので、作成順がその
+-- ときの等級と一致する。既存の本番データは1人1室なので実質すべて無料枠になる。
+update public.galleries g
+   set slots_included = true
+ where not g.slots_included
+   and g.id <> (
+     select g2.id from public.galleries g2
+      where g2.owner_id = g.owner_id
+      order by g2.created_at asc, g2.id asc
+      limit 1
+   );
+
+/* ================= 2. 番人を等級ベースに差し替える ================= */
+-- 0036 の enforce_room_allowance を置き換える（同名・同シグネチャなので、統合
+-- ファイルでは 0036 の版がこれに置き換わり重複しない）。
+create or replace function public.enforce_room_allowance()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_free int;
+  v_paid int;
+  v_bought int;
+begin
+  select count(*) filter (where not slots_included),
+         count(*) filter (where slots_included)
+    into v_free, v_paid
+    from public.galleries where owner_id = new.owner_id;
+  select count(*) into v_bought from public.purchases
+   where user_id = new.owner_id and kind = 'room';
+
+  if new.slots_included then
+    -- 有料の部屋: 未使用の購入があるあいだだけ
+    if v_paid >= v_bought then
+      raise exception 'no unused room purchase: % paid rooms, % purchased', v_paid, v_bought
+        using errcode = 'check_violation';
+    end if;
+    if new.work_cap is not null and new.work_cap > 15 then
+      raise exception 'work_cap % exceeds the room maximum', new.work_cap
+        using errcode = 'check_violation';
+    end if;
+  else
+    -- 無料の部屋: 1人1つ
+    if v_free >= 1 then
+      raise exception 'the free room already exists' using errcode = 'check_violation';
+    end if;
+    -- 無料枠は5枠から。ここを通せば「無料の1室目を15枠で insert する」で10枠が無料になる。
+    if new.work_cap is not null and new.work_cap > 5 then
+      raise exception 'work_cap % not allowed for the free room', new.work_cap
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+-- 0036 で作った before insert トリガをそのまま使う（関数の中身だけ差し替わる）。
+drop trigger if exists galleries_enforce_allowance on public.galleries;
+create trigger galleries_enforce_allowance
+  before insert on public.galleries
+  for each row execute function public.enforce_room_allowance();
+
+/* ================= 3. 等級は後から書き換えられない ================= */
+-- `slots_included` を false→true にできるなら、無料部屋を有料部屋に化かして
+-- 購入枠を空け、もう1室作れてしまう。等級は作成時に決まったら固定。
+-- work_cap と同じ作法で、購入経路（security definer）だけに許す。
+create or replace function public.guard_room_grade()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if new.slots_included is distinct from old.slots_included
+     and current_user in ('authenticated', 'anon') then
+    raise exception 'slots_included is fixed at creation'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists galleries_guard_grade on public.galleries;
+create trigger galleries_guard_grade
+  before update of slots_included on public.galleries
+  for each row execute function public.guard_room_grade();
 

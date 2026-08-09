@@ -61,34 +61,64 @@ export function roomAllowance(roomsPurchased: number): number {
   return PLAN.galleries + Math.max(0, roomsPurchased)
 }
 
+/** How many rooms of each GRADE an account holds. A room is one of exactly two
+ *  things, recorded on the row itself (`galleries.slots_included`, migration 0038):
+ *   - free   — the plan's one free room. Starts at `PLAN.worksPerGallery` and grows one
+ *              $3 slot at a time, so its `work_cap` can legitimately reach the max.
+ *   - paid   — created against a room purchase, so its full capacity came included.
+ *  The grade is what makes the two distinguishable AFTER the fact; `work_cap` alone
+ *  cannot tell a bought room from a free room somebody grew with slot purchases. */
+export interface RoomTally {
+  free: number
+  paid: number
+}
+
+export function tallyRooms(rooms: { slots_included?: boolean | null }[]): RoomTally {
+  let paid = 0
+  for (const r of rooms) if (r.slots_included) paid++
+  return { free: rooms.length - paid, paid }
+}
+
+/** Grants the account holds but has not built a room against yet. What the dashboard
+ *  counts when it says "you have N rooms waiting to be built". */
+export function unbuiltRooms(tally: RoomTally, roomsPurchased: number): number {
+  const freeLeft = Math.max(0, PLAN.galleries - tally.free)
+  const paidLeft = Math.max(0, Math.max(0, roomsPurchased) - tally.paid)
+  return freeLeft + paidLeft
+}
+
 /**
- * The work-slot cap a newly created room starts at.
+ * What the next room this account creates is allowed to be, or null when it may not
+ * create one at all.
  *
- * The free first room starts at the plan's `worksPerGallery` (5) and grows one
- * $3 slot at a time. Every room after it can only exist because a room was
- * bought, and that price already includes the room's full physical capacity, so
- * it starts at `MAX_WORKS_PER_ROOM` — which also means the per-slot add-on never
- * applies to it (`work_cap` is already at the ceiling).
+ * Grade accounting rather than position. The rule used to be "the first room you create
+ * is the free one, every later room includes its slots", which was laundering-prone:
+ * buy a room, DELETE the original free room, build a replacement, and the replacement
+ * looked like a "later room" and came with fifteen slots — five free slots turned into
+ * fifteen for nothing (ユーザー指示 2026-08-09 to close it).
  *
- * KNOWN GAP (accepted, not overlooked). "Which room is the free one" is positional
- * — the first one created — and nothing on the row records that it was the free
- * grant. So an owner who buys a room, then DELETES their original free room, then
- * builds a replacement gets `MAX_WORKS_PER_ROOM` for it: five free slots laundered
- * into fifteen, once, worth the ten slots they skipped.
+ * Counting grades closes it exactly, with no false positives: a paid room is only
+ * granted while FEWER paid rooms exist than rooms bought, and the free room is only
+ * granted while the account has no free room. Deleting a purchased room still does not
+ * burn the purchase (the paid grant is unused again), and a free room grown to fifteen
+ * by buying slots is still a free room, so a buyer can never be charged $25 and handed
+ * a five-slot room.
  *
- * Left open deliberately, because every fix that uses only what we already store is
- * worse. Inferring the grade from the existing rows' caps ("grant 15 only while
- * fewer rooms are at max than rooms bought") misfires on the honest case that
- * matters more: a free room legitimately grown to 15 by buying slots looks
- * identical, and a buyer would be charged $25 and handed a 5-slot room. The ledger
- * cannot separate them either — `record_capacity_purchase` keys its row on the
- * Checkout session, not the gallery, so slot purchases are not attributable to a
- * room after the fact.
+ * Paid first, so somebody who has just paid gets the room they paid for now rather than
+ * after building a free one. The totals are the same either way.
  *
- * Closing it properly means recording provenance on the row (a `slots_included`
- * flag written at creation) — a schema change worth making when rooms are actually
- * being bought and deleted, not on speculation.
+ * Advisory only — the DB enforces the same rule in `enforce_room_allowance` (0038),
+ * because `galleries` is inserted into directly through RLS.
  */
-export function capForNewRoom(existingRooms: number): number {
-  return existingRooms === 0 ? PLAN.worksPerGallery : MAX_WORKS_PER_ROOM
+export function gradeForNewRoom(
+  tally: RoomTally,
+  roomsPurchased: number
+): { slotsIncluded: boolean; cap: number } | null {
+  if (tally.paid < Math.max(0, roomsPurchased)) {
+    return { slotsIncluded: true, cap: MAX_WORKS_PER_ROOM }
+  }
+  if (tally.free < PLAN.galleries) {
+    return { slotsIncluded: false, cap: PLAN.worksPerGallery }
+  }
+  return null
 }

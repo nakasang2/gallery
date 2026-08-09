@@ -2,7 +2,7 @@
 // The DB row is the source of truth for a signed-in user's space settings;
 // the plan variable caps how many galleries one user can own.
 import { supabase } from './supabase'
-import { PLAN, capForNewRoom, effectiveSlotCount, roomAllowance } from './limits'
+import { PLAN, effectiveSlotCount, gradeForNewRoom, tallyRooms } from './limits'
 import {
   TEMPLATES,
   resolveLayout,
@@ -47,12 +47,19 @@ export interface GalleryRow {
    *  no designation; `mainRoomOf()` falls back to the oldest room so those keep
    *  behaving exactly as before. */
   is_main?: boolean | null
+  /** Whether this room's full capacity came included with a room purchase (migration
+   *  0038). False = the plan's one free room. This is the only thing that can tell a
+   *  bought room from a free room grown with $3 slots, so it is what the allowance is
+   *  counted against — see `lib/limits.gradeForNewRoom`. */
+  slots_included?: boolean | null
 }
 
 const COLS =
-  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url, guestbook_enabled, is_main'
-// Newest column first when degrading against a DB that hasn't applied 0036.
-const COLS_NO_MAIN = COLS.replace(', is_main', '')
+  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url, guestbook_enabled, is_main, slots_included'
+// Newest column first when degrading against a DB that hasn't applied 0038.
+const COLS_NO_GRADE = COLS.replace(', slots_included', '')
+// Post-0036/pre-0038 shape (no slots_included column yet)
+const COLS_NO_MAIN = COLS_NO_GRADE.replace(', is_main', '')
 // Post-0033/pre-0036 shape (no is_main column yet)
 const COLS_NO_GB = COLS_NO_MAIN.replace(', guestbook_enabled', '')
 // Post-0023/pre-0027 shape (no bgm_url column yet)
@@ -73,6 +80,15 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
     .select(COLS)
     .eq('owner_id', userId)
     .order('created_at', { ascending: true })
+  if (res.error && missingOverrideColumns(res.error)) {
+    // 0038 (slots_included) not applied — every room reads as the free grade, so the
+    // allowance falls back to "one free room" until the migration lands
+    res = (await supabase!
+      .from('galleries')
+      .select(COLS_NO_GRADE)
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: true })) as unknown as typeof res
+  }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0036 (is_main) not applied — the oldest room stays the front door
     res = (await supabase!
@@ -184,10 +200,12 @@ export async function createGallery(
   opts: { title: string; templateId?: string; statement?: string; roomsPurchased?: number }
 ): Promise<GalleryRow> {
   const existing = await listMyGalleries(userId)
-  const allowance = roomAllowance(opts.roomsPurchased ?? 0)
-  if (existing.length >= allowance) {
-    throw new Error(`Your plan allows ${allowance} ${allowance === 1 ? 'room' : 'rooms'}.`)
-  }
+  // Grade accounting, not position: a paid room only while an unused room purchase
+  // exists, the free room only while the account has none. See gradeForNewRoom for why
+  // position was laundering-prone. The DB enforces the same rule (0038) because this
+  // check runs in the browser and `galleries` is inserted into directly through RLS.
+  const grade = gradeForNewRoom(tallyRooms(existing), opts.roomsPurchased ?? 0)
+  if (!grade) throw new Error('No room left to build on your plan.')
   const firstRoom = existing.length === 0
   // The FIRST room starts from the "studio" template (whitecube / corridor) — the free
   // tier's theme + layout — so a free gallery never starts on paid content (the DB
@@ -213,10 +231,11 @@ export async function createGallery(
     statement: opts.statement?.trim() ?? '',
     // Capacity is fixed at creation time (§11.7 — "the room inherits the plan's cap
     // at purchase time"), not the column's own default (which only exists to
-    // grandfather pre-0013 rooms). The free first room starts at the plan's 5; every
-    // room after it exists because one was bought, and that price includes the
-    // room's full capacity, so it starts at the physical max.
-    work_cap: capForNewRoom(existing.length),
+    // grandfather pre-0013 rooms). The free room starts at the plan's 5 and grows by
+    // $3 slots; a room built against a purchase has its full capacity included.
+    work_cap: grade.cap,
+    // What the row remembers so the two can be told apart later (0038).
+    slots_included: grade.slotsIncluded,
     // The first room is the front door by default. Later rooms never steal it —
     // the partial unique index in 0036 would reject a second main anyway.
     is_main: firstRoom,
@@ -246,40 +265,47 @@ export async function createGallery(
   }
   let res = await supabase!.from('galleries').insert(row).select(COLS).single()
   if (res.error && missingOverrideColumns(res.error)) {
+    // 0038 not applied — no slots_included column to write. The room is still created;
+    // until the migration lands, `listMyGalleries` reads every room as the free grade.
+    const { slots_included: _grade, ...rowNoGrade } = row
+    res = (await supabase!.from('galleries').insert(rowNoGrade).select(COLS_NO_GRADE).single()) as unknown as typeof res
+  }
+  if (res.error && missingOverrideColumns(res.error)) {
     // 0036 not applied — no is_main column to write; the oldest room stays the front door
-    const { is_main: _isMain, ...rowNoMain } = row
+    const { slots_included: _grade, is_main: _isMain, ...rowNoMain } = row
     res = (await supabase!.from('galleries').insert(rowNoMain).select(COLS_NO_MAIN).single()) as unknown as typeof res
   }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0023 not applied — no arrangement column to write, so a new room falls back to
     // auto-fill there (the pre-0023 behaviour) instead of opening empty
-    const { is_main: _isMain, arrangement: _arr, ...rowNoArr } = row
+    const { slots_included: _grade, is_main: _isMain, arrangement: _arr, ...rowNoArr } = row
     res = (await supabase!.from('galleries').insert(rowNoArr).select(COLS_NO_ARR).single()) as unknown as typeof res
   }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0014 not applied — no design_overrides column, so a copied room keeps the
     // theme/layout but not the Design Tools colours
-    const { is_main: _isMain, arrangement: _arr, design_overrides: _design, ...rowNoDesign } = row
+    const { slots_included: _grade, is_main: _isMain, arrangement: _arr, design_overrides: _design, ...rowNoDesign } = row
     res = (await supabase!.from('galleries').insert(rowNoDesign).select(COLS_NO_DESIGN).single()) as unknown as typeof res
   }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0013 not applied — an unknown column in the insert payload fails before it runs
-    const { work_cap: _workCap, is_main: _isMain, arrangement: _arr, design_overrides: _design, ...rowNoCap } = row
+    const { work_cap: _workCap, slots_included: _grade, is_main: _isMain, arrangement: _arr, design_overrides: _design, ...rowNoCap } = row
     res = (await supabase!.from('galleries').insert(rowNoCap).select(COLS_NO_CAP).single()) as unknown as typeof res
   }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0012 not applied either — no mat_default column, so the copied room falls back
     // to the automatic mat
-    const { work_cap: _workCap, is_main: _isMain, arrangement: _arr, design_overrides: _design, mat_default: _mat, ...rowLegacy } = row
+    const { work_cap: _workCap, slots_included: _grade, is_main: _isMain, arrangement: _arr, design_overrides: _design, mat_default: _mat, ...rowLegacy } = row
     res = (await supabase!.from('galleries').insert(rowLegacy).select(LEGACY_COLS).single()) as unknown as typeof res
   }
   if (res.error) throw res.error
   return {
     mat_default: 'auto',
-    work_cap: capForNewRoom(existing.length),
+    work_cap: grade.cap,
     design_overrides: null,
     arrangement: null,
     is_main: firstRoom,
+    slots_included: grade.slotsIncluded,
     ...(res.data as object),
   } as GalleryRow
 }
@@ -409,7 +435,7 @@ function missingOverrideColumns(error: { code?: string; message?: string }): boo
   return (
     error.code === 'PGRST204' ||
     error.code === '42703' ||
-    /light_override|hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides|arrangement|guestbook_enabled|bgm_url|is_main/.test(error.message ?? '')
+    /light_override|hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides|arrangement|guestbook_enabled|bgm_url|is_main|slots_included/.test(error.message ?? '')
   )
 }
 
