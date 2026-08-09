@@ -7,11 +7,15 @@
 //
 // 中身は呼び出し側から渡す。/me は「展示をさがす / 管理 / サインアウト」、
 // /admin は「ダッシュボード / 再読み込み / サインアウト」で、並びが違う。
+//
+// `before` は**畳まれない場所**に置くもの（通知のベル）。畳んだ中に入れると、
+// 375px で未読の数字がハンバーガーを開くまで見えない＝**気づけない通知**になる
+// （実測 2026-08-09。通知を作った目的そのものを壊すので、ベルだけは外に出す）。
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { MenuIcon } from '@/components/icons'
 import { useT } from '@/components/I18nProvider'
 
-export default function TopActions({ children }: { children: ReactNode }) {
+export default function TopActions({ before, children }: { before?: ReactNode; children: ReactNode }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
@@ -33,6 +37,7 @@ export default function TopActions({ children }: { children: ReactNode }) {
   }, [open])
   return (
     <div className="me-top-nav" ref={wrap}>
+      {before}
       <button
         className="me-top-burger"
         aria-label={t('me.menu')}

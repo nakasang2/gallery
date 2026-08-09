@@ -909,6 +909,26 @@ export const en = {
     snsFollow: 'View on {platform}', snsWebsite: 'Website',
   },
 
+  notif: {
+    title: 'Notifications',
+    empty: 'Nothing new yet.',
+    loading: 'Loading…',
+    unread: '{n} unread',
+    dismiss: 'Dismiss this notification',
+    someone: 'Someone',
+    justNow: 'just now',
+    minutesAgo: '{n} min ago',
+    hoursAgo: '{n} h ago',
+    daysAgo: '{n} d ago',
+    invite: '{who} invited you to “{room}”',
+    accepted: '{who} joined “{room}”',
+    declined: '{who} declined the invitation to “{room}”',
+    submission: '{who} offered {n} works for “{room}”',
+    like: 'Someone liked “{work}”',
+    likes: '“{work}” was liked {n} times',
+    guestbook: '{who} signed the guestbook of “{room}”',
+  },
+
   adminUi: {
     exhibitionSpaces: 'Exhibition spaces ({count})',
     packagesNote:
@@ -995,6 +1015,17 @@ export const en = {
     spotlightUsernameAria: 'Gallery {n} username',
     spotlightSlugAria: 'Gallery {n} slug',
     working: 'Working…',
+    announce: 'Announcement to everyone',
+    announceNote: 'Delivered as an in-app notification to every account, in the language you write it (not translated, same as articles). **Cannot be undone.**',
+    announceTitle: 'Title',
+    announceTitlePlaceholder: 'A new theme, “Mist”, is available',
+    announceBody: 'Body (optional)',
+    announceBodyPlaceholder: 'Pick it from the room themes.',
+    announceSend: 'Send to everyone',
+    announceSending: 'Sending…',
+    announceConfirm: 'This cannot be undone. This text will go to every account.',
+    announceConfirmYes: 'Send it',
+    announceSent: 'Delivered to {n} accounts.',
   },
 
   catalog: {

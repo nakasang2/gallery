@@ -20,6 +20,7 @@ import { listRoomInvites, listSubmittedArtworks } from '@/lib/invites'
 import PurchaseModal from '@/components/PurchaseModal'
 import HelpModal from '@/components/HelpModal'
 import TopActions from '@/components/TopActions'
+import NotificationBell from '@/components/me/NotificationBell'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_USD_CENTS, type PaidKind } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
@@ -2738,7 +2739,7 @@ export default function MePage() {
       <div className="me-inner">
         <div className="me-top">
           <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
-          <TopActions>
+          <TopActions before={<NotificationBell />}>
             <LocaleLink className="btn-line" href="/explore">{t('me.explore')}</LocaleLink>
             <button className="btn-line" onClick={() => setHelpOpen(true)}>{t('help.title')}</button>
             {isAdmin && (

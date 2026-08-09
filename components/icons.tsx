@@ -130,3 +130,23 @@ export function CheckIcon({ className }: { className?: string }) {
     </svg>
   )
 }
+
+export function BellIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 10a6 6 0 1 0-12 0c0 4-1.5 5.5-1.5 5.5h15S18 14 18 10Z" />
+      <path d="M10.5 19a1.8 1.8 0 0 0 3 0" />
+    </svg>
+  )
+}

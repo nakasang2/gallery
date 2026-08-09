@@ -11,6 +11,7 @@ import AdminDashboard from '@/components/AdminDashboard'
 import LpHeroEditor from '@/components/LpHeroEditor'
 import SpotlightEditor from '@/components/SpotlightEditor'
 import ArticlesEditor from '@/components/ArticlesEditor'
+import AnnounceEditor from '@/components/AnnounceEditor'
 import DemoLookEditor from '@/components/DemoLookEditor'
 import GhostSpeedEditor from '@/components/GhostSpeedEditor'
 import AuthShell from '@/components/auth/AuthShell'
@@ -103,6 +104,7 @@ export default function AdminPage() {
 
         {data && <AdminDashboard data={data} onReload={load} />}
 
+        {isAdmin && <AnnounceEditor />}
         {isAdmin && <ArticlesEditor />}
         {isAdmin && <SpotlightEditor />}
         {isAdmin && <DemoLookEditor />}

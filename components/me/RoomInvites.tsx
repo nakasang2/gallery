@@ -45,7 +45,11 @@ export function InviteInbox() {
       console.error('could not load invites (is migration 0041 applied?):', e)
       setInvites([])
     }
-  }, [])
+    // `user` を deps に入れる。`[]` だと**サインイン直後に受信箱が出ない** —
+    // 下の useEffect は `user` の変化で走るが、`reload` は最初のレンダの
+    // クロージャ（`user` は null）を掴んだままなので `if (!user) return` で
+    // 早期 return し、二度と読み込まない。
+  }, [user])
 
   useEffect(() => {
     if (user) void reload()

@@ -874,6 +874,26 @@ export const ja: Dictionary = {
     snsFollow: '{platform} を見る', snsWebsite: 'ウェブサイト',
   },
 
+  notif: {
+    title: '通知',
+    empty: 'まだ何もありません。',
+    loading: '読み込んでいます…',
+    unread: '未読 {n} 件',
+    dismiss: 'この通知を消す',
+    someone: 'どなたか',
+    justNow: 'たったいま',
+    minutesAgo: '{n} 分前',
+    hoursAgo: '{n} 時間前',
+    daysAgo: '{n} 日前',
+    invite: '{who} さんから「{room}」への招待が届きました',
+    accepted: '{who} さんが「{room}」への参加を受けました',
+    declined: '{who} さんが「{room}」への招待を辞退しました',
+    submission: '{who} さんが「{room}」に {n} 点を出しました',
+    like: '「{work}」がいいねされました',
+    likes: '「{work}」が {n} 件いいねされました',
+    guestbook: '「{room}」の芳名帳に {who} さんが記帳しました',
+  },
+
   adminUi: {
     exhibitionSpaces: '展示空間（{count}）',
     packagesNote:
@@ -959,6 +979,17 @@ export const ja: Dictionary = {
     spotlightUsernameAria: '{n} 番目のユーザー名',
     spotlightSlugAria: '{n} 番目のスラッグ',
     working: '処理中…',
+    announce: '全員へのお知らせ',
+    announceNote: '書いた言語のまま、全員のアプリ内通知に届きます（記事と同じで訳しません）。**取り消せません。**',
+    announceTitle: 'タイトル',
+    announceTitlePlaceholder: '新しいテーマ「霧」を追加しました',
+    announceBody: '本文（任意）',
+    announceBodyPlaceholder: '部屋のテーマから選べます。',
+    announceSend: '全員に送る',
+    announceSending: '送信中…',
+    announceConfirm: '取り消せません。この文面で全員に送ります。',
+    announceConfirmYes: '送る',
+    announceSent: '{n} 件に配りました。',
   },
 
   catalog: {
