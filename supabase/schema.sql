@@ -1428,14 +1428,26 @@ alter table placements add column if not exists light_override text;
 
 -- ============================================================================
 -- # 0036_main_room.sql — 複数展示室の玄関(ユーザー決定 2026-08-09)
--- ============================================================================
--- `/@username` がどの部屋を描くかを DB に持たせる。サブ部屋は `/@username/[slug]`。
--- 既存行は所有者ごとに最古の1室をバックフィルして玄関にする。
+-- 複数展示室（ユーザー決定 2026-08-09）— どの部屋が `/@username` の玄関かを持たせる。
+--
+-- 追加料金($25・15枠込み)で部屋を増やせるようにしたので、1人が複数の galleries 行を
+-- 持つようになる。`/@username` は「メイン部屋」を描き、サブ部屋は `/@username/[slug]`。
+-- どれがメインかを DB に持たないと、部屋を増やした瞬間に玄関がどの部屋か決まらない。
+--
+-- 後方互換: 既存行は is_main=false で入るので、下のバックフィルで**所有者ごとに最古の
+-- 1室**を玄関にする。アプリ側の `mainRoomOf()` も「フラグが無ければ最古」にフォール
+-- バックするため、0036 未適用のDBでも今までと同じ部屋が `/@username` に出る。
+-- 適用方法: SQL Editor に貼り付けて Run(再実行安全)
+
+/* ================= 1. galleries.is_main ================= */
 alter table public.galleries add column if not exists is_main boolean not null default false;
 
+-- 1人につき玄関は1つだけ。部分ユニークなので false は何行あってもよい。
 create unique index if not exists galleries_one_main_per_owner
   on public.galleries (owner_id) where is_main;
 
+-- バックフィル: まだ誰も玄関を持っていない所有者について、最古の1室を玄関にする。
+-- 再実行安全(既に玄関がある所有者は not exists で除外される)。
 update public.galleries g
    set is_main = true
  where not g.is_main
@@ -1450,7 +1462,10 @@ update public.galleries g
       limit 1
    );
 
--- 部分ユニーク索引があるので、玄関の付け替えは同一トランザクションで行う。
+/* ================= 2. 玄関の切り替え ================= */
+-- 部分ユニーク索引があるので「古い玄関を消す」と「新しい玄関を立てる」は同一
+-- トランザクションでなければならない。クライアントの2回 update では、間に落ちると
+-- 玄関ゼロになるか、順序次第で索引違反で弾かれる。
 create or replace function public.set_main_room(p_gallery uuid)
 returns void
 language plpgsql
@@ -1460,6 +1475,7 @@ as $$
 declare
   v_owner uuid;
 begin
+  -- security invoker なので RLS がそのまま効く = 自分の部屋しか見えない。
   select owner_id into v_owner from public.galleries where id = p_gallery;
   if v_owner is null then
     raise exception 'set_main_room: no such room';
@@ -1550,7 +1566,6 @@ create trigger galleries_guard_work_cap
   before update of work_cap on public.galleries
   for each row execute function public.guard_work_cap_raise();
 
--- ============================================================================
 -- # 0037_placement_consent.sql — 他人の作品の無断掲載を塞ぐ(ユーザー指示 2026-08-09)
 -- ============================================================================
 -- placement を作れるのは ①自分が所有する作品 ②その部屋への受諾済み招待がある作品
@@ -1816,32 +1831,30 @@ create trigger galleries_guard_grade
 
 -- ============================================================================
 -- # 0039_expo_subdomain.sql — 展示ごとのサブドメイン(ユーザー決定 2026-08-09)
--- ============================================================================
--- `tokyo-expo.xibit360.art`。ワイルドカード証明書は Vercel が NS 完全移管を要求し、
--- このゾーンは R2 の cdn.xibit360.art があるため移管できないので、**1件ずつ実在の
--- ホストとして登録**する。サブドメインは任意の別名で、展示は常に /@ハンドル でも公開される。
-/* ================= 1. profiles.subdomain ================= */
--- 展示（＝アカウント）1つにつき1つ。部屋はこの下のパスなので、多室でも1つで足りる。
--- 形式は部屋のパス（SLUG_RE）と同じ文字種で、3文字以上。lib/expoHost の
--- EXPO_SUBDOMAIN_RE と対で保つこと。
-alter table public.profiles add column if not exists subdomain text;
+-- 展示ごとのサブドメイン（ユーザー決定 2026-08-09）— `tokyo-expo.xibit360.art`
+--
+-- ワイルドカードは使えない。Vercel は `*.domain` の証明書を「ネームサーバーを Vercel に
+-- 完全移管した場合のみ」発行し、`_acme-challenge` だけを NS 委任する回避策は公式に
+-- 非推奨（自動更新が保証されない）。このゾーンは `cdn.xibit360.art` が R2 のカスタム
+-- ドメイン（＝ゾーンが Cloudflare にあることが必須）で、CORS を直す Transform Rule も
+-- 載っているので移管はできない。よって**サブドメインは1件ずつ実在のホストとして登録**し、
+-- 通常の HTTP-01 証明書を貰う（`www` と同じ更新経路）。
+--
+-- 設計上の要点: **サブドメインは任意の別名**。展示は常に `/@ハンドル` で公開され、
+-- サブドメインは canonical と配る先だけを変える。Vercel の1プロジェクト50ドメインという
+-- 上限は「別名の数」の天井であって展示数の天井ではない ── 尽きても新しい展示は
+-- `/@ハンドル` で普通に公開できる。
+--
+-- **この本は 0040 に置き換えられている**（パス方式に切り替えたので `subdomain` →
+-- `expo_slug` に改名された）。履歴として残しつつ、**0040 を適用済みの環境では丸ごと
+-- 何もしない**ようにしてある。素の DDL を並べていた版は、貼り直すと 0040 が改名した
+-- `subdomain` を作り直し、0040 の改名条件（`expo_slug` が無いこと）を偽にして改名を
+-- 空振りさせ、**空の `subdomain` が残った**（schema.sql を2回流すだけで再現。実測
+-- 2026-08-09）。**後の番号が消したものを、前の番号が復活させてはいけない。**
+--
+-- 適用方法: SQL Editor に貼り付けて Run(再実行安全)
 
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'profiles_subdomain_format'
-  ) then
-    alter table public.profiles add constraint profiles_subdomain_format
-      check (subdomain is null or subdomain ~ '^[a-z0-9-]{3,40}$');
-  end if;
-end $$;
-
--- 大文字小文字を区別せずユニーク（DNS は区別しないので、`Expo` と `expo` を
--- 別物として持てると片方が届かない別名になる）。null は何行あってもよい。
-create unique index if not exists profiles_subdomain_key
-  on public.profiles (lower(subdomain)) where subdomain is not null;
-
-/* ================= 2. 本人は書き換えられない ================= */
+/* ================= 1. 本人は書き換えられない ================= */
 -- サブドメインは**DNSとVercelの登録が伴って初めて機能する**ので、行だけ先に書き換え
 -- られると「DBには入っているが届かない別名」ができ、canonical がそこを指してしまう
 -- （＝検索に載るURLが死ぬ）。付与も剥奪も管理者経由に限る。
@@ -1850,6 +1863,9 @@ create unique index if not exists profiles_subdomain_key
 -- 塞ぐ追加のトリガ**。work_cap / slots_included と同じ作法で、`security invoker` に
 -- して呼び手のロールを見る（definer にすると current_user が常に所有者になり素通りする
 -- ── 実際に 0036 でやってしまった。LESSONS 2026-08-09）。
+--
+-- 関数と RPC の本体は plpgsql なので、列が無くても作成時には検査されない（実行時に
+-- 解決される）。だから下の DO ブロックの外に置いてよい ── 0040 がどちらも drop する。
 create or replace function public.guard_subdomain()
 returns trigger
 language plpgsql
@@ -1866,10 +1882,40 @@ begin
 end;
 $$;
 
-drop trigger if exists profiles_guard_subdomain on public.profiles;
-create trigger profiles_guard_subdomain
-  before update of subdomain on public.profiles
-  for each row execute function public.guard_subdomain();
+/* ================= 2. profiles.subdomain ================= */
+-- 展示（＝アカウント）1つにつき1つ。部屋はこの下のパスなので、多室でも1つで足りる。
+-- 形式は部屋のパス（SLUG_RE）と同じ文字種で、3文字以上。lib/expoHost の
+-- EXPO_SUBDOMAIN_RE と対で保つこと。
+--
+-- 列に触る DDL は**まとめて1つの DO ブロックに入れ、動的SQLで撃つ**。`expo_slug` が
+-- あれば（＝0040 済みなら）何もせず抜ける。素の DDL のままだと、制約・索引・トリガが
+-- それぞれ「列が無い」で落ちる（列を作らないようにした結果、実際に落ちた）。
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'profiles'
+                and column_name = 'expo_slug') then
+    -- 0040 で改名済み。この本の仕事は終わっている。
+    return;
+  end if;
+
+  execute 'alter table public.profiles add column if not exists subdomain text';
+
+  if not exists (select 1 from pg_constraint where conname = 'profiles_subdomain_format') then
+    execute 'alter table public.profiles add constraint profiles_subdomain_format '
+         || 'check (subdomain is null or subdomain ~ ''^[a-z0-9-]{3,40}$'')';
+  end if;
+
+  -- 大文字小文字を区別せずユニーク（DNS は区別しないので、`Expo` と `expo` を
+  -- 別物として持てると片方が届かない別名になる）。null は何行あってもよい。
+  execute 'create unique index if not exists profiles_subdomain_key '
+       || 'on public.profiles (lower(subdomain)) where subdomain is not null';
+
+  execute 'drop trigger if exists profiles_guard_subdomain on public.profiles';
+  execute 'create trigger profiles_guard_subdomain '
+       || 'before update of subdomain on public.profiles '
+       || 'for each row execute function public.guard_subdomain()';
+end $$;
 
 /* ================= 3. 管理者による付与・剥奪 ================= */
 -- 予約語はアプリ側（lib/expoHost の RESERVED）が持ち、ここは最低限の形式だけ見る。
@@ -1903,12 +1949,26 @@ revoke all on function public.set_expo_subdomain(uuid, text) from public;
 revoke all on function public.set_expo_subdomain(uuid, text) from anon;
 grant execute on function public.set_expo_subdomain(uuid, text) to authenticated;
 
--- ============================================================================
+
 -- # 0040_expo_slug.sql — 展示のURLをパスへ(ユーザー決定 2026-08-09)
--- ============================================================================
--- `xibit360.art/expo/{slug}`。0039 のサブドメインは展示ごとに Vercel のドメイン追加と
--- Cloudflare の CNAME を毎回手で足す必要があり、Hobby の50ドメイン上限もあるため、
--- 公開URLはパスに切り替える(追加作業ゼロ・上限なし)。列は流用し、名前だけ実態に合わせる。
+-- 展示のURLをサブドメインからパスへ（ユーザー決定 2026-08-09）— `/expo/{slug}`
+--
+-- 0039 はサブドメイン（`tokyo-expo.xibit360.art`）を入れたが、**展示ごとに Vercel の
+-- ドメイン追加と Cloudflare の CNAME を毎回手で足す**必要があり、Hobby の
+-- 1プロジェクト50ドメインという上限もある。運用の手間が展示数に比例して増えるので、
+-- 公開URLは `xibit360.art/expo/{slug}` に切り替える（追加作業ゼロ・上限なし）。
+--
+-- ルート直下（`xibit360.art/{slug}`）にしなかった理由: ルートには既にアプリのルート
+-- 14個と言語コード11個が居て、将来のルートとも衝突する。得るのは1階層ぶんの短さだけ。
+--
+-- 列は**そのまま使える**（必要なのは「展示ごとにユニークな名前」で、まさにそれ）。
+-- 名前だけ実態に合わせて変える — パスを駆動するものが `subdomain` という名前のままだと
+-- 後で読む人が必ず誤解する。ホスト解析のコードは `NEXT_PUBLIC_EXPO_DOMAIN` 未設定で
+-- 切れる形で残してあるので、将来サブドメインをやるなら環境変数とDNSだけで戻せる。
+--
+-- 適用方法: SQL Editor に貼り付けて Run(再実行安全)
+-- ※ 0039 を適用済みでも未適用でも、番号順に流せば同じ結果になる。
+
 /* ================= 1. 列・制約・索引の改名 ================= */
 do $$
 begin
@@ -1924,6 +1984,30 @@ end $$;
 
 -- 0039 を飛ばした環境のために、無ければ作る（改名済みならこれは空振り）
 alter table public.profiles add column if not exists expo_slug text;
+
+-- 取り残された `subdomain` の掃除。0039 の古い版を2回流した環境には、改名後に作り直された
+-- **空の `subdomain`** が残っている（実測 2026-08-09）。**中身が入っているときは消さない** —
+-- 消してよいと言い切れるのは「1行も値が無い」場合だけで、値があるならそれは改名が
+-- 起きていない別の状態なので、人間が見るべき。
+-- 列の存在確認と中身の確認は**分ける**。1つの IF にまとめると、PL/pgSQL が式を丸ごと
+-- 計画する段で `subdomain` を解決しようとし、**列が無い環境（＝掃除の必要が無い環境）で
+-- `column "subdomain" does not exist` で落ちる**（実測 2026-08-09）。
+-- 中身の確認は動的SQLに逃がす。
+do $$
+declare
+  v_used boolean;
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'profiles' and column_name = 'subdomain')
+     and exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'profiles' and column_name = 'expo_slug')
+  then
+    execute 'select exists (select 1 from public.profiles where subdomain is not null)' into v_used;
+    if not v_used then
+      alter table public.profiles drop column subdomain;
+    end if;
+  end if;
+end $$;
 
 alter table public.profiles drop constraint if exists profiles_subdomain_format;
 do $$
@@ -2000,7 +2084,6 @@ grant execute on function public.set_expo_slug(uuid, text) to authenticated;
 
 -- 0039 の版は名前ごと退場（引数の型が同じなので置き換えではなく削除が必要）
 drop function if exists public.set_expo_subdomain(uuid, text);
-
 
 
 -- # 0041_room_submissions.sql

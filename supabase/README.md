@@ -9,13 +9,23 @@
 **`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0042 が
 一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
 
-Postgres 16.14 で検証済み(2026-07-29、0034まで):
+**未適用ぶんだけを1枚に束ねたいとき**は `npm run sql:pending -- <開始番号>`
+(例: `npm run sql:pending -- 0036 --out pending.sql`)。固定ファイルを置くと次の
+migration を足した日に古くなるので、必要なときに生成する。
+
+Postgres 16.14 で検証済み(2026-07-29、0034まで / 2026-08-09 に 0042 まで再検証):
 
 - 空のDBへ全文実行 → エラーゼロ。続けて2回目・3回目を実行してもエラーゼロ(冪等)
 - **`schema.sql` で作ったDBと、`migrations/` を0001から順に個別適用したDBの
   スキーマが完全一致**(`pg_dump --schema-only` の差分ゼロ)。つまりどちらの経路でも
   同じDBができる
 - 行が入っているDBに再実行してもデータは失われない(各表1行を入れて確認)
+- **2026-08-09 追加**: 「0001〜0035 を適用して既存データを入れたDB」に 0036〜0042 を
+  **3回**流してエラーゼロ・`profiles` の列が `expo_slug` のみで安定・既存の
+  galleries/placements/guestbook/likes/purchases が全部残ることを確認。さらに
+  `pg_dump --schema-only` で **schema.sql 1枚で作ったDBと完全一致**。適用後に
+  未ログイン(anon)で公開ギャラリー閲覧・いいね・記帳・訪問記録が通り、いいねと記帳で
+  通知行が生まれることも確認(0041 の権限事故の回帰)
 
 検証はSupabase固有の前提(`auth.users` / `auth.uid()` / `storage.*` / anon・
 authenticated・service_role の3ロール)を最小限スタブした素のPostgresで行った。

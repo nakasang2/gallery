@@ -12,7 +12,8 @@
     "check:gates": "node scripts/check-gates.mjs",
     "check:ship-ready": "node scripts/check-ship-ready.mjs",
     "predev": "node scripts/check-stale-next.mjs",
-    "prebuild": "node scripts/check-dev-server.mjs"
+    "prebuild": "node scripts/check-dev-server.mjs",
+    "sql:pending": "node scripts/sql-pending.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",

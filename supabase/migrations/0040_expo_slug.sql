@@ -32,6 +32,30 @@ end $$;
 -- 0039 を飛ばした環境のために、無ければ作る（改名済みならこれは空振り）
 alter table public.profiles add column if not exists expo_slug text;
 
+-- 取り残された `subdomain` の掃除。0039 の古い版を2回流した環境には、改名後に作り直された
+-- **空の `subdomain`** が残っている（実測 2026-08-09）。**中身が入っているときは消さない** —
+-- 消してよいと言い切れるのは「1行も値が無い」場合だけで、値があるならそれは改名が
+-- 起きていない別の状態なので、人間が見るべき。
+-- 列の存在確認と中身の確認は**分ける**。1つの IF にまとめると、PL/pgSQL が式を丸ごと
+-- 計画する段で `subdomain` を解決しようとし、**列が無い環境（＝掃除の必要が無い環境）で
+-- `column "subdomain" does not exist` で落ちる**（実測 2026-08-09）。
+-- 中身の確認は動的SQLに逃がす。
+do $$
+declare
+  v_used boolean;
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'profiles' and column_name = 'subdomain')
+     and exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'profiles' and column_name = 'expo_slug')
+  then
+    execute 'select exists (select 1 from public.profiles where subdomain is not null)' into v_used;
+    if not v_used then
+      alter table public.profiles drop column subdomain;
+    end if;
+  end if;
+end $$;
+
 alter table public.profiles drop constraint if exists profiles_subdomain_format;
 do $$
 begin
