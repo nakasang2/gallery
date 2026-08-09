@@ -8,8 +8,8 @@ import { supabase } from './supabase'
 import type { PaidKind, Sku } from './pricing'
 
 export interface PurchaseIntent {
-  kind: PaidKind | 'capacity' | 'video_pass'
-  /** theme/layout/frame id being bought; '' for capacity and video_pass */
+  kind: PaidKind | 'capacity' | 'video_pass' | 'room'
+  /** theme/layout/frame id being bought; '' for capacity, video_pass and room */
   itemKey: string
   /** the room receiving a capacity add-on (required for kind 'capacity') */
   galleryId?: string
@@ -47,6 +47,9 @@ export function resolveSku(intent: PurchaseIntent): { sku: Sku; itemKey: string 
   if (intent.kind === 'capacity') return { sku: 'capacity_addon', itemKey: '' }
   // Video Pass is a flat one-time SKU — no item, no quantity (ユーザー決定 2026-08-03).
   if (intent.kind === 'video_pass') return { sku: 'video_pass', itemKey: '' }
+  // An extra room is flat too: its capacity is included, so there is no quantity to
+  // pick, and the room itself is built afterwards (ユーザー決定 2026-08-09).
+  if (intent.kind === 'room') return { sku: 'room', itemKey: '' }
   // Themes, layouts and frames all travel as one `single_item` SKU; the server
   // prices them per item (ITEM_PRICE_CENTS) from itemKind + itemKey. Design Tools
   // is free and the Theme Collection bundle was retired (DECISIONS 2026-07-24).
@@ -68,7 +71,10 @@ export async function startCheckout(intent: PurchaseIntent, quantity = 1): Promi
       itemKey,
       // itemKind only names the single_item flavour (theme/layout/frame); flat SKUs
       // (capacity, video_pass) don't carry one.
-      itemKind: intent.kind === 'capacity' || intent.kind === 'video_pass' ? undefined : intent.kind,
+      itemKind:
+        intent.kind === 'capacity' || intent.kind === 'video_pass' || intent.kind === 'room'
+          ? undefined
+          : intent.kind,
       galleryId: intent.galleryId,
       quantity: intent.kind === 'capacity' ? quantity : undefined,
     }),

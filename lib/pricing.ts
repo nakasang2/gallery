@@ -5,7 +5,11 @@ import { paidThemeIds, paidLayoutIds, paidFrameIds } from './entitlements'
 // purchases.amount_jpy (legacy column name — it now stores USD cents; see
 // docs/DECISIONS 2026-07-24), and summed by the admin revenue view.
 export const PRICE_USD_CENTS = {
-  room: 0, // not sold (no UI / entitlement effect yet)
+  // An extra exhibition room, with that room's full physical capacity
+  // (MAX_WORKS_PER_ROOM slots) included — ユーザー決定 2026-08-09. Repeat-purchasable:
+  // each one raises `roomAllowance()` by 1. The room's theme and layout are NOT
+  // included; those stay their own single_item purchases, chosen per room.
+  room: 2500,
   capacity_addon: 300, // PER SLOT — capacity is sold by quantity now ($3/slot)
   single_item: 500, // base for one layout ($5); themes/frames have their own base
   theme_collection: 0, // retired (docs/DECISIONS 2026-07-24)
@@ -15,7 +19,7 @@ export const PRICE_USD_CENTS = {
 export type Sku = keyof typeof PRICE_USD_CENTS
 
 export const SKU_LABEL: Record<Sku, string> = {
-  room: 'Extra room',
+  room: 'Extra exhibition room',
   capacity_addon: 'Work slot',
   single_item: 'Theme / layout / frame',
   theme_collection: 'Theme Collection Vol.1',
@@ -59,6 +63,8 @@ export const PRICE_PER_SLOT_CENTS = PRICE_USD_CENTS.capacity_addon
 export const PRICE_SLOT = usd(PRICE_PER_SLOT_CENTS) // '$3'
 /** One-time Video Pass price — unlock exhibiting video works forever (§ pricing). */
 export const PRICE_VIDEO_PASS = usd(PRICE_USD_CENTS.video_pass) // '$20'
+/** One extra exhibition room, its full capacity included (ユーザー決定 2026-08-09). */
+export const PRICE_ROOM = usd(PRICE_USD_CENTS.room) // '$25'
 // Themes and layouts are both `single_item` purchases but priced apart
 // (docs/DECISIONS 2026-07-24): a theme is a bigger visual change than a layout.
 // These are the BASE prices — what an item costs unless ITEM_PRICE_CENTS below

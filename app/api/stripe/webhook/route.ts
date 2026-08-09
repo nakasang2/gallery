@@ -124,6 +124,19 @@ export async function POST(req: NextRequest) {
         await insertPurchase(db, { user_id: userId, kind: 'video_pass', item_key: '', sku, amount_jpy: amount, currency })
         break
       }
+      case 'room': {
+        // An extra exhibition room ($25, its full capacity included — ユーザー決定
+        // 2026-08-09). Repeat-purchasable, so the ledger row is keyed on the Checkout
+        // session (like capacity) rather than on a fixed item_key: `roomAllowance()`
+        // counts these rows, and redelivery of the same session is a no-op.
+        //
+        // Deliberately does NOT create the gallery. The allowance is a count, so the
+        // owner builds the room themselves and picks its title/theme/layout — which
+        // also means a charge can never leave a half-built room behind, and deleting
+        // a room does not burn the purchase.
+        await insertPurchase(db, { user_id: userId, kind: 'room', item_key: session.id, sku, amount_jpy: amount, currency })
+        break
+      }
       case 'capacity_addon': {
         const galleryId = meta.gallery_id ?? ''
         if (!galleryId) {

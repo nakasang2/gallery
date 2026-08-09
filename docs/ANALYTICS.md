@@ -321,7 +321,18 @@ F2（セッション要約）は他が全部落ちても単体で意味を持つ
 `gallery_arrive` / `gallery_loading_done` / `gallery_loading_timeout` / `gallery_webgl_unsupported` / `gallery_context_lost` / `gallery_context_restored` / `gallery_perf_downgrade` / `gallery_move_first` / `gallery_move_sample` / `gallery_stuck` / `gallery_work_focus` / `gallery_work_dwell` / `gallery_work_preview3d` / `gallery_work_preview3d_close` / `gallery_work_buy_click` / `gallery_like` / `gallery_share` / `gallery_tour_start` / `gallery_tour_end` / `gallery_guestbook_open` / `gallery_guestbook_submit` / `gallery_info_open` / `gallery_bgm_toggle` / `gallery_report_click` / `gallery_signup_cta` / `gallery_session_summary` / `embed_open_full`
 
 **出展者**
-`me_stage_view` / `me_work_upload_start` / `me_work_upload_done` / `me_work_upload_error` / `me_work_limit_hit` / `me_publish_on` / `me_publish_off` / `me_publish_blocked` / `checkout_modal_open` / `checkout_start` / `checkout_redirect` / `checkout_return` / `checkout_blocked` / `checkout_error`
+`me_stage_view` / `me_work_upload_start` / `me_work_upload_done` / `me_work_upload_error` / `me_work_limit_hit` / `me_publish_on` / `me_publish_off` / `me_publish_blocked` / `checkout_modal_open` / `checkout_start` / `checkout_redirect` / `checkout_return` / `checkout_blocked` / `checkout_error` / `room_created`
+
+**複数展示室（2026-08-09 追加）**
+`room_switch`（ダッシュボードで編集対象の部屋を切り替えた: `to` `main`） / `room_enter`（来場者が部屋を移動した: `to` `main` `embed`。3Dの扉とHUDの部屋一覧の両方から） / `room_created`（買った枠で部屋を作った: `rooms` `purchased`）
+
+`gallery_arrive` に `room_slug` `room_main` `rooms` を追加した。**多室の展示では1人の来場でこのイベントが部屋数ぶん出る**（部屋ごとに別ページ＝別ロードなので、部屋の閲覧としては正しい）。したがって:
+
+- **「展示への来場」** = `room_main:true` で絞る（玄関に着いた回数）
+- **「部屋の閲覧」** = 絞らず `room_slug` で分ける
+- 素の `gallery_arrive` 合計を「人数」として読むと、多室の作家ほど過大に出る。§0.2 の「下限であって全数ではない」と同じ種類の注意で、こちらは**上振れ**方向。
+
+`visits` テーブル（`recordVisit`）は従来どおり**部屋ごと**に1タブ1回。ゴーストの人数がその部屋の来場数から出るので、これは部屋単位のままが正しい。
 
 ### 検証で確かめたこと（2026-08-06）
 

@@ -1503,3 +1503,95 @@
     padding: 0.3rem;
   }
 }
+
+/* ── 複数展示室（ユーザー決定 2026-08-09） ───────────────────────────────
+   部屋のタブ・部屋の追加・満杯時の2択・サブ部屋のURL。いずれも2室目が
+   存在してはじめて描かれる（1室のときは何も足さない＝従来の画面のまま）。 */
+.me-rooms {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 1.1rem;
+  /* Same sideways-scroll treatment as the stage bar: room names are free text and
+     five of them will outrun a phone. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.me-rooms::-webkit-scrollbar { display: none; }
+.me-room-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  max-width: 14rem;
+  padding: 0.5em 0.9em;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: none;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s, border-color 0.2s;
+}
+.me-room-tab:hover { color: var(--ink); }
+.me-room-tab.active { color: var(--ink); border-color: var(--gold); }
+/* Which room `/@name` opens on — a quiet marker, not a second call to action. */
+.me-room-main { font-size: 0.66rem; color: var(--gold); }
+.me-room-add {
+  margin-top: 0.9rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px dashed var(--hairline);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+/* The sub-room's URL segment and the "make this the front door" switch. */
+.me-room-url {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+/* The two ways to hang more work, shown together so the cheaper one is never
+   hidden behind the other (ユーザー決定 2026-08-09). */
+.me-capacity-offer {
+  margin-top: 0.9rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid rgba(212, 162, 78, 0.35);
+  border-radius: 10px;
+  background: rgba(212, 162, 78, 0.05);
+}
+.me-capacity-choices {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.5rem;
+  /* Side by side when there is room, stacked on a phone — the comparison is the
+     point, so they must never end up in separate scroll positions. */
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+.me-capacity-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.7em 0.8em;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: rgba(236, 231, 222, 0.03);
+  font-family: var(--sans);
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s, color 0.2s;
+}
+.me-capacity-choice:hover { border-color: var(--gold); color: var(--ink); }
+.me-capacity-choice strong { font-size: 0.82rem; color: var(--ink); font-weight: 500; }
+.me-capacity-choice span { font-size: 0.72rem; line-height: 1.5; }

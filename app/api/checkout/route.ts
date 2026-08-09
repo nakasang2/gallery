@@ -12,9 +12,11 @@ import { MAX_WORKS_PER_ROOM, PLAN } from '@/lib/limits'
 export const runtime = 'nodejs'
 
 // Only these one-time SKUs are purchasable. Retired/unwired: theme_collection
-// (bundle, retired), design_tools (now free), room (no UI/entitlement). video_pass
-// is a live buy-once unlock ($20, ユーザー決定 2026-08-03). See docs/DECISIONS 2026-07-24.
-const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item', 'video_pass']
+// (bundle, retired), design_tools (now free). video_pass is a live buy-once unlock
+// ($20, ユーザー決定 2026-08-03); `room` is a repeat-purchasable extra exhibition
+// room ($25 with its full capacity included, ユーザー決定 2026-08-09). See
+// docs/DECISIONS 2026-07-24 / 2026-08-09.
+const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item', 'video_pass', 'room']
 
 // Managed Payments (enabled on the account — Stripe acts as merchant of record
 // and remits tax globally) requires an eligible tax code on every line item.

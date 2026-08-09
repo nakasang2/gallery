@@ -45,9 +45,11 @@ export async function generateMetadata({
   // it is the URL artists hand out (docs/DECISIONS 2026-07-30 SEO).
   const canonical = artistPath(username)
 
-  // Single public gallery: /@name IS the exhibition — use exhibition metadata
-  if (p.galleries.length === 1) {
-    const ex = await getExhibition(username, p.galleries[0].slug)
+  // /@name IS an exhibition — the front-door room's (ユーザー決定 2026-08-09; with a
+  // single public room that is simply that room, exactly as before).
+  const front = p.galleries.find((g) => g.isMain) ?? p.galleries[0]
+  if (front) {
+    const ex = await getExhibition(username, front.slug)
     if (ex) {
       const title = exhibitionTitle(ex)
       const description = exhibitionDescription(ex)
@@ -96,9 +98,13 @@ export default async function ArtistPage({
   // ?embed=1 the same way /@name/[slug] does — otherwise embeds render the full HUD.
   const { embed } = await searchParams
 
-  // Exactly one public gallery → /@name opens the room itself
-  if (p.galleries.length === 1) {
-    const ex = await getExhibition(username, p.galleries[0].slug)
+  // /@name opens the front-door room. With one public room that is that room (what
+  // this page has always done); with several, it is the one the artist designated, and
+  // the others are reached through the doors inside it (ユーザー決定 2026-08-09).
+  // The listing below is only reached when the artist has NO public room at all.
+  const front = p.galleries.find((g) => g.isMain) ?? p.galleries[0]
+  if (front) {
+    const ex = await getExhibition(username, front.slug)
     if (ex) {
       return (
         <>

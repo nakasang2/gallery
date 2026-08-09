@@ -12,6 +12,7 @@ import Room from './Room'
 import Exhibit, { exhibitExtents, exhibitLightRig, shadowPatch } from './Exhibit'
 import WallShadowBaker, { type BakeSpec } from './WallShadowBaker'
 import TitleWall from './TitleWall'
+import RoomPortals from './RoomPortals'
 import Dust from './Dust'
 import WalkControls from './WalkControls'
 import GhostVisitors from './GhostVisitors'
@@ -171,6 +172,9 @@ export default function GalleryScene() {
         />
       )}
       <TitleWall theme={theme} layout={layout} />
+      {/* Doorways to this artist's other public rooms. Renders nothing at all for a
+          single-room show, so it costs one filtered array on every other scene. */}
+      <RoomPortals layout={layout} theme={theme} />
       <Dust layout={layout} />
       <WalkControls layout={layout} list={list} slots={slots} />
       <GhostVisitors />

@@ -18,6 +18,9 @@ type GalleryRow = {
   slug: string
   updated_at: string | null
   profiles: { username: string | null } | null
+  /** The front-door room, rendered at `/@name` (migration 0036). Absent on a database
+   *  without 0036 — see the grouping below for what stands in then. */
+  is_main?: boolean | null
 }
 
 /** One sitemap entry per locale for a page we author, each carrying the full
@@ -76,11 +79,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // fails we still serve the static pages rather than a 500.
   const galleriesQ = (async (): Promise<GalleryRow[]> => {
     try {
-      const { data } = await supabase!
+      // `created_at` orders the rooms so the fallback front door (the oldest) is
+      // identifiable when 0036 has not been applied.
+      const { data, error } = await supabase!
+        .from('galleries')
+        .select('slug, updated_at, is_main, profiles (username)')
+        .eq('is_public', true)
+        .order('created_at', { ascending: true })
+      if (!error) return (data ?? []) as unknown as GalleryRow[]
+      const { data: legacy } = await supabase!
         .from('galleries')
         .select('slug, updated_at, profiles (username)')
         .eq('is_public', true)
-      return (data ?? []) as unknown as GalleryRow[]
+        .order('created_at', { ascending: true })
+      return (legacy ?? []) as unknown as GalleryRow[]
     } catch {
       return []
     }
@@ -114,9 +126,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly',
       priority: 0.8,
     })
-    // The sole gallery's own URL is not canonical, so it stays out.
-    if (rows.length === 1) continue
+    // The front-door room is `/@name`, already listed above — its own
+    // `/@name/{slug}` is the same page and is not canonical, so it stays out.
+    // Which room that is comes from `is_main`, falling back to the oldest room the
+    // same way `mainRoomOf()` does, so a pre-0036 database keeps the old behaviour
+    // (one room → only `/@name` is listed).
+    const frontSlug = (rows.find((g) => g.is_main) ?? rows[0])?.slug
     for (const g of rows) {
+      if (g.slug === frontSlug) continue
       rooms.push({
         url: `${base}/@${username}/${g.slug}`,
         lastModified: g.updated_at ? new Date(g.updated_at) : now,

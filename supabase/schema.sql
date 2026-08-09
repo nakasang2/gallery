@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0035 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0036 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -1425,3 +1425,127 @@ grant execute on function public.grant_entitlement(uuid, text, text) to authenti
 -- 既存の4軸(額・マット・掛け方・キャプション)と同じ形の5軸目。
 -- NULL = 部屋の既定(galleries.design_overrides の lightMode)に従う。
 alter table placements add column if not exists light_override text;
+
+-- ============================================================================
+-- # 0036_main_room.sql — 複数展示室の玄関(ユーザー決定 2026-08-09)
+-- ============================================================================
+-- `/@username` がどの部屋を描くかを DB に持たせる。サブ部屋は `/@username/[slug]`。
+-- 既存行は所有者ごとに最古の1室をバックフィルして玄関にする。
+alter table public.galleries add column if not exists is_main boolean not null default false;
+
+create unique index if not exists galleries_one_main_per_owner
+  on public.galleries (owner_id) where is_main;
+
+update public.galleries g
+   set is_main = true
+ where not g.is_main
+   and not exists (
+     select 1 from public.galleries o where o.owner_id = g.owner_id and o.is_main
+   )
+   and g.id = (
+     select g2.id
+       from public.galleries g2
+      where g2.owner_id = g.owner_id
+      order by g2.created_at asc, g2.id asc
+      limit 1
+   );
+
+-- 部分ユニーク索引があるので、玄関の付け替えは同一トランザクションで行う。
+create or replace function public.set_main_room(p_gallery uuid)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_owner uuid;
+begin
+  select owner_id into v_owner from public.galleries where id = p_gallery;
+  if v_owner is null then
+    raise exception 'set_main_room: no such room';
+  end if;
+
+  update public.galleries set is_main = false
+   where owner_id = v_owner and is_main and id <> p_gallery;
+  update public.galleries set is_main = true
+   where id = p_gallery;
+end;
+$$;
+
+revoke all on function public.set_main_room(uuid) from public;
+grant execute on function public.set_main_room(uuid) to authenticated;
+
+/* ================= 3. 部屋数と初期キャパをDBで強制する ================= */
+-- ここが無いと課金が守られない。`galleries` の insert は RLS 経由でブラウザから
+-- 直接行われ、`createGallery` の枚数チェックはクライアントが渡した購入数を信じる
+-- だけなので、**細工したクライアントは購入ゼロで部屋を無限に作れる**（しかも
+-- 2室目以降は work_cap=15 で作られるので $3×10 のスロットまで一緒に付いてくる）。
+-- 数えるのは購入台帳（kind='room' の行数）で、これは webhook しか書けない。
+--
+-- 初期キャパも同じ理由で縛る: 無料の1室目に work_cap=15 を入れた insert を送れば
+-- 10枠を無料で得られる。1室目は PLAN.worksPerGallery(5)、それ以降は
+-- MAX_WORKS_PER_ROOM(15) まで。※ここは**INSERT時の初期値**の話で、あとから
+-- スロットを買って上げるのは record_capacity_purchase（15でクランプ済み）の仕事。
+create or replace function public.enforce_room_allowance()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_rooms int;
+  v_bought int;
+begin
+  select count(*) into v_rooms from public.galleries where owner_id = new.owner_id;
+  select count(*) into v_bought from public.purchases
+   where user_id = new.owner_id and kind = 'room';
+
+  -- 無料1室 + 購入ぶん。lib/limits.roomAllowance() と同じ式。
+  if v_rooms >= 1 + v_bought then
+    raise exception 'room allowance exceeded: % rooms, % purchased', v_rooms, v_bought
+      using errcode = 'check_violation';
+  end if;
+
+  -- 1室目(=まだ部屋が無い)は5枠、それ以降は15枠まで。
+  if new.work_cap is not null and new.work_cap > (case when v_rooms = 0 then 5 else 15 end) then
+    raise exception 'work_cap % not allowed for a new room', new.work_cap
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists galleries_enforce_allowance on public.galleries;
+create trigger galleries_enforce_allowance
+  before insert on public.galleries
+  for each row execute function public.enforce_room_allowance();
+
+-- work_cap の引き上げは購入経路(record_capacity_purchase / admin付与)だけに許す。
+-- あの関数は security definer なので**その内側では current_user が所有者ロール**に
+-- なり、PostgREST 経由の直接 update だけが 'authenticated' / 'anon' で入ってくる。
+--
+-- ※ この関数は **security invoker でなければ意味が無い**。definer にすると
+-- current_user が常に自分の所有者になるので `in ('authenticated','anon')` が
+-- 永久に偽＝番人が素通りする（実際に definer で書いてしまい、ローカルの
+-- Postgres 16 で「authenticated が work_cap を 3→15 に上げられる」ことを実測して
+-- 気づいた。LESSONS 2026-08-09）。
+create or replace function public.guard_work_cap_raise()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if new.work_cap > old.work_cap and current_user in ('authenticated', 'anon') then
+    raise exception 'work_cap is raised by purchase only'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists galleries_guard_work_cap on public.galleries;
+create trigger galleries_guard_work_cap
+  before update of work_cap on public.galleries
+  for each row execute function public.guard_work_cap_raise();

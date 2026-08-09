@@ -219,6 +219,12 @@ interface GalleryStore extends Settings {
   /** Embedded on a third-party site (iframe, ?embed=1): trim the HUD to a
    *  compact back-link and open outbound links in a new tab, never in the frame */
   embed: boolean
+  /** The connecting doorway the visitor is standing in front of, or null. Written by
+   *  RoomPortals from inside the render loop (a proximity test every frame) and read
+   *  by the HUD, which turns it into the "walk through" prompt. Holding the SLUG
+   *  rather than the whole room keeps the write cheap: the same value re-set on the
+   *  next frame is a no-op for zustand, so standing still costs no re-renders. */
+  nearRoomSlug: string | null
 
   hydrate(): void
   initAuth(): void
@@ -233,6 +239,7 @@ interface GalleryStore extends Settings {
   setSettingsOpen(open: boolean): void
   setGuestbookOpen(open: boolean): void
   setInfoOpen(open: boolean): void
+  setNearRoom(slug: string | null): void
   setTourActive(active: boolean, recording?: boolean): void
   setDemoMode(on: boolean): void
   /** Re-run a failed cloud sync immediately */
@@ -259,6 +266,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   myGallery: null,
   visitor: null,
   embed: false,
+  nearRoomSlug: null,
 
   hydrate() {
     set({ ...loadSettings(), ready: true })
@@ -409,6 +417,11 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   setInfoOpen(open) {
     // The info panel is a peer of the artwork/guestbook drawers — opening it closes them
     set(open ? { infoOpen: true, focusedIndex: -1, settingsOpen: false, guestbookOpen: false } : { infoOpen: false })
+  },
+  setNearRoom(slug) {
+    // Called every frame while walking, so bail when nothing changed — zustand would
+    // otherwise notify subscribers on each identical set.
+    if (get().nearRoomSlug !== slug) set({ nearRoomSlug: slug })
   },
   setTourActive(active, recording = false) {
     // recording only applies while active; ending the tour always clears it

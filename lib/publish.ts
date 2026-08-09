@@ -10,6 +10,9 @@ import {
   type DesignOverrides,
 } from './presets'
 import { PLAN } from './limits'
+// A pure helper over gallery rows (no browser-only imports on that path), so server
+// code can resolve the front-door room the same way the dashboard does.
+import { mainRoomOf } from './galleries'
 
 // SNS links (known platforms + custom) live in lib/sns.ts so both server code
 // (this file, seo.ts) and client components can share them.
@@ -21,6 +24,14 @@ export { EMPTY_SNS, snsUrl, type SnsLinks } from './sns'
 // lighting overrides on a fully-migrated DB (レビュー指摘 2026-07-30).
 function missingLightColumn(e: { code?: string; message?: string } | null): boolean {
   return !!e && (e.code === 'PGRST204' || e.code === '42703' || /light_override/.test(e.message ?? ''))
+}
+
+/** One public room of the same artist, as the doors and the room list need it. */
+export interface SiblingRoom {
+  slug: string
+  title: string
+  /** The room `/@username` renders — where a visitor lands with no slug. */
+  isMain: boolean
 }
 
 export interface PublicExhibition {
@@ -63,10 +74,16 @@ export interface PublicExhibition {
   /** Cumulative visit count (§11.19) — drives the ambient past-visitor silhouettes */
   visitCount: number
   /** How many galleries this artist has open to the public, this one included.
-   *  Exactly 1 means `/@name` renders THIS exhibition inline, so the two URLs are
-   *  the same page and the canonical is `/@name` (docs/DECISIONS 2026-07-30 SEO).
-   *  Fails soft to 1: with a broken count the worst case is a self-canonical page. */
+   *  Derived from `rooms`, so it can never disagree with the door list. */
   publicGalleryCount: number
+  /** Every public room of this artist, oldest first — the doors in the 3D room and
+   *  the room list in the HUD (ユーザー決定 2026-08-09). Always contains this room. */
+  rooms: SiblingRoom[]
+  /** Whether `/@username` (no slug) renders THIS room. When it does, `/@name` and
+   *  `/@name/[slug]` are the same page, so the canonical is `/@name`; a sub-room is a
+   *  page of its own and canonicalises to itself (docs/DECISIONS 2026-07-30 SEO).
+   *  Fails soft to true: the worst case is a self-canonical page. */
+  isMain: boolean
   artworks: ArtworkData[]
 }
 
@@ -146,6 +163,10 @@ export interface PublicProfile {
     /** thumb+card srcset for the cover, or null when we can't state widths honestly */
     coverSrcSet: string | null
     workCount: number
+    /** True for the room `/@username` itself renders (migration 0036). Exactly one of
+     *  these is true whenever the list is non-empty — `mainRoomOf` falls back to the
+     *  first (oldest) room on a database without the column. */
+    isMain: boolean
   }[]
 }
 
@@ -160,12 +181,27 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
       .maybeSingle()
     if (!profile) return null
 
-    const { data: galleries } = await supabase
+    // `is_main` names the front-door room (migration 0036). Selected separately so a
+    // database without 0036 still lists the rooms: the column is dropped from the
+    // query and `mainRoomOf` falls back to the oldest room, exactly as before.
+    let galleriesRes = await supabase
       .from('galleries')
-      .select('id, slug, title, statement, cover_artwork_id')
+      .select('id, slug, title, statement, cover_artwork_id, is_main')
       .eq('owner_id', profile.id)
       .eq('is_public', true)
       .order('created_at', { ascending: true })
+    if (galleriesRes.error) {
+      galleriesRes = (await supabase
+        .from('galleries')
+        .select('id, slug, title, statement, cover_artwork_id')
+        .eq('owner_id', profile.id)
+        .eq('is_public', true)
+        .order('created_at', { ascending: true })) as unknown as typeof galleriesRes
+    }
+    const galleries = galleriesRes.data as
+      | { id: string; slug: string; title: string; statement: string; cover_artwork_id: string | null; is_main?: boolean | null }[]
+      | null
+    const mainId = mainRoomOf(galleries ?? [])?.id ?? null
 
     const out: PublicProfile = {
       username: profile.username!,
@@ -197,6 +233,7 @@ export async function fetchPublicProfile(username: string): Promise<PublicProfil
         cover: first ? (first.kind === 'video' ? first.poster ?? null : first.card ?? first.src ?? null) : null,
         coverSrcSet: first ? artworkSrcSet(first, 'card') ?? null : null,
         workCount: rows.length,
+        isMain: g.id === mainId,
       })
     }
     return out
@@ -364,20 +401,41 @@ async function fetchPublicExhibitionInner(
     /* non-fatal */
   }
 
-  // Which URL is canonical depends on whether `/@name` is this exhibition or a
-  // listing (docs/DECISIONS 2026-07-30 SEO). `head: true` fetches no rows, so this
-  // is the cheapest question we can ask — and we already hold `profile.id`.
-  let publicGalleryCount = 1
+  // Every public room this artist has, this one included — three jobs in one query:
+  //   - the doors in the 3D room and the room list in the HUD (ユーザー決定 2026-08-09)
+  //   - which URL is canonical (docs/DECISIONS 2026-07-30 SEO): `/@name` renders the
+  //     FRONT-DOOR room, so that room canonicalises to `/@name` and the others to
+  //     their own `/@name/[slug]`
+  //   - the count, which used to be its own head-only query
+  // Fails soft to "this room alone": a self-canonical page with no doors is a safe
+  // degradation, never a wrong claim about another room.
+  let rooms: SiblingRoom[] = [{ slug, title: gallery.title, isMain: true }]
   try {
-    const { count } = await supabase!
+    let rRes = await supabase!
       .from('galleries')
-      .select('id', { count: 'exact', head: true })
+      .select('id, slug, title, is_main')
       .eq('owner_id', profile.id)
       .eq('is_public', true)
-    if (typeof count === 'number' && count > 0) publicGalleryCount = count
+      .order('created_at', { ascending: true })
+    if (rRes.error) {
+      // 0036 not applied — no flag to read, so the oldest room is the front door
+      rRes = (await supabase!
+        .from('galleries')
+        .select('id, slug, title')
+        .eq('owner_id', profile.id)
+        .eq('is_public', true)
+        .order('created_at', { ascending: true })) as unknown as typeof rRes
+    }
+    const rows = (rRes.data ?? []) as { id: string; slug: string; title: string; is_main?: boolean | null }[]
+    if (rows.length) {
+      const mainId = mainRoomOf(rows)?.id ?? null
+      rooms = rows.map((r) => ({ slug: r.slug, title: r.title, isMain: r.id === mainId }))
+    }
   } catch {
-    /* non-fatal — a self-canonical page is a safe default */
+    /* non-fatal — see above */
   }
+  const isMain = rooms.find((r) => r.slug === slug)?.isMain ?? true
+  const publicGalleryCount = rooms.length
 
   return {
     galleryId: gallery.id,
@@ -406,6 +464,8 @@ async function fetchPublicExhibitionInner(
     arrangement,
     visitCount,
     publicGalleryCount,
+    rooms,
+    isMain,
     frameOverrides,
     matOverrides,
     hangingOverrides,
@@ -523,6 +583,12 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       // This path only ever returns a PRIVATE draft, which is never indexed and
       // never reached by a crawler — the value is unused, so state the truth.
       publicGalleryCount: 0,
+      // No doors in a private preview: the sibling rooms it would link to are the
+      // PUBLIC ones, and walking out of an unpublished draft into a live room (or into
+      // a 404, if none is public yet) is not a preview of anything the owner is about
+      // to ship. The room list in the HUD hides itself on an empty list.
+      rooms: [],
+      isMain: true,
       frameOverrides,
       matOverrides,
       hangingOverrides,

@@ -17,6 +17,7 @@ import { sessionFlags, track } from '@/lib/analytics'
 import GalleryScene from './GalleryScene'
 import FlatGallery from './FlatGallery'
 import MiniMap from './MiniMap'
+import RoomSwitch from './RoomSwitch'
 import { HudTop, HudActions, HudStepper, Hint } from './Hud'
 import ArtworkPanel from './ArtworkPanel'
 import InfoPanel from './InfoPanel'
@@ -440,6 +441,7 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
           <Hint />
           <HudStepper />
           <MiniMap />
+          <RoomSwitch />
           <ArtworkPanel />
         </>
       ) : null}

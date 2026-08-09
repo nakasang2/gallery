@@ -14,9 +14,13 @@ export interface OwnedIds {
   designTools: boolean
   /** ① Video Pass owned (buy-once) */
   videoPass: boolean
+  /** ② How many EXTRA rooms were bought. Repeat-purchasable, so this is a count of
+   *  ledger rows (each keyed by its Checkout session), not a boolean — feed it to
+   *  `roomAllowance()` for how many rooms the account may own in total. */
+  rooms: number
 }
 
-const EMPTY_OWNED: OwnedIds = { themeIds: [], layoutIds: [], frameIds: [], designTools: false, videoPass: false }
+const EMPTY_OWNED: OwnedIds = { themeIds: [], layoutIds: [], frameIds: [], designTools: false, videoPass: false, rooms: 0 }
 
 export function usePurchasedIds(userId: string | null): OwnedIds {
   const [owned, setOwned] = useState<OwnedIds>(EMPTY_OWNED)
@@ -44,6 +48,7 @@ export function usePurchasedIds(userId: string | null): OwnedIds {
           frameIds: rows.filter((r) => r.kind === 'frame').map((r) => r.item_key),
           designTools: rows.some((r) => r.kind === 'design_tools'),
           videoPass: rows.some((r) => r.kind === 'video_pass'),
+          rooms: rows.filter((r) => r.kind === 'room').length,
         })
       })
     return () => {

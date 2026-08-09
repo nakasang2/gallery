@@ -729,7 +729,7 @@ export default function SettingsPanel() {
               )
             }
             item={purchaseItem.kind === 'video_pass' ? undefined : { kind: purchaseItem.kind, itemKey: purchaseItem.key }}
-            flat={purchaseItem.kind === 'video_pass' ? { cents: PRICE_USD_CENTS.video_pass } : undefined}
+            flat={purchaseItem.kind === 'video_pass' ? { cents: PRICE_USD_CENTS.video_pass, kind: 'video' } : undefined}
             intent={{ kind: purchaseItem.kind, itemKey: purchaseItem.key }}
             onClose={() => setPurchaseItem(null)}
           />

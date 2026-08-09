@@ -42,10 +42,19 @@ export default function VisitorGallery({
       recordVisit(exhibition.galleryId) // one count per tab session (drives the ghost crowd)
       // The raw arrival, before any dedupe — `visits` counts a tab session, this
       // counts a page open, and the gap between them is real (docs/ANALYTICS.md A1).
+      // A multi-room show fires this once PER ROOM, because each room is its own page
+      // load (ユーザー決定 2026-08-09). That is the honest reading — a room view is a
+      // room view — but it means "arrivals" is not the same as "people" once a show has
+      // several rooms. `room_slug` / `room_main` / `rooms` are what separate the two:
+      // group by them for per-room numbers, filter to `room_main` for arrivals at the
+      // front door, which is the closest thing to a visit to the SHOW.
       track('gallery_arrive', {
         gallery_id: exhibition.galleryId,
         embed,
         works: exhibition.artworks.length,
+        room_slug: exhibition.slug,
+        room_main: exhibition.isMain,
+        rooms: exhibition.publicGalleryCount,
         referrer: document.referrer ? new URL(document.referrer).host : 'direct',
       })
     }

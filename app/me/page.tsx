@@ -1,6 +1,9 @@
 'use client'
 // Dashboard: manage your gallery (create / rename / publish / delete), profile, and links.
-// Designed for multiple galleries; the release plan caps creation at PLAN.galleries.
+// Multi-room since 2026-08-09: the free plan grants one room and each $25 purchase
+// grants another (lib/limits → roomAllowance). The RoomBar below picks which room the
+// rest of this screen is editing; one room means it renders as a single static label,
+// so nothing about the single-room screen changes until a second room exists.
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -16,15 +19,19 @@ import PurchaseModal from '@/components/PurchaseModal'
 import HelpModal from '@/components/HelpModal'
 import TopActions from '@/components/TopActions'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
-import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_USD_CENTS, type PaidKind } from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_USD_CENTS, type PaidKind } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
-import { PLAN, MAX_WORKS_PER_ROOM, GALLERY_BGM_MAX_BYTES } from '@/lib/limits'
+import { PLAN, MAX_WORKS_PER_ROOM, GALLERY_BGM_MAX_BYTES, roomAllowance } from '@/lib/limits'
 import {
   listMyGalleries,
   createGallery,
   updateGalleryDetails,
+  updateGallerySlug,
+  setMainRoom,
+  mainRoomOf,
+  SLUG_RE,
   deleteGallery,
   setGalleryPublic,
   setGalleryCover,
@@ -182,6 +189,15 @@ function FieldLabel({ children, hint }: { children: string; hint: string }) {
 const ToastContext = createContext<(msg?: string) => void>(() => {})
 function useToast() {
   return useContext(ToastContext)
+}
+
+// Buying a room is an ACCOUNT-level action, but the moment that sells it is inside a
+// room (the works stage, when this room can hold no more). MePage owns the offer —
+// it holds the room list and the purchase count — and hands the opener down through
+// this context, the same way the toast is shared.
+const RoomOfferContext = createContext<(() => void) | null>(null)
+function useRoomOffer() {
+  return useContext(RoomOfferContext)
 }
 
 
@@ -444,16 +460,27 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
 // The gallery card IS the gallery workbench: status + publish on top, then the
 // works library on the left and the real-3D preview with every design control —
 // per-work title/caption/frame and the room-wide theme/layout — on the right.
-function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => void }) {
+function GalleryCard({
+  row,
+  onChanged,
+  roomCount,
+  isMain,
+}: {
+  row: GalleryRow
+  onChanged: () => void
+  /** How many rooms this account owns. Multi-room controls (the URL slug, "make this
+   *  the front door") only appear once a second room exists — with one room they would
+   *  ask about a distinction that does not exist yet. */
+  roomCount: number
+  /** Whether `/@username` renders THIS room. Resolved by the caller through
+   *  `mainRoomOf()`, so the pre-0036 fallback ("oldest room") is decided in one place. */
+  isMain: boolean
+}) {
+  const roomOffer = useRoomOffer()
   const t = useT()
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
-  const frameOverrides = useGallery((s) => s.frameOverrides)
-  const matOverrides = useGallery((s) => s.matOverrides)
-  const hangingOverrides = useGallery((s) => s.hangingOverrides)
-  const captionOverrides = useGallery((s) => s.captionOverrides)
-  const lightOverrides = useGallery((s) => s.lightOverrides)
   const updateSettings = useGallery((s) => s.updateSettings)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
@@ -461,6 +488,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [nameInput, setNameInput] = useState(row.title)
+  const [slugInput, setSlugInput] = useState(row.slug)
   const [statementInput, setStatementInput] = useState(row.statement)
   const [detailsState, setDetailsState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const detailsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -531,6 +559,26 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   // so a placement edit and a layout change never race over one gallery row.
   const [placement, setPlacement] = useState<(string | null)[]>(() => normalizeArrangement(row.arrangement))
   const placeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Per-work design (frame / mat / hanging / caption / light), keyed by artwork id and
+  // scoped to THIS ROOM. These live in the room's own placements, not in the zustand
+  // store: the store carries one set of maps for the whole browser, which the store only
+  // ever loads from the front-door room (`refreshMyGallery` → `getMyGalleryRow`). Reading
+  // and writing them there showed room 1's framing while editing room 2 and saved room 2's
+  // edits onto room 1 — the same class of bug as reading `row` from the store would be.
+  // Same work can be framed differently in two rooms, which is the point of a second room.
+  const [overrides, setOverrides] = useState<PlacementOverrides>(EMPTY_OVERRIDES)
+  const overrideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    let alive = true
+    fetchPlacementOverrides(row.id)
+      .then((o) => alive && setOverrides(o))
+      .catch(() => {
+        /* leave the room's defaults showing rather than another room's overrides */
+      })
+    return () => {
+      alive = false
+    }
+  }, [row.id])
   // Every local placement edit bumps editGen; a save stamps savedGen with the gen it
   // persisted. While editGen ≠ savedGen there's an unsaved (or in-flight) local edit, so
   // the re-seed effect must not overwrite the map from the row — otherwise a save's row
@@ -546,13 +594,13 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
 
   // Effective per-work design: the override when set, else the gallery default
-  const frame = (selected && frameOverrides[selected.id]) || row.frame_default
-  const mat = (selected && matOverrides[selected.id]) || row.mat_default
-  const hanging = (selected && hangingOverrides[selected.id]) || row.hanging_default
-  const captionKey = (selected && captionOverrides[selected.id]) || row.caption_default
+  const frame = (selected && overrides.frames[selected.id]) || row.frame_default
+  const mat = (selected && overrides.mats[selected.id]) || row.mat_default
+  const hanging = (selected && overrides.hangings[selected.id]) || row.hanging_default
+  const captionKey = (selected && overrides.captions[selected.id]) || row.caption_default
   // Effective lighting for the selected work: 'follow' means the room's default.
   const lightKey = (() => {
-    const k = selected ? lightOverrides[selected.id] : undefined
+    const k = selected ? overrides.lights[selected.id] : undefined
     return k === 'ceiling' || k === 'overhead' ? k : 'follow'
   })()
   // The 3D preview reads lightMode from designOverrides, so resolve the per-work
@@ -660,15 +708,36 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     }
   }, [row.id])
 
-  // The shareable URL is just /@name while the plan allows one gallery
-  // (the slug mechanism stays in the DB for the multi-gallery future)
-  const publicUrl = typeof window !== 'undefined' && username ? `${location.origin}/@${username}` : ''
+  // `/@name` is the front-door room's URL; every other room hangs off it as
+  // `/@name/[slug]` (ユーザー決定 2026-08-09 — one URL for the artist, sub-rooms
+  // underneath). With a single room `is_main` is true (or absent on a pre-0036 DB and
+  // this room is the oldest either way), so this stays exactly the `/@name` it was.
+  const origin = typeof window !== 'undefined' ? location.origin : ''
+  const publicUrl = origin && username ? `${origin}/@${username}${isMain ? '' : `/${row.slug}`}` : ''
   // Embeddable iframe: ?embed=1 trims the HUD to a back-link and opens outbound
   // links in a new tab. 16:10 keeps the walk usable in a blog's content column.
   const embedSrc = publicUrl ? `${publicUrl}?embed=1` : ''
   const embedCode = embedSrc
     ? `<iframe src="${embedSrc}" width="100%" height="600" style="border:0;border-radius:12px;aspect-ratio:16/10;max-width:100%" allowfullscreen loading="lazy" title="Xibit360 — ${(isPlaceholderTitle(row.title) ? t('me.embedFallbackTitle') : row.title).replace(/"/g, '&quot;')}"></iframe>`
     : ''
+
+  /** Rename this room's path segment (`/@name/[slug]`). Only reachable on a sub-room —
+   *  the front-door room IS `/@name` and has no segment to show. */
+  async function saveSlug() {
+    const next = slugInput.trim().toLowerCase()
+    if (!SLUG_RE.test(next)) {
+      alert(t('me.roomSlugInvalid'))
+      return
+    }
+    await run(t('me.roomSlugSave'), () => updateGallerySlug(row.id, next))
+  }
+
+  /** Make this room the one `/@name` opens on. The room that WAS the front door keeps
+   *  its own slug, so its URL becomes `/@name/[slug]` — the old `/@name` link still
+   *  works, it just lands on a different room now, which is the whole point. */
+  async function makeFrontDoor() {
+    await run(t('me.frontDoorMake'), () => setMainRoom(row.id))
+  }
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(true)
@@ -684,16 +753,18 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     }
   }
 
-  // Per-work design may have been set on another device — merge the placements'
-  // stored overrides under this browser's, or a rebuild here would wipe them
+  // Per-work design may have been set on another device since this room was loaded —
+  // re-read the room's placements and lay our own (newer) edits on top, or a rebuild
+  // here would wipe the other device's work. Both sides are THIS room's, keyed by
+  // `row.id`, so nothing from another room can leak in.
   async function mergedOverrides(): Promise<PlacementOverrides> {
-    const saved = await fetchPlacementOverrides(row.id).catch(() => EMPTY_OVERRIDES)
+    const saved = await fetchPlacementOverrides(row.id).catch(() => overrides)
     return {
-      frames: { ...saved.frames, ...frameOverrides },
-      mats: { ...saved.mats, ...matOverrides },
-      hangings: { ...saved.hangings, ...hangingOverrides },
-      captions: { ...saved.captions, ...captionOverrides },
-      lights: { ...saved.lights, ...lightOverrides },
+      frames: { ...saved.frames, ...overrides.frames },
+      mats: { ...saved.mats, ...overrides.mats },
+      hangings: { ...saved.hangings, ...overrides.hangings },
+      captions: { ...saved.captions, ...overrides.captions },
+      lights: { ...saved.lights, ...overrides.lights },
     }
   }
 
@@ -753,6 +824,37 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
     setPlacement(normalizeArrangement(row.arrangement))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(row.arrangement)])
+
+  /**
+   * Per-work design autosave, scoped to this room.
+   *
+   * Persists through `rebuildPlacements(row.id)` — the same row-based path as placement
+   * and theme edits — rather than through the store's debounced sync, which writes to
+   * `myGallery.id` (always the front-door room) and would land a sub-room's framing on
+   * room 1. Only touches the placements: the room's DEFAULT framing lives on the
+   * gallery row and is not what a per-work chip changes.
+   *
+   * A private room has no placements to rebuild yet, so the edit stays in this state
+   * until it is published — exactly how `editPlacement` behaves for the same reason.
+   */
+  function editOverrides(partial: Partial<PlacementOverrides>) {
+    const next = { ...overrides, ...partial }
+    setOverrides(next)
+    if (overrideTimer.current) clearTimeout(overrideTimer.current)
+    overrideTimer.current = setTimeout(() => {
+      void (async () => {
+        try {
+          if (row.is_public) await rebuildPlacements(row.id, rowToSettings(row, next), cloudArtworks)
+          toast()
+        } catch (e) {
+          alert(t('me.actionFailed', { label: t('me.theme'), msg: String(e instanceof Error ? e.message : e) }))
+        }
+      })()
+    }, 700)
+  }
+  useEffect(() => () => {
+    if (overrideTimer.current) clearTimeout(overrideTimer.current)
+  }, [])
 
   // Manual placement autosave (§11.13): optimistic local update, then persist through
   // the same rowToSettings → saveGallerySpace(+rebuildPlacements) path as theme/layout.
@@ -1145,28 +1247,15 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
         captionKey={captionKey}
         lightKey={lightKey}
         onLight={(k) => {
-          const next = { ...lightOverrides }
+          const next = { ...overrides.lights }
           if (k) next[selected.id] = k
           else delete next[selected.id]
-          updateSettings({ lightOverrides: next })
-          toast()
+          editOverrides({ lights: next })
         }}
-        onFrame={(k) => {
-          updateSettings({ frameOverrides: setOverride(frameOverrides, selected.id, k, row.frame_default) })
-          toast()
-        }}
-        onMat={(k) => {
-          updateSettings({ matOverrides: setOverride(matOverrides, selected.id, k, row.mat_default) })
-          toast()
-        }}
-        onHanging={(k) => {
-          updateSettings({ hangingOverrides: setOverride(hangingOverrides, selected.id, k, row.hanging_default) })
-          toast()
-        }}
-        onCaption={(k) => {
-          updateSettings({ captionOverrides: setOverride(captionOverrides, selected.id, k, row.caption_default) })
-          toast()
-        }}
+        onFrame={(k) => editOverrides({ frames: setOverride(overrides.frames, selected.id, k, row.frame_default) })}
+        onMat={(k) => editOverrides({ mats: setOverride(overrides.mats, selected.id, k, row.mat_default) })}
+        onHanging={(k) => editOverrides({ hangings: setOverride(overrides.hangings, selected.id, k, row.hanging_default) })}
+        onCaption={(k) => editOverrides({ captions: setOverride(overrides.captions, selected.id, k, row.caption_default) })}
       />
     </div>
   ) : null
@@ -1536,6 +1625,41 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 {row.work_cap >= MAX_WORKS_PER_ROOM ? t('me.roomFull') : t('me.addSlots')}
               </button>
             </div>
+            {/* The two ways to hang more work, side by side at the moment it matters.
+                They are NOT interchangeable and the prices say so: filling this room to
+                its physical max costs `PRICE_SLOT` × the slots left, while a whole extra
+                room with all MAX_WORKS_PER_ROOM slots included costs PRICE_ROOM — which
+                for a room at the free cap is the cheaper way to gain capacity.
+                Showing only the slot offer here would let someone spend more than they
+                had to and find out afterwards, so both are on screen together
+                (ユーザー決定 2026-08-09). Only shown once this room is actually full:
+                before that neither is a decision the owner needs to make. */}
+            {cloudArtworks.length >= row.work_cap && roomOffer && (
+              <div className="me-capacity-offer">
+                <p className="me-note" style={{ marginTop: 0 }}>{t('me.capacityChoice')}</p>
+                <div className="me-capacity-choices">
+                  {row.work_cap < MAX_WORKS_PER_ROOM && (
+                    <button
+                      type="button"
+                      className="me-capacity-choice"
+                      onClick={() => setPurchaseItem({ kind: 'capacity', key: 'capacity', label: t('me.addWorkSlots') })}
+                    >
+                      <strong>{t('me.capacityDenser')}</strong>
+                      <span>
+                        {t('me.capacityDenserDesc', {
+                          price: PRICE_SLOT,
+                          left: MAX_WORKS_PER_ROOM - row.work_cap,
+                        })}
+                      </span>
+                    </button>
+                  )}
+                  <button type="button" className="me-capacity-choice" onClick={roomOffer}>
+                    <strong>{t('me.capacityAnotherRoom')}</strong>
+                    <span>{t('me.capacityAnotherRoomDesc', { price: PRICE_ROOM, slots: MAX_WORKS_PER_ROOM })}</span>
+                  </button>
+                </div>
+              </div>
+            )}
             {/* One row, scrolled sideways when it outgrows the width. "Add" sits at
                 the HEAD of the row: at the tail it ends up past the right edge once
                 there are a few works — the same trap the old rail fell into
@@ -1726,11 +1850,61 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
                 </div>
               </div>
             )}
+            {/* Multi-room only: which room `/@name` opens on, and the path segment the
+                other rooms sit at. With one room there is no front door to choose and no
+                second URL to name, so none of this appears (ユーザー決定 2026-08-09). */}
+            {roomCount > 1 && username && (
+              <div className="me-room-url">
+                {isMain ? (
+                  <p className="me-note" style={{ marginTop: 0 }}>{t('me.frontDoorThis')}</p>
+                ) : (
+                  <>
+                    <div className="field-row">
+                      <FieldLabel hint={t('me.roomSlugHint')}>{t('me.roomSlug')}</FieldLabel>
+                    </div>
+                    <div className="field-row">
+                      <input
+                        type="text"
+                        aria-label={t('me.roomSlug')}
+                        value={slugInput}
+                        spellCheck={false}
+                        onChange={(e) => setSlugInput(e.target.value)}
+                      />
+                      <button
+                        className="btn-line"
+                        disabled={busy || !slugInput.trim() || slugInput.trim().toLowerCase() === row.slug}
+                        onClick={() => void saveSlug()}
+                      >
+                        {t('me.roomSlugSave')}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-line"
+                      disabled={busy}
+                      onClick={() => void makeFrontDoor()}
+                    >
+                      {t('me.frontDoorMake')}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
             {/* Actions for the finished room: walk it in 3D (always — the room can be
                 arranged before it's public), plus embed + catalog once it's live
                 (ユーザー指示 2026-07-30 — "部屋を歩く" moved here from the header). */}
             <div className="hako-url-actions">
-              <LocaleLink className="btn-line" href="/demo">{t('me.navWalk')}</LocaleLink>
+              {/* `/demo` renders the STORE's settings, and the store only ever loads the
+                  front-door room — from a sub-room's tab it would walk the wrong room.
+                  A sub-room is walked at its real URL instead, which works before it is
+                  public too (the owner-preview path in app/[handle]/[slug]). */}
+              {isMain || !username ? (
+                <LocaleLink className="btn-line" href="/demo">{t('me.navWalk')}</LocaleLink>
+              ) : (
+                <a className="btn-line" href={`/@${username}/${row.slug}`} target="_blank" rel="noreferrer">
+                  {t('me.navWalk')}
+                </a>
+              )}
               {row.is_public && embedCode && (
                 <button className="btn-line" onClick={() => setShowEmbed((v) => !v)}>
                   {showEmbed ? t('me.embedHide') : t('me.embed')}
@@ -1877,7 +2051,7 @@ function GalleryCard({ row, onChanged }: { row: GalleryRow; onChanged: () => voi
               ? undefined
               : { kind: purchaseItem.kind, itemKey: purchaseItem.key }
           }
-          flat={purchaseItem.kind === 'video_pass' ? { cents: PRICE_USD_CENTS.video_pass } : undefined}
+          flat={purchaseItem.kind === 'video_pass' ? { cents: PRICE_USD_CENTS.video_pass, kind: 'video' } : undefined}
           quantity={
             purchaseItem.kind === 'capacity'
               ? {
@@ -2367,6 +2541,12 @@ export default function MePage() {
   const [checked, setChecked] = useState(false)
   // null = still loading (prevents flashing the create card at returning users)
   const [galleries, setGalleries] = useState<GalleryRow[] | null>(null)
+  // Which room the stage bar below is editing. null = the front-door room (resolved
+  // after load, so it survives a room being deleted or bought while this is open).
+  const [roomId, setRoomId] = useState<string | null>(null)
+  // Open the "buy another room" modal — handed to every room through RoomOfferContext.
+  const [roomOfferOpen, setRoomOfferOpen] = useState(false)
+  const [creatingRoom, setCreatingRoom] = useState(false)
   const [loadErr, setLoadErr] = useState('')
   const [usage, setUsage] = useState<number | null>(null)
   // Set when Stripe Checkout sent the user back here (?purchase=success|cancelled)
@@ -2424,6 +2604,42 @@ export default function MePage() {
     void reload()
   }, [reload])
 
+  // How many rooms this account may own: the free one plus one per $25 purchase.
+  const owned = usePurchasedIds(user?.id ?? null)
+  const allowance = roomAllowance(owned.rooms)
+  const rooms = galleries ?? []
+  // `mainRoomOf` owns the pre-0036 fallback (no flag → the oldest room), so every
+  // consumer here agrees on which room `/@name` renders.
+  const frontDoor = mainRoomOf(rooms)
+  const current = rooms.find((g) => g.id === roomId) ?? frontDoor
+  /** An unused room grant — bought a room but hasn't built it yet. */
+  const canBuildRoom = rooms.length > 0 && rooms.length < allowance
+
+  // Stable across renders so the context value doesn't invalidate every consumer.
+  const openRoomOffer = useCallback(() => setRoomOfferOpen(true), [])
+
+  /** Build a room against an unused grant. Titled by position rather than asking up
+   *  front: the room is renamed on the publish stage anyway, and a modal here would
+   *  stand between paying and seeing the thing paid for. */
+  async function buildRoom() {
+    if (!user || !canBuildRoom) return
+    setCreatingRoom(true)
+    try {
+      const created = await createGallery(user.id, {
+        title: t('me.roomDefaultTitle', { n: rooms.length + 1 }),
+        roomsPurchased: owned.rooms,
+      })
+      track('room_created', { rooms: rooms.length + 1, purchased: owned.rooms })
+      await reload()
+      setRoomId(created.id)
+      showToast()
+    } catch (e) {
+      alert(t('me.actionFailed', { label: t('me.roomAdd'), msg: String(e instanceof Error ? e.message : e) }))
+    } finally {
+      setCreatingRoom(false)
+    }
+  }
+
   // The webhook (not the redirect) is what grants the purchase, and it can land
   // a few seconds after the buyer returns — refetch once more shortly after so
   // the new capacity/ownership shows up without a manual refresh
@@ -2446,11 +2662,20 @@ export default function MePage() {
 
   return (
     <ToastContext.Provider value={showToast}>
+    <RoomOfferContext.Provider value={openRoomOffer}>
     <main className="me-page">
       {toast && (
         <div className="me-toast" role="status" aria-live="polite" key={toast.n}>{toast.msg}</div>
       )}
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+      {roomOfferOpen && (
+        <PurchaseModal
+          itemLabel={t('me.roomAdd')}
+          flat={{ cents: PRICE_USD_CENTS.room, kind: 'room' }}
+          intent={{ kind: 'room', itemKey: '' }}
+          onClose={() => setRoomOfferOpen(false)}
+        />
+      )}
       <div className="me-inner">
         <div className="me-top">
           <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
@@ -2507,13 +2732,74 @@ export default function MePage() {
                   {galleries !== null && !loadErr && galleries.length === 0 && (
                     <CreateCard onCreated={() => void reload()} />
                   )}
-                  {(galleries ?? []).map((g) => (
-                    <GalleryCard key={g.id} row={g} onChanged={() => void reload()} />
-                  ))}
-                  {galleries !== null && galleries.length > 0 && galleries.length < PLAN.galleries && (
-                    <p className="me-note">
-                      {t('me.moreGalleries', { count: PLAN.galleries - galleries.length })}
-                    </p>
+                  {/* The room switcher. One room renders nothing here (the stage bar is
+                      already the only navigation); a second room turns it into a row of
+                      tabs, so the screen below always edits exactly one room. */}
+                  {rooms.length > 1 && (
+                    <nav className="me-rooms" aria-label={t('me.roomsNav')}>
+                      {rooms.map((g) => {
+                        const label = isPlaceholderTitle(g.title) ? g.slug : g.title
+                        return (
+                          <button
+                            key={g.id}
+                            type="button"
+                            className={`me-room-tab${g.id === current?.id ? ' active' : ''}`}
+                            aria-current={g.id === current?.id ? 'page' : undefined}
+                            onClick={() => {
+                              track('room_switch', { to: g.slug, main: g.id === frontDoor?.id })
+                              setRoomId(g.id)
+                            }}
+                          >
+                            {label}
+                            {/* Which room `/@name` opens on — the one fact that makes the
+                                tabs more than a list of names. */}
+                            {g.id === frontDoor?.id && (
+                              <span className="me-room-main" title={t('me.frontDoor')}>{t('me.frontDoorShort')}</span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </nav>
+                  )}
+                  {current && (
+                    <GalleryCard
+                      key={current.id}
+                      row={current}
+                      onChanged={() => void reload()}
+                      roomCount={rooms.length}
+                      isMain={current.id === frontDoor?.id}
+                    />
+                  )}
+                  {/* An unused room grant, or the offer to buy one. Sits under the room
+                      being edited: adding a room is a step out of the current room, not a
+                      setting inside it. */}
+                  {galleries !== null && rooms.length > 0 && (
+                    <div className="me-room-add">
+                      {canBuildRoom ? (
+                        <>
+                          <p className="me-note" style={{ marginTop: 0 }}>
+                            {t('me.roomGrantWaiting', { count: allowance - rooms.length })}
+                          </p>
+                          <button
+                            type="button"
+                            className="btn-line btn-gold"
+                            disabled={creatingRoom}
+                            onClick={() => void buildRoom()}
+                          >
+                            {creatingRoom ? t('me.roomAdding') : t('me.roomBuild')}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="me-note" style={{ marginTop: 0 }}>
+                            {t('me.roomAddWhy', { price: PRICE_ROOM, slots: MAX_WORKS_PER_ROOM })}
+                          </p>
+                          <button type="button" className="btn-line" onClick={() => setRoomOfferOpen(true)}>
+                            {t('me.roomAdd')}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   )}
                   {usage !== null && (
                     <p className="me-note">
@@ -2548,6 +2834,7 @@ export default function MePage() {
         </footer>
       </div>
     </main>
+    </RoomOfferContext.Provider>
     </ToastContext.Provider>
   )
 }

@@ -31,6 +31,13 @@ const UNLOCKS: Record<PaidKind, string> = {
   frame: 'purchase.unlocksFrame',
 }
 
+/** The flat (no item id, no quantity) SKUs and the copy each one owns. */
+const FLAT_COPY = {
+  video: { eyebrow: 'purchase.eyebrowVideo', unlocks: 'purchase.unlocksVideo' },
+  room: { eyebrow: 'purchase.eyebrowRoom', unlocks: 'purchase.unlocksRoom' },
+} as const
+export type FlatKind = keyof typeof FLAT_COPY
+
 export default function PurchaseModal({
   itemLabel,
   item,
@@ -45,9 +52,10 @@ export default function PurchaseModal({
    *  the price table, so the modal quotes exactly what checkout will charge.
    *  Omit when using `quantity`. */
   item?: { kind: PaidKind; itemKey: string }
-  /** Flat one-time unlock with no item id or quantity (Video Pass): just the price;
-   *  the modal owns the eyebrow + "unlocks" copy (purchase.*Video). */
-  flat?: { cents: number }
+  /** Flat one-time purchase with no item id and no quantity — the Video Pass, or an
+   *  extra exhibition room. Just a price; the modal owns the eyebrow + "what this
+   *  gets you" copy, picked by `kind` (FLAT_COPY). */
+  flat?: { cents: number; kind: FlatKind }
   preview?: React.ReactNode
   /** Quantity-picker mode (capacity): pay for N units in one checkout.
    *  The unit is always a work slot, so its name is written into each language's
@@ -91,7 +99,7 @@ export default function PurchaseModal({
 
   const qtyMax = quantity ? Math.max(1, quantity.max) : 1
   const clampedQty = Math.min(qty, qtyMax)
-  const eyebrowKey = flat ? 'purchase.eyebrowVideo' : EYEBROW[item?.kind ?? 'capacity']
+  const eyebrowKey = flat ? FLAT_COPY[flat.kind].eyebrow : EYEBROW[item?.kind ?? 'capacity']
 
   async function onCta() {
     if (!intent) {
@@ -194,7 +202,8 @@ export default function PurchaseModal({
             </label>
           </div>
         ) : flat ? (
-          /* Flat one-time unlock (Video Pass): one row, fixed price, no picker. */
+          /* Flat one-time purchase (Video Pass / extra room): one row, fixed price,
+             no picker. */
           <div className="purchase-options">
             <label className="purchase-option selected">
               <input type="radio" name="purchase-option" checked readOnly />
@@ -203,7 +212,7 @@ export default function PurchaseModal({
                   <span>{itemLabel}</span>
                   <span className="purchase-price">{usd(flat.cents)}</span>
                 </div>
-                <div className="purchase-option-desc">{t('purchase.unlocksVideo')}</div>
+                <div className="purchase-option-desc">{t(FLAT_COPY[flat.kind].unlocks)}</div>
               </div>
             </label>
           </div>

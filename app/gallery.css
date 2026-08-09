@@ -1784,3 +1784,97 @@ body:not(.gallery-mode) {
   .my-works button { width: 40px !important; height: 44px !important; border-radius: 22px; }
   .works-move { font-size: 0.7rem !important; }
 }
+
+/* ── 部屋の切り替え（複数展示室・ユーザー決定 2026-08-09） ────────────────
+   扉の前に立ったときのプロンプトと、全室の一覧。ミニマップの真上に積む
+   （ミニマップは左下固定なので、その分だけ bottom を持ち上げる）。1室だけの
+   展示では RoomSwitch が何も描かないので、この一式は出番が無い。 */
+.roomswitch {
+  position: fixed;
+  left: 1.2rem;
+  /* Above the minimap (118px wide, ~1.2rem inset) rather than beside it: the
+     room names are as long as the artist wants, and a row next to the map would
+     push into the artwork on a narrow window. */
+  bottom: calc(1.2rem + 118px + 0.6rem + env(safe-area-inset-bottom, 0px));
+  z-index: 16;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  max-width: min(15rem, calc(100vw - 2.4rem));
+}
+/* The doorway prompt only exists while the visitor stands at a doorway, so it is
+   allowed to be the loud one — gold, like every other "this is the next step". */
+.roomswitch-prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.55em 0.85em;
+  border: 1px solid rgba(212, 162, 78, 0.5);
+  border-radius: 999px;
+  background: rgba(11, 10, 9, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--gold);
+  cursor: pointer;
+  text-align: left;
+}
+.roomswitch-prompt:hover { border-color: var(--gold); background: rgba(212, 162, 78, 0.16); }
+.roomswitch-prompt-icon { font-size: 0.9em; }
+.roomswitch-list { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+.roomswitch-toggle {
+  padding: 0.45em 0.8em;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: rgba(11, 10, 9, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.roomswitch-toggle:hover { color: var(--ink); border-color: rgba(236, 231, 222, 0.34); }
+.roomswitch-list.open .roomswitch-toggle { color: var(--ink); }
+.roomswitch-items {
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: rgba(11, 10, 9, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  max-width: 100%;
+}
+.roomswitch-item {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  padding: 0.4em 0.6em;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+.roomswitch-item:hover:not(:disabled) { color: var(--ink); background: rgba(236, 231, 222, 0.08); }
+.roomswitch-item.current { color: var(--ink); cursor: default; }
+.roomswitch-here { margin-left: auto; font-size: 0.66rem; color: var(--gold); white-space: nowrap; }
+@media (max-width: 640px) {
+  /* The phone stacks the minimap higher to clear the pager — follow it up. */
+  .roomswitch {
+    left: 1rem;
+    bottom: calc(4.4rem + 92px + 0.6rem + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 2rem);
+  }
+}

@@ -50,9 +50,16 @@ export function artistPath(username: string): string {
   return `/@${username}`
 }
 
-/** The one URL that represents this exhibition. See the note at the top of the file. */
+/** The one URL that represents this exhibition. See the note at the top of the file.
+ *
+ *  `/@name` renders the FRONT-DOOR room, so that room's canonical is `/@name` and the
+ *  two URLs stop competing. Every other room is a page of its own with its own works,
+ *  so it canonicalises to its own `/@name/[slug]` (ユーザー決定 2026-08-09: multi-room
+ *  keeps ONE artist URL, with the sub-rooms hanging underneath it). This used to key
+ *  off `publicGalleryCount === 1`, which said the same thing back when one room was
+ *  the only possibility. */
 export function exhibitionPath(ex: PublicExhibition): string {
-  return ex.publicGalleryCount === 1 ? artistPath(ex.username) : `/@${ex.username}/${ex.slug}`
+  return ex.isMain ? artistPath(ex.username) : `/@${ex.username}/${ex.slug}`
 }
 
 function abs(path: string): string {
@@ -361,8 +368,10 @@ export function exhibitionJsonLd(ex: PublicExhibition): Node {
       },
       person,
       website(),
+      // The front-door room IS `/@name`, so its trail stops there; a sub-room adds
+      // itself as a third crumb under the artist.
       breadcrumbNode(
-        ex.publicGalleryCount === 1
+        ex.isMain
           ? [
               { name: 'Xibit360', path: '/' },
               { name: ex.ownerName, path: artistPath(ex.username) },

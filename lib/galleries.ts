@@ -2,7 +2,7 @@
 // The DB row is the source of truth for a signed-in user's space settings;
 // the plan variable caps how many galleries one user can own.
 import { supabase } from './supabase'
-import { PLAN, effectiveSlotCount } from './limits'
+import { PLAN, capForNewRoom, effectiveSlotCount, roomAllowance } from './limits'
 import {
   TEMPLATES,
   resolveLayout,
@@ -42,12 +42,19 @@ export interface GalleryRow {
   /** Whether visitors may sign the guestbook — absent on pre-0033 rows, where the
    *  guestbook was always on and could not be closed. */
   guestbook_enabled?: boolean | null
+  /** The room `/@username` itself renders — the front door of a multi-room show
+   *  (migration 0036). Absent/false on pre-0036 rows, where a single room needed
+   *  no designation; `mainRoomOf()` falls back to the oldest room so those keep
+   *  behaving exactly as before. */
+  is_main?: boolean | null
 }
 
 const COLS =
-  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url, guestbook_enabled'
-// Newest column first when degrading against a DB that hasn't applied 0033.
-const COLS_NO_GB = COLS.replace(', guestbook_enabled', '')
+  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url, guestbook_enabled, is_main'
+// Newest column first when degrading against a DB that hasn't applied 0036.
+const COLS_NO_MAIN = COLS.replace(', is_main', '')
+// Post-0033/pre-0036 shape (no is_main column yet)
+const COLS_NO_GB = COLS_NO_MAIN.replace(', guestbook_enabled', '')
 // Post-0023/pre-0027 shape (no bgm_url column yet)
 const COLS_NO_BGM = COLS_NO_GB.replace(', bgm_url', '')
 // Post-0014/pre-0023 shape (no arrangement column yet)
@@ -66,6 +73,22 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
     .select(COLS)
     .eq('owner_id', userId)
     .order('created_at', { ascending: true })
+  if (res.error && missingOverrideColumns(res.error)) {
+    // 0036 (is_main) not applied — the oldest room stays the front door
+    res = (await supabase!
+      .from('galleries')
+      .select(COLS_NO_MAIN)
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: true })) as unknown as typeof res
+  }
+  if (res.error && missingOverrideColumns(res.error)) {
+    // 0033 (guestbook_enabled) not applied
+    res = (await supabase!
+      .from('galleries')
+      .select(COLS_NO_GB)
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: true })) as unknown as typeof res
+  }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0027 (bgm_url) not applied
     res = (await supabase!
@@ -113,34 +136,89 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
   })) as GalleryRow[]
 }
 
-/** The signed-in user's gallery (first one; the release plan allows a single gallery) */
+/**
+ * The room that `/@username` renders — the front door of the show.
+ *
+ * The flagged room (migration 0036) when there is one, otherwise the FIRST room in
+ * the list. `listMyGalleries` orders by `created_at`, so on a pre-0036 database (or
+ * before anyone has picked) this is the oldest room: exactly what `/@username`
+ * rendered when a user could only own one. Pass a filtered list to scope the answer
+ * (visitors get only the public rooms).
+ */
+export function mainRoomOf<T extends { is_main?: boolean | null }>(rooms: T[]): T | null {
+  return rooms.find((r) => r.is_main) ?? rooms[0] ?? null
+}
+
+/** The signed-in user's front-door room (see `mainRoomOf`). */
 export async function getMyGalleryRow(userId: string): Promise<GalleryRow | null> {
-  const rows = await listMyGalleries(userId)
-  return rows[0] ?? null
+  return mainRoomOf(await listMyGalleries(userId))
+}
+
+/** A URL-safe slug from a room title, or '' when the title yields nothing usable. */
+function slugifyTitle(title: string): string {
+  return title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/, '')
+}
+
+/** A slug this owner is not using yet. The first room keeps 'main' (the historical
+ *  value, and the one `/@username` used to be built on); later rooms take their
+ *  title, falling back to room-2, room-3… and suffixing on collision. */
+function freeSlug(title: string, taken: Set<string>, roomNumber: number): string {
+  const base = roomNumber === 1 ? 'main' : slugifyTitle(title) || `room-${roomNumber}`
+  if (!taken.has(base)) return base
+  for (let n = 2; n < 100; n++) {
+    const candidate = `${base.slice(0, 37)}-${n}`
+    if (!taken.has(candidate)) return candidate
+  }
+  // 99 rooms sharing one title is not a real case; a timestamp still beats throwing.
+  return `${base.slice(0, 33)}-${Date.now().toString(36).slice(-6)}`
 }
 
 export async function createGallery(
   userId: string,
-  opts: { title: string; templateId?: string; statement?: string }
+  opts: { title: string; templateId?: string; statement?: string; roomsPurchased?: number }
 ): Promise<GalleryRow> {
   const existing = await listMyGalleries(userId)
-  if (existing.length >= PLAN.galleries) {
-    throw new Error(`Your plan allows ${PLAN.galleries} galleries.`)
+  const allowance = roomAllowance(opts.roomsPurchased ?? 0)
+  if (existing.length >= allowance) {
+    throw new Error(`Your plan allows ${allowance} ${allowance === 1 ? 'room' : 'rooms'}.`)
   }
   // Default new rooms to the "studio" template (whitecube / corridor) — the free
   // tier's theme + layout — so a free gallery never starts on paid content (the
   // DB column default is the older chic/hall, which only paying users can keep).
+  // A bought room is no exception: the room price does not include a theme or a
+  // layout (ユーザー決定 2026-08-09), and anything the owner already bought is
+  // account-wide, so they can switch to it right away at no extra cost.
   const t = TEMPLATES[opts.templateId ?? 'studio'] ?? TEMPLATES.studio
+  const firstRoom = existing.length === 0
   const row = {
     owner_id: userId,
-    slug: 'main', // slug editing arrives with multi-gallery plans
+    slug: freeSlug(opts.title, new Set(existing.map((g) => g.slug)), existing.length + 1),
     // An empty title is fine — displays lead with the artist instead of a canned name
     title: opts.title.trim(),
     statement: opts.statement?.trim() ?? '',
-    // Capacity is fixed at creation time to whatever the plan grants right now
-    // (§11.7 — "the room inherits the plan's cap at purchase time"), not the
-    // column's own default (which only exists to grandfather pre-0013 rooms)
-    work_cap: PLAN.worksPerGallery,
+    // Capacity is fixed at creation time (§11.7 — "the room inherits the plan's cap
+    // at purchase time"), not the column's own default (which only exists to
+    // grandfather pre-0013 rooms). The free first room starts at the plan's 5; every
+    // room after it exists because one was bought, and that price includes the
+    // room's full capacity, so it starts at the physical max.
+    work_cap: capForNewRoom(existing.length),
+    // The first room is the front door by default. Later rooms never steal it —
+    // the partial unique index in 0036 would reject a second main anyway.
+    is_main: firstRoom,
+    // A NEW room opens empty. An unset arrangement means "auto-fill from slot 0"
+    // (lib/arrangement), which is right for the first room — you upload works and they
+    // hang themselves — but wrong for every room after it: the account already has a
+    // library, so a just-bought room would open pre-hung with the works from the room
+    // next door, and the new doorway would walk visitors into a duplicate show. An
+    // array of explicit nulls is the "intentionally empty" state (§11.13), so the owner
+    // chooses what goes on these walls.
+    arrangement: firstRoom ? null : new Array(resolveLayout(t.layout, null).slots.length).fill(null),
     theme: t.theme,
     layout: t.layout,
     frame_default: t.frame,
@@ -149,33 +227,58 @@ export async function createGallery(
   }
   let res = await supabase!.from('galleries').insert(row).select(COLS).single()
   if (res.error && missingOverrideColumns(res.error)) {
-    // 0023 not applied — arrangement isn't in the insert payload, only the ?select= shape shrinks
-    res = (await supabase!.from('galleries').insert(row).select(COLS_NO_ARR).single()) as unknown as typeof res
+    // 0036 not applied — no is_main column to write; the oldest room stays the front door
+    const { is_main: _isMain, ...rowNoMain } = row
+    res = (await supabase!.from('galleries').insert(rowNoMain).select(COLS_NO_MAIN).single()) as unknown as typeof res
+  }
+  if (res.error && missingOverrideColumns(res.error)) {
+    // 0023 not applied — no arrangement column to write, so a new room falls back to
+    // auto-fill there (the pre-0023 behaviour) instead of opening empty
+    const { is_main: _isMain, arrangement: _arr, ...rowNoArr } = row
+    res = (await supabase!.from('galleries').insert(rowNoArr).select(COLS_NO_ARR).single()) as unknown as typeof res
   }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0014 not applied — design_overrides was never in the insert payload,
     // only the ?select= shape needs to shrink
-    res = (await supabase!.from('galleries').insert(row).select(COLS_NO_DESIGN).single()) as unknown as typeof res
+    const { is_main: _isMain, arrangement: _arr, ...rowNoDesign } = row
+    res = (await supabase!.from('galleries').insert(rowNoDesign).select(COLS_NO_DESIGN).single()) as unknown as typeof res
   }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0013 not applied — an unknown column in the insert payload fails before it runs
-    const { work_cap: _workCap, ...rowNoCap } = row
+    const { work_cap: _workCap, is_main: _isMain, arrangement: _arr, ...rowNoCap } = row
     res = (await supabase!.from('galleries').insert(rowNoCap).select(COLS_NO_CAP).single()) as unknown as typeof res
   }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0012 not applied either — mat_default was never in the insert payload,
     // only the ?select= shape needs to shrink further
-    const { work_cap: _workCap, ...rowLegacy } = row
+    const { work_cap: _workCap, is_main: _isMain, arrangement: _arr, ...rowLegacy } = row
     res = (await supabase!.from('galleries').insert(rowLegacy).select(LEGACY_COLS).single()) as unknown as typeof res
   }
   if (res.error) throw res.error
   return {
     mat_default: 'auto',
-    work_cap: PLAN.worksPerGallery,
+    work_cap: capForNewRoom(existing.length),
     design_overrides: null,
     arrangement: null,
+    is_main: firstRoom,
     ...(res.data as object),
   } as GalleryRow
+}
+
+/**
+ * Make this room the one `/@username` renders. Goes through an RPC (migration 0036)
+ * because the partial unique index allows exactly one main room per owner: clearing
+ * the old flag and setting the new one have to happen in the same transaction, or a
+ * two-step client update can leave the account with none (or be rejected outright).
+ */
+export async function setMainRoom(id: string): Promise<void> {
+  const { error } = await supabase!.rpc('set_main_room', { p_gallery: id })
+  if (error) {
+    if (missingOverrideColumns(error) || error.code === 'PGRST202') {
+      throw new Error('Choosing the front-door room needs migration 0036 applied first.')
+    }
+    throw error
+  }
 }
 
 export const SLUG_RE = /^[a-z0-9-]{1,40}$/
@@ -287,7 +390,7 @@ function missingOverrideColumns(error: { code?: string; message?: string }): boo
   return (
     error.code === 'PGRST204' ||
     error.code === '42703' ||
-    /light_override|hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides|arrangement/.test(error.message ?? '')
+    /light_override|hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides|arrangement|guestbook_enabled|bgm_url|is_main/.test(error.message ?? '')
   )
 }
 

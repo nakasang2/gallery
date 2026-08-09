@@ -6,7 +6,7 @@
 
 ### かんたん(推奨): 一発適用
 
-**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0035 が
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0036 が
 一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
 
 Postgres 16.14 で検証済み(2026-07-29、0034まで):
@@ -57,6 +57,7 @@ authenticated・service_role の3ロール)を最小限スタブした素のPost
    - `0033_moderation.sql` — 通報の対応状態(`reports.status`/`handled_at`/`handled_note`)+ 管理者による非公開化RPC(`admin_set_gallery_public`)+ 芳名帳のON/OFF(`galleries.guestbook_enabled`。0008のinsertポリシーを置き換え)
    - `0034_frame_purchases.sql` — 額(フレーム)を販売可能にする(`purchases_kind_check` に `frame` を追加 + `grant_entitlement` を置き換え。既存の額は無料のまま)
    - `0035_light_override.sql` — 作品ごとの照明モード(`placements.light_override`。NULL=部屋の既定に従う)
+   - `0036_main_room.sql` — 複数展示室(`galleries.is_main` + 所有者ごとの部分ユニーク索引 + 切替RPC `set_main_room`。既存は所有者ごと最古の1室をバックフィル)＋**部屋数と初期キャパをDBで強制**するトリガ2本(`enforce_room_allowance` / `guard_work_cap_raise`。insertはRLS経由でブラウザから直接来るので、購入台帳を数えないと無料で部屋が増やせる)
 3. 「Success. No rows returned」が出れば完了
 
 **番号順に流すこと**が前提です。後の番号が前の番号を上書きする箇所があります —
