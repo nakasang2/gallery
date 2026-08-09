@@ -980,7 +980,7 @@ export const ja: Dictionary = {
     spotlightSlugAria: '{n} 番目のスラッグ',
     working: '処理中…',
     announce: '全員へのお知らせ',
-    announceNote: '書いた言語のまま、全員のアプリ内通知に届きます（記事と同じで訳しません）。**取り消せません。**',
+    announceNote: '書いた言語のまま、全員のアプリ内通知に届きます（記事と同じで訳しません）。取り消せません。',
     announceTitle: 'タイトル',
     announceTitlePlaceholder: '新しいテーマ「霧」を追加しました',
     announceBody: '本文（任意）',

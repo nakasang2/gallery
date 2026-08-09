@@ -683,7 +683,7 @@ export const fr: PartialDictionary = {
     spotlightSlugAria: 'Slug de la galerie {n}',
     working: 'Traitement…',
     announce: 'Annonce à tous',
-    announceNote: 'Envoyée comme notification dans l’application à tous les comptes, dans la langue où vous l’écrivez (non traduite, comme les articles). **Irréversible.**',
+    announceNote: 'Envoyée comme notification dans l’application à tous les comptes, dans la langue où vous l’écrivez (non traduite, comme les articles). Irréversible.',
     announceTitle: 'Titre',
     announceTitlePlaceholder: 'Un nouveau thème, « Brume », est disponible',
     announceBody: 'Texte (facultatif)',

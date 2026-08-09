@@ -748,7 +748,7 @@ export const ko: PartialDictionary = {
     spotlightSlugAria: '{n}번째 슬러그',
     working: '처리 중…',
     announce: '전체 공지',
-    announceNote: '작성한 언어 그대로 모든 계정의 앱 내 알림으로 전달됩니다(기사와 같이 번역하지 않습니다). **취소할 수 없습니다.**',
+    announceNote: '작성한 언어 그대로 모든 계정의 앱 내 알림으로 전달됩니다(기사와 같이 번역하지 않습니다). 취소할 수 없습니다.',
     announceTitle: '제목',
     announceTitlePlaceholder: '새 테마 “안개”가 추가되었습니다',
     announceBody: '본문(선택)',

@@ -683,7 +683,7 @@ export const id: PartialDictionary = {
     spotlightSlugAria: 'Slug galeri {n}',
     working: 'Memproses…',
     announce: 'Pengumuman untuk semua',
-    announceNote: 'Dikirim sebagai notifikasi dalam aplikasi ke semua akun, dalam bahasa yang Anda tulis (tidak diterjemahkan, sama seperti artikel). **Tidak dapat dibatalkan.**',
+    announceNote: 'Dikirim sebagai notifikasi dalam aplikasi ke semua akun, dalam bahasa yang Anda tulis (tidak diterjemahkan, sama seperti artikel). Tidak dapat dibatalkan.',
     announceTitle: 'Judul',
     announceTitlePlaceholder: 'Tema baru “Kabut” kini tersedia',
     announceBody: 'Isi (opsional)',

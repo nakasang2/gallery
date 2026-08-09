@@ -135,15 +135,20 @@ export async function revokeInvite(inviteId: string): Promise<void> {
  *  表が無いなら「提出ゼロ」で正しいが、読めなかっただけなら**ゼロとして扱うと
  *  掛かっている他作家の作品を消してしまう**（`rebuildPlacements` は解決できた分だけを
  *  残して他を削除する）。 */
+/**
+ * 「表がまだ無い（0041 未適用）」だけを見分ける。**広く採ってはいけない** —
+ * ここで true にすると呼び手は「提出ゼロ」として先に進み、`rebuildPlacements` の
+ * 末尾の delete が**他作家の作品を壁から外す**（LESSONS 2026-08-09 の損失そのもの）。
+ *
+ * なので判定は**エラーコードだけ**に寄せる: `42P01`（undefined_table）と
+ * `PGRST205`（PostgREST がスキーマキャッシュに表を見つけられない）。
+ * 表名や 'schema cache' の**文字列一致で拾っていたのを止めた** —
+ * `infinite recursion detected in policy for relation "room_submissions"` や
+ * `permission denied for table room_submissions` のような**表が在るのに失敗した**
+ * エラーまで「未適用」に見えてしまう（別視点レビューが検出 2026-08-09）。
+ */
 function missingSubmissionsTable(error: { code?: string; message?: string }): boolean {
-  const code = error.code ?? ''
-  const msg = (error.message ?? '').toLowerCase()
-  return (
-    code === '42P01' ||
-    code === 'PGRST205' ||
-    msg.includes('room_submissions') ||
-    msg.includes('schema cache')
-  )
+  return error.code === '42P01' || error.code === 'PGRST205'
 }
 
 /** この部屋に**提出された他作家の作品**。配置トレイがこれを自分の作品に足して並べる。

@@ -683,7 +683,7 @@ export const ptBr: PartialDictionary = {
     spotlightSlugAria: 'Slug da galeria {n}',
     working: 'Processando…',
     announce: 'Aviso para todos',
-    announceNote: 'Entregue como notificação no aplicativo para todas as contas, no idioma em que você escrever (sem tradução, igual aos artigos). **Não pode ser desfeito.**',
+    announceNote: 'Entregue como notificação no aplicativo para todas as contas, no idioma em que você escrever (sem tradução, igual aos artigos). Não pode ser desfeito.',
     announceTitle: 'Título',
     announceTitlePlaceholder: 'Um novo tema, “Névoa”, está disponível',
     announceBody: 'Texto (opcional)',

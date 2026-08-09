@@ -682,7 +682,7 @@ export const zhHant: PartialDictionary = {
     spotlightSlugAria: '第 {n} 個展館的 slug',
     working: '處理中…',
     announce: '全體公告',
-    announceNote: '以你撰寫的語言直接送到所有帳號的站內通知（與文章相同，不作翻譯）。**無法撤回。**',
+    announceNote: '以你撰寫的語言直接送到所有帳號的站內通知（與文章相同，不作翻譯）。無法撤回。',
     announceTitle: '標題',
     announceTitlePlaceholder: '新增主題「霧」',
     announceBody: '正文（選填）',

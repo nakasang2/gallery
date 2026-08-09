@@ -683,7 +683,7 @@ export const es: PartialDictionary = {
     spotlightSlugAria: 'Slug de la galería {n}',
     working: 'Procesando…',
     announce: 'Anuncio para todos',
-    announceNote: 'Se envía como notificación en la aplicación a todas las cuentas, en el idioma en que lo escribas (sin traducir, igual que los artículos). **No se puede deshacer.**',
+    announceNote: 'Se envía como notificación en la aplicación a todas las cuentas, en el idioma en que lo escribas (sin traducir, igual que los artículos). No se puede deshacer.',
     announceTitle: 'Título',
     announceTitlePlaceholder: 'Ya está disponible un nuevo tema: «Niebla»',
     announceBody: 'Texto (opcional)',

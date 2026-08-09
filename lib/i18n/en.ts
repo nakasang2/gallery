@@ -1016,7 +1016,7 @@ export const en = {
     spotlightSlugAria: 'Gallery {n} slug',
     working: 'Working…',
     announce: 'Announcement to everyone',
-    announceNote: 'Delivered as an in-app notification to every account, in the language you write it (not translated, same as articles). **Cannot be undone.**',
+    announceNote: 'Delivered as an in-app notification to every account, in the language you write it (not translated, same as articles). Cannot be undone.',
     announceTitle: 'Title',
     announceTitlePlaceholder: 'A new theme, “Mist”, is available',
     announceBody: 'Body (optional)',

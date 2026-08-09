@@ -684,7 +684,7 @@ export const zhHans: PartialDictionary = {
     spotlightSlugAria: '第 {n} 个展馆的 slug',
     working: '处理中…',
     announce: '全体公告',
-    announceNote: '以你撰写的语言直接发送到所有账号的站内通知（与文章相同，不作翻译）。**无法撤回。**',
+    announceNote: '以你撰写的语言直接发送到所有账号的站内通知（与文章相同，不作翻译）。无法撤回。',
     announceTitle: '标题',
     announceTitlePlaceholder: '新增主题“雾”',
     announceBody: '正文（可选）',

@@ -167,7 +167,10 @@ export default function NotificationBell() {
     <div className="notif-wrap" ref={wrap}>
       <button
         className="btn-line notif-bell"
-        aria-label={t('notif.title')}
+        /* 件数は**aria-label に入れる**。`aria-label` はボタンの中の文字列（.sr-only を
+           含む）を上書きするので、中に忍ばせた件数は読み上げられない
+           （別視点レビューが検出 2026-08-09）。 */
+        aria-label={unread > 0 ? `${t('notif.title')} — ${t('notif.unread', { n: unread })}` : t('notif.title')}
         aria-expanded={open}
         aria-controls="notif-panel"
         onClick={() => {
@@ -181,10 +184,6 @@ export default function NotificationBell() {
           <span className="notif-badge" aria-hidden="true">
             {unread > 99 ? '99+' : unread}
           </span>
-        )}
-        {/* 読み上げ用。見た目の数字とは別に、件数を言葉で持つ。 */}
-        {unread > 0 && (
-          <span className="sr-only">{t('notif.unread', { n: unread })}</span>
         )}
       </button>
 
