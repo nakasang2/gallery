@@ -7,7 +7,7 @@ import JsonLd from '@/components/JsonLd'
 import {
   exhibitionDescription,
   exhibitionJsonLd,
-  exhibitionPath,
+  exhibitionUrl,
   exhibitionTitle,
   getExhibition,
 } from '@/lib/seo'
@@ -38,7 +38,7 @@ export async function generateMetadata({
   // exhibition, so the canonical points there and the two URLs stop competing
   // (docs/DECISIONS 2026-07-30 SEO). It also collapses `?embed=1`, which is the
   // same page again with the HUD stripped for iframes.
-  const canonical = exhibitionPath(ex)
+  const canonical = exhibitionUrl(ex)
   // OG image comes from the opengraph-image.tsx file convention (a composed card)
   return {
     title,

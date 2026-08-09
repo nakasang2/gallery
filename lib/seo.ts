@@ -32,6 +32,7 @@ import { allSnsUrls, type SnsLinks } from './sns'
 import { ARTICLE_LOCALE, fetchArticle, type Article, type ArticleCard } from './blog'
 import { LOCALE_META, localePath } from './i18n'
 import { siteUrl } from './publicUrl'
+import { expoHostsEnabled, expoUrl } from './expoHost'
 import { publicExhibitionWorks, roomExhibitor } from './roomPlan'
 import type { ArtworkData } from './artworks'
 
@@ -64,6 +65,30 @@ export function exhibitionPath(ex: PublicExhibition): string {
 
 function abs(path: string): string {
   return `${siteUrl()}${path}`
+}
+
+/**
+ * The ONE absolute URL that represents this exhibition — what the canonical tag, the
+ * structured data and the sitemap all point at.
+ *
+ * An exhibition with a subdomain canonicalises there (ユーザー決定 2026-08-09): that is
+ * the URL it is promoted under, so it is the one that should accumulate the links.
+ * `/@username/...` keeps serving the same page — the owner needs it to preview drafts,
+ * where the subdomain cannot help because the session lives in localStorage and is
+ * therefore per-origin — but it is not the indexed URL.
+ *
+ * Without a subdomain this is exactly what it always was.
+ */
+export function exhibitionUrl(ex: PublicExhibition): string {
+  if (ex.subdomain && expoHostsEnabled) {
+    return expoUrl(ex.subdomain, ex.isMain ? '' : `/${ex.slug}`)
+  }
+  return abs(exhibitionPath(ex))
+}
+
+/** The artist/exhibition landing URL — the subdomain root when there is one. */
+export function artistUrl(p: { username: string; subdomain?: string | null }): string {
+  return p.subdomain && expoHostsEnabled ? expoUrl(p.subdomain) : abs(artistPath(p.username))
 }
 
 /** Keep relative media out of the structured data: an unconfigured CDN base makes
@@ -315,7 +340,7 @@ export function articlesIndexJsonLd(list: ArticleCard[]): Node {
  *  `startDate` to be valid, and a gallery that is simply always open has none —
  *  claiming one would trade a real omission for a wrong answer. */
 export function exhibitionJsonLd(ex: PublicExhibition): Node {
-  const pageUrl = abs(exhibitionPath(ex))
+  const pageUrl = exhibitionUrl(ex)
   // Slot order — the same order the room hangs them in, and the same list the
   // plain-HTML fallback prints. Works past the room's capacity are not exhibited.
   const works = publicExhibitionWorks(ex)

@@ -29,6 +29,8 @@ export interface AdminUserRow {
   workCount: number
   /** Owned entitlements, e.g. ['design_tools', 'theme:noir'] */
   packages: string[]
+  /** The exhibition subdomain assigned to this account, or null (migration 0039). */
+  subdomain: string | null
 }
 
 export interface AdminPurchaseRow {
@@ -114,6 +116,21 @@ export async function grantEntitlement(userId: string, kind: string, itemKey = '
 }
 
 /** Admin: remove a previously-granted (or purchased) entitlement from a user. */
+/** Assign (or clear, with '') an exhibition subdomain. Admin-only RPC, migration 0039:
+ *  the row alone does nothing until the host exists in Vercel and Cloudflare, so a
+ *  self-serve write would let an account canonicalise to a URL that 404s. */
+export async function setExpoSubdomain(userId: string, subdomain: string): Promise<void> {
+  const { error } = await supabase!.rpc('set_expo_subdomain', {
+    p_user: userId,
+    p_subdomain: subdomain.trim().toLowerCase() || null,
+  })
+  if (error) {
+    if (error.code === '23505') throw new Error('That subdomain is already taken.')
+    if (error.code === 'PGRST202') throw new Error('Subdomains need migration 0039 applied first.')
+    throw error
+  }
+}
+
 export async function revokeEntitlement(userId: string, kind: string, itemKey = ''): Promise<void> {
   const { error } = await supabase!.rpc('revoke_entitlement', { p_user: userId, p_kind: kind, p_item_key: itemKey })
   if (error) throw error
@@ -173,7 +190,7 @@ export function useIsAdmin(userId: string | null): boolean {
   return isAdmin
 }
 
-type ProfileRow = { id: string; username: string | null; display_name: string | null }
+type ProfileRow = { id: string; username: string | null; display_name: string | null; subdomain?: string | null }
 type GalleryRow = {
   id: string
   slug: string
@@ -189,12 +206,29 @@ type GalleryRow = {
 /** Read every row of a table, paging past PostgREST's 1000-row response cap so the
  *  admin totals stay accurate as the platform grows. Returns whatever it got on error
  *  (missing migration / RLS deny → empty), matching the console's graceful degradation. */
-async function fetchAll<T>(table: string, columns: string): Promise<T[]> {
+/**
+ * Every row of a table, paged.
+ *
+ * @param fallbackColumns a narrower column list to retry with when the first select
+ *   errors — for a column a migration may not have applied yet. Without it this
+ *   function's error handling (break out and return what it has) turns one unknown
+ *   column into an EMPTY TABLE, so adding a column to a caller here would silently
+ *   blank that section of the dashboard rather than degrade it.
+ */
+async function fetchAll<T>(table: string, columns: string, fallbackColumns?: string): Promise<T[]> {
   const PAGE = 1000
   const out: T[] = []
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase!.from(table).select(columns).range(from, from + PAGE - 1)
-    if (error || !data) break
+    if (error) {
+      // Only worth retrying before anything was read; a mid-pagination failure is not a
+      // schema problem and the narrower select would not fix it.
+      if (fallbackColumns && out.length === 0 && from === 0) {
+        return fetchAll<T>(table, fallbackColumns)
+      }
+      break
+    }
+    if (!data) break
     out.push(...(data as unknown as T[]))
     if (data.length < PAGE) break // last page
   }
@@ -237,7 +271,9 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
   if (!supabase) return empty
 
   const [profiles, galleries, placements, artworks, purchases, visits, reports] = await Promise.all([
-    fetchAll<ProfileRow>('profiles', 'id, username, display_name'),
+    // `subdomain` is newest (0039). `fetchAll` degrades on a select error, so an
+    // unapplied migration just leaves the column undefined everywhere.
+    fetchAll<ProfileRow>('profiles', 'id, username, display_name, subdomain', 'id, username, display_name'),
     fetchAll<GalleryRow>('galleries', 'id, slug, title, is_public, theme, layout, work_cap, updated_at, owner_id'),
     fetchAll<{ gallery_id: string }>('placements', 'gallery_id'),
     fetchAll<{ id: string; owner_id: string }>('artworks', 'id, owner_id'),
@@ -305,6 +341,7 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
         publicCount: gs.filter((g) => g.is_public).length,
         workCount: worksByOwner.get(pr.id) ?? 0,
         packages: packagesByUser.get(pr.id) ?? [],
+        subdomain: pr.subdomain ?? null,
       }
     })
     .sort((a, b) => b.workCount - a.workCount)

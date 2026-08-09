@@ -9,6 +9,8 @@ import { isPlaceholderTitle } from '@/lib/publish'
 import {
   artistJsonLd,
   artistPath,
+  artistUrl,
+  exhibitionUrl,
   exhibitionDescription,
   exhibitionJsonLd,
   exhibitionTitle,
@@ -41,9 +43,10 @@ export async function generateMetadata({
   if (!username) return {}
   const p = await getProfile(username)
   if (!p) return {}
-  // Whether this URL is the exhibition or a listing, it is canonical for itself:
-  // it is the URL artists hand out (docs/DECISIONS 2026-07-30 SEO).
-  const canonical = artistPath(username)
+  // Whether this URL is the exhibition or a listing, it is canonical for itself —
+  // unless the account has an exhibition subdomain, which then owns the canonical
+  // (ユーザー決定 2026-08-09). `/@name` keeps serving the page either way.
+  const canonical = artistUrl({ username, subdomain: p.subdomain })
 
   // /@name IS an exhibition — the front-door room's (ユーザー決定 2026-08-09; with a
   // single public room that is simply that room, exactly as before).
@@ -56,7 +59,8 @@ export async function generateMetadata({
       return {
         title,
         description,
-        alternates: { canonical },
+        // The room's own canonical, which follows the subdomain when there is one.
+        alternates: { canonical: exhibitionUrl(ex) },
         openGraph: { title, description, type: 'website', url: canonical },
         twitter: { card: 'summary_large_image' },
       }

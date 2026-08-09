@@ -9,12 +9,14 @@ import { paidThemeIds, paidLayoutIds, paidFrameIds } from '@/lib/entitlements'
 import {
   grantEntitlement,
   revokeEntitlement,
+  setExpoSubdomain,
   setReportStatus,
   setGalleryPublic,
   sumByCurrency,
   type AdminOverview,
 } from '@/lib/admin'
 import { useT } from '@/components/I18nProvider'
+import { expoHostsEnabled, expoSubdomainError, expoZone } from '@/lib/expoHost'
 
 /** Encode a product as "kind|itemKey" for the <select> value. */
 function productKey(kind: string, itemKey: string): string {
@@ -73,6 +75,8 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
   // One figure per currency — a cross-currency sum would be a fiction (0031)
   const revenueLines = data.revenueByCurrency.map((r) => money(r.amount, r.currency))
   const [grantUser, setGrantUser] = useState('')
+  const [subUser, setSubUser] = useState('')
+  const [subValue, setSubValue] = useState('')
   const [grantProduct, setGrantProduct] = useState(() => (products[0] ? productKey(products[0].kind, products[0].itemKey) : ''))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -373,6 +377,52 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                 )
               })}
             </Table>
+          )}
+
+          {/* Assign an exhibition subdomain (admin-only RPC, migration 0039).
+              Admin-only on purpose: the row does nothing until the host exists in
+              Vercel AND Cloudflare, and an account whose canonical points at a host
+              that 404s is worse than one with no alias. Clearing the field frees the
+              name — and the Vercel domain slot, which is capped per project. */}
+          {expoHostsEnabled && (
+            <div className="ent-grant">
+              <span className="ent-grant-label">{t('adminUi.subdomainFor')}</span>
+              <select className="ent-select" value={subUser} onChange={(e) => setSubUser(e.target.value)}>
+                <option value="">{t('admin.selectUser')}</option>
+                {data.users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.displayName}{u.username ? ` (@${u.username})` : ''}{u.subdomain ? ` — ${u.subdomain}` : ''}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="ent-select"
+                type="text"
+                spellCheck={false}
+                aria-label={t('adminUi.subdomainFor')}
+                placeholder={t('adminUi.subdomainPlaceholder', { zone: expoZone() })}
+                value={subValue}
+                onChange={(e) => setSubValue(e.target.value)}
+              />
+              <button
+                className="btn-line btn-gold"
+                disabled={busy || !subUser}
+                onClick={() =>
+                  void mutate(async () => {
+                    const v = subValue.trim().toLowerCase()
+                    // Empty clears the alias. Anything else has to be a name we would
+                    // actually serve — the reserved list lives in lib/expoHost, so the
+                    // check here and the host parser can never disagree.
+                    const why = v ? expoSubdomainError(v) : null
+                    if (why) throw new Error(t(why === 'reserved' ? 'adminUi.subdomainReserved' : 'adminUi.subdomainInvalid'))
+                    await setExpoSubdomain(subUser, v)
+                    setSubValue('')
+                  })
+                }
+              >
+                {busy ? t('adminUi.working') : t('admin.grant')}
+              </button>
+            </div>
           )}
 
           {/* Grant a paid item to a specific user (admin-only RPC, migration 0022) */}

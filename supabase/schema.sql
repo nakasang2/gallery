@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0038 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0039 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -1813,4 +1813,93 @@ drop trigger if exists galleries_guard_grade on public.galleries;
 create trigger galleries_guard_grade
   before update of slots_included on public.galleries
   for each row execute function public.guard_room_grade();
+
+-- ============================================================================
+-- # 0039_expo_subdomain.sql — 展示ごとのサブドメイン(ユーザー決定 2026-08-09)
+-- ============================================================================
+-- `tokyo-expo.xibit360.art`。ワイルドカード証明書は Vercel が NS 完全移管を要求し、
+-- このゾーンは R2 の cdn.xibit360.art があるため移管できないので、**1件ずつ実在の
+-- ホストとして登録**する。サブドメインは任意の別名で、展示は常に /@ハンドル でも公開される。
+/* ================= 1. profiles.subdomain ================= */
+-- 展示（＝アカウント）1つにつき1つ。部屋はこの下のパスなので、多室でも1つで足りる。
+-- 形式は部屋のパス（SLUG_RE）と同じ文字種で、3文字以上。lib/expoHost の
+-- EXPO_SUBDOMAIN_RE と対で保つこと。
+alter table public.profiles add column if not exists subdomain text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'profiles_subdomain_format'
+  ) then
+    alter table public.profiles add constraint profiles_subdomain_format
+      check (subdomain is null or subdomain ~ '^[a-z0-9-]{3,40}$');
+  end if;
+end $$;
+
+-- 大文字小文字を区別せずユニーク（DNS は区別しないので、`Expo` と `expo` を
+-- 別物として持てると片方が届かない別名になる）。null は何行あってもよい。
+create unique index if not exists profiles_subdomain_key
+  on public.profiles (lower(subdomain)) where subdomain is not null;
+
+/* ================= 2. 本人は書き換えられない ================= */
+-- サブドメインは**DNSとVercelの登録が伴って初めて機能する**ので、行だけ先に書き換え
+-- られると「DBには入っているが届かない別名」ができ、canonical がそこを指してしまう
+-- （＝検索に載るURLが死ぬ）。付与も剥奪も管理者経由に限る。
+--
+-- 0001 の `profiles_update_own` は列を絞っていないため、これは**そのポリシーの穴を
+-- 塞ぐ追加のトリガ**。work_cap / slots_included と同じ作法で、`security invoker` に
+-- して呼び手のロールを見る（definer にすると current_user が常に所有者になり素通りする
+-- ── 実際に 0036 でやってしまった。LESSONS 2026-08-09）。
+create or replace function public.guard_subdomain()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if new.subdomain is distinct from old.subdomain
+     and current_user in ('authenticated', 'anon') then
+    raise exception 'subdomain is assigned by an administrator'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_guard_subdomain on public.profiles;
+create trigger profiles_guard_subdomain
+  before update of subdomain on public.profiles
+  for each row execute function public.guard_subdomain();
+
+/* ================= 3. 管理者による付与・剥奪 ================= */
+-- 予約語はアプリ側（lib/expoHost の RESERVED）が持ち、ここは最低限の形式だけ見る。
+-- 二重に持つと片方だけ更新されて食い違うので、**一覧の正はアプリ側**。
+create or replace function public.set_expo_subdomain(p_user uuid, p_subdomain text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_clean text;
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized';
+  end if;
+
+  v_clean := nullif(lower(trim(coalesce(p_subdomain, ''))), '');
+  if v_clean is not null and v_clean !~ '^[a-z0-9-]{3,40}$' then
+    raise exception 'invalid subdomain: %', p_subdomain;
+  end if;
+
+  update public.profiles set subdomain = v_clean where id = p_user;
+  if not found then
+    raise exception 'no such profile';
+  end if;
+end;
+$$;
+
+revoke all on function public.set_expo_subdomain(uuid, text) from public;
+revoke all on function public.set_expo_subdomain(uuid, text) from anon;
+grant execute on function public.set_expo_subdomain(uuid, text) to authenticated;
 

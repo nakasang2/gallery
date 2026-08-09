@@ -6,7 +6,7 @@
 
 ### かんたん(推奨): 一発適用
 
-**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0038 が
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0039 が
 一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
 
 Postgres 16.14 で検証済み(2026-07-29、0034まで):
@@ -60,6 +60,7 @@ authenticated・service_role の3ロール)を最小限スタブした素のPost
    - `0036_main_room.sql` — 複数展示室(`galleries.is_main` + 所有者ごとの部分ユニーク索引 + 切替RPC `set_main_room`。既存は所有者ごと最古の1室をバックフィル)＋**部屋数と初期キャパをDBで強制**するトリガ2本(`enforce_room_allowance` / `guard_work_cap_raise`。insertはRLS経由でブラウザから直接来るので、購入台帳を数えないと無料で部屋が増やせる)
    - `0037_placement_consent.sql` — **他人の作品の無断掲載を塞ぐ**(`room_invites` 表＋`may_place_artwork()`＋`placements_owner_all` の置き換え＋受諾取り下げで壁から外すトリガ。0001 は作品の所有者を見ておらず、公開作品のidは公開ペイロードに載るため無断掲載が可能だった。合同展示の土台も兼ねる)
    - `0038_room_grade.sql` — **無料枠のロンダリングを塞ぐ**(`galleries.slots_included`＝その部屋のキャパが部屋購入に含まれて来たか。部屋数を作成順ではなく等級で数える `enforce_room_allowance` に差し替え＋等級を後から書き換えられない `guard_room_grade`。0036 は作成順で推定していたため、無料部屋を消して作り直すと15枠になった)
+   - `0039_expo_subdomain.sql` — 展示ごとのサブドメイン(`profiles.subdomain` + 大小無視のユニーク索引 + 管理者専用RPC `set_expo_subdomain` + 本人が書き換えられない `guard_subdomain`。**DNSとVercelの登録が伴って初めて機能する**ので付与は管理者経由。任意の別名で、展示は常に `/@ハンドル` でも公開される)
 3. 「Success. No rows returned」が出れば完了
 
 **番号順に流すこと**が前提です。後の番号が前の番号を上書きする箇所があります —
