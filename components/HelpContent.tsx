@@ -10,7 +10,7 @@
 // The numbers that could drift — the per-slot price and the per-room cap — come
 // from lib/pricing and lib/limits, never typed into a sentence (AGENTS.md 5.3;
 // the same reason /legal interpolates them).
-import { PRICE_SLOT, PRICE_VIDEO_PASS } from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_ROOM, PRICE_VIDEO_PASS } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM, PLAN } from '@/lib/limits'
 
 type T = (key: string, params?: Record<string, string | number>) => string
@@ -28,7 +28,7 @@ const VIDEO_MAX_MB = Math.round(PLAN.videoBytes / (1024 * 1024))
 
 /** Params for the answers that quote a live figure — keyed by answer key. */
 const A_PARAMS: Record<string, Record<string, string | number>> = {
-  'help.aCost': { slot: PRICE_SLOT },
+  'help.aCost': { slot: PRICE_SLOT, room: PRICE_ROOM, video: PRICE_VIDEO_PASS, max: MAX_WORKS_PER_ROOM },
   'help.aMax': { max: MAX_WORKS_PER_ROOM },
   'help.aVideo': { price: PRICE_VIDEO_PASS, max: VIDEO_MAX_MB },
 }

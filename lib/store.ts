@@ -219,12 +219,15 @@ interface GalleryStore extends Settings {
   /** Embedded on a third-party site (iframe, ?embed=1): trim the HUD to a
    *  compact back-link and open outbound links in a new tab, never in the frame */
   embed: boolean
-  /** The connecting doorway the visitor is standing in front of, or null. Written by
-   *  RoomPortals from inside the render loop (a proximity test every frame) and read
-   *  by the HUD, which turns it into the "walk through" prompt. Holding the SLUG
-   *  rather than the whole room keeps the write cheap: the same value re-set on the
-   *  next frame is a no-op for zustand, so standing still costs no re-renders. */
-  nearRoomSlug: string | null
+  /** Whether the visitor is standing at the room's connecting doorway. Written by
+   *  RoomPortals from inside the render loop (a proximity test every frame) and read by
+   *  the HUD, which turns it into the "go to another room" prompt. Setting the same
+   *  value again is a no-op, so standing still costs no re-renders. */
+  atDoorway: boolean
+  /** Whether the "which room?" chooser is open. There is ONE doorway per room and the
+   *  destination is picked here (ユーザー決定 2026-08-09), so the door in the 3D scene
+   *  and the prompt in the HUD both just raise this. */
+  roomPickerOpen: boolean
 
   hydrate(): void
   initAuth(): void
@@ -239,7 +242,8 @@ interface GalleryStore extends Settings {
   setSettingsOpen(open: boolean): void
   setGuestbookOpen(open: boolean): void
   setInfoOpen(open: boolean): void
-  setNearRoom(slug: string | null): void
+  setAtDoorway(at: boolean): void
+  setRoomPickerOpen(open: boolean): void
   setTourActive(active: boolean, recording?: boolean): void
   setDemoMode(on: boolean): void
   /** Re-run a failed cloud sync immediately */
@@ -266,7 +270,8 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   myGallery: null,
   visitor: null,
   embed: false,
-  nearRoomSlug: null,
+  atDoorway: false,
+  roomPickerOpen: false,
 
   hydrate() {
     set({ ...loadSettings(), ready: true })
@@ -418,10 +423,13 @@ export const useGallery = create<GalleryStore>((set, get) => ({
     // The info panel is a peer of the artwork/guestbook drawers — opening it closes them
     set(open ? { infoOpen: true, focusedIndex: -1, settingsOpen: false, guestbookOpen: false } : { infoOpen: false })
   },
-  setNearRoom(slug) {
+  setAtDoorway(at) {
     // Called every frame while walking, so bail when nothing changed — zustand would
     // otherwise notify subscribers on each identical set.
-    if (get().nearRoomSlug !== slug) set({ nearRoomSlug: slug })
+    if (get().atDoorway !== at) set({ atDoorway: at })
+  },
+  setRoomPickerOpen(open) {
+    set({ roomPickerOpen: open })
   },
   setTourActive(active, recording = false) {
     // recording only applies while active; ending the tour always clears it

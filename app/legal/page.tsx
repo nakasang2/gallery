@@ -10,7 +10,7 @@
 // governing version.
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { PRICE_SLOT, paidIdsFor, priceRangeLabel } from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_ROOM, PRICE_VIDEO_PASS, paidIdsFor, priceRangeLabel } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM } from '@/lib/limits'
 import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
@@ -60,8 +60,13 @@ export default async function LegalPage() {
             <Row label={t('legal.rowPrice')}>
               {/* 特商法の価格表示。テーマ/間取りは1点ごとに価格を持てるので、
                   表から範囲を導出する（全部同額なら単価のまま。AGENTS.md 5.3） */}
+              {/* Everything on sale has to be listed here (特商法の価格表示). The room
+                  and the Video Pass were missing while both were purchasable — found
+                  2026-08-09 while adding the room. When a SKU ships, it lands here. */}
               {t('legal.valPrice', {
                 slot: PRICE_SLOT,
+                room: PRICE_ROOM,
+                video: PRICE_VIDEO_PASS,
                 layout: priceRangeLabel('layout', t('lp.priceRange')),
                 theme: priceRangeLabel('theme', t('lp.priceRange')),
                 max: MAX_WORKS_PER_ROOM,

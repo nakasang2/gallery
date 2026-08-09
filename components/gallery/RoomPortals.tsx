@@ -13,7 +13,12 @@
 // clamp for every layout. A doorframe standing against the floor reads as a way out
 // without any of that, and it lands in walkable space in EVERY layout because it is
 // positioned from `layout.entry` — the spot the visitor already spawns on.
-import { useEffect, useMemo, useRef } from 'react'
+//
+// ONE door per room, however many other rooms there are (ユーザー決定 2026-08-09). The
+// door is the way out; which room it opens onto is chosen AT the door, in the HUD. One
+// opening per room needed spacing, a cap and a shrinking gap, and three separate bugs
+// lived in that arithmetic — none of which can exist now.
+import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { LayoutDef, ThemeDef } from '@/lib/presets'
@@ -30,18 +35,9 @@ const JAMB = 0.12
  *  the prompt is a suggestion — the visitor still has to press it. */
 const NEAR_DIST = 2.8
 
-/** Preferred spacing between doorway centres, and the tightest they may be packed
- *  before we stop adding them. Below DOOR_W they would overlap, which is why the
- *  floor is the opening's own width plus a sliver of jamb. */
-const GAP_WANT = DOOR_W + 0.9
-const GAP_MIN = DOOR_W + 0.25
-/** How many doorways one room shows at most. Not a limit on rooms — rooms are
- *  unlimited — but past this many, openings crowding one wall stop reading as doors,
- *  and the room list in the HUD is the complete index either way. */
-const MAX_DOORS = 4
-/** How far the nearest doorway stands from `layout.entry`. The entry is the camera's
- *  spawn point, so a doorway centred on it means loading the room already inside the
- *  frame — far enough that the visitor sees the doorway instead of standing in it. */
+/** How far the doorway stands from `layout.entry`. The entry is the camera's spawn
+ *  point, so a doorway ON it means loading the room already inside the frame — far
+ *  enough that the visitor sees the doorway instead of standing in it. */
 const ENTRY_CLEAR = 2.2
 
 /** How far along `side` from `from` the visitor can still stand, as a [min, max]
@@ -74,61 +70,38 @@ function freeSpan(
 }
 
 /**
- * Where the doorways stand.
+ * Where the doorway stands.
  *
- * Anchored on `layout.entry` — always inside the room, always walkable, and never
- * inside a bench or a partition, because it is where visitors are placed on arrival —
- * and spread SIDEWAYS from it, perpendicular to the direction they face on entry. So
- * the ways onward sit beside the way in, which is also how a real gallery does it.
+ * ONE doorway, whatever the number of other rooms (ユーザー決定 2026-08-09): the door is
+ * the way out, and WHICH room it leads to is a choice made at the door. That replaced an
+ * earlier design that placed one opening per room — it needed spacing, a cap, and a
+ * shrinking gap to fit, and three of its bugs were in that arithmetic alone. A single
+ * door has no arithmetic to get wrong, and it reads better: several openings in a row
+ * stop looking like doors.
  *
- * The run is fitted to the space that actually exists rather than placed and then
- * clamped: clamping each doorway independently piled the outer ones on top of each
- * other as soon as there were four (caught by the placement check before this shipped).
- * So the gap shrinks toward GAP_MIN to fit, the run slides to stay inside the room,
- * and if even the tightest spacing will not hold them all, FEWER are returned — the
- * caller renders only the doorways it gets, and the HUD's room list still names every
- * room.
+ * Anchored on `layout.entry` — always inside the room, always walkable, and never inside
+ * a bench or a partition, because it is where visitors are placed on arrival — offset
+ * SIDEWAYS by ENTRY_CLEAR so the visitor does not load standing in the frame. Whichever
+ * side has the room gets it; a space too tight for either gets no door, and the room list
+ * in the HUD is still the complete way around.
  */
-function doorPlacements(layout: LayoutDef, count: number): { pos: THREE.Vector3; rotY: number }[] {
+function doorPlacement(layout: LayoutDef): { pos: THREE.Vector3; rotY: number } | null {
   const { entry } = layout
   const margin = 1.0
   // Unit vector perpendicular to the entry heading, along the floor.
   const side = new THREE.Vector2(Math.cos(entry.yaw), -Math.sin(entry.yaw))
   const [lo, hi] = freeSpan(entry, side, layout.hw, layout.hd, margin)
-  const span = Math.max(0, hi - lo)
+  const dir = hi >= -lo ? 1 : -1
+  if (Math.max(hi, -lo) < ENTRY_CLEAR) return null
 
-  // The doorways go entirely to ONE side of the entry, starting ENTRY_CLEAR away, so
-  // none of them can land on the camera's spawn point. The clearance is carved out of
-  // the usable span BEFORE fitting rather than applied afterwards: offsetting the run
-  // and then clamping it back inside the room dragged the near doorway to within 0.23m
-  // of the spawn as soon as there were three (caught by the geometry check).
-  //
-  // `dir` is whichever side has more room past the clearance; `usable` is how much of it
-  // there is. A room too shallow to hold even one doorway that far from the entry gets
-  // none — the HUD's room list is still the complete way around.
-  const roomAhead = Math.max(0, hi - ENTRY_CLEAR)
-  const roomBehind = Math.max(0, -ENTRY_CLEAR - lo)
-  const dir = roomAhead >= roomBehind ? 1 : -1
-  const usable = Math.max(roomAhead, roomBehind)
-  if (usable <= 0) return []
-
-  let n = Math.min(count, MAX_DOORS)
-  while (n > 1 && GAP_MIN * (n - 1) > usable) n--
-  const gap = n > 1 ? Math.min(GAP_WANT, usable / (n - 1)) : 0
-
-  const out: { pos: THREE.Vector3; rotY: number }[] = []
-  for (let i = 0; i < n; i++) {
-    // Nearest doorway exactly at the clearance, the rest marching further out.
-    const t = dir * (ENTRY_CLEAR + gap * i)
-    const x = entry.x + side.x * t
-    const z = entry.z + side.y * t
-    // Face the room's centre, so the opening is seen from where the art hangs. A plane's
-    // normal points along +Z before rotation, so `atan2(-x, -z)` IS the yaw that turns it
-    // toward (0,0) — an extra quarter turn here left every doorway edge-on (caught by the
-    // orientation check, which measures normal · toCentre).
-    out.push({ pos: new THREE.Vector3(x, 0, z), rotY: Math.atan2(-x, -z) })
-  }
-  return out
+  const t = dir * ENTRY_CLEAR
+  const x = entry.x + side.x * t
+  const z = entry.z + side.y * t
+  // Face the room's centre, so the opening is seen from where the art hangs. A plane's
+  // normal points along +Z before rotation, so `atan2(-x, -z)` IS the yaw that turns it
+  // toward (0,0) — an extra quarter turn here left the doorway edge-on (caught by the
+  // orientation check, which measures normal · toCentre).
+  return { pos: new THREE.Vector3(x, 0, z), rotY: Math.atan2(-x, -z) }
 }
 
 function Doorway({
@@ -189,62 +162,46 @@ function Doorway({
 export default function RoomPortals({ layout, theme }: { layout: LayoutDef; theme: ThemeDef }) {
   const camera = useThree((s) => s.camera)
   const visitor = useGallery((s) => s.visitor)
-  const nearRoomSlug = useGallery((s) => s.nearRoomSlug)
-  const setNearRoom = useGallery((s) => s.setNearRoom)
+  const atDoorway = useGallery((s) => s.atDoorway)
+  const setAtDoorway = useGallery((s) => s.setAtDoorway)
+  const setRoomPickerOpen = useGallery((s) => s.setRoomPickerOpen)
 
   // The OTHER public rooms. `rooms` always contains the current one, so filtering it
-  // out is what turns a single-room show into "no doorways at all".
+  // out is what turns a single-room show into "no doorway at all".
   const others = useMemo<SiblingRoom[]>(
     () => (visitor?.rooms ?? []).filter((r) => r.slug !== visitor?.slug),
     [visitor]
   )
-  // `doorPlacements` returns as many doorways as this room can actually hold, which
-  // may be fewer than there are other rooms — so the rooms WITH a doorway are the
-  // leading slice, and the HUD's room list is what covers the rest.
-  const places = useMemo(() => doorPlacements(layout, others.length), [layout, others.length])
-  const doors = useMemo(() => others.slice(0, places.length), [others, places.length])
+  const place = useMemo(() => doorPlacement(layout), [layout])
 
-  // Proximity, tested against the doorway the camera is actually closest to — with two
-  // doorways side by side, "the first one within range" would latch onto the wrong one.
-  const lastRef = useRef<string | null>(null)
+  // Proximity. One door, so this is a single distance test — and `setAtDoorway` ignores
+  // an unchanged value, so standing still costs no re-renders.
   useFrame(() => {
-    if (!doors.length) return
-    let best: string | null = null
-    let bestD = NEAR_DIST
-    for (let i = 0; i < doors.length; i++) {
-      const p = places[i]
-      const d = Math.hypot(camera.position.x - p.pos.x, camera.position.z - p.pos.z)
-      if (d < bestD) {
-        bestD = d
-        best = doors[i].slug
-      }
-    }
-    if (best !== lastRef.current) {
-      lastRef.current = best
-      setNearRoom(best)
-    }
+    if (!place) return
+    const d = Math.hypot(camera.position.x - place.pos.x, camera.position.z - place.pos.z)
+    setAtDoorway(d < NEAR_DIST)
   })
 
-  // Unmounting (leaving the room, or the doorways going away) must not strand a stale
-  // prompt in the HUD.
-  useEffect(() => () => setNearRoom(null), [setNearRoom])
-
-  if (!visitor || !doors.length) return null
-
-  return (
-    <>
-      {doors.map((room, i) => (
-        <Doorway
-          key={room.slug}
-          at={places[i].pos}
-          rotY={places[i].rotY}
-          theme={theme}
-          active={nearRoomSlug === room.slug}
-          onEnter={() => enterRoom(visitor.username, room)}
-        />
-      ))}
-    </>
+  // Unmounting (leaving the room, or the door going away) must not strand a stale prompt
+  // or an open picker in the HUD.
+  useEffect(
+    () => () => {
+      setAtDoorway(false)
+      setRoomPickerOpen(false)
+    },
+    [setAtDoorway, setRoomPickerOpen]
   )
+
+  if (!visitor || !others.length || !place) return null
+
+  /** Through the door. With one other room there is nothing to choose, so go straight
+   *  there; with several, the door asks which one (ユーザー決定 2026-08-09). */
+  const go = () => {
+    if (others.length === 1) enterRoom(visitor.username, others[0])
+    else setRoomPickerOpen(true)
+  }
+
+  return <Doorway at={place.pos} rotY={place.rotY} theme={theme} active={atDoorway} onEnter={go} />
 }
 
 /** Walk through to another room: a full navigation, which is what makes this cheap
