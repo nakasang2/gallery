@@ -21,6 +21,7 @@ import PurchaseModal from '@/components/PurchaseModal'
 import HelpModal from '@/components/HelpModal'
 import TopActions from '@/components/TopActions'
 import NotificationBell from '@/components/me/NotificationBell'
+import ExpoManager from '@/components/me/ExpoManager'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_USD_CENTS, type PaidKind } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
@@ -2592,7 +2593,9 @@ function ProfileCard() {
 // Only two top-level views remain (ユーザー指示 2026-07-30): the gallery (whose stage
 // bar carries works/room/placement/publish/guestbook/profile) and account, reached
 // from the top-right menu. There is no tab row anymore.
-type MeTab = 'gallery' | 'account'
+// 合同展示は部屋とは別の実体（migration 0044）なので、**第3のタブ**として独立させる
+// ── 部屋の設定の中に混ぜると「どの部屋の話か」が分からなくなる。
+type MeTab = 'gallery' | 'account' | 'expo'
 
 export default function MePage() {
   const t = useT()
@@ -2753,6 +2756,9 @@ export default function MePage() {
               <Link className="btn-line btn-gold" href="/admin">{t('me.admin')}</Link>
             )}
             {user && (
+              <button className="btn-line" onClick={() => setTab('expo')}>{t('expo.tab')}</button>
+            )}
+            {user && (
               <button className="btn-line" onClick={() => setTab('account')}>{t('me.tabAccount')}</button>
             )}
             {user && (
@@ -2884,6 +2890,24 @@ export default function MePage() {
                     </p>
                   )}
                 </section>
+              </>
+            )}
+
+            {tab === 'expo' && (
+              <>
+                {/* 合同展示。**部屋を開く**を押すと通常の部屋エディタでその部屋に入る
+                    （エディタを二重に作らない）。合同展示の部屋は `listMyGalleries` が
+                    落としているので、部屋タブには出てこない ── だから明示的に
+                    `setRoomId` してから gallery タブへ移す。 */}
+                <ExpoManager
+                  onOpenRoom={(id) => {
+                    setRoomId(id)
+                    setTab('gallery')
+                  }}
+                />
+                <div className="hako-actions" style={{ marginTop: '1rem' }}>
+                  <button className="btn-line" onClick={() => setTab('gallery')}>← {t('me.myGallery')}</button>
+                </div>
               </>
             )}
 

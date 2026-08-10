@@ -53,12 +53,16 @@ export interface GalleryRow {
    *  bought room from a free room grown with $3 slots, so it is what the allowance is
    *  counted against — see `lib/limits.gradeForNewRoom`. */
   slots_included?: boolean | null
+  /** 合同展示（migration 0044）の部屋なら、その展示のid。作家自身の部屋は null。 */
+  expo_id?: string | null
 }
 
 const COLS =
-  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url, guestbook_enabled, is_main, slots_included'
+  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url, guestbook_enabled, is_main, slots_included, expo_id'
+// Pre-0044 shape (no expo_id column yet) — every room reads as the artist's own
+const COLS_NO_EXPO = COLS.replace(', expo_id', '')
 // Newest column first when degrading against a DB that hasn't applied 0038.
-const COLS_NO_GRADE = COLS.replace(', slots_included', '')
+const COLS_NO_GRADE = COLS_NO_EXPO.replace(', slots_included', '')
 // Post-0036/pre-0038 shape (no slots_included column yet)
 const COLS_NO_MAIN = COLS_NO_GRADE.replace(', is_main', '')
 // Post-0033/pre-0036 shape (no is_main column yet)
@@ -81,6 +85,15 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
     .select(COLS)
     .eq('owner_id', userId)
     .order('created_at', { ascending: true })
+  if (res.error && missingOverrideColumns(res.error)) {
+    // 0044 (expo_id) not applied — there are no joint exhibitions yet, so every
+    // room is the artist's own
+    res = (await supabase!
+      .from('galleries')
+      .select(COLS_NO_EXPO)
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: true })) as unknown as typeof res
+  }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0038 (slots_included) not applied — every room reads as the free grade, so the
     // allowance falls back to "one free room" until the migration lands
@@ -144,7 +157,29 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
       .order('created_at', { ascending: true })) as unknown as typeof res
   }
   if (res.error) throw res.error
-  return (res.data ?? []).map((r) => ({
+  const rows = (res.data ?? []).map((r) => ({
+    ...(r as object),
+    mat_default: (r as { mat_default?: string }).mat_default ?? 'auto',
+    work_cap: (r as { work_cap?: number }).work_cap ?? PLAN.worksPerGallery,
+    design_overrides: (r as { design_overrides?: unknown }).design_overrides ?? null,
+    arrangement: (r as { arrangement?: unknown }).arrangement ?? null,
+  })) as GalleryRow[]
+  // **合同展示の部屋は「自分の部屋」ではない**（migration 0044）。ここで落とさないと、
+  // ダッシュボードの部屋タブに混ざり、部屋数（`rooms.length`）にも入って
+  // 「もう1室ふやす」の判定や玄関（is_main）の解決まで狂う。合同展示の部屋は
+  // `listExpoRooms()` から引く。
+  return rows.filter((r) => !r.expo_id)
+}
+
+/** 1つの合同展示に属する部屋（migration 0044）。所有者の視点で引く。 */
+export async function listExpoRooms(expoId: string): Promise<GalleryRow[]> {
+  const { data, error } = await supabase!
+    .from('galleries')
+    .select(COLS)
+    .eq('expo_id', expoId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []).map((r) => ({
     ...(r as object),
     mat_default: (r as { mat_default?: string }).mat_default ?? 'auto',
     work_cap: (r as { work_cap?: number }).work_cap ?? PLAN.worksPerGallery,
