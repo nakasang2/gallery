@@ -15,12 +15,12 @@ import { track } from '@/lib/analytics'
 export default function RoomExpoBadge({
   room,
   userId,
-  onOpenExpoTab,
+  onOpenExpoManager,
   onChanged,
 }: {
   room: GalleryRow
   userId: string
-  onOpenExpoTab: () => void
+  onOpenExpoManager: () => void
   onChanged: () => void
 }) {
   const t = useT()
@@ -140,7 +140,7 @@ export default function RoomExpoBadge({
             className="btn-line room-expo-manage"
             onClick={() => {
               setOpen(false)
-              onOpenExpoTab()
+              onOpenExpoManager()
             }}
           >
             {t('expo.tab')} →

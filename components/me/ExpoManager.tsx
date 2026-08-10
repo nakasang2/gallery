@@ -1,14 +1,17 @@
 'use client'
 // 合同展示の主催者画面（migration 0044、DECISIONS 2026-08-09）。
 //
-// 通常展示（部屋）とは別の実体なので、**ダッシュボードの第3のタブ**として独立させた
-// ── 部屋の設定の中に混ぜると「どの部屋の話か」が分からなくなる。
+// 通常展示（部屋）とは別の実体だが、**タブ画面ではなくモーダル**として開く
+// （ユーザー指示 2026-08-10: 「合同展示」押下後の1ウインドウで一覧・新規作成・
+// 部屋を開く操作を完結させる。以前は「バッジ→タブ遷移→作成ボタン→別モーダル」の
+// 多段階だった）。`HelpModal`と同じ`.purchase-backdrop`+`.help-modal`の型を自前で持つ。
 //
 // **ここは「展示一覧＋部屋を増やす」だけの軽い画面**（ユーザー指示 2026-08-10）。
 // 参加者の招待・会期を選んで公開（＝決済）は、**部屋を開いた先の編集画面**
 // （通常展示と同じタブバー。合同展示の部屋にだけ「参加者」タブが出る／「公開」タブの
 // 中身が会期ベースに変わる）に移した。ここに残るのは「展示を作る」「部屋を足す」
-// 「部屋を開く」だけ。
+// 「部屋を開く」だけ。新規作成フォームも**同じモーダルパネルの中で一覧と切り替える**
+// （入れ子のモーダルにしない）。
 //
 // 流れ: ①下書きを作る（無料・誰にも見えない）→ ②部屋を足す → ③部屋を開いて招待・
 // 作品掛け・会期を選んで公開 → ④会期中は `/expo/{name}` が見える → ⑤終了後7日で
@@ -40,7 +43,13 @@ function useDay() {
   }
 }
 
-export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: string) => void }) {
+export default function ExpoManager({
+  onOpenRoom,
+  onClose,
+}: {
+  onOpenRoom?: (roomId: string) => void
+  onClose: () => void
+}) {
   const t = useT()
   const user = useGallery((s) => s.user)
   const day = useDay()
@@ -84,15 +93,17 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
     void reload()
   }, [reload])
 
-  // Escapeで閉じる（HelpModal/PurchaseModalと同じ作法）。
+  // Escapeで閉じる（HelpModal/PurchaseModalと同じ作法）。作成フォームを開いている
+  // ときは、まずフォームだけ閉じる（モーダルそのものは残す）。
   useEffect(() => {
-    if (!creating) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setCreating(false)
+      if (e.key !== 'Escape') return
+      if (creating) setCreating(false)
+      else onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [creating])
+  }, [creating, onClose])
 
   if (!user) return null
 
@@ -123,17 +134,25 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
   const slugOk = EXPO_SLUG_RE.test(slug.trim().toLowerCase())
 
   return (
-    <section className="me-section">
-      <h2>{t('expo.title')}</h2>
-      <p className="me-note" style={{ marginTop: 0 }}>{t('expo.intro')}</p>
+    <div className="purchase-backdrop" onClick={() => !busy && onClose()}>
+      <div
+        className="help-modal expo-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('expo.title')}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button className="purchase-close" aria-label={t('common.close')} disabled={busy} onClick={onClose}>×</button>
+        <h1 className="help-modal-title">{t('expo.title')}</h1>
+        <p className="me-note" style={{ marginTop: 0 }}>{t('expo.intro')}</p>
 
-      {expos === null && <p className="me-note">{t('expo.loading')}</p>}
+      {!creating && expos === null && <p className="me-note">{t('expo.loading')}</p>}
 
-      {expos !== null && expos.length === 0 && !creating && (
+      {!creating && expos !== null && expos.length === 0 && (
         <p className="me-note">{t('expo.empty')}</p>
       )}
 
-      {expos !== null && expos.length > 0 && (
+      {!creating && expos !== null && expos.length > 0 && (
         <ul className="expo-list">
           {expos.map((x) => {
             const phase = expoPhase(x)
@@ -247,93 +266,80 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
         </ul>
       )}
 
-      {/* 新規作成。**ポップアップで行う**（ユーザー指示 2026-08-10）。タイトルとURLを
-          決めて作成を押すと、**展示だけでなくその最初の部屋も自動でできる** —
-          以前は展示を作った後に別途「部屋を追加」を押す2手間だった。 */}
-      <div className="hako-actions" style={{ marginTop: '0.9rem' }}>
-        <button type="button" className="btn-line" onClick={() => setCreating(true)} disabled={busy}>
-          {t('expo.create')}
-        </button>
-      </div>
-
-      {creating && (
-        <div className="purchase-backdrop" onClick={() => !busy && setCreating(false)}>
-          <div
-            className="help-modal expo-new-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('expo.create')}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="purchase-close"
-              aria-label={t('common.close')}
-              disabled={busy}
-              onClick={() => setCreating(false)}
-            >
-              ×
-            </button>
-            <h1 className="help-modal-title">{t('expo.create')}</h1>
-            <label className="me-field">
-              <span>{t('expo.fieldTitle')}</span>
-              <input
-                value={title}
-                placeholder={t('expo.fieldTitlePlaceholder')}
-                maxLength={80}
-                onChange={(e) => setTitle(e.target.value)}
-                autoFocus
-              />
-            </label>
-            <label className="me-field">
-              <span>{t('expo.fieldSlug')}</span>
-              <input
-                value={slug}
-                placeholder="spring-show" /* i18n-ok: URLの見本（訳す対象ではない） */
-                maxLength={40}
-                onChange={(e) => setSlug(e.target.value)}
-              />
-            </label>
-            <p className="me-note" style={{ marginTop: 0 }}>
-              {t('expo.slugNote', { url: expoPath(slug.trim().toLowerCase() || 'spring-show') })}
-            </p>
-            <div className="hako-actions" style={{ marginTop: '0.9rem' }}>
-              <button
-                type="button"
-                className="btn-line btn-gold"
-                disabled={busy || !slugOk}
-                onClick={() =>
-                  void run(async () => {
-                    const x = await createExpo(user.id, { slug, title })
-                    track('expo_create', {})
-                    // 最初の部屋も同時に作る（ユーザー指示 2026-08-10）。名前は展示の
-                    // slugから機械的に決める ── 主催者の他の部屋とぶつからない名前は
-                    // 「部屋を追加」ボタンと同じ作法。
-                    const roomId = await addExpoRoom(user.id, x.id, {
-                      slug: `expo-${x.slug}-1`.slice(0, 40),
-                      title: x.title || x.slug,
-                    })
-                    track('expo_room_add', { expo: x.slug })
-                    setCreating(false)
-                    setSlug('')
-                    setTitle('')
-                    // 作った部屋をすぐ開く（そこで招待・作品掛け・会期選びをする）。
-                    onOpenRoom?.(roomId)
-                  })
-                }
-              >
-                {busy ? t('common.saving') : t('expo.createGo')}
-              </button>
-              <button type="button" className="btn-line" onClick={() => setCreating(false)} disabled={busy}>
-                {t('common.cancel')}
-              </button>
-            </div>
-            {!slugOk && slug.trim() !== '' && <p className="me-error">{t('expo.slugInvalid')}</p>}
-            {err && <p className="me-error">{err}</p>}
-          </div>
+      {!creating && (
+        <div className="hako-actions" style={{ marginTop: '0.9rem' }}>
+          <button type="button" className="btn-line" onClick={() => setCreating(true)} disabled={busy}>
+            {t('expo.create')}
+          </button>
         </div>
       )}
 
-      {!creating && err && <p className="me-error">{err}</p>}
-    </section>
+      {/* 新規作成フォーム。**同じモーダルパネルの中で一覧と切り替える**（入れ子の
+          モーダルにしない ── ユーザー指示 2026-08-10「全て合同展示押下後のウインドウで
+          完結させたい」）。タイトルとURLを決めて作成を押すと、**展示だけでなくその
+          最初の部屋も自動でできる**（以前は展示を作った後に別途「部屋を追加」を
+          押す2手間だった）。 */}
+      {creating && (
+        <>
+          <label className="me-field">
+            <span>{t('expo.fieldTitle')}</span>
+            <input
+              value={title}
+              placeholder={t('expo.fieldTitlePlaceholder')}
+              maxLength={80}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+            />
+          </label>
+          <label className="me-field">
+            <span>{t('expo.fieldSlug')}</span>
+            <input
+              value={slug}
+              placeholder="spring-show" /* i18n-ok: URLの見本（訳す対象ではない） */
+              maxLength={40}
+              onChange={(e) => setSlug(e.target.value)}
+            />
+          </label>
+          <p className="me-note" style={{ marginTop: 0 }}>
+            {t('expo.slugNote', { url: expoPath(slug.trim().toLowerCase() || 'spring-show') })}
+          </p>
+          <div className="hako-actions" style={{ marginTop: '0.9rem' }}>
+            <button
+              type="button"
+              className="btn-line btn-gold"
+              disabled={busy || !slugOk}
+              onClick={() =>
+                void run(async () => {
+                  const x = await createExpo(user.id, { slug, title })
+                  track('expo_create', {})
+                  // 最初の部屋も同時に作る（ユーザー指示 2026-08-10）。名前は展示の
+                  // slugから機械的に決める ── 主催者の他の部屋とぶつからない名前は
+                  // 「部屋を追加」ボタンと同じ作法。
+                  const roomId = await addExpoRoom(user.id, x.id, {
+                    slug: `expo-${x.slug}-1`.slice(0, 40),
+                    title: x.title || x.slug,
+                  })
+                  track('expo_room_add', { expo: x.slug })
+                  setCreating(false)
+                  setSlug('')
+                  setTitle('')
+                  // 作った部屋をすぐ開く（そこで招待・作品掛け・会期選びをする）。
+                  onOpenRoom?.(roomId)
+                })
+              }
+            >
+              {busy ? t('common.saving') : t('expo.createGo')}
+            </button>
+            <button type="button" className="btn-line" onClick={() => setCreating(false)} disabled={busy}>
+              {t('common.cancel')}
+            </button>
+          </div>
+          {!slugOk && slug.trim() !== '' && <p className="me-error">{t('expo.slugInvalid')}</p>}
+        </>
+      )}
+
+      {err && <p className="me-error">{err}</p>}
+      </div>
+    </div>
   )
 }

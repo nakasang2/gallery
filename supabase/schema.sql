@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0051 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0052 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -4910,3 +4910,57 @@ revoke all on function public.record_expo_purchase(text, uuid, uuid, int, int, t
 revoke all on function public.record_expo_purchase(text, uuid, uuid, int, int, text, timestamptz) from anon;
 revoke all on function public.record_expo_purchase(text, uuid, uuid, int, int, text, timestamptz) from authenticated;
 grant execute on function public.record_expo_purchase(text, uuid, uuid, int, int, text, timestamptz) to service_role;
+
+-- # 0052_room_capacity_transfer.sql — 作品スロットを部屋間で移動する(ユーザー指示 2026-08-10)
+create or replace function public.transfer_room_capacity(p_from uuid, p_to uuid, p_amount int)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_from_owner uuid;
+  v_to_owner uuid;
+  v_from_cap int;
+  v_to_cap int;
+begin
+  if v_me is null then
+    raise exception 'sign in first';
+  end if;
+
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'amount must be positive' using errcode = 'check_violation';
+  end if;
+
+  if p_from = p_to then
+    raise exception 'cannot transfer to the same room' using errcode = 'check_violation';
+  end if;
+
+  select owner_id, work_cap into v_from_owner, v_from_cap
+    from public.galleries where id = p_from;
+  select owner_id, work_cap into v_to_owner, v_to_cap
+    from public.galleries where id = p_to;
+
+  if v_from_owner is null or v_to_owner is null then
+    raise exception 'no such room';
+  end if;
+  if v_from_owner <> v_me or v_to_owner <> v_me then
+    raise exception 'not your room';
+  end if;
+
+  if v_from_cap - p_amount < 1 then
+    raise exception 'source room must keep at least 1 slot' using errcode = 'check_violation';
+  end if;
+
+  if v_to_cap + p_amount > 15 then
+    raise exception 'destination room cannot exceed 15 slots' using errcode = 'check_violation';
+  end if;
+
+  update public.galleries set work_cap = work_cap - p_amount where id = p_from;
+  update public.galleries set work_cap = work_cap + p_amount where id = p_to;
+end;
+$$;
+
+revoke all on function public.transfer_room_capacity(uuid, uuid, int) from public, anon;
+grant execute on function public.transfer_room_capacity(uuid, uuid, int) to authenticated;

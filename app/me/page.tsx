@@ -23,6 +23,7 @@ import TopActions from '@/components/TopActions'
 import NotificationBell from '@/components/me/NotificationBell'
 import ExpoManager from '@/components/me/ExpoManager'
 import RoomExpoBadge from '@/components/me/RoomExpoBadge'
+import CapacityTransfer from '@/components/me/CapacityTransfer'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_USD_CENTS, usd, expoRunOptions, type PaidKind } from '@/lib/pricing'
 import {
@@ -1747,6 +1748,9 @@ function GalleryCard({
           <div className="we-right">
             <div className="me-works-head">
               <span className="me-works-count">{t('me.navWorksCount', { count: cloudArtworks.length, cap: row.work_cap })}</span>
+              {/* 部屋間で枠を移動（migration 0052、ユーザー指示・DECISIONS 2026-08-10）。
+                  「枠を買う」の隣に置く ── 合計を増やさず配分だけ変える、別の手段。 */}
+              <CapacityTransfer room={row} userId={user.id} onChanged={onChanged} />
               <button
                 type="button"
                 className="btn-line"
@@ -2758,9 +2762,10 @@ function ProfileCard() {
 // Only two top-level views remain (ユーザー指示 2026-07-30): the gallery (whose stage
 // bar carries works/room/placement/publish/guestbook/profile) and account, reached
 // from the top-right menu. There is no tab row anymore.
-// 合同展示は部屋とは別の実体（migration 0044）なので、**第3のタブ**として独立させる
-// ── 部屋の設定の中に混ぜると「どの部屋の話か」が分からなくなる。
-type MeTab = 'gallery' | 'account' | 'expo'
+// 合同展示は部屋とは別の実体（migration 0044）だが、**タブではなくモーダル**で開く
+// （ユーザー指示 2026-08-10: 「合同展示」押下後の1ウインドウで一覧・作成・部屋を開く
+// 操作を完結させる。以前はタブ遷移＋モーダルの2段階だった）。開閉は`expoManagerOpen`。
+type MeTab = 'gallery' | 'account'
 
 export default function MePage() {
   const t = useT()
@@ -2786,6 +2791,8 @@ export default function MePage() {
   const [purchaseReturn, setPurchaseReturn] = useState<'success' | 'cancelled' | null>(null)
   // Help/FAQ opened in place, so building a room isn't interrupted (DECISIONS 2026-08-03)
   const [helpOpen, setHelpOpen] = useState(false)
+  // 合同展示の管理モーダル（一覧・新規作成・部屋を開く、をこの1つで完結させる）。
+  const [expoManagerOpen, setExpoManagerOpen] = useState(false)
   // Dashboard-wide autosave toast (single slot; each save refreshes it)
   const [toast, setToast] = useState<{ msg: string; n: number } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -2924,6 +2931,19 @@ export default function MePage() {
         <div className="me-toast" role="status" aria-live="polite" key={toast.n}>{toast.msg}</div>
       )}
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+      {/* 合同展示。**部屋を開く**を押すと通常の部屋エディタでその部屋に入る（エディタを
+          二重に作らない）。合同展示の部屋は `listMyGalleries` が落としているので、
+          部屋タブには出てこない ── だから明示的に `setRoomId` してから gallery タブへ移す。 */}
+      {expoManagerOpen && user && (
+        <ExpoManager
+          onOpenRoom={(id) => {
+            setRoomId(id)
+            setTab('gallery')
+            setExpoManagerOpen(false)
+          }}
+          onClose={() => setExpoManagerOpen(false)}
+        />
+      )}
       {roomOfferOpen && (
         <PurchaseModal
           itemLabel={t('me.roomAdd')}
@@ -2967,11 +2987,11 @@ export default function MePage() {
                 <RoomExpoBadge
                   room={current}
                   userId={user.id}
-                  onOpenExpoTab={() => setTab('expo')}
+                  onOpenExpoManager={() => setExpoManagerOpen(true)}
                   onChanged={() => void reload()}
                 />
               ) : (
-                <button className="btn-line" onClick={() => setTab('expo')}>{t('expo.tab')}</button>
+                <button className="btn-line" onClick={() => setExpoManagerOpen(true)}>{t('expo.tab')}</button>
               )
             } />
             {purchaseReturn && (
@@ -3064,24 +3084,6 @@ export default function MePage() {
                     </p>
                   )}
                 </section>
-              </>
-            )}
-
-            {tab === 'expo' && (
-              <>
-                {/* 合同展示。**部屋を開く**を押すと通常の部屋エディタでその部屋に入る
-                    （エディタを二重に作らない）。合同展示の部屋は `listMyGalleries` が
-                    落としているので、部屋タブには出てこない ── だから明示的に
-                    `setRoomId` してから gallery タブへ移す。 */}
-                <ExpoManager
-                  onOpenRoom={(id) => {
-                    setRoomId(id)
-                    setTab('gallery')
-                  }}
-                />
-                <div className="hako-actions" style={{ marginTop: '1rem' }}>
-                  <button className="btn-line" onClick={() => setTab('gallery')}>← {t('me.myGallery')}</button>
-                </div>
               </>
             )}
 

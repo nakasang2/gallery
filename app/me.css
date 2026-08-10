@@ -22,50 +22,45 @@
 }
 .me-top .auth-logo { font-size: 0.95rem; }
 .me-top-nav { position: relative; display: flex; align-items: center; }
-.me-top-actions { display: flex; gap: 0.5rem; }
-/* 広い幅では畳む必要がないので、ハンバーガーは出さない（640px以下で出す） */
-.me-top-burger { display: none; }
-
-@media (max-width: 640px) {
-  .me-top-burger {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    color: var(--ink);
-    background: transparent;
-    border: 1px solid var(--hairline);
-    border-radius: 10px;
-    font-size: 1.15rem; /* 1em のアイコンの大きさを決める */
-    line-height: 0;
-    cursor: pointer;
-    transition: border-color 0.2s, color 0.2s;
-  }
-  .me-top-burger:hover,
-  .me-top-burger[aria-expanded='true'] { border-color: var(--gold); color: var(--gold); }
-  .me-top-burger:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-  /* 畳んだ中身。ロゴの行を押し広げないよう、行の外（絶対配置）に出す */
-  .me-top-actions {
-    position: absolute;
-    top: calc(100% + 0.5rem);
-    right: 0;
-    z-index: 40;
-    display: none;
-    flex-direction: column;
-    align-items: stretch;
-    min-width: 11rem;
-    padding: 0.4rem;
-    background: #14120f;
-    border: 1px solid var(--hairline);
-    border-radius: 12px;
-    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
-  }
-  .me-top-actions.open { display: flex; }
-  /* メニューの中では枠付きボタンを3つ積むより、行として読ませたほうが静か */
-  .me-top-actions .btn-line { border-color: transparent; justify-content: flex-start; }
+/* PCでも常にハンバーガーに畳む（2026-08-10、ユーザー指摘: 右上に並ぶボタン列を廃止） */
+.me-top-burger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  font-size: 1.15rem; /* 1em のアイコンの大きさを決める */
+  line-height: 0;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
 }
+.me-top-burger:hover,
+.me-top-burger[aria-expanded='true'] { border-color: var(--gold); color: var(--gold); }
+.me-top-burger:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* 畳んだ中身。ロゴの行を押し広げないよう、行の外（絶対配置）に出す */
+.me-top-actions {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 40;
+  display: none;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 11rem;
+  padding: 0.4rem;
+  background: #14120f;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+}
+.me-top-actions.open { display: flex; }
+/* メニューの中では枠付きボタンを3つ積むより、行として読ませたほうが静か */
+.me-top-actions .btn-line { border-color: transparent; justify-content: flex-start; }
 
 .me-h1 {
   font-family: var(--serif);
@@ -115,6 +110,33 @@
 .room-expo-list .btn-line { width: 100%; justify-content: flex-start; }
 .room-expo-manage { margin-top: 0.3rem; border-color: transparent; color: var(--muted); }
 .room-expo-manage:hover { color: var(--gold); }
+
+/* 作品スロットの部屋間移動（migration 0052、ユーザー指示 2026-08-10）。
+   `.room-expo-badge`/`.room-expo-panel` と同じ「トリガー＋絶対配置ドロップダウン」の型。 */
+.capacity-transfer { position: relative; }
+.capacity-transfer-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 40;
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: #12100d;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.capacity-transfer-panel-title {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+}
 .me-hero-avatar {
   width: 58px;
   height: 58px;
@@ -431,7 +453,7 @@
 /* ダッシュボードの入力欄。**セレクタの列挙に入れ忘れた欄はブラウザ既定の白地で描かれる**
    — SNSの欄がそれで、カードの中で白く浮いていた（ユーザー指摘 2026-08-03）。
    新しい入力欄を足したら、ここに並べたか確認する。 */
-.me-field input, .me-field textarea, .spotlight-row input,
+.me-field input, .me-field textarea, .me-field select, .spotlight-row input,
 .sns-field input, .sns-custom-row input {
   width: 100%;
   font-family: var(--sans);
@@ -445,7 +467,7 @@
   transition: border-color 0.2s;
   resize: vertical;
 }
-.me-field input:focus, .me-field textarea:focus, .spotlight-row input:focus,
+.me-field input:focus, .me-field textarea:focus, .me-field select:focus, .spotlight-row input:focus,
 .sns-field input:focus, .sns-custom-row input:focus { border-color: var(--gold); }
 
 /* Size row W×H number inputs — match the dashboard's other fields (were browser-default) */
@@ -1957,10 +1979,10 @@
   border-radius: 10px;
   background: rgba(212, 162, 78, 0.04);
 }
-/* 展示の新規作成はポップアップに（ユーザー指示 2026-08-10）。`.help-modal` の
-   共通の枠に、フィールドの上マージンだけ詰める。 */
-.expo-new-modal .me-field { margin-top: 1rem; }
-.expo-new-modal .me-field:first-of-type { margin-top: 1.2rem; }
+/* 合同展示の管理モーダル（一覧・新規作成・部屋を開く、を1つで完結。ユーザー指示
+   2026-08-10）。`.help-modal` の共通の枠に、フィールドの上マージンだけ詰める。 */
+.expo-modal .me-field { margin-top: 1rem; }
+.expo-modal .me-field:first-of-type { margin-top: 1.2rem; }
 
 /* ---- 招待リンク（migration 0048。参加者パネルの中） ---- */
 .invite-links {
