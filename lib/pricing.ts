@@ -15,6 +15,14 @@ export const PRICE_USD_CENTS = {
   theme_collection: 0, // retired (docs/DECISIONS 2026-07-24)
   design_tools: 0, // now free for everyone
   video_pass: 2000, // one-time $20 — buy once, exhibit video forever (ユーザー決定 2026-08-03)
+  // 合同展示の場所代（ユーザー決定 2026-08-09）。**会期の長さで決まる**一律料金で、
+  // 主催者が**公開時に1回**払う。参加作家は無料。会期ごとに別SKUにしてあるのは、
+  // 価格が SKU から一意に決まる＝**クライアントが金額にも日数にも触れない**ため
+  // （日数を引数で受けると、そこが値段を動かす入口になる）。
+  // DB 側の `expo_days_allowed()`（migration 0044）と対で保つこと。
+  expo_7: 1500,
+  expo_14: 2500,
+  expo_30: 4000,
 } as const
 export type Sku = keyof typeof PRICE_USD_CENTS
 
@@ -25,6 +33,36 @@ export const SKU_LABEL: Record<Sku, string> = {
   theme_collection: 'Theme Collection Vol.1',
   design_tools: 'Design Tools',
   video_pass: 'Video Pass',
+  // i18n-ok: Stripe の決済ページに出る商品名。Stripe 側は英語なので訳さない
+  // （既存の SKU_LABEL と同じ扱い）。
+  expo_7: 'Joint exhibition — 7 days',
+  expo_14: 'Joint exhibition — 14 days',
+  expo_30: 'Joint exhibition — 30 days',
+}
+
+/** 合同展示の会期SKU。価格も日数もここから一意に決まる。 */
+export const EXPO_SKUS = ['expo_7', 'expo_14', 'expo_30'] as const
+export type ExpoSku = (typeof EXPO_SKUS)[number]
+
+/** その SKU が合同展示の場所代か。 */
+export function isExpoSku(sku: string): sku is ExpoSku {
+  return (EXPO_SKUS as readonly string[]).includes(sku)
+}
+
+/** SKU → 会期の日数。**SKU名から機械的に出す**ので、価格表と日数がずれない。 */
+export function expoDaysForSku(sku: ExpoSku): number {
+  return Number(sku.slice('expo_'.length))
+}
+
+/** 日数 → SKU。無い長さなら null（DBの `expo_days_allowed` と同じ集合）。 */
+export function expoSkuForDays(days: number): ExpoSku | null {
+  const sku = `expo_${days}`
+  return isExpoSku(sku) ? sku : null
+}
+
+/** 主催者に見せる選択肢（短い順）。 */
+export function expoRunOptions(): { sku: ExpoSku; days: number; cents: number }[] {
+  return EXPO_SKUS.map((sku) => ({ sku, days: expoDaysForSku(sku), cents: PRICE_USD_CENTS[sku] }))
 }
 
 /** Format USD cents the way the UI shows prices ($5, $3, $12.34). */
