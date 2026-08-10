@@ -14,7 +14,15 @@ import { supabase } from './supabase'
 import { rowToArtwork, type ArtworkRow } from './cloud'
 import type { ArtworkData } from './artworks'
 
-export type InviteStatus = 'pending' | 'accepted' | 'declined'
+export type InviteStatus =
+  /** 主催者が招いた。作家の返事待ち */
+  | 'pending'
+  /** **作家が希望を出した**（招待リンク経由。0048）。主催者の承認待ち */
+  | 'requested'
+  /** 参加確定。ここから作品を出せる */
+  | 'accepted'
+  /** 辞退（または希望の取り下げ） */
+  | 'declined'
 
 /** 招かれた相手（主催者の画面に出す）。 */
 export interface InviteArtist {
@@ -261,6 +269,125 @@ export async function listMyInvites(artistId: string): Promise<MyInvite[]> {
     },
     submittedIds: byExpo.get(r.expo_id) ?? [],
   }))
+}
+
+/* ============================ 招待リンク（0048） ============================ */
+
+/**
+ * 配れるURL。**トークンはサーバが決める**（クライアントが弱い値を選べない）。
+ * 返るのはトークンだけなので、URLの組み立ては `inviteLinkPath()` が1か所で行う。
+ */
+export async function createInviteLink(expoId: string): Promise<string> {
+  const { data, error } = await supabase!.rpc('create_expo_invite_link', { p_expo: expoId })
+  if (error) throw new Error(error.message)
+  const token = typeof data === 'string' ? data : ''
+  if (!token) throw new Error('No token returned.')
+  return token
+}
+
+export interface InviteLink {
+  id: string
+  token: string
+  revokedAt: string | null
+  createdAt: string
+}
+
+/** その展示のリンク。**主催者にしか見えない**（0048 のポリシー）。 */
+export async function listInviteLinks(expoId: string): Promise<InviteLink[]> {
+  const { data, error } = await supabase!
+    .from('expo_invite_links')
+    .select('id, token, revoked_at, created_at')
+    .eq('expo_id', expoId)
+    .order('created_at', { ascending: false })
+  if (error) {
+    // 0048 未適用なら「リンクはまだ無い」と同じ扱い（合同展示タブ全体を落とさない）。
+    if (missingSubmissionsTable(error)) return []
+    throw error
+  }
+  return ((data ?? []) as { id: string; token: string; revoked_at: string | null; created_at: string }[]).map(
+    (r) => ({ id: r.id, token: r.token, revokedAt: r.revoked_at, createdAt: r.created_at })
+  )
+}
+
+/** リンクを止める。**行は消さない** — いつ止めたかを残す（0048）。 */
+export async function revokeInviteLink(linkId: string): Promise<void> {
+  const { error } = await supabase!
+    .from('expo_invite_links')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', linkId)
+  if (error) throw error
+}
+
+/** リンクのURL。**組み立てはここだけ**（配る文字列と受け取るルートが食い違わないように）。 */
+export function inviteLinkPath(token: string): string {
+  return `/join/${token}`
+}
+
+/** リンク先で見せる展示。**部屋も作品も返らない** — リンクは案内で、中身の先行公開ではない。 */
+export interface JoinTarget {
+  expoId: string
+  slug: string
+  title: string
+  statement: string
+  startsAt: string | null
+  endsAt: string | null
+  organizerName: string
+  organizerUsername: string | null
+  /** 自分の招待の状態。未ログイン、または関わりが無ければ null。 */
+  myStatus: InviteStatus | null
+}
+
+/**
+ * トークンから展示を引く。**未ログインでも呼べる**（`security definer`）。
+ * 無効なトークン・止めたリンクは null（「無効」と「存在しない」を区別しない ──
+ * 区別すると総当たりで有効なトークンを探せる）。
+ */
+export async function fetchJoinTarget(token: string): Promise<JoinTarget | null> {
+  const { data, error } = await supabase!.rpc('expo_by_invite_token', { p_token: token })
+  if (error) return null
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | {
+        expo_id: string
+        slug: string
+        title: string | null
+        statement: string | null
+        starts_at: string | null
+        ends_at: string | null
+        organizer_name: string | null
+        organizer_username: string | null
+        my_status: string | null
+      }
+    | undefined
+  if (!row) return null
+  return {
+    expoId: row.expo_id,
+    slug: row.slug,
+    title: row.title ?? '',
+    statement: row.statement ?? '',
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    organizerName: row.organizer_name ?? '',
+    organizerUsername: row.organizer_username,
+    myStatus: (row.my_status as InviteStatus | null) ?? null,
+  }
+}
+
+/**
+ * 「参加したい」を出す。**これは権限を1つも増やさない** — 主催者が承認するまで
+ * `accepted` にならず、作品は1点も出せない（0048）。
+ * 返るのは結果の状態（画面がそのまま文言を選べる）。
+ */
+export async function requestInvite(token: string): Promise<InviteStatus> {
+  const { data, error } = await supabase!.rpc('request_expo_invite', { p_token: token })
+  if (error) throw new Error(error.message)
+  return (typeof data === 'string' ? data : 'requested') as InviteStatus
+}
+
+/** 参加希望を承認する。**招待（pending）には使えない** — あれは作家の意思表示なので
+ *  主催者が代わりに受諾できない（0048 が弾く）。 */
+export async function approveRequest(inviteId: string): Promise<void> {
+  const { error } = await supabase!.rpc('approve_expo_request', { p_invite: inviteId })
+  if (error) throw new Error(error.message)
 }
 
 /** 受諾・辞退。辞退すると 0047 のトリガが提出も掛かっている作品も引き上げる

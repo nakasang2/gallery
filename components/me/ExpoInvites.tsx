@@ -13,14 +13,20 @@ import { useT } from '@/components/I18nProvider'
 import { useGallery } from '@/lib/store'
 import { artworkSrcSet } from '@/lib/cloud'
 import {
+  approveRequest,
+  createInviteLink,
   inviteArtistToExpo,
   inviteErrorKey,
+  inviteLinkPath,
   listExpoInvites,
+  listInviteLinks,
   listMyInvites,
   respondToInvite,
   revokeInvite,
+  revokeInviteLink,
   setMySubmissions,
   type ExpoInvite,
+  type InviteLink,
   type MyInvite,
 } from '@/lib/invites'
 import { track } from '@/lib/analytics'
@@ -63,6 +69,9 @@ export function InviteInbox() {
   const pending = invites.filter((i) => i.status === 'pending')
   const accepted = invites.filter((i) => i.status === 'accepted')
   const declined = invites.filter((i) => i.status === 'declined')
+  // 自分が招待リンクから出した希望（0048）。**主催者の承認待ち**で、まだ何もできない。
+  // 受信箱に出すのは「出したことを覚えておく場所」が他に無いから。
+  const requested = invites.filter((i) => i.status === 'requested')
 
   async function respond(inv: MyInvite, accept: boolean) {
     setBusyId(inv.id)
@@ -198,6 +207,16 @@ export function InviteInbox() {
         )
       })}
 
+      {requested.map((inv) => (
+        <div key={inv.id} className="invite-row">
+          <div className="invite-row-head">
+            <span className="invite-room">{inv.expo.title || inv.expo.slug}</span>
+            <span className="invite-who">{t('invite.youRequested')}</span>
+          </div>
+          <p className="me-note invite-explain">{t('invite.requestedExplain')}</p>
+        </div>
+      ))}
+
       {declined.map((inv) => (
         <div key={inv.id} className="invite-row invite-row-declined">
           <div className="invite-row-head">
@@ -222,9 +241,12 @@ export function ParticipantsPanel({
 }) {
   const t = useT()
   const [invites, setInvites] = useState<ExpoInvite[] | null>(null)
+  const [links, setLinks] = useState<InviteLink[]>([])
   const [handle, setHandle] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  /** コピーしたことを一瞬出す（押した手応えが無いと2回3回押される）。 */
+  const [copied, setCopied] = useState('')
 
   const reload = useCallback(async () => {
     try {
@@ -232,6 +254,13 @@ export function ParticipantsPanel({
     } catch (e) {
       console.error('could not load participants (is migration 0047 applied?):', e)
       setInvites([])
+    }
+    try {
+      setLinks(await listInviteLinks(expoId))
+    } catch (e) {
+      // 0048 未適用なら「リンクはまだ無い」。参加者一覧は出し続ける。
+      console.error('could not load invite links (is migration 0048 applied?):', e)
+      setLinks([])
     }
   }, [expoId])
 
@@ -282,10 +311,108 @@ export function ParticipantsPanel({
     }
   }
 
+  async function approve(inv: ExpoInvite) {
+    setBusy(true)
+    setErr(null)
+    try {
+      await approveRequest(inv.id)
+      track('expo_request_approve', {})
+      await reload()
+      onChanged?.()
+    } catch (e) {
+      console.error('approve failed:', e)
+      setErr(t('invite.errGeneric'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** リンクを1本作って、そのURLをすぐクリップボードへ。**作って終わりにしない** —
+   *  作った直後にコピーできないと、主催者は一覧から探して押し直すことになる。 */
+  async function makeLink() {
+    setBusy(true)
+    setErr(null)
+    try {
+      const token = await createInviteLink(expoId)
+      track('expo_link_create', {})
+      await copyLink(token)
+      await reload()
+    } catch (e) {
+      console.error('link creation failed:', e)
+      setErr(t('invite.errGeneric'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copyLink(token: string) {
+    const url = `${location.origin}${inviteLinkPath(token)}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(token)
+      setTimeout(() => setCopied(''), 2000)
+    } catch {
+      // クリップボードが使えない環境（権限拒否・非セキュアな文脈）では、
+      // **黙って失敗させない** — URLを選べる形で出す。
+      setErr(url)
+    }
+  }
+
+  async function killLink(link: InviteLink) {
+    if (!confirm(t('invite.linkRevokeConfirm'))) return
+    setBusy(true)
+    try {
+      await revokeInviteLink(link.id)
+      track('expo_link_revoke', {})
+      await reload()
+    } catch (e) {
+      console.error('link revoke failed:', e)
+      setErr(t('invite.errGeneric'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const liveLinks = links.filter((l) => !l.revokedAt)
+
   return (
     <div className="participants">
       <p className="placement-title">{t('invite.participantsTitle')}</p>
       <p className="me-note">{t('invite.participantsHelp')}</p>
+
+      {/* 配れるURL。**承認が要る**ので、流出しても勝手に参加者が増えることはない。 */}
+      <div className="invite-links">
+        <p className="me-note" style={{ marginTop: 0 }}>{t('invite.linkHelp')}</p>
+        <div className="hako-actions">
+          <button type="button" className="btn-line" disabled={busy} onClick={() => void makeLink()}>
+            {liveLinks.length === 0 ? t('invite.linkCreate') : t('invite.linkCreateAnother')}
+          </button>
+        </div>
+        {liveLinks.length > 0 && (
+          <ul className="invite-link-list">
+            {liveLinks.map((l) => (
+              <li key={l.id} className="invite-link-item">
+                {/* トークンの全文は出さない（貼り付け欄が長くなるだけで、読む値ではない）。
+                    コピーするのは常に完全なURL。 */}
+                <code className="invite-link-token">…{l.token.slice(-8)}</code>
+                <button type="button" className="btn-line" onClick={() => void copyLink(l.token)}>
+                  {copied === l.token ? t('invite.linkCopied') : t('invite.linkCopy')}
+                </button>
+                <button
+                  type="button"
+                  className="participants-remove"
+                  disabled={busy}
+                  aria-label={t('invite.linkRevoke')}
+                  title={t('invite.linkRevoke')}
+                  onClick={() => void killLink(l)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="participants-add">
         <input
@@ -344,10 +471,24 @@ export function ParticipantsPanel({
               >
                 {inv.status === 'pending'
                   ? t('invite.statusPending')
-                  : inv.status === 'accepted'
-                    ? t('invite.statusSubmitted', { count: inv.submittedCount })
-                    : t('invite.statusDeclined')}
+                  : inv.status === 'requested'
+                    ? t('invite.statusRequested')
+                    : inv.status === 'accepted'
+                      ? t('invite.statusSubmitted', { count: inv.submittedCount })
+                      : t('invite.statusDeclined')}
               </span>
+              {/* 参加希望は主催者が承認するまで何の権限も持たない（0048）。断るときは
+                  × で消す（招待の取り下げと同じ経路）。 */}
+              {inv.status === 'requested' && (
+                <button
+                  type="button"
+                  className="btn-line invite-approve"
+                  disabled={busy}
+                  onClick={() => void approve(inv)}
+                >
+                  {t('invite.approve')}
+                </button>
+              )}
               <button
                 className="participants-remove"
                 disabled={busy}

@@ -2,7 +2,7 @@
 // Sign in: email + password, plus the existing magic link / Google options
 import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
 import PasswordField from '@/components/auth/PasswordField'
@@ -10,12 +10,17 @@ import GoogleButton from '@/components/auth/GoogleButton'
 import { useCooldown } from '@/components/auth/useCooldown'
 import { authErrorKey, isEmailNotConfirmed } from '@/lib/authErrors'
 import { useT } from '@/components/I18nProvider'
+import { safeNext } from '@/lib/afterAuth'
 
 const RESEND_COOLDOWN = 30
 
 export default function SignInPage() {
   const t = useT()
   const router = useRouter()
+  // 認証のあとに戻る先。招待リンク（/join/{token}）から来た人を元のリンクへ返すために
+  // 使う。**`safeNext` を通すのが必須** — 生の `?next=` はURLに載る＝誰でも書けるので、
+  // そのまま飛ばすと外部サイトへの踏み台になる。
+  const next = safeNext(useSearchParams().get('next'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -46,7 +51,7 @@ export default function SignInPage() {
       setError(t(authErrorKey(error.message)))
       return
     }
-    router.push('/me')
+    router.push(next)
   }
 
   async function resendConfirmation() {
@@ -85,7 +90,7 @@ export default function SignInPage() {
   async function google() {
     const { error } = await supabase!.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${location.origin}/me` },
+      options: { redirectTo: `${location.origin}${next}` },
     })
     if (error) setError(t(authErrorKey(error.message)))
   }

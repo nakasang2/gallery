@@ -58,6 +58,13 @@ function useLine() {
             : t('notif.accepted', { who, room }),
           sub: '',
         }
+      case 'invite_request':
+        // 作家から「参加したい」（0048）。**主催者への通知**なので、行き先は
+        // 合同展示タブ（承認はそこでする）。
+        return { text: t('notif.inviteRequest', { who, room }), sub: '' }
+      case 'invite_approved':
+        // その希望が承認された。**作家への通知**。
+        return { text: t('notif.inviteApproved', { who, room }), sub: '' }
       case 'submission':
         return { text: t('notif.submission', { who, n: n.count, room }), sub: '' }
       case 'like':
