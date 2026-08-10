@@ -324,7 +324,15 @@ F2（セッション要約）は他が全部落ちても単体で意味を持つ
 `me_stage_view` / `me_work_upload_start` / `me_work_upload_done` / `me_work_upload_error` / `me_work_limit_hit` / `me_publish_on` / `me_publish_off` / `me_publish_blocked` / `checkout_modal_open` / `checkout_start` / `checkout_redirect` / `checkout_return` / `checkout_blocked` / `checkout_error` / `room_created`
 
 **複数展示室（2026-08-09 追加）**
-`room_switch`（ダッシュボードで編集対象の部屋を切り替えた: `to` `main`） / `room_enter`（来場者が部屋を移動した: `to` `main` `embed`。3Dの扉とHUDの部屋一覧の両方から） / `room_created`（買った枠で部屋を作った: `rooms` `purchased`）
+`room_switch`（ダッシュボードで編集対象の部屋を切り替えた: `to` `main`） / `room_enter`（来場者が部屋を移動した: `to` `main` `embed` `expo`。3Dの扉とHUDの部屋一覧の両方から。`expo` は合同展示の名前で、通常展示では `null` ── 場所代を払った会期の中で来場者が何室まわったかは、通常展示の回遊とは別に読む） / `room_created`（買った枠で部屋を作った: `rooms` `purchased`）
+
+**合同展示（2026-08-10 追加）**
+`expo_create`（下書きを作った） / `expo_room_add`（展示に部屋を用意した: `expo`） / `expo_checkout`（会期を選んで決済へ: `expo` `days`。**支払いが済んだかは別**＝公開の事実は Stripe の webhook 側にしか無い） / `participant_invite`（@ハンドルで招いた） / `participant_revoke`（招待を取り下げた） / `invite_respond`（作家が受諾・辞退した: `result`） / `invite_submit`（作家が出す作品を選び直した: `count`） / `expo_link_create`（招待リンクを作った） / `expo_link_revoke`（止めた） / `expo_join_request`（リンクから参加希望を出した: `result`。既に招かれていた人が踏むと `accepted`、初めてなら `requested`） / `expo_request_approve`（主催者が承認した）
+
+**「参加までの落ち」を読む筋**: `expo_link_create` → `expo_join_request` → `expo_request_approve` → `invite_submit`。
+リンクを配ったのに `expo_join_request` が出ない＝リンクが届いていない、`expo_join_request` は出るのに
+`expo_request_approve` が続かない＝**主催者が気づいていない**（通知が効いていない）と読む。
+`invite_submit` まで来ないなら「参加はしたが出す作品を選んでいない」＝作家側の導線の問題。
 
 `gallery_arrive` に `room_slug` `room_main` `rooms` を追加した。**多室の展示では1人の来場でこのイベントが部屋数ぶん出る**（部屋ごとに別ページ＝別ロードなので、部屋の閲覧としては正しい）。したがって:
 

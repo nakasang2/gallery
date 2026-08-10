@@ -7,7 +7,7 @@
 2. **STATE.md の更新**: 作業の節目・中断時・出荷後に docs/STATE.md を更新する（進行中 / 再開ポイント / 完了ログ。完了ログは直近5件まで）。
 3. **失敗の記録**: ビルド・デプロイの失敗やユーザーからの修正指摘に対応した直後、docs/LESSONS.md へ「事象 → 原因 → 回避策」を1エントリ追記する（再発は新規追加せず ×N を加算）。同種の作業を始める前に該当カテゴリを読み、同じ失敗を繰り返さない。
 4. **3回ルール（昇格）**: 同種パターンが ×3 に達したら、DECISIONS.md の絶対ルール化・スキル化・Obsidian第二の脳へのwiki化のいずれかをユーザーに提案する。勝手に恒久ルール化しない（Human-in-the-Loop）。
-5. **検証ループ**: push 前にこのリポジトリの型チェック・ビルド・`npm run check:i18n`・`npm run check:css`・`npm run check:schema`・`npm run check:sns`・`npm run check:gates`・`npm run check:ship-ready` を実行し、/code-review による別視点レビューを行う。ローカルではさらに ship スキルの手順に従う。
+5. **検証ループ**: push 前にこのリポジトリの型チェック・ビルド・`npm run check:i18n`・`npm run check:css`・`npm run check:schema`・`npm run check:sns`・`npm run check:expo`・`npm run check:gates`・`npm run check:ship-ready` を実行し、/code-review による別視点レビューを行う。ローカルではさらに ship スキルの手順に従う。
 5.1 **多言語対応は必須（DECISIONS 2026-07-28）**: 来場者や作家の目に入る文言を追加・変更したら、必ず `lib/i18n/en.ts` と `ja.ts` の両方に入れる。`npm run check:i18n` が0件でないとpushしない。訳す対象でないもの（ブランド名・URLの見本など）は、その行か直前の行に `i18n-ok` とコメントを書いて理由を残す。ファイル単位の例外は `scripts/check-i18n.mjs` の `ALLOW` に理由付きで足す（現在は英語版が正の法務2ページとOG画像のみ）。
 5.2 **効いていないCSSを書かない（DECISIONS 2026-07-28）**: `npm run check:css` が、マークアップに存在しないクラス／IDへのCSSを検出する。基準線 `scripts/css-dead-baseline.json` は**空配列＝目標値0に到達済み**で、**減らす方向にしか変えない**。新規に増えたら落ちる。意図的な場合は該当行か直前のコメントに `css-ok` と理由を書く。※この番人は「CSSがあってマークアップが無い」片方向しか見ない。**削除系のコミットの上に別の枝の変更を乗せるときは、消したクラス名を乗せた後のマークアップに grep で突き合わせる**（逆向きは機械化していない）。
 5.3 **状態を語る対外文言を直書きしない（DECISIONS 2026-07-28）**: 「Coming soon」「未実装」等は、その状態を決めている変数から導出する。`npm run check:i18n` が定型句を検出する。静的な事実なら `state-ok` と導出元を書く。

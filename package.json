@@ -10,6 +10,8 @@
     "check:css": "node scripts/check-css.mjs",
     "check:schema": "node scripts/check-schema-sync.mjs",
     "check:sns": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning scripts/check-sns.mts",
+    "check:expo": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning scripts/check-expo-pricing.mts",
+    "test:sql": "bash supabase/tests/run.sh",
     "check:gates": "node scripts/check-gates.mjs",
     "check:ship-ready": "node scripts/check-ship-ready.mjs",
     "predev": "node scripts/check-stale-next.mjs",

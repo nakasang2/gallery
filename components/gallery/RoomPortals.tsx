@@ -24,7 +24,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import type { LayoutDef, ThemeDef } from '@/lib/presets'
 import { useGallery } from '@/lib/store'
 import { track } from '@/lib/analytics'
-import type { SiblingRoom } from '@/lib/publish'
+import { roomPath, type SiblingRoom } from '@/lib/publish'
 
 /** Clear height/width of the opening, in metres — a touch over a doorway so the frame
  *  reads at a glance from across the room. */
@@ -197,7 +197,7 @@ export default function RoomPortals({ layout, theme }: { layout: LayoutDef; them
   /** Through the door. With one other room there is nothing to choose, so go straight
    *  there; with several, the door asks which one (ユーザー決定 2026-08-09). */
   const go = () => {
-    if (others.length === 1) enterRoom(visitor.username, others[0])
+    if (others.length === 1) enterRoom(visitor, others[0])
     else setRoomPickerOpen(true)
   }
 
@@ -206,13 +206,14 @@ export default function RoomPortals({ layout, theme }: { layout: LayoutDef; them
 
 /** Walk through to another room: a full navigation, which is what makes this cheap
  *  (the whole scene is rebuilt for the new room rather than swapped in place).
- *  The front-door room lives at `/@name`, everything else at `/@name/[slug]` — the
- *  same mapping `lib/seo.exhibitionPath` canonicalises to, so a doorway never links to
- *  a URL that redirects or duplicates. */
-export function enterRoom(username: string, room: SiblingRoom): void {
-  const path = room.isMain ? `/@${username}` : `/@${username}/${room.slug}`
+ *  The front-door room lives at `/@name` (a joint exhibition's lobby at
+ *  `/expo/{name}`), everything else one level under it — `roomPath` is the ONE place
+ *  that mapping lives, and `lib/seo.exhibitionPath` canonicalises through the same
+ *  function, so a doorway never links to a URL that redirects, 404s or duplicates. */
+export function enterRoom(from: { username: string; expo: { slug: string } | null }, room: SiblingRoom): void {
+  const path = roomPath(from, room)
   const embed = useGallery.getState().embed
-  track('room_enter', { to: room.slug, main: room.isMain, embed })
+  track('room_enter', { to: room.slug, main: room.isMain, embed, expo: from.expo?.slug ?? null })
   // Embedded, this gallery is a frame on somebody else's page: navigating it would
   // silently replace their embed with a different room. Same rule the rest of the HUD
   // follows for outbound links in an embed — open it, don't hijack the frame.

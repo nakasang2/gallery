@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { type Sku } from '@/lib/pricing'
+import { type Sku, expoDaysForSku } from '@/lib/pricing'
 import { paidThemeIds } from '@/lib/entitlements'
 
 export const runtime = 'nodejs'
@@ -168,6 +168,43 @@ export async function POST(req: NextRequest) {
           // Charge IS recorded; the room is just gone. Retrying won't help, so
           // ack (200) and log for manual reconciliation instead of looping.
           console.error('webhook: capacity paid but no matching gallery to raise', session.id, galleryId)
+        }
+        break
+      }
+      case 'expo_7':
+      case 'expo_14':
+      case 'expo_30': {
+        // 合同展示の場所代（ユーザー決定 2026-08-09）。**支払いと公開は同じ1つの操作**で、
+        // `record_expo_purchase` が台帳に記録し、同じ取引で会期を開始する（migration 0044）。
+        // 分けると「払ったのに公開されていない」窓ができる。
+        //
+        // **日数は SKU から引く**（metadata を見ない）。metadata は書き換えられる可能性が
+        // あるが、SKU は価格を決めた当のものなので、払った額と会期が必ず一致する。
+        const expoId = meta.expo_id ?? ''
+        if (!expoId) {
+          console.error('webhook: expo sku without expo_id', session.id)
+          break
+        }
+        const days = expoDaysForSku(sku)
+        const { error: rpcErr } = await db.rpc('record_expo_purchase', {
+          p_session: session.id,
+          p_user: userId,
+          p_expo: expoId,
+          p_days: days,
+          p_amount: amount,
+          p_currency: currency,
+        })
+        if (rpcErr) {
+          // 展示が消えている等の「retryしても直らない」理由と、一時的なDBエラーを
+          // 区別する。前者で500を返すとStripeが延々と再送する。
+          const permanent = /no such expo|does not belong|unsupported run length/i.test(rpcErr.message)
+          if (permanent) {
+            // 課金は成立している。手で突き合わせられるように残して ack する。
+            console.error('webhook: expo paid but could not start the run', session.id, expoId, rpcErr.message)
+            break
+          }
+          console.error('webhook: record_expo_purchase failed', session.id, rpcErr.message)
+          return NextResponse.json({ error: 'Could not start the exhibition run.' }, { status: 500 })
         }
         break
       }

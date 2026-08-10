@@ -15,12 +15,13 @@ import { SIZE_GROUPS, matchPreset, presetByLabel } from '@/lib/artSizes'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
 import PlacementEditor from '@/components/PlacementEditor'
-import { InviteInbox, ParticipantsPanel } from '@/components/me/RoomInvites'
-import { listRoomInvites, listSubmittedArtworks } from '@/lib/invites'
+import { InviteInbox } from '@/components/me/ExpoInvites'
+import { listSubmittedArtworksForRoom } from '@/lib/invites'
 import PurchaseModal from '@/components/PurchaseModal'
 import HelpModal from '@/components/HelpModal'
 import TopActions from '@/components/TopActions'
 import NotificationBell from '@/components/me/NotificationBell'
+import ExpoManager from '@/components/me/ExpoManager'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_USD_CENTS, type PaidKind } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
@@ -510,7 +511,7 @@ function GalleryCard({
   // profile tabs are gone — ユーザー指示 2026-07-30). The publish flow (works → room →
   // placement → publish) leads, then the two housekeeping stages (guestbook, profile).
   // Order is visible but never enforced — every stage stays reachable.
-  type Stage = 'works' | 'room' | 'placement' | 'publish' | 'profile' | 'participants'
+  type Stage = 'works' | 'room' | 'placement' | 'publish' | 'profile'
   const [stage, setStage] = useState<Stage>('works')
   // The work being edited in the shared editor sheet (works + placement stages).
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -568,26 +569,24 @@ function GalleryCard({
   // so a placement edit and a layout change never race over one gallery row.
   const [placement, setPlacement] = useState<(string | null)[]>(() => normalizeArrangement(row.arrangement))
   const placeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // 合同展示（migration 0041）。`guests` は他の作家がこの部屋に出した作品で、掛けられる
-  // が自動では並ばない。**`rebuildPlacements` の全呼び出しに渡す** — 渡さないと掛けて
-  // あった他作家の作品が保存のたびに壁から消える。
+  // 合同展示（migration 0047）。`guests` はこの部屋が属する展示に他の作家が出した作品で、
+  // 掛けられるが自動では並ばない。
   // ここの `guests` は**表示だけ**に使う（配置トレイ）。保存時は
   // `rebuildPlacements` が自分で取り直す — この state を保存経路に渡すと、読み込みに
   // 失敗したときや初回描画の取得前に「提出ゼロ」として壁から消してしまう。
+  //
+  // **通常の部屋では1往復で空が返る**（`expo_id` が null ＝ 他作家の作品が入る道が無い）。
+  // 招待の管理は合同展示タブ（`ExpoManager`）に移した ── 招待は展示に対するもので、
+  // 部屋ごとに繰り返す話ではない（0047 / DECISIONS 2026-08-10）。
   const [guests, setGuests] = useState<ArtworkData[]>([])
-  // 参加者ステージを出すかどうかの唯一の根拠。招待が1件も無ければステージバーに
-  // 出さない（99%の個展でタブが1つ増えるのを避ける — ユーザーが私の推しに委任）。
-  const [inviteCount, setInviteCount] = useState(0)
   const reloadGuests = useCallback(async () => {
     try {
-      const [subs, invs] = await Promise.all([listSubmittedArtworks(row.id), listRoomInvites(row.id)])
-      setGuests(subs)
-      setInviteCount(invs.length)
+      setGuests(await listSubmittedArtworksForRoom(row.id))
     } catch (e) {
-      // 0041 未適用のDBでは表が無い。合同展示が無いのと同じ扱いにする（個展を壊さない）。
+      // 0047 未適用のDBでは表が無い。合同展示が無いのと同じ扱いにする（個展を壊さない）。
       // **前の値は消さない** — 読めなかっただけかもしれず、トレイから他作家の作品が
       // 消えると「取り下げられた」と誤解する。
-      console.error('could not load submissions (is migration 0041 applied?):', e)
+      console.error('could not load submissions (is migration 0047 applied?):', e)
     }
   }, [row.id])
   useEffect(() => {
@@ -1793,25 +1792,6 @@ function GalleryCard({
                 onChange={editPlacement}
                 disabled={busy}
               />
-              {/* 参加者ステージへの唯一の入口。ステージバーから参加者タブを外した
-                  （ユーザー指示 2026-08-09）ので、**これを隠すと合同展示に辿り着く道が
-                  完全に消える** — 招待済みの主催者が参加者を管理できなくなる。だから
-                  `inviteCount` で出し入れせず**常に出す**。置き場所がここなのは
-                  「壁が埋まらない／他の作家の作品を並べたい」と思う場所だから。
-                  恒久的な置き場所はユーザーが決める（未決）。 */}
-              {(
-                <button
-                  type="button"
-                  className="me-stage-hint"
-                  onClick={() => {
-                    track('me_stage_view', { stage: 'participants', from: 'placement' })
-                    setStage('participants')
-                  }}
-                >
-                  → {t('invite.openParticipants')}
-                  {inviteCount > 0 && <span className="me-stage-count">{inviteCount}</span>}
-                </button>
-              )}
             </>
           ) : (
             <>
@@ -1822,10 +1802,6 @@ function GalleryCard({
             </>
           )}
         </div>
-      ) : stage === 'participants' ? (
-        /* 合同展示: 誰を招いたか・誰が何を出したか。掛けるのは配置ステージ
-           （招く＝許可、掛ける＝編集で、別の判断なので混ぜない）。 */
-        <ParticipantsPanel galleryId={row.id} onChanged={() => void reloadGuests()} />
       ) : (
         /* Publish: everything about going public in one place — the URL name gate,
            the statement, the share cover, the switch, and the numbers */
@@ -2592,7 +2568,9 @@ function ProfileCard() {
 // Only two top-level views remain (ユーザー指示 2026-07-30): the gallery (whose stage
 // bar carries works/room/placement/publish/guestbook/profile) and account, reached
 // from the top-right menu. There is no tab row anymore.
-type MeTab = 'gallery' | 'account'
+// 合同展示は部屋とは別の実体（migration 0044）なので、**第3のタブ**として独立させる
+// ── 部屋の設定の中に混ぜると「どの部屋の話か」が分からなくなる。
+type MeTab = 'gallery' | 'account' | 'expo'
 
 export default function MePage() {
   const t = useT()
@@ -2753,6 +2731,9 @@ export default function MePage() {
               <Link className="btn-line btn-gold" href="/admin">{t('me.admin')}</Link>
             )}
             {user && (
+              <button className="btn-line" onClick={() => setTab('expo')}>{t('expo.tab')}</button>
+            )}
+            {user && (
               <button className="btn-line" onClick={() => setTab('account')}>{t('me.tabAccount')}</button>
             )}
             {user && (
@@ -2884,6 +2865,24 @@ export default function MePage() {
                     </p>
                   )}
                 </section>
+              </>
+            )}
+
+            {tab === 'expo' && (
+              <>
+                {/* 合同展示。**部屋を開く**を押すと通常の部屋エディタでその部屋に入る
+                    （エディタを二重に作らない）。合同展示の部屋は `listMyGalleries` が
+                    落としているので、部屋タブには出てこない ── だから明示的に
+                    `setRoomId` してから gallery タブへ移す。 */}
+                <ExpoManager
+                  onOpenRoom={(id) => {
+                    setRoomId(id)
+                    setTab('gallery')
+                  }}
+                />
+                <div className="hako-actions" style={{ marginTop: '1rem' }}>
+                  <button className="btn-line" onClick={() => setTab('gallery')}>← {t('me.myGallery')}</button>
+                </div>
               </>
             )}
 

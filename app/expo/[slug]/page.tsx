@@ -7,13 +7,20 @@
 // root already holds fourteen app routes and eleven locale codes, and would keep
 // colliding with every route added later; `/expo/` also tells a visitor what the page is.
 //
-// The slug names an ACCOUNT, so this resolves it to the username and then answers the
-// same question `/@username` answers: show the front-door room. Everything below
-// therefore reuses the handle route's fetches rather than growing a second read path.
+// **この URL には住人が2種類いる**（0045 の注記と同じ話）:
+//   ①**合同展示**（`expos.slug`。migration 0044）— 会期があり、主催者が場所代を払って
+//     いる。部屋は `expo_id` でぶら下がり、`is_public` を持たない。
+//   ②**アカウントの別名**（`profiles.expo_slug`。migration 0040）— 管理者が付ける恒久的な
+//     別名。中身は `/@ハンドル` と同じ「その作家の玄関の部屋」。
+//
+// 先に①を見る。名前がぶつかることは 0045 のトリガが両方向で塞いだので、**両方に同じ
+// 名前が居るのは 0045 より前に作られたものだけ**（0045 の末尾がその場合 NOTICE を出す）。
+// その時に会期中の展示を優先するのは、そちらが**お金を払って配ったURL**だから。
 //
 // No listing fallback. `/@username` shows an artist page when nothing is published; an
 // exhibition URL with nothing to exhibit is a 404, which is the honest answer for a URL
-// handed out before the show opened.
+// handed out before the show opened — 会期前・会期＋猶予後もこれに含まれる（DBが行を
+// 返さないので、ここは「無い」しか受け取らない）。
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import VisitorGallery from '@/components/gallery/VisitorGallery'
@@ -24,15 +31,23 @@ import {
   exhibitionTitle,
   exhibitionUrl,
   getExhibition,
+  getExpoExhibition,
   getProfile,
 } from '@/lib/seo'
 import { getUsernameForExpoSlug } from '@/lib/expoResolve'
 
 export const dynamic = 'force-dynamic'
 
-/** slug → the account's front-door public room, or null. */
+/** slug → 会期中の合同展示のロビー、無ければアカウント別名の玄関の部屋、無ければ null。 */
 async function resolve(params: Promise<{ slug: string }>) {
   const { slug } = await params
+
+  // ① 合同展示。**会期中（＋猶予）の行しか返らない** — 下書きも期限切れもここで null に
+  //    なる（0044 `expos_select_live` / 0045）。判定はアプリ側に無い。
+  const joint = await getExpoExhibition(slug)
+  if (joint) return joint
+
+  // ② アカウントの別名。中身は `/@ハンドル` が答える問いと同じなので、同じ fetch を使う。
   const username = await getUsernameForExpoSlug(slug)
   if (!username) return null
   const p = await getProfile(username)
@@ -57,6 +72,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     alternates: { canonical },
     openGraph: { title, description, type: 'website', url: canonical },
     twitter: { card: 'summary_large_image' },
+    // 会期が終わった合同展示は**猶予のあいだ「終了しました」を出すだけ**のページになる。
+    // そこに検索から人を送っても得るものが無いので、索引から外す（URLは生きている ──
+    // 配ったリンクを死なせないための猶予なので）。
+    ...(ex.expo?.hasEnded ? { robots: { index: false, follow: true } } : {}),
   }
 }
 

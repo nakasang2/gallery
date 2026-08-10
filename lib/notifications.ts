@@ -11,6 +11,10 @@ import { supabase } from './supabase'
 export type NotificationKind =
   | 'invite'
   | 'invite_reply'
+  /** 招待リンクから参加希望が来た（0048）。**宛先は主催者**。 */
+  | 'invite_request'
+  /** その参加希望が承認された（0048）。**宛先は作家**。 */
+  | 'invite_approved'
   | 'submission'
   | 'like'
   | 'guestbook'
@@ -47,6 +51,8 @@ interface NotificationRow {
 const KINDS: readonly string[] = [
   'invite',
   'invite_reply',
+  'invite_request',
+  'invite_approved',
   'submission',
   'like',
   'guestbook',

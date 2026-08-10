@@ -240,3 +240,67 @@
 .auth-consent a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .auth-consent a:hover { color: var(--gold); }
 .auth-alt .btn-line:disabled { opacity: 0.45; cursor: default; }
+
+/* ---- 招待リンクの着地点 (/join/{token}。migration 0048) ---- */
+/* 認証ページと同じ地に置いたのは、**ここから登録へ渡す**ことが多いから（未登録の人が
+   踏むのが前提の入口）。段組みは1本 — 読んで判断するだけのページで、操作は1つ。 */
+.join-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  padding: 3rem 1.4rem;
+  text-align: center;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(212, 162, 78, 0.06), transparent 60%),
+    var(--bg);
+  font-family: var(--sans);
+  color: var(--ink);
+}
+.join-kicker {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.join-title {
+  margin: 0;
+  max-width: 22ch;
+  font-family: var(--serif);
+  font-size: clamp(1.6rem, 5vw, 2.3rem);
+  line-height: 1.25;
+  font-weight: 400;
+}
+.join-by {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+/* 主催者が書いた文章。**訳さずそのまま**出るので、どの言語でも読める幅に収める。 */
+.join-statement {
+  margin: 0.4rem 0 0;
+  max-width: 42ch;
+  font-size: 0.92rem;
+  line-height: 1.85;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+.join-run { margin: 0.2rem 0 0; }
+.join-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 1.4rem;
+  max-width: 42ch;
+}
+/* 承認待ち。押せるものが無い状態なので、金色にはしない（待つのは操作ではない）。 */
+.join-waiting {
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+}

@@ -20,6 +20,14 @@ const GalleryApp = dynamic(() => import('@/components/gallery/GalleryApp'), {
   loading: () => null,
 })
 
+/** 会期の終わった日。時刻は会期の話では意味がないので日付だけ。壊れた値なら空文字を
+ *  返す（文言側が日付抜きでも読めるように書いてある）。 */
+function endedOn(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isFinite(d.getTime()) ? d.toLocaleDateString() : ''
+}
+
 export default function VisitorGallery({
   exhibition,
   embed = false,
@@ -34,6 +42,8 @@ export default function VisitorGallery({
   const t = useT()
   const [armed, setArmed] = useState(false)
   const [shellUp, setShellUp] = useState(false)
+  /** 会期が終わった合同展示の、終わった日（下の帯で使う）。 */
+  const endedAt = exhibition.expo?.hasEnded ? endedOn(exhibition.expo.endsAt) : ''
 
   useEffect(() => {
     document.body.classList.add('gallery-mode')
@@ -101,6 +111,18 @@ export default function VisitorGallery({
         <div className="owner-preview-banner" role="status">
           <span className="owner-preview-dot" aria-hidden="true" />
           {t('artwork.privatePreview')}
+        </div>
+      )}
+      {/* 会期が終わった合同展示（猶予中）。**URLは生きているが、もう会期ではない** ──
+          配ったリンクを踏んだ人に「終わっている」と伝えるのがこの帯の仕事。
+          消えるのは数日後で、それは主催者の画面が伝える（来場者には関係がない）。
+          `ownerPreview` とは同時に出ない（下書きの下見は `/@ハンドル` の経路だけ）。 */}
+      {exhibition.expo?.hasEnded && shellUp && !embed && (
+        <div className="expo-ended-banner" role="status">
+          {t('expo.endedBanner')}
+          {/* 日付は**添えるだけ**。文の中に差し込むと、読めない値だったときに
+              「終わりました（）」のような文が出る ── 添えるなら黙って消える。 */}
+          {endedAt && ` (${endedAt})`}
         </div>
       )}
     </>

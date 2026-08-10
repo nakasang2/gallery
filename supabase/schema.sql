@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0043 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0049 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -2948,3 +2948,1741 @@ $$;
 
 revoke all on function public.admin_add_room(uuid, text) from public, anon;
 grant execute on function public.admin_add_room(uuid, text) to authenticated;
+
+
+-- # 0044_expos.sql — 合同展示(Expo)の土台。会期・場所代・独立URL(ユーザー決定 2026-08-09)
+-- 合同展示（Expo）の土台（ユーザー決定 2026-08-09。DECISIONS 2026-08-09 に全文）
+--
+-- 形: **通常展示と完全に別の実体**。`xibit360.art/expo/{name}` で開き、**会期**があり、
+-- **主催者が公開時に場所代を払う**（7日 $15 / 14日 $25 / 30日 $40）。参加作家は無料。
+--
+-- 部屋（`galleries`）とは別の表にしたのは、会期・支払い・参加者が「展示全体」の属性で
+-- 1つの部屋の属性ではないから。合同展示は部屋を1つ以上ぶら下げる。
+--
+-- 設計の要点（どれも過去に踏んだ失敗から来ている）:
+--   ①**見える/見えないは日付から導出する。** 旗を別に持つと、削除ジョブが止まったときに
+--     会期切れが公開され続ける。`is_public` のような自由な旗を置かない。
+--   ②**公開と支払いは同じ1つの操作**（`record_expo_purchase`）。分けると「払ったのに
+--     公開されていない」「公開されたのに払っていない」の窓ができる。クライアントから
+--     公開できる経路は作らない ── 0036 で「上限の材料をクライアントが渡していた」のと
+--     同じ失敗を繰り返さない。
+--   ③**合同展示の部屋は主催者の部屋枠（$25）を消費しない。** 場所代で払っているので
+--     二重取りになる。0038 の番人を「合同展示の部屋は数えない」に差し替える。
+--   ④**猶予が過ぎたら行ごと消す**（ユーザー判断）。消えれば名前も空くので、同じURLで
+--     次の会期を立てられる。消えるのは展示・部屋・配置だけで、**参加作家の作品は
+--     各自のライブラリに残る**（`placements` は作品を参照するだけ）。
+--
+-- 適用方法: SQL Editor に貼り付けて Run(再実行安全)
+
+/* ================= 1. 会期の長さ（値はここが正） ================= */
+-- lib/pricing の PRICE_USD_CENTS.expo* と対で保つ。DBを正にしているのは、
+-- **価格と会期をクライアントに決めさせない**ため（②の理由）。
+create or replace function public.expo_days_allowed(p_days int)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$ select p_days in (7, 14, 30) $$;
+
+/* ================= 2. 表 ================= */
+create table if not exists public.expos (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles (id) on delete cascade,
+  /** URL の名前。`/expo/{slug}` で開く。部屋の slug と同じ文字種。 */
+  slug text not null check (slug ~ '^[a-z0-9-]{3,40}$'),
+  title text not null default '',
+  statement text not null default '',
+  /** 会期の長さ。支払い時に確定する（それまでは主催者が選び直せる）。 */
+  duration_days int not null default 14 check (public.expo_days_allowed(duration_days)),
+  /**
+   * 会期の開始。**支払いが通った瞬間に入る**（`record_expo_purchase`）。
+   * null = まだ公開していない下書き。
+   */
+  starts_at timestamptz,
+  /**
+   * 会期の終わり。**開始と長さから導出**され、手で動かせない（下の
+   * `expos_set_ends` トリガが insert/update のたびに無条件で上書きする）。
+   *
+   * 生成列（`generated always as`）にしたかったが、`timestamptz + interval` は
+   * immutable ではない（タイムゾーン設定に依る）ので Postgres が拒否する。
+   * トリガで**必ず上書きする**なら、誰がどんな値を入れても残らないので同じ性質になる。
+   */
+  ends_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- 名前は**生きている展示のあいだだけ**一意。猶予後に行を消すと自動で空くので、
+-- 同じ名前で次の会期を立てられる（ユーザー要望）。大文字小文字は区別しない。
+create unique index if not exists expos_slug_key on public.expos (lower(slug));
+create index if not exists expos_owner_idx on public.expos (owner_id, created_at desc);
+-- 掃除ジョブが引く向き（終わった会期を古い順に）。
+create index if not exists expos_ends_idx on public.expos (ends_at) where starts_at is not null;
+
+/* ================= 3. 部屋を紐づける ================= */
+alter table public.galleries add column if not exists expo_id uuid
+  references public.expos (id) on delete cascade;
+create index if not exists galleries_expo_idx on public.galleries (expo_id) where expo_id is not null;
+
+-- 会期の終わりを常に導出する。**無条件に上書き**するので、クライアントが値を入れても
+-- 主催者が update しても残らない（生成列の代わり）。
+create or replace function public.expos_set_ends()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  new.ends_at := new.starts_at + make_interval(days => new.duration_days);
+  return new;
+end;
+$$;
+
+drop trigger if exists expos_set_ends on public.expos;
+create trigger expos_set_ends
+  before insert or update on public.expos
+  for each row execute function public.expos_set_ends();
+
+/* ================= 4. 猶予（会期後もURLが生きている日数） ================= */
+create or replace function public.expo_grace_days()
+returns int
+language sql
+immutable
+set search_path = ''
+as $$ select 7 $$;
+
+/**
+ * その展示が**いま来場者に見えるか**。日付だけから決まる（旗を見ない）。
+ * 会期中は本編、会期後の猶予中も true（表示側が「終了しました」と出す）。
+ */
+create or replace function public.expo_is_live(p_starts timestamptz, p_ends timestamptz)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select p_starts is not null
+     and now() >= p_starts
+     and now() < p_ends + make_interval(days => public.expo_grace_days())
+$$;
+
+/** 会期が終わっているか（猶予中はこれが true で、まだ見える）。 */
+create or replace function public.expo_has_ended(p_ends timestamptz)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$ select p_ends is not null and now() >= p_ends $$;
+
+/* ================= 5. RLS ================= */
+alter table public.expos enable row level security;
+
+-- 主催者は自分の展示を全部触れる（題名・名前・会期の選び直しなど）。
+drop policy if exists "expos_owner_all" on public.expos;
+create policy "expos_owner_all"
+  on public.expos for all
+  using (owner_id = (select auth.uid()))
+  with check (owner_id = (select auth.uid()));
+
+-- 来場者は**見えている展示だけ**読める。未公開の下書きは他人から見えない。
+drop policy if exists "expos_select_live" on public.expos;
+create policy "expos_select_live"
+  on public.expos for select
+  using (public.expo_is_live(starts_at, ends_at));
+
+drop policy if exists "expos_select_admin" on public.expos;
+create policy "expos_select_admin"
+  on public.expos for select using (public.is_admin());
+
+/* ================= 6. お金と日付は本人にも書かせない ================= */
+-- `expos_owner_all` は列を絞れないので、**追加のトリガで金額に関わる列を守る**
+-- （work_cap / slots_included と同じ作法）。`security invoker` にして呼び手のロールを
+-- 見る ── definer にすると current_user が常に所有者になり素通りする（0036 で実際に
+-- やってしまった。LESSONS 2026-08-09）。
+create or replace function public.guard_expo_run()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    -- 開始日は支払いが決める。ここを書けると**無料で公開できる**。
+    if new.starts_at is distinct from old.starts_at then
+      raise exception 'starts_at is set by the payment' using errcode = 'check_violation';
+    end if;
+    -- 会期の長さは**公開後は動かせない**（払った長さと違う会期になる）。公開前は自由。
+    if old.starts_at is not null and new.duration_days is distinct from old.duration_days then
+      raise exception 'duration cannot change once the run has started' using errcode = 'check_violation';
+    end if;
+    -- 名前も公開後は動かせない（配ったURLが死ぬ）。
+    if old.starts_at is not null and new.slug is distinct from old.slug then
+      raise exception 'slug cannot change once the run has started' using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists expos_guard_run on public.expos;
+create trigger expos_guard_run
+  before update on public.expos
+  for each row execute function public.guard_expo_run();
+
+/* ================= 7. 部屋枠を消費しない ================= */
+-- 0038 の `enforce_room_allowance` を差し替える。差分は**合同展示の部屋を数えない**
+-- 1点だけ（`where expo_id is null` と、insert が expo の部屋なら素通り）。
+-- 場所代を払っているのに $25 の枠まで減るのは二重取り。
+create or replace function public.enforce_room_allowance()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_free int;
+  v_paid int;
+  v_purchased int;
+begin
+  -- **合同展示の部屋は勘定の外**。会期の場所代で払っている。
+  if new.expo_id is not null then
+    return new;
+  end if;
+
+  select count(*) filter (where not slots_included),
+         count(*) filter (where slots_included)
+    into v_free, v_paid
+    from public.galleries
+   where owner_id = new.owner_id
+     and expo_id is null;
+
+  select count(*) into v_purchased
+    from public.purchases
+   where user_id = new.owner_id and kind = 'room';
+
+  if new.slots_included then
+    if v_paid >= v_purchased then
+      raise exception 'no unused room purchase: % paid rooms, % purchased', v_paid, v_purchased
+        using errcode = 'check_violation';
+    end if;
+    if new.work_cap is not null and new.work_cap > 15 then
+      raise exception 'work_cap % not allowed', new.work_cap using errcode = 'check_violation';
+    end if;
+  else
+    if v_free >= 1 then
+      raise exception 'the free room already exists' using errcode = 'check_violation';
+    end if;
+    if new.work_cap is not null and new.work_cap > 5 then
+      raise exception 'work_cap % not allowed for the free room', new.work_cap
+        using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+/* ================= 8. 台帳が 'expo' を受ける ================= */
+-- 0034 の版に 'expo' を足した全文（`check` は差分更新できないので毎回書き直す）。
+alter table public.purchases drop constraint if exists purchases_kind_check;
+alter table public.purchases add constraint purchases_kind_check
+  check (kind in ('theme', 'layout', 'frame', 'theme_collection', 'design_tools', 'video_pass', 'capacity', 'room', 'expo'));
+
+/* ================= 9. 支払い＝公開（service role だけ） ================= */
+/**
+ * 場所代の記録と公開を**1つの操作**で行う。Stripe webhook からだけ呼ぶ。
+ *
+ * 分けない理由: 「払ったのに公開されていない」「公開されたのに払っていない」の窓を
+ * 作らないため。**クライアントから公開できる経路は存在しない**（`guard_expo_run` が
+ * `starts_at` を守り、この関数は service role にしか渡していない）。
+ *
+ * 会期の長さは**引数で受けて上書きする** — 決済セッションを作った時点の長さが正で、
+ * その間に主催者が選び直していても、払った長さで会期を切る。
+ *
+ * 同じセッションidで2回来ても1回しか効かない（webhook の再送はふつうに起きる）。
+ */
+create or replace function public.record_expo_purchase(
+  p_session text,
+  p_user uuid,
+  p_expo uuid,
+  p_days int,
+  p_amount int,
+  p_currency text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_owner uuid;
+begin
+  if not public.expo_days_allowed(p_days) then
+    raise exception 'unsupported run length: % days', p_days;
+  end if;
+
+  select owner_id into v_owner from public.expos where id = p_expo;
+  if v_owner is null then
+    raise exception 'no such expo';
+  end if;
+  if v_owner is distinct from p_user then
+    raise exception 'expo does not belong to this user';
+  end if;
+
+  -- 再送で2回入らないように、セッションidを鍵にする（0019/0031 と同じ作法）。
+  if exists (select 1 from public.purchases where kind = 'expo' and sku = p_session) then
+    return;
+  end if;
+
+  insert into public.purchases (user_id, kind, item_key, sku, amount_jpy, currency)
+  values (p_user, 'expo', p_expo::text, p_session, p_amount, p_currency);
+
+  -- **ここで初めて公開される。** すでに会期が始まっていれば触らない（延長は別の話）。
+  update public.expos
+     set duration_days = p_days,
+         starts_at = now()
+   where id = p_expo and starts_at is null;
+end;
+$$;
+
+revoke all on function public.record_expo_purchase(text, uuid, uuid, int, int, text) from public;
+revoke all on function public.record_expo_purchase(text, uuid, uuid, int, int, text) from anon;
+revoke all on function public.record_expo_purchase(text, uuid, uuid, int, int, text) from authenticated;
+grant execute on function public.record_expo_purchase(text, uuid, uuid, int, int, text) to service_role;
+
+/* ================= 10. 猶予後の掃除 ================= */
+/**
+ * 会期＋猶予を過ぎた展示を消す。**部屋と配置は cascade で一緒に消え、作品は残る**
+ * （`placements` は作品を参照するだけなので、参加作家のライブラリは無傷）。
+ *
+ * 下書き（`starts_at is null`）は消さない。主催者のものだし、公開していないので
+ * 誰にも見えていない。
+ *
+ * 戻り値は消した件数。
+ */
+create or replace function public.purge_expired_expos()
+returns int
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_n int;
+begin
+  delete from public.expos
+   where starts_at is not null
+     and now() >= ends_at + make_interval(days => public.expo_grace_days());
+  get diagnostics v_n = row_count;
+  return v_n;
+end;
+$$;
+
+revoke all on function public.purge_expired_expos() from public, anon, authenticated;
+grant execute on function public.purge_expired_expos() to service_role;
+
+-- 毎日1回。**pg_cron が有効でなければ何もしない**（migration を失敗させない）。
+-- 有効化は Supabase の Dashboard → Database → Extensions で `pg_cron` を on にする
+-- 1回だけの作業。まだなら下の NOTICE が出るので、有効にしてからこの本を流し直す。
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.unschedule('purge-expired-expos')
+      where exists (select 1 from cron.job where jobname = 'purge-expired-expos');
+    perform cron.schedule('purge-expired-expos', '17 3 * * *', 'select public.purge_expired_expos()');
+  else
+    raise notice 'pg_cron が無効なので掃除ジョブを登録していません。Dashboard → Database → Extensions で有効にしてから、この migration を流し直してください（それまで期限切れの展示は日付で非表示になるだけで、行は残ります）。';
+  end if;
+end $$;
+
+
+-- # 0045_expo_public_read.sql — 合同展示を会期のあいだだけ専用URLで見せる(ユーザー決定 2026-08-09)
+-- 合同展示を「会期のあいだだけ、専用URLでだけ」見せる（ユーザー決定 2026-08-09 の続き）
+--
+-- 0044 で `expos` と `galleries.expo_id` を作ったが、**公開の読み経路が足りていなかった**。
+-- 合同展示の部屋は主催者が所有する `galleries` の行なので、既存のポリシー
+-- （`galleries_select_public` = `using (is_public)`）のままだと2つ問題が起きる:
+--
+--   ①**会期の外・支払い前でも見えてしまう。** 主催者が部屋の公開スイッチを入れれば、
+--     場所代を払う前から誰でも読める（そして `/@ハンドル/{slug}` と `/explore` にも出る）。
+--     ＝「会期のあいだだけ公開」という約束が守られない。
+--   ②**合同展示が主催者の個人展示に混ざる。** 「通常の展示とは完全に別」という要件に反する。
+--
+-- 直し方:
+--   ・`galleries_select_public` を `is_public and expo_id is null` に締める
+--     （＝**合同展示の部屋は通常の公開経路から出さない**）
+--   ・合同展示の部屋は「その展示の会期が生きているか」だけで決める新しいポリシーで開ける
+--   ・作品と配置も同じ条件で開ける（既存のポリシーは `is_public` しか見ていない）
+--
+-- **`anon` に execute を渡すのを忘れないこと。** ポリシーの中で呼ぶ関数の実行権限を
+-- `authenticated` だけにすると、未ログインの来場者が読むだけで
+-- `permission denied for function` になり**公開サイトが全滅する**（0041 で実際にやった。
+-- LESSONS 2026-08-09）。
+--
+-- 適用方法: SQL Editor に貼り付けて Run(再実行安全)
+
+/* ================= 0. ポリシーで使う述語の実行権限 ================= */
+-- 0044 で作った関数。**ポリシーから呼ぶので anon にも渡す**（渡しても漏れない:
+-- 引数の日付だけで決まり、行は読まない）。
+grant execute on function public.expo_is_live(timestamptz, timestamptz) to anon, authenticated, service_role;
+grant execute on function public.expo_has_ended(timestamptz) to anon, authenticated, service_role;
+grant execute on function public.expo_grace_days() to anon, authenticated, service_role;
+
+/**
+ * その部屋が「会期の生きている合同展示の部屋」か。
+ *
+ * `security definer` にしてあるのは、来場者が `expos` を直接読めなくても判定できるように
+ * するため（`expos` の RLS は「見えている展示だけ」なので今回は等価だが、あとで
+ * `expos` 側を締めてもこの判定は壊れない）。**読むのは会期の日付だけ**で、行の中身は返さない。
+ */
+create or replace function public.gallery_in_live_expo(p_gallery uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+      from public.galleries g
+      join public.expos x on x.id = g.expo_id
+     where g.id = p_gallery
+       and public.expo_is_live(x.starts_at, x.ends_at)
+  )
+$$;
+
+revoke all on function public.gallery_in_live_expo(uuid) from public;
+grant execute on function public.gallery_in_live_expo(uuid) to anon, authenticated, service_role;
+
+/* ================= 1. 部屋 ================= */
+-- **合同展示の部屋は `is_public` を持てない。** 見え方を決めるのは会期だけ。
+--
+-- なぜポリシーだけでは足りないか: RLS のポリシーは OR で足されるので、会期中は
+-- `galleries_select_expo_live` が読ませる。そのうえで**アプリ側が `.eq('is_public', true)`
+-- で絞る問い合わせ**（`/explore` の一覧、作家プロフィール、sitemap）は、`is_public` が
+-- true のままの合同展示の部屋を**拾ってしまう** ── ポリシーを締めても、絞り込みの
+-- 条件に合致すれば出てくる（実測 2026-08-09。テストが検出した）。
+--
+-- 全クエリを監査して `expo_id is null` を足すより、**値そのものを持たせない**方が確実。
+-- `expos_set_ends` と同じ作法で、insert/update のたびに無条件で false にする。
+create or replace function public.galleries_expo_never_public()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if new.expo_id is not null then
+    new.is_public := false;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists galleries_expo_never_public on public.galleries;
+create trigger galleries_expo_never_public
+  before insert or update on public.galleries
+  for each row execute function public.galleries_expo_never_public();
+
+-- 既にある行を直す（0045 より前に作られた合同展示の部屋）。
+update public.galleries set is_public = false where expo_id is not null and is_public;
+
+-- **合同展示の部屋を通常の公開経路から外す。** これが無いと、主催者が部屋の公開スイッチを
+-- 入れただけで（＝場所代を払う前に）`/@ハンドル/{slug}` と `/explore` に出てしまう。
+drop policy if exists "galleries_select_public" on public.galleries;
+create policy "galleries_select_public"
+  on public.galleries for select using (is_public and expo_id is null);
+
+-- 合同展示の部屋は**会期だけで**開く（`is_public` は見ない）。主催者が押すスイッチではなく、
+-- 支払いで始まった会期が見せ方を決める。
+drop policy if exists "galleries_select_expo_live" on public.galleries;
+create policy "galleries_select_expo_live"
+  on public.galleries for select
+  using (expo_id is not null and public.gallery_in_live_expo(id));
+
+/* ================= 2. 配置 ================= */
+drop policy if exists "placements_select_expo_live" on public.placements;
+create policy "placements_select_expo_live"
+  on public.placements for select
+  using (public.gallery_in_live_expo(gallery_id));
+
+/* ================= 3. 作品 ================= */
+-- 会期中の合同展示に掛かっている作品は、**誰の作品でも**来場者に見える（それが展示だから）。
+-- 会期が終わって猶予も切れれば、この経路は閉じる（展示の行が消えるので `gallery_in_live_expo`
+-- が false になる）。作品そのものは各作家のライブラリに残る。
+drop policy if exists "artworks_select_in_live_expo" on public.artworks;
+create policy "artworks_select_in_live_expo"
+  on public.artworks for select
+  using (
+    exists (
+      select 1
+        from public.placements p
+       where p.artwork_id = artworks.id
+         and public.gallery_in_live_expo(p.gallery_id)
+    )
+  );
+
+/* ================= 4. 名前の取り合いを塞ぐ ================= */
+-- `/expo/{name}` には**2つの住人**が居る:
+--   ・`profiles.expo_slug`（0040。管理者が付けるアカウントの別名）
+--   ・`expos.slug`（0044。合同展示）
+-- 一意制約は別々なので、**同じ名前が両方に存在できてしまい**、どちらを開くかは
+-- 解決の順番次第になる（＝先に登録した人の展示が、あとから同名を取った人に隠される）。
+-- 新しく取る側を互いに弾いて、これから増えないようにする。既存の重複は下の NOTICE で知らせる。
+create or replace function public.guard_expo_slug_unique()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.slug is null then return new; end if;
+  if exists (select 1 from public.profiles p where lower(p.expo_slug) = lower(new.slug)) then
+    raise exception 'that URL name is already used by an exhibition alias'
+      using errcode = 'unique_violation';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists expos_guard_slug_unique on public.expos;
+create trigger expos_guard_slug_unique
+  before insert or update of slug on public.expos
+  for each row execute function public.guard_expo_slug_unique();
+
+-- 逆向き: アカウントの別名を付けるときに、合同展示の名前とぶつからないようにする。
+-- 0040 の `set_expo_slug` に一行足した全文（`create or replace` なので置き換わる）。
+create or replace function public.set_expo_slug(p_user uuid, p_slug text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_clean text;
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized';
+  end if;
+
+  v_clean := nullif(lower(trim(coalesce(p_slug, ''))), '');
+  if v_clean is not null and v_clean !~ '^[a-z0-9-]{3,40}$' then
+    raise exception 'invalid slug: %', p_slug;
+  end if;
+
+  -- **合同展示の名前とぶつけない**（`/expo/{name}` を取り合うので、先に居る方を守る）。
+  if v_clean is not null and exists (select 1 from public.expos x where lower(x.slug) = v_clean) then
+    raise exception 'that URL name is already used by a joint exhibition'
+      using errcode = 'unique_violation';
+  end if;
+
+  update public.profiles set expo_slug = v_clean where id = p_user;
+  if not found then
+    raise exception 'no such profile';
+  end if;
+end;
+$$;
+
+revoke all on function public.set_expo_slug(uuid, text) from public, anon;
+grant execute on function public.set_expo_slug(uuid, text) to authenticated;
+
+-- 既にぶつかっているものがあれば知らせる（勝手に直さない — どちらを残すかは人が決める）。
+do $$
+declare
+  v_dupes text;
+begin
+  select string_agg(x.slug, ', ') into v_dupes
+    from public.expos x
+   where exists (select 1 from public.profiles p where lower(p.expo_slug) = lower(x.slug));
+  if v_dupes is not null then
+    raise notice '同じ URL 名が合同展示とアカウント別名の両方にあります: %。/expo/ はどちらか一方しか開けないので、どちらを残すか決めてください。', v_dupes;
+  end if;
+end $$;
+
+
+-- # 0046_expo_engagement.sql — 合同展示でも来場・芳名帳・いいねが動くようにする(0045 の続き)
+-- 合同展示でも「来場・芳名帳・いいね」が動くようにする（0045 の続き。③公開ページの検証で発覚）
+--
+-- 0045 で合同展示の部屋は **`is_public` を持てない**ようにした（会期だけが見え方を決める）。
+-- ところが来場者の関わり方を許すポリシーは**全部 `is_public` を見ている**:
+--
+--   ・`visits_insert_public`            — 来場の記録（3Dの人影＝過去の来場者）
+--   ・`guestbook_insert_public` (0033)  — 芳名帳に書く
+--   ・`guestbook_select_public_or_own`  — 芳名帳を読む
+--   ・`likes_insert_public`             — いいね
+--   ・`likes_select_public_or_own`      — いいねを読む
+--   ・`public_visit_count()` (0024)     — 人影の数
+--
+-- つまり**会期中の合同展示では、芳名帳のフォームは出るのに書けず**（RLSが拒否＝来場者には
+-- ただのエラー）、いいねも押せず、人影も出ない。**場所代を払った展示でだけ体験が欠けている**
+-- という、いちばん出てはいけない形の欠落。
+--
+-- 直し方: ポリシーは **OR で足される**ので、既存のものは触らず「会期の生きている合同展示なら
+-- 通す」ポリシーを並べて足す（`is_public` 側の意味を1文字も変えないので、通常展示への回帰が
+-- 原理的に起きない）。関数だけは足せないので `public_visit_count` は全文を置き換える。
+--
+-- 述語は 0045 の `gallery_in_live_expo(uuid)` をそのまま使う（`security definer`・anon に
+-- grant 済み・読むのは会期の日付だけ）。**猶予中（会期は終わったがURLは生きている）も
+-- 通す**のは、そこがまだ本物のページだから ── 閉幕直後に届いた記帳を黙って捨てるより、
+-- 受け取るほうがよい。消えるのは猶予明けに行ごと（`purge_expired_expos`）。
+--
+-- 適用方法: SQL Editor に貼り付けて Run(再実行安全)
+
+/* ================= 0. 前提（0045 未適用だと足せない） ================= */
+do $$
+begin
+  if not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'gallery_in_live_expo'
+  ) then
+    raise exception '0045_expo_public_read.sql を先に適用してください（gallery_in_live_expo が無い）';
+  end if;
+end $$;
+
+/* ================= 1. 来場の記録 ================= */
+-- 3Dの人影（§11.19）の材料。読めるのは今までどおり部屋の持ち主だけ（`visits_select_own`）。
+drop policy if exists "visits_insert_expo_live" on public.visits;
+create policy "visits_insert_expo_live"
+  on public.visits for insert
+  with check (public.gallery_in_live_expo(gallery_id));
+
+/* ================= 2. 芳名帳 ================= */
+-- **`guestbook_enabled` は尊重する。** 合同展示の部屋もふつうの部屋なので、主催者が
+-- 閉じていれば閉じたまま（0033 が守っているのと同じ約束）。
+drop policy if exists "guestbook_insert_expo_live" on public.guestbook;
+create policy "guestbook_insert_expo_live"
+  on public.guestbook for insert
+  with check (
+    exists (
+      select 1 from public.galleries g
+       where g.id = gallery_id
+         and g.guestbook_enabled
+         and public.gallery_in_live_expo(g.id)
+    )
+  );
+
+drop policy if exists "guestbook_select_expo_live" on public.guestbook;
+create policy "guestbook_select_expo_live"
+  on public.guestbook for select
+  using (public.gallery_in_live_expo(gallery_id));
+
+/* ================= 3. いいね ================= */
+-- 通知の宛先は**作品の所有者**なので（0042 の `notify_like`）、合同展示で他人の壁に
+-- 掛かっていても「あなたの作品がいいねされた」は作家本人に届く。ここは経路を開けるだけ。
+drop policy if exists "likes_insert_expo_live" on public.likes;
+create policy "likes_insert_expo_live"
+  on public.likes for insert
+  with check (public.gallery_in_live_expo(gallery_id));
+
+drop policy if exists "likes_select_expo_live" on public.likes;
+create policy "likes_select_expo_live"
+  on public.likes for select
+  using (public.gallery_in_live_expo(gallery_id));
+
+/* ================= 4. 人影の数 ================= */
+-- 0024 の全文に「会期の生きている合同展示なら数える」を足したもの（関数は OR で足せない
+-- ので置き換える）。**返すのは合計だけ**で、行も時刻も返さないのは 0024 のまま。
+create or replace function public.public_visit_count(p_gallery uuid)
+returns integer
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select coalesce(count(*), 0)::int
+  from public.visits v
+  where v.gallery_id = p_gallery
+    and (
+      exists (select 1 from public.galleries g where g.id = p_gallery and g.is_public)
+      or public.gallery_in_live_expo(p_gallery)
+    );
+$$;
+
+revoke all on function public.public_visit_count(uuid) from public;
+grant execute on function public.public_visit_count(uuid) to anon, authenticated, service_role;
+
+
+-- # 0047_expo_invites.sql — 招待を合同展示のものにする(部屋への招待を撤去。ユーザー選択A)
+-- 招待を合同展示（`expos`）のものにする ── 部屋への招待を撤去する（ユーザー選択A 2026-08-09）
+--
+-- 0037/0041 では招待と提出が**部屋（`galleries`）単位**だった。0044 で合同展示が
+-- 独立した実体になり「招待は合同展示だけの機能にする」と決まった（ユーザー選択A）ので、
+-- 単位を合わせる。
+--
+-- **なぜ部屋単位ではいけないか**: 合同展示は部屋を複数ぶら下げられる（0044）。部屋単位の
+-- ままだと、主催者が2室目を作った瞬間に**同じ作家をもう一度招き直さないと掛けられない**。
+-- 招待は「この展示に参加しますか」という1回の話であって、部屋の数だけ繰り返す話ではない。
+--
+-- **提出も展示単位にする。** 作家は「この展示に出す作品」を選び、**どの部屋に掛けるかは
+-- 主催者が決める**。作家に部屋を選ばせると、主催者が構成を変えるたびに作家の同意が
+-- 迷子になる（部屋を消すと提出も消える＝出したはずの作品が黙って引き上がる）。
+-- 同意の中身は「この展示に、この作品を出す」で閉じている。
+--
+-- 引き継ぐもの（0037/0041 で血を流して決めた形は変えない）:
+--   ・**作家が出す（push）**。主催者は相手のライブラリを見ない ── 見える範囲＝出すと決めた範囲。
+--   ・**同意は作品単位**。「受諾済み」だけでは掛けられず、その作品が提出されていること。
+--   ・**辞退・取り下げでその場で壁から下りる。**
+--   ・**述語は `security definer` の関数に出す。** ポリシーの中に直接書くと
+--     `submissions` ⇄ `artworks` で **RLS が無限再帰**して全部落ちる（0041 で実測）。
+--   ・**ポリシーが呼ぶ関数は `anon` にも grant する。** `artworks` に載るポリシーは
+--     未ログインの来場者が公開ページを開くだけで評価されるので、渡し忘れると
+--     `permission denied for function` で**公開サイトが全滅する**（0041 で実際にやった）。
+--     渡しても漏れない ── どれも `auth.uid()` を見るので anon では常に false。
+--
+-- 適用方法: SQL Editor に貼り付けて Run(再実行安全)
+--
+-- **この migration は `room_invites` / `room_submissions` を落とす。** 招待UIが動いて
+-- いたのは今日までで、本番に行があれば下の 0 節が件数を報告してから消す（招待は
+-- まだ誰も使っていないはずだが、動作確認では「無いこと」を示せない）。
+
+/* ================= 0. 何を捨てるかを先に数える ================= */
+do $$
+declare
+  v_inv int := 0;
+  v_sub int := 0;
+begin
+  if exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname = 'public' and c.relname = 'room_invites') then
+    execute 'select count(*) from public.room_invites' into v_inv;
+  end if;
+  if exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname = 'public' and c.relname = 'room_submissions') then
+    execute 'select count(*) from public.room_submissions' into v_sub;
+  end if;
+  if v_inv > 0 or v_sub > 0 then
+    raise warning '0047: 部屋への招待 % 件・提出 % 件を捨てます（合同展示への招待に載せ替えたので、必要なら主催者が招き直してください）。掛かっている placement は下の 8 節で外れます。', v_inv, v_sub;
+  else
+    raise notice '0047: 捨てる部屋への招待・提出はありません（想定どおり）。';
+  end if;
+end $$;
+
+/* ================= 1. 招待（主催者 → 作家。展示単位） ================= */
+create table if not exists public.expo_invites (
+  id uuid primary key default gen_random_uuid(),
+  expo_id uuid not null references public.expos (id) on delete cascade,
+  /** 招かれた作家。この人が出した作品が、この展示の部屋に掛けられるようになる。 */
+  artist_id uuid not null references public.profiles (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  unique (expo_id, artist_id)
+);
+
+-- 受信箱が引く向き（自分宛の招待）と、主催者の参加者一覧が引く向き。
+create index if not exists expo_invites_artist_idx on public.expo_invites (artist_id, status);
+create index if not exists expo_invites_expo_idx on public.expo_invites (expo_id, created_at);
+
+alter table public.expo_invites enable row level security;
+
+/* 主催者: 出す・見る・取り下げる。**status は自分では動かせない**（受諾は作家の
+ * 意思表示なので、招いた側が勝手に 'accepted' にできてはいけない）。update を
+ * 持つのは下の作家向けポリシーだけ。 */
+drop policy if exists "expo_invites_owner_read" on public.expo_invites;
+create policy "expo_invites_owner_read"
+  on public.expo_invites for select using (
+    exists (select 1 from public.expos x where x.id = expo_id and x.owner_id = (select auth.uid()))
+  );
+
+drop policy if exists "expo_invites_owner_insert" on public.expo_invites;
+create policy "expo_invites_owner_insert"
+  on public.expo_invites for insert with check (
+    status = 'pending'
+    and exists (select 1 from public.expos x where x.id = expo_id and x.owner_id = (select auth.uid()))
+  );
+
+drop policy if exists "expo_invites_owner_delete" on public.expo_invites;
+create policy "expo_invites_owner_delete"
+  on public.expo_invites for delete using (
+    exists (select 1 from public.expos x where x.id = expo_id and x.owner_id = (select auth.uid()))
+  );
+
+-- 作家: 自分宛の招待を見る／受諾・辞退する（＝いつでも取り下げられる）。
+drop policy if exists "expo_invites_artist_read" on public.expo_invites;
+create policy "expo_invites_artist_read"
+  on public.expo_invites for select using (artist_id = (select auth.uid()));
+
+drop policy if exists "expo_invites_artist_respond" on public.expo_invites;
+create policy "expo_invites_artist_respond"
+  on public.expo_invites for update
+  using (artist_id = (select auth.uid()))
+  with check (artist_id = (select auth.uid()) and status in ('accepted', 'declined'));
+
+/* ================= 2. 招かれた作家が「何に招かれたのか」を読める ================= */
+-- `expos` の select は 0044 で **所有者 or 会期が生きている or 管理者**。合同展示は
+-- **会期前（下書き）に準備する**のがふつうなので、これが無いと招かれた作家に
+-- 展示の題名も主催者も読めない ＝ 受信箱に「何かに招かれました」しか出せない。
+--
+-- `security definer` にするのは、`expo_invites` のポリシーが `expos` を読むため
+-- （`expos` のポリシーに `expo_invites` を直接書くと環になる。0041 と同じ形）。
+create or replace function public.invited_to_expo(p_expo uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.expo_invites i
+     where i.expo_id = p_expo and i.artist_id = (select auth.uid())
+  );
+$$;
+
+revoke all on function public.invited_to_expo(uuid) from public;
+grant execute on function public.invited_to_expo(uuid) to anon, authenticated, service_role;
+
+-- 辞退したあとも読めるままにする（受諾し直せるわけではないが、履歴として
+-- 「辞退した展示」を出せないと、受信箱から行が消えて何が起きたのか分からなくなる）。
+drop policy if exists "expos_select_invited" on public.expos;
+create policy "expos_select_invited"
+  on public.expos for select using (public.invited_to_expo(id));
+
+/* ================= 3. 提出（作家 → 展示） ================= */
+create table if not exists public.expo_submissions (
+  id uuid primary key default gen_random_uuid(),
+  expo_id uuid not null references public.expos (id) on delete cascade,
+  artwork_id uuid not null references public.artworks (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (expo_id, artwork_id)
+);
+
+-- 主催者の配置画面が「この展示への提出」を引く向き。
+create index if not exists expo_submissions_expo_idx
+  on public.expo_submissions (expo_id, created_at);
+
+alter table public.expo_submissions enable row level security;
+
+-- 自分の作品を、受諾済みの招待がある展示に出せるか。辞退したあとは false に戻るので、
+-- **辞退後に出し直すことはできない**。
+create or replace function public.may_submit_to_expo(p_expo uuid, p_artwork uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public.owns_artwork(p_artwork) and exists (
+    select 1 from public.expo_invites i
+     where i.expo_id = p_expo
+       and i.artist_id = (select auth.uid())
+       and i.status = 'accepted'
+  );
+$$;
+
+-- その作品が「自分が主催する展示に提出されている」か（下の artworks の select 用）。
+create or replace function public.artwork_submitted_to_my_expo(p_artwork uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+      from public.expo_submissions s
+      join public.expos x on x.id = s.expo_id
+     where s.artwork_id = p_artwork
+       and x.owner_id = (select auth.uid())
+  );
+$$;
+
+revoke all on function public.may_submit_to_expo(uuid, uuid) from public;
+revoke all on function public.artwork_submitted_to_my_expo(uuid) from public;
+grant execute on function public.may_submit_to_expo(uuid, uuid) to anon, authenticated, service_role;
+grant execute on function public.artwork_submitted_to_my_expo(uuid) to anon, authenticated, service_role;
+
+-- 作家: 自分の作品を、**受諾済みの招待がある展示にだけ**出せる。
+drop policy if exists "expo_submissions_artist_insert" on public.expo_submissions;
+create policy "expo_submissions_artist_insert"
+  on public.expo_submissions for insert
+  with check (public.may_submit_to_expo(expo_id, artwork_id));
+
+-- 作家: 出したものは**いつでも引っ込められる**（招待の受諾と対称）。招待の状態は見ない
+-- ── 辞退したあとに取り下げられないと、行が残り続ける。
+drop policy if exists "expo_submissions_artist_delete" on public.expo_submissions;
+create policy "expo_submissions_artist_delete"
+  on public.expo_submissions for delete using (public.owns_artwork(artwork_id));
+
+drop policy if exists "expo_submissions_artist_read" on public.expo_submissions;
+create policy "expo_submissions_artist_read"
+  on public.expo_submissions for select using (public.owns_artwork(artwork_id));
+
+-- 主催者: 自分の展示への提出を見る。**書けない**（提出は作家の意思表示なので、
+-- 主催者が代わりに出せてはいけない ── status を主催者に触らせないのと同じ理由）。
+-- `expos` は `expo_submissions` を読まないので、ここは環にならず直接書ける。
+drop policy if exists "expo_submissions_owner_read" on public.expo_submissions;
+create policy "expo_submissions_owner_read"
+  on public.expo_submissions for select using (
+    exists (select 1 from public.expos x where x.id = expo_id and x.owner_id = (select auth.uid()))
+  );
+
+/* ================= 4. 主催者が提出された作品を読める ================= */
+-- これが無いと、提出の行は見えても**作品の中身（画像・タイトル・寸法）が読めない**ので
+-- 選ぶ画面が描けない。範囲は「提出された作品」だけ ── 招待した作家の全作品ではない。
+drop policy if exists "artworks_select_submitted_to_my_expo" on public.artworks;
+create policy "artworks_select_submitted_to_my_expo"
+  on public.artworks for select using (public.artwork_submitted_to_my_expo(id));
+
+/* ================= 5. 掛けてよいかの述語（部屋 → 展示に読み替え） ================= */
+-- ①（自分の作品）は 0037 から変えない。②を「その部屋が属する展示への受諾済み招待が
+-- あり、かつその作品がその展示に提出されている」にする。
+--
+-- **`expo_id is null` の部屋（通常展示）では②が絶対に成立しない**ので、通常展示に
+-- 他人の作品が入る道は無い（0037 で塞いだ穴は塞がったまま）。
+create or replace function public.may_place_artwork(p_gallery uuid, p_artwork uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    -- ① 部屋の所有者が、その作品の所有者でもある（通常展示の全ケースがこれ）
+    select 1
+      from public.galleries g
+      join public.artworks a on a.id = p_artwork
+     where g.id = p_gallery and a.owner_id = g.owner_id
+  ) or exists (
+    -- ② 合同展示の部屋で、作品の所有者がその展示への招待を受諾しており、
+    --    かつ**その作品をその展示に出している**
+    select 1
+      from public.galleries g
+      join public.artworks a on a.id = p_artwork
+      join public.expo_invites i
+        on i.expo_id = g.expo_id and i.artist_id = a.owner_id and i.status = 'accepted'
+      join public.expo_submissions s
+        on s.expo_id = g.expo_id and s.artwork_id = a.id
+     where g.id = p_gallery and g.expo_id is not null
+  );
+$$;
+
+revoke all on function public.may_place_artwork(uuid, uuid) from public;
+grant execute on function public.may_place_artwork(uuid, uuid) to authenticated, service_role;
+
+/* ================= 6. 取り下げたら壁から下りる（作品単位） ================= */
+-- 引っ込めたのに掛かったままなら、提出を選べる意味が無い。**その展示の全部屋**から
+-- 外す（提出は展示単位なので、どの部屋に掛かっているかは主催者しか知らない）。
+create or replace function public.drop_placements_on_unsubmit()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.placements p
+   using public.galleries g, public.artworks a
+   where p.gallery_id = g.id
+     and g.expo_id = old.expo_id
+     and p.artwork_id = old.artwork_id
+     and a.id = old.artwork_id
+     -- 主催者自身の作品は①で許されているので触らない。
+     and a.owner_id <> g.owner_id;
+  return old;
+end;
+$$;
+
+drop trigger if exists expo_submissions_unsubmit on public.expo_submissions;
+create trigger expo_submissions_unsubmit
+  after delete on public.expo_submissions
+  for each row execute function public.drop_placements_on_unsubmit();
+
+/* ================= 7. 辞退・取り下げで作家ごと下りる ================= */
+-- 受諾を取り消した（辞退に変えた・招待が消えた）のに作品が掛かったままなら、同意の
+-- 意味が無い。**その展示の全部屋**からその作家の作品を外し、提出も引き上げる
+-- （提出が残ると、辞退したのに主催者からは作品が見えたまま＝4の select は招待を見ない）。
+create or replace function public.drop_placements_on_expo_revoke()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_expo uuid;
+  v_artist uuid;
+begin
+  if tg_op = 'DELETE' then
+    v_expo := old.expo_id; v_artist := old.artist_id;
+  else
+    -- 受諾のままなら何もしない
+    if new.status = 'accepted' then return new; end if;
+    if old.status is distinct from 'accepted' then return new; end if;
+    v_expo := new.expo_id; v_artist := new.artist_id;
+  end if;
+
+  delete from public.placements p
+   using public.galleries g, public.artworks a
+   where p.gallery_id = g.id
+     and g.expo_id = v_expo
+     and a.id = p.artwork_id
+     and a.owner_id = v_artist
+     -- 主催者自身の作品は①で許されているので触らない。
+     and a.owner_id <> g.owner_id;
+
+  -- 提出も引き上げる（上で placement は消えているので、6のトリガの二重発火は無害）。
+  delete from public.expo_submissions s
+   using public.artworks a
+   where s.expo_id = v_expo
+     and a.id = s.artwork_id
+     and a.owner_id = v_artist;
+
+  return case when tg_op = 'DELETE' then old else new end;
+end;
+$$;
+
+drop trigger if exists expo_invites_revoke on public.expo_invites;
+create trigger expo_invites_revoke
+  after update or delete on public.expo_invites
+  for each row execute function public.drop_placements_on_expo_revoke();
+
+/* ================= 8. @ハンドルで招く ================= */
+-- ハンドルで指定する（ユーザー承認 2026-08-09）。メールだと**アカウントの有無を
+-- 問い合わせられる**ようになる（総当たりで「このメールは登録済み」が引ける）。
+-- ハンドルは `/@名前` として既に公開されている。
+--
+-- 関数にしたのは、クライアントから「ハンドル → id」を引いて insert する2往復のあいだに
+-- 相手がハンドルを変えると**別人を招く**事故が起きるため。1文で解決して入れる。
+create or replace function public.invite_artist_to_expo(p_expo uuid, p_handle text)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_artist uuid;
+  v_owner uuid;
+  v_clean text;
+  v_id uuid;
+begin
+  select x.owner_id into v_owner from public.expos x where x.id = p_expo;
+  if v_owner is null then
+    raise exception 'no such exhibition';
+  end if;
+  if v_owner <> (select auth.uid()) then
+    raise exception 'not your exhibition';
+  end if;
+
+  -- `@` 付きで貼られても受ける（画面の見本が `@handle` なので必ず起きる）。
+  v_clean := lower(trim(coalesce(p_handle, '')));
+  v_clean := regexp_replace(v_clean, '^@+', '');
+  if v_clean = '' then
+    raise exception 'no handle given';
+  end if;
+
+  select p.id into v_artist from public.profiles p where lower(p.username) = v_clean;
+  if v_artist is null then
+    raise exception 'no such artist: %', p_handle;
+  end if;
+  if v_artist = v_owner then
+    -- 主催者の作品は①で掛かるので招待は不要。招くと「参加者に自分が並ぶ」ことになる。
+    raise exception 'cannot invite yourself';
+  end if;
+
+  insert into public.expo_invites (expo_id, artist_id, status)
+  values (p_expo, v_artist, 'pending')
+  -- **受諾済みは絶対に巻き戻さない**（pending に戻すと7のトリガが提出も掛かっている
+  -- 作品も引き上げる＝招き直しただけで展示が壊れる）。ただし**辞退された相手は
+  -- 招き直せる**必要がある: `do nothing` だけにすると、一度断られた相手に声をかけ直す
+  -- 道が無く、**エラーも出ないまま何も起きない**（0041 の別視点レビュー指摘）。
+  on conflict (expo_id, artist_id) do update
+    set status = 'pending', created_at = now(), responded_at = null
+    where public.expo_invites.status = 'declined'
+  returning id into v_id;
+
+  if v_id is null then
+    -- `do update` の where が false（＝pending か accepted のまま）。既存の行を返す。
+    select i.id into v_id from public.expo_invites i
+     where i.expo_id = p_expo and i.artist_id = v_artist;
+  end if;
+  return v_id;
+end;
+$$;
+
+revoke all on function public.invite_artist_to_expo(uuid, text) from public, anon;
+grant execute on function public.invite_artist_to_expo(uuid, text) to authenticated;
+
+/* ================= 9. 通知の宛先を展示に付け替える（0042） ================= */
+-- 0042 の3本は `room_invites` / `room_submissions` に載っていた。表を落とすとトリガも
+-- 一緒に消えるので、**同じ意味のものを新しい表に作り直す**（作らないと招待に気づく
+-- 経路が無くなる＝0042 を作った理由そのものが消える）。
+--
+-- `notifications.gallery_id` は**入れない**（合同展示に対応する部屋は1つに決まらない）。
+-- 見出しは展示の題名を焼き込む ── source が消えても読めるようにするのが 0042 の作法。
+
+create or replace function public.notify_expo_invite()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_title text;
+  v_owner uuid;
+  v_organizer text;
+begin
+  select x.title, x.owner_id into v_title, v_owner
+    from public.expos x where x.id = new.expo_id;
+  select coalesce(p.display_name, p.username) into v_organizer
+    from public.profiles p where p.id = v_owner;
+
+  perform public.push_notification(
+    new.artist_id, 'invite', null, null, coalesce(v_title, ''), '', v_organizer
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists expo_invites_notify on public.expo_invites;
+create trigger expo_invites_notify
+  after insert on public.expo_invites
+  for each row execute function public.notify_expo_invite();
+
+-- 受諾・辞退を**主催者へ**返す。招いたまま返事を待つ側にも通知が要る（辞退は特に:
+-- 気づかないと空いた枠を埋め直せない）。
+create or replace function public.notify_expo_invite_reply()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_title text;
+  v_owner uuid;
+  v_artist text;
+begin
+  if new.status is not distinct from old.status then return new; end if;
+  if new.status not in ('accepted', 'declined') then return new; end if;
+
+  select x.title, x.owner_id into v_title, v_owner
+    from public.expos x where x.id = new.expo_id;
+  select coalesce(p.display_name, p.username) into v_artist
+    from public.profiles p where p.id = new.artist_id;
+
+  -- 本文に状態を入れる（`accepted` / `declined`）。表示側が文言を選ぶための値で、
+  -- 画面に出す英語ではない。
+  perform public.push_notification(
+    v_owner, 'invite_reply', null, null, coalesce(v_title, ''), new.status, v_artist
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists expo_invites_reply_notify on public.expo_invites;
+create trigger expo_invites_reply_notify
+  after update of status on public.expo_invites
+  for each row execute function public.notify_expo_invite_reply();
+
+-- 提出を**主催者へ**。作家は複数点まとめて出すので**作家ごと・1日1件にまとめる**。
+create or replace function public.notify_expo_submission()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_owner uuid;
+  v_title text;
+  v_artist_id uuid;
+  v_artist text;
+begin
+  select x.owner_id, x.title into v_owner, v_title
+    from public.expos x where x.id = new.expo_id;
+  select a.owner_id into v_artist_id
+    from public.artworks a where a.id = new.artwork_id;
+
+  -- 主催者が自分の作品を出したときは通知しない。
+  if v_owner is null or v_owner is not distinct from v_artist_id then return new; end if;
+
+  select coalesce(p.display_name, p.username) into v_artist
+    from public.profiles p where p.id = v_artist_id;
+
+  -- まとめの鍵は (展示, 作家)。作家は `actor_name` で持つので、同じ日に2人が出しても
+  -- 2件に分かれる（1件に畳むと誰が出したのか分からなくなる）。
+  -- `p_gallery` は null なので、まとめは「同じ kind・同じ actor・未読・同日」で当たる。
+  perform public.push_notification_rollup(
+    v_owner, 'submission', null, null, coalesce(v_title, ''), v_artist
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists expo_submissions_notify on public.expo_submissions;
+create trigger expo_submissions_notify
+  after insert on public.expo_submissions
+  for each row execute function public.notify_expo_submission();
+
+/* ================= 10. 部屋への招待を撤去する ================= */
+-- **ここから下は 0037/0041 の取り壊し。** 表を落とせばポリシーとトリガは一緒に消えるので、
+-- 残るのは「どこからも呼ばれなくなった関数」と、`galleries` に載っていたポリシー1本。
+--
+-- 順序が要る: `may_place_artwork` は 5 で**もう書き換えてある**（`room_invites` を
+-- 参照しない版になっている）。先に表を落とすと、書き換える前の版が壊れた関数として
+-- 残る瞬間ができる ── だから**書き換えてから落とす**。
+
+-- 招かれた作家に部屋を読ませていたポリシー（0041 の 1.5）。招待は展示単位になったので、
+-- 読ませる先は `expos`（上の 2）に移った。
+drop policy if exists "galleries_select_invited" on public.galleries;
+
+-- 0041 が `artworks` に載せていた select（部屋への提出）。4 で展示版に置き換えたので落とす。
+-- **表を落としてもポリシーは残る**（`artworks` は消えていないので）ため、明示的に消す
+-- ── 残ると `artwork_submitted_to_my_room` を呼び続けて `artworks` の select が全部落ちる。
+--
+-- **関数より先に落とす。** ポリシーは関数への依存として登録されるので、順番を逆にすると
+-- `drop function` が `cannot drop function … because other objects depend on it` で落ちる
+-- （実測 2026-08-10。しかもハーネスが psql の失敗を握り潰していたので、表だけ消えて
+-- 関数とポリシーが残った半端なDBを相手に検査していた）。
+drop policy if exists "artworks_select_submitted_to_my_room" on public.artworks;
+
+drop table if exists public.room_submissions cascade;
+drop table if exists public.room_invites cascade;
+
+-- 参照先が消えて使えなくなった関数。**残すと「まだ部屋への招待がある」と読める**ので消す。
+drop function if exists public.invited_to_room(uuid);
+drop function if exists public.may_submit_artwork(uuid, uuid);
+drop function if exists public.artwork_submitted_to_my_room(uuid);
+drop function if exists public.invite_artist_by_handle(uuid, text);
+drop function if exists public.drop_placement_on_unsubmit();
+drop function if exists public.drop_placements_on_revoke();
+drop function if exists public.notify_invite();
+drop function if exists public.notify_invite_reply();
+drop function if exists public.notify_submission();
+
+/* ================= 11. 締めた述語で弾かれる placement を数える ================= */
+-- 5 で②の条件が「部屋への招待」から「展示への招待」に変わったので、**部屋への招待で
+-- 入っていた placement** は次の再公開で弾かれる。7 のトリガは表を落とす前には走らない
+-- （`drop table` はトリガを発火させない）ので、ここで数えて報告する。
+do $$
+declare
+  v_bad int;
+begin
+  select count(*) into v_bad
+    from public.placements p
+    join public.galleries g on g.id = p.gallery_id
+    join public.artworks a on a.id = p.artwork_id
+   where a.owner_id <> g.owner_id
+     and not public.may_place_artwork(p.gallery_id, p.artwork_id);
+  if v_bad > 0 then
+    raise warning '0047: % 件の placement が新しい同意の条件を満たしません（部屋への招待で入っていたもの）。表示は残りますが次の再公開で弾かれます ── 主催者が合同展示として招き直してください。', v_bad;
+  else
+    raise notice '0047: 影響を受ける placement はありません（想定どおり）。';
+  end if;
+end $$;
+
+
+-- # 0048_expo_invite_links.sql — 招待リンク（参加希望→主催者が承認。ユーザー決定 2026-08-10）
+-- 招待リンク（ユーザー決定 2026-08-10）— 「配れるURL」で参加希望を集め、主催者が承認する
+--
+-- 0047 で招待は `@ハンドル` を打つ経路だけになった。主催者が10人に声をかけるには10回
+-- ハンドルを聞き出す必要があり、**相手のハンドルを知らないと招けない**（SNSのDMで
+-- 「ハンドル教えて」から始まる）。配れるURLがあれば、主催者は1本貼るだけで済む。
+--
+-- ユーザー決定（2026-08-10）:
+--   ・**リンクはログイン済みの誰でも使える**（人数上限は付けない）。流出しても実害は
+--     「承認待ちが増える」だけ ── **承認するまで何も公開されないし、何も掛からない**。
+--     効かなくしたいときは主催者が**無効化**する（下の `revoked_at`）。
+--   ・**未登録の人には先に展示を見せる**（題名・主催者・会期）。そのうえで登録を促す。
+--     何に誘われたのか分からないまま登録を求めない。
+--   ・**参加希望は通知でも伝える**（`invite_request`）＋参加者一覧に「承認待ち」で並ぶ。
+--
+-- 形（0047 の状態機械に1つ足すだけ）:
+--   `pending`   — **主催者が招いた**。作家の返事待ち
+--   `requested` — **作家が希望を出した**。主催者の承認待ち  ← 今回追加
+--   `accepted`  — 参加確定。ここから作品を出せる
+--   `declined`  — 辞退（または希望の取り下げ）
+--
+-- **`requested` は何の権限も与えない。** `may_submit_to_expo` は `accepted` しか見ないので、
+-- 承認前の作家は1点も出せず、掛けることもできない（0047 のまま）。
+--
+-- **作家が自分で `requested` → `accepted` にできてはいけない。** 0047 の
+-- `expo_invites_artist_respond` は「自分の行を accepted/declined にできる」なので、
+-- そのままだと**希望を出した本人が自分を承認できてしまう**＝承認の意味が消える。
+-- 下の 4 のガードで塞ぐ（ポリシーの `with check` からは OLD が見えないのでトリガでやる）。
+--
+-- 適用方法: SQL Editor に貼り付けて Run(再実行安全)
+
+/* ================= 0. 状態を1つ増やす ================= */
+-- `check` は差分更新できないので毎回書き直す（0044 の `purchases_kind_check` と同じ作法）。
+alter table public.expo_invites drop constraint if exists expo_invites_status_check;
+alter table public.expo_invites add constraint expo_invites_status_check
+  check (status in ('pending', 'requested', 'accepted', 'declined'));
+
+-- 通知の種類も2つ増やす（**主催者へ**「希望が来た」・**作家へ**「承認された」）。
+-- 1つの種類に畳まないのは、宛先も文面も逆向きだから。
+alter table public.notifications drop constraint if exists notifications_kind_check;
+alter table public.notifications add constraint notifications_kind_check
+  check (kind in ('invite', 'invite_reply', 'invite_request', 'invite_approved',
+                  'submission', 'like', 'guestbook', 'announce'));
+
+/* ================= 1. リンク ================= */
+create table if not exists public.expo_invite_links (
+  id uuid primary key default gen_random_uuid(),
+  expo_id uuid not null references public.expos (id) on delete cascade,
+  /**
+   * URL に載る文字列。**サーバが作る**（下の `create_expo_invite_link`）ので、
+   * クライアントが弱い値を選べない。当てずっぽうで当たらない長さがあれば、
+   * 「知っている人だけが使える」という性質はこれ1本で足りる。
+   */
+  token text not null unique,
+  /** 無効化した時刻。**行は消さない** — 「あのリンクはいつ止めたか」を残す。 */
+  revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists expo_invite_links_expo_idx
+  on public.expo_invite_links (expo_id, created_at desc);
+
+alter table public.expo_invite_links enable row level security;
+
+-- 主催者だけが自分の展示のリンクを読める・無効化できる。**anon にも authenticated にも
+-- select を開けない** ── 開けると表を1回読むだけで**全部のトークンが手に入る**
+-- （招待リンクは「知っていること」が唯一の鍵なので、一覧できたら鍵ではなくなる）。
+-- リンクを踏んだ人が展示を引く経路は、下の 3 の `security definer` 関数だけ。
+drop policy if exists "expo_invite_links_owner_all" on public.expo_invite_links;
+create policy "expo_invite_links_owner_all"
+  on public.expo_invite_links for all
+  using (
+    exists (select 1 from public.expos x where x.id = expo_id and x.owner_id = (select auth.uid()))
+  )
+  with check (
+    exists (select 1 from public.expos x where x.id = expo_id and x.owner_id = (select auth.uid()))
+  );
+
+/* ================= 2. リンクを作る（トークンはサーバが決める） ================= */
+create or replace function public.create_expo_invite_link(p_expo uuid)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_owner uuid;
+  v_token text;
+begin
+  select x.owner_id into v_owner from public.expos x where x.id = p_expo;
+  if v_owner is null then
+    raise exception 'no such exhibition';
+  end if;
+  if v_owner <> (select auth.uid()) then
+    raise exception 'not your exhibition';
+  end if;
+
+  -- v4 UUID 2本＝64文字の16進（約244ビット）。**`gen_random_bytes` は使わない** ──
+  -- あれは pgcrypto の関数で、Supabase では `extensions` スキーマに入るので
+  -- `set search_path = ''` のこの関数からは `public.` でも `extensions.` でも
+  -- 環境次第で解決できない。`gen_random_uuid()` は Postgres 13 以降の組み込み
+  -- （`pg_catalog`＝search_path を空にしても常に見える）なので、どの環境でも動く。
+  v_token := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
+
+  insert into public.expo_invite_links (expo_id, token) values (p_expo, v_token);
+  return v_token;
+end;
+$$;
+
+revoke all on function public.create_expo_invite_link(uuid) from public, anon;
+grant execute on function public.create_expo_invite_link(uuid) to authenticated;
+
+/* ================= 3. リンクを踏んだ人が展示を引く ================= */
+/**
+ * トークンから展示の**表に出せる情報だけ**を返す。`security definer` なのは、
+ * リンクを踏んだ人が（まだ招かれてもいないし、会期も始まっていないので）`expos` を
+ * 読めないから。**返すのは題名・主催者・会期だけ**で、部屋も作品も返さない
+ * ── リンクは「参加しませんか」の案内で、展示の中身の先行公開ではない。
+ *
+ * 無効化されたリンク・存在しないトークンは**0行**（「無効です」と「そんなリンクは無い」を
+ * 区別しない ── 区別すると総当たりで有効なトークンを探せる）。
+ *
+ * `my_status` は呼び手自身の招待の状態（未ログインなら null）。画面が
+ * 「もう希望を出しています」「すでに参加しています」を出し分けるために使う。
+ */
+create or replace function public.expo_by_invite_token(p_token text)
+returns table (
+  expo_id uuid,
+  slug text,
+  title text,
+  statement text,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  organizer_name text,
+  organizer_username text,
+  my_status text
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select x.id,
+         x.slug,
+         x.title,
+         x.statement,
+         x.starts_at,
+         x.ends_at,
+         coalesce(p.display_name, p.username, ''),
+         p.username,
+         (select i.status from public.expo_invites i
+           where i.expo_id = x.id and i.artist_id = (select auth.uid()))
+    from public.expo_invite_links l
+    join public.expos x on x.id = l.expo_id
+    left join public.profiles p on p.id = x.owner_id
+   where l.token = p_token
+     and l.revoked_at is null;
+$$;
+
+revoke all on function public.expo_by_invite_token(text) from public;
+grant execute on function public.expo_by_invite_token(text) to anon, authenticated, service_role;
+
+/* ================= 4. 参加希望を出す ================= */
+/**
+ * リンクから「参加したい」を出す。**これは権限を1つも増やさない** — 主催者が承認する
+ * まで `accepted` にならず、`may_submit_to_expo` は `accepted` しか見ない。
+ *
+ * 既にある行の扱い:
+ *   `accepted`  → そのまま（もう参加している）
+ *   `pending`   → **`accepted` にする。** 主催者が既に招いていて、本人がリンクから
+ *                 「参加したい」と言った ── 受信箱の［受ける］と同じ意思表示なので、
+ *                 承認を待たせる理由が無い（待たせると「招いたのに入れない」になる）
+ *   `declined`  → `requested`（気が変わった。主催者の承認からやり直す）
+ *   `requested` → そのまま（二度押し）
+ *
+ * 返すのは結果の状態。画面がそのまま文言を選べる。
+ */
+create or replace function public.request_expo_invite(p_token text)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_expo uuid;
+  v_owner uuid;
+  v_me uuid := (select auth.uid());
+  v_status text;
+begin
+  if v_me is null then
+    raise exception 'sign in first';
+  end if;
+
+  select x.id, x.owner_id into v_expo, v_owner
+    from public.expo_invite_links l
+    join public.expos x on x.id = l.expo_id
+   where l.token = p_token and l.revoked_at is null;
+  if v_expo is null then
+    raise exception 'link not found';
+  end if;
+  if v_owner = v_me then
+    -- 主催者の作品は招待なしで掛かる。自分の展示に希望を出すと参加者に自分が並ぶ。
+    raise exception 'this is your own exhibition';
+  end if;
+
+  select i.status into v_status from public.expo_invites i
+   where i.expo_id = v_expo and i.artist_id = v_me;
+
+  if v_status is null then
+    insert into public.expo_invites (expo_id, artist_id, status)
+    values (v_expo, v_me, 'requested');
+    return 'requested';
+  end if;
+
+  if v_status = 'accepted' then
+    return 'accepted';
+  end if;
+
+  if v_status = 'pending' then
+    -- 主催者は既に招いている。リンクを踏んだのは本人なので、これは受諾。
+    update public.expo_invites
+       set status = 'accepted', responded_at = now()
+     where expo_id = v_expo and artist_id = v_me;
+    return 'accepted';
+  end if;
+
+  if v_status = 'declined' then
+    update public.expo_invites
+       set status = 'requested', created_at = now(), responded_at = null
+     where expo_id = v_expo and artist_id = v_me;
+    return 'requested';
+  end if;
+
+  return v_status; -- 'requested' のまま
+end;
+$$;
+
+revoke all on function public.request_expo_invite(text) from public, anon;
+grant execute on function public.request_expo_invite(text) to authenticated;
+
+/* ================= 5. 自分で自分を承認できないようにする ================= */
+-- 0047 の `expo_invites_artist_respond` は「自分の行を accepted/declined にできる」。
+-- `requested`（自分が出した希望）にもそれが当たるので、**希望を出した本人が自分を
+-- 承認できてしまう** ＝ 承認の意味が消える。ポリシーの `with check` からは OLD が
+-- 見えないので、トリガで塞ぐ。
+--
+-- `security invoker` にするのが要点 ── definer にすると `current_user` が常に関数の
+-- 所有者になり、クライアント経由かどうかの区別がつかず素通りする（0036 で実際にやった）。
+-- 下の `approve_expo_request` は definer なので `current_user` が変わり、ここを通れる。
+create or replace function public.guard_expo_invite_approval()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    if old.status = 'requested' and new.status = 'accepted' then
+      raise exception 'a request must be approved by the organizer'
+        using errcode = 'check_violation';
+    end if;
+    -- 希望を「招待」に見せかける経路も塞ぐ（作家側から pending は作れない）。
+    if old.status is distinct from 'pending' and new.status = 'pending' then
+      raise exception 'cannot move an invitation back to pending'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists expo_invites_guard_approval on public.expo_invites;
+create trigger expo_invites_guard_approval
+  before update of status on public.expo_invites
+  for each row execute function public.guard_expo_invite_approval();
+
+/* ================= 6. 主催者が承認する ================= */
+/**
+ * 参加希望を承認する。**主催者に update ポリシーを与えない**まま実現するために関数に
+ * している（0047 の「status は主催者が動かせない」を保ったまま、`requested` だけを
+ * 例外にする ── その行は**作家自身が出した意思表示**なので、承認しても勝手に参加させた
+ * ことにはならない）。
+ *
+ * 断るときは招待を消す（0047 の `expo_invites_owner_delete` がそのまま使える）。
+ */
+create or replace function public.approve_expo_request(p_invite uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_owner uuid;
+  v_status text;
+begin
+  select x.owner_id, i.status into v_owner, v_status
+    from public.expo_invites i
+    join public.expos x on x.id = i.expo_id
+   where i.id = p_invite;
+  if v_owner is null then
+    raise exception 'no such invitation';
+  end if;
+  if v_owner <> (select auth.uid()) then
+    raise exception 'not your exhibition';
+  end if;
+  if v_status <> 'requested' then
+    -- 承認できるのは希望だけ。招待（pending）を主催者が受諾するのは別の話で、
+    -- それは作家の意思表示なので主催者にはできない（0047）。
+    raise exception 'only a request can be approved';
+  end if;
+
+  update public.expo_invites
+     set status = 'accepted', responded_at = now()
+   where id = p_invite;
+end;
+$$;
+
+revoke all on function public.approve_expo_request(uuid) from public, anon;
+grant execute on function public.approve_expo_request(uuid) to authenticated;
+
+/* ================= 7. 通知 ================= */
+-- 0047 の3本のうち2本を差し替える。**`requested` の行は宛先が逆**（作家が起こしたので
+-- 主催者へ）なので、insert の通知を状態で分岐させる。
+create or replace function public.notify_expo_invite()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_title text;
+  v_owner uuid;
+  v_organizer text;
+  v_artist text;
+begin
+  select x.title, x.owner_id into v_title, v_owner
+    from public.expos x where x.id = new.expo_id;
+
+  if new.status = 'requested' then
+    -- 作家が希望を出した → **主催者へ**。
+    select coalesce(p.display_name, p.username) into v_artist
+      from public.profiles p where p.id = new.artist_id;
+    perform public.push_notification(
+      v_owner, 'invite_request', null, null, coalesce(v_title, ''), '', v_artist
+    );
+    return new;
+  end if;
+
+  -- 主催者が招いた → **作家へ**（0047 のまま）。
+  select coalesce(p.display_name, p.username) into v_organizer
+    from public.profiles p where p.id = v_owner;
+  perform public.push_notification(
+    new.artist_id, 'invite', null, null, coalesce(v_title, ''), '', v_organizer
+  );
+  return new;
+end;
+$$;
+
+-- 返事の通知。**承認（`requested` → `accepted`）は作家へ**、それ以外（受諾・辞退）は
+-- 主催者へ。分けないと、主催者が自分で押した承認の通知が自分に届く。
+create or replace function public.notify_expo_invite_reply()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_title text;
+  v_owner uuid;
+  v_artist text;
+  v_organizer text;
+begin
+  if new.status is not distinct from old.status then return new; end if;
+
+  select x.title, x.owner_id into v_title, v_owner
+    from public.expos x where x.id = new.expo_id;
+
+  if old.status = 'requested' and new.status = 'accepted' then
+    select coalesce(p.display_name, p.username) into v_organizer
+      from public.profiles p where p.id = v_owner;
+    perform public.push_notification(
+      new.artist_id, 'invite_approved', null, null, coalesce(v_title, ''), '', v_organizer
+    );
+    return new;
+  end if;
+
+  if new.status not in ('accepted', 'declined') then return new; end if;
+
+  select coalesce(p.display_name, p.username) into v_artist
+    from public.profiles p where p.id = new.artist_id;
+
+  -- 本文に状態を入れる（`accepted` / `declined`）。表示側が文言を選ぶための値で、
+  -- 画面に出す英語ではない。
+  perform public.push_notification(
+    v_owner, 'invite_reply', null, null, coalesce(v_title, ''), new.status, v_artist
+  );
+  return new;
+end;
+$$;
+
+-- # 0049_expo_launch_guard_fix.sql — 合同展示の確定バグ2件を塞ぐ(別視点レビュー 2026-08-10)
+-- 合同展示の確定バグ2件を塞ぐ（別視点レビュー 2026-08-10、PR #8 マージ前に発見）
+--
+-- どちらも「クライアントから公開できる経路は存在しない」（0044 のコメント）という
+-- 設計の前提が、実際には破れていた。素のPostgresで実際に再現して確認済み。
+--
+-- ================= バグ①: INSERTでは starts_at のガードが効いていなかった =================
+-- 0044 の `guard_expo_run` は `before update on public.expos` にしか付けておらず、
+-- INSERT には効かない。`expos_owner_all` は owner_id 一致しか見ないので、
+-- authenticated が
+--   insert into expos(owner_id, slug, title, duration_days, starts_at) values (self, ..., now())
+-- を直接送ると、**決済を一度も通さずに即座に公開状態**（`expo_is_live` = true）になる。
+-- 実際に検証DBで再現した（30日ぶん・$0）。
+--
+-- ================= バグ②: 合同展示の部屋が「誰の展示か」を確認していなかった =================
+-- 0044 の `enforce_room_allowance` は `new.expo_id is not null` ならすぐ return し、
+-- ①その expo_id が new.owner_id の展示かを確認しない ②work_cap の上限チェックも
+-- 一切通さない（15枠上限のチェックはこの early return の後ろにしか書かれておらず、
+-- 到達しない）。実際に検証DBで再現した — **他人の展示のIDを付けるだけで、
+-- work_cap=999999 の部屋が無料で作れ、しかもその部屋は他人の展示に紐づいた**。
+--
+-- 適用方法: SQL Editor に貼り付けて Run(再実行安全)
+
+/* ================= 1. INSERTでも starts_at を守る ================= */
+create or replace function public.guard_expo_run()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    if tg_op = 'INSERT' then
+      -- 作成時に starts_at を自分で入れられると、決済を一度も通さずに公開できる。
+      if new.starts_at is not null then
+        raise exception 'starts_at is set by the payment' using errcode = 'check_violation';
+      end if;
+      return new;
+    end if;
+
+    -- 開始日は支払いが決める。ここを書けると無料で公開できる。
+    if new.starts_at is distinct from old.starts_at then
+      raise exception 'starts_at is set by the payment' using errcode = 'check_violation';
+    end if;
+    -- 会期の長さは公開後は動かせない（払った長さと違う会期になる）。公開前は自由。
+    if old.starts_at is not null and new.duration_days is distinct from old.duration_days then
+      raise exception 'duration cannot change once the run has started' using errcode = 'check_violation';
+    end if;
+    -- 名前も公開後は動かせない（配ったURLが死ぬ）。
+    if old.starts_at is not null and new.slug is distinct from old.slug then
+      raise exception 'slug cannot change once the run has started' using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists expos_guard_run on public.expos;
+create trigger expos_guard_run
+  before insert or update on public.expos
+  for each row execute function public.guard_expo_run();
+
+/* ================= 2. 合同展示の部屋は「自分の展示か」を確認し、上限も見る ================= */
+create or replace function public.enforce_room_allowance()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_free int;
+  v_paid int;
+  v_purchased int;
+  v_expo_owner uuid;
+begin
+  if new.expo_id is not null then
+    -- **これが無いと、他人の展示のIDを付けるだけで無料・無制限の部屋が作れる**
+    -- （実際に再現した）。owner_id は galleries_owner_all の with check で
+    -- auth.uid() と一致済みなので、ここは「その展示が new.owner_id のものか」だけ見ればよい。
+    select owner_id into v_expo_owner from public.expos where id = new.expo_id;
+    if v_expo_owner is distinct from new.owner_id then
+      raise exception 'expo does not belong to this user' using errcode = 'check_violation';
+    end if;
+    -- 場所代に部屋の上限チェックは含まれない。物理上限は有料部屋と同じ15枠まで
+    -- （**early return の後ろにしか書いていなかったので、これまで一切効いていなかった**）。
+    if new.work_cap is not null and new.work_cap > 15 then
+      raise exception 'work_cap % not allowed', new.work_cap using errcode = 'check_violation';
+    end if;
+    return new;
+  end if;
+
+  select count(*) filter (where not slots_included),
+         count(*) filter (where slots_included)
+    into v_free, v_paid
+    from public.galleries
+   where owner_id = new.owner_id
+     and expo_id is null;
+
+  select count(*) into v_purchased
+    from public.purchases
+   where user_id = new.owner_id and kind = 'room';
+
+  if new.slots_included then
+    if v_paid >= v_purchased then
+      raise exception 'no unused room purchase: % paid rooms, % purchased', v_paid, v_purchased
+        using errcode = 'check_violation';
+    end if;
+    if new.work_cap is not null and new.work_cap > 15 then
+      raise exception 'work_cap % not allowed', new.work_cap using errcode = 'check_violation';
+    end if;
+  else
+    if v_free >= 1 then
+      raise exception 'the free room already exists' using errcode = 'check_violation';
+    end if;
+    if new.work_cap is not null and new.work_cap > 5 then
+      raise exception 'work_cap % not allowed for the free room', new.work_cap
+        using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end;
+$$;

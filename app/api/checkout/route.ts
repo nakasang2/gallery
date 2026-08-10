@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
-import { PRICE_USD_CENTS, itemPriceCents, paidIdsFor, SKU_LABEL, type PaidKind, type Sku } from '@/lib/pricing'
+import { PRICE_USD_CENTS, itemPriceCents, isExpoSku, paidIdsFor, SKU_LABEL, type PaidKind, type Sku } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM, PLAN } from '@/lib/limits'
 
 export const runtime = 'nodejs'
@@ -16,7 +16,11 @@ export const runtime = 'nodejs'
 // ($20, ユーザー決定 2026-08-03); `room` is a repeat-purchasable extra exhibition
 // room ($25 with its full capacity included, ユーザー決定 2026-08-09). See
 // docs/DECISIONS 2026-07-24 / 2026-08-09.
-const ONE_TIME_SKUS: readonly Sku[] = ['capacity_addon', 'single_item', 'video_pass', 'room']
+// `expo_7/14/30` は合同展示の場所代（会期ごとに別SKU＝価格も日数もSKUから一意に決まる。
+// ユーザー決定 2026-08-09）。
+const ONE_TIME_SKUS: readonly Sku[] = [
+  'capacity_addon', 'single_item', 'video_pass', 'room', 'expo_7', 'expo_14', 'expo_30',
+]
 
 // Managed Payments (enabled on the account — Stripe acts as merchant of record
 // and remits tax globally) requires an eligible tax code on every line item.
@@ -38,6 +42,8 @@ interface CheckoutBody {
   galleryId?: string
   /** capacity_addon: how many slots to add (sold by quantity) */
   quantity?: number
+  /** expo_*: どの合同展示の場所代か */
+  expoId?: string
 }
 
 export async function POST(req: NextRequest) {
@@ -116,6 +122,33 @@ export async function POST(req: NextRequest) {
     quantity = Math.min(want, remaining)
   }
 
+  // 合同展示の場所代。**自分の展示で、まだ会期が始まっていないもの**にしか払わせない。
+  // 二重課金を止めるのが主眼: 会期が始まっている展示にもう一度払えると、
+  // `record_expo_purchase` 側は台帳に行を足すだけ（`starts_at is null` の行しか
+  // 更新しない）ので、**お金だけ取って何も起きない**。
+  const expoId = (body.expoId ?? '').trim()
+  if (isExpoSku(sku)) {
+    if (!expoId) {
+      return NextResponse.json({ error: 'This purchase needs an exhibition id.' }, { status: 400 })
+    }
+    const asUser = createClient(supabaseUrl, anonKey, {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    })
+    const { data: x } = await asUser
+      .from('expos')
+      .select('id, owner_id, starts_at')
+      .eq('id', expoId)
+      .maybeSingle()
+    const row = x as { owner_id?: string; starts_at?: string | null } | null
+    if (!row || row.owner_id !== user.id) {
+      return NextResponse.json({ error: 'That exhibition is not yours.' }, { status: 403 })
+    }
+    if (row.starts_at) {
+      return NextResponse.json({ error: 'This exhibition is already running.' }, { status: 409 })
+    }
+  }
+
   // Per-unit amount in USD cents (Stripe's unit_amount for USD is cents). The
   // capacity line uses Stripe's own quantity so amount_total = unit × quantity.
   // single_item is priced per item: the kind's base price ($8 theme / $5 layout /
@@ -163,6 +196,9 @@ export async function POST(req: NextRequest) {
         item_key: itemKey,
         gallery_id: galleryId,
         slot_count: sku === 'capacity_addon' ? String(quantity) : '',
+        // 会期の日数は metadata に入れない。**SKU から引く**（`expoDaysForSku`）ので、
+        // metadata が書き換わっても払った長さは変わらない。
+        expo_id: isExpoSku(sku) ? expoId : '',
         // Which acknowledgement the buyer passed through, not free prose: the
         // wording itself lives in lib/i18n (`purchase.agreeNote`) and the Terms.
         consent: 'terms-accepted', // i18n-ok: 対人文言ではなくStripeの記録用の識別子

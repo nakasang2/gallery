@@ -2,7 +2,7 @@
 // Create an account with email + password (confirmation email flow)
 import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AuthShell from '@/components/auth/AuthShell'
 import PasswordField from '@/components/auth/PasswordField'
@@ -10,6 +10,7 @@ import GoogleButton from '@/components/auth/GoogleButton'
 import { useCooldown } from '@/components/auth/useCooldown'
 import { authErrorKey } from '@/lib/authErrors'
 import { TextWithSlot, useT } from '@/components/I18nProvider'
+import { safeNext } from '@/lib/afterAuth'
 
 const MIN_PASSWORD = 8
 const RESEND_COOLDOWN = 30
@@ -17,6 +18,10 @@ const RESEND_COOLDOWN = 30
 export default function SignUpPage() {
   const t = useT()
   const router = useRouter()
+  // 認証のあとに戻る先。招待リンク（/join/{token}）から来た人を元のリンクへ返すために
+  // 使う。**`safeNext` を通すのが必須** — 生の `?next=` はURLに載る＝誰でも書けるので、
+  // そのまま飛ばすと外部サイトへの踏み台になる。
+  const next = safeNext(useSearchParams().get('next'))
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -79,7 +84,7 @@ export default function SignUpPage() {
     }
     // With email confirmation disabled the session opens immediately; otherwise a
     // confirmation email is on its way
-    if (data.session) router.push('/me')
+    if (data.session) router.push(next)
     else {
       setSent(true)
       startCooldown(RESEND_COOLDOWN)
@@ -193,7 +198,7 @@ export default function SignUpPage() {
           onClick={() => {
             if (!agreed) return
             void supabase!.auth
-              .signInWithOAuth({ provider: 'google', options: { redirectTo: `${location.origin}/me` } })
+              .signInWithOAuth({ provider: 'google', options: { redirectTo: `${location.origin}${next}` } })
               .then(({ error }) => error && setError(t(authErrorKey(error.message))))
           }}
         />

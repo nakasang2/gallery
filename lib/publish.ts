@@ -59,6 +59,41 @@ export interface SiblingRoom {
   isMain: boolean
 }
 
+/**
+ * 合同展示として開いているとき、その展示そのもの（migration 0044/0045）。
+ *
+ * これが入っている展示は**通常展示とは別のURL体系**に居る: 部屋は `/expo/{slug}` と
+ * `/expo/{slug}/{room}` にぶら下がり、`/@ハンドル/...` では**開かない**（合同展示の部屋は
+ * `is_public` を持てないので、あちらの経路は1行も取れない ── 0045）。
+ * 扉のリンクも canonical もこれを見て決める。
+ */
+export interface ExpoContext {
+  /** URL の名前（`/expo/{slug}`）。 */
+  slug: string
+  /** 展示全体の題名。部屋の題名とは別（部屋は展示の中の1室）。 */
+  title: string
+  statement: string
+  startsAt: string | null
+  endsAt: string | null
+  /**
+   * 会期が終わって**猶予のあいだ**（まだURLは生きている）。
+   * 見せるかどうかを決めているのはDB側（`expo_is_live`）で、これは表示のための旗。
+   */
+  hasEnded: boolean
+}
+
+/**
+ * 部屋のURL。**扉と canonical で同じ関数を使う**（別々に組んでいると、扉が
+ * リダイレクトするURLや404を指すようになる ── RoomPortals の注記の通り）。
+ */
+export function roomPath(
+  ex: { username: string; expo: { slug: string } | null },
+  room: SiblingRoom
+): string {
+  const base = ex.expo ? `/expo/${ex.expo.slug}` : `/@${ex.username}`
+  return room.isMain ? base : `${base}/${room.slug}`
+}
+
 export interface PublicExhibition {
   galleryId: string
   title: string
@@ -111,8 +146,12 @@ export interface PublicExhibition {
   isMain: boolean
   /** The exhibition's own public name when one is assigned (migration 0040), else null.
    *  Only changes which URL is CANONICAL — `/@username/...` keeps serving the same page
-   *  either way (lib/expoHost explains the shape and why the host route is dormant). */
+   *  either way (lib/expoHost explains the shape and why the host route is dormant).
+   *  **Always null for a joint exhibition** — that name lives in `expo` below, and the
+   *  two names must never both get a say in the canonical. */
   expoSlug: string | null
+  /** 合同展示として開いているときだけ入る（migration 0044）。null = 通常展示。 */
+  expo: ExpoContext | null
   /** Every artist with a work hanging here, keyed by profile id (`ArtworkData.ownerId`).
    *  The name plates already carry the credit; this is for what a NAME alone cannot
    *  give — the bio, handle, avatar and links the title wall and the structured data
@@ -319,110 +358,67 @@ export async function fetchUsernameByExpoSlug(slug: string): Promise<string | nu
 }
 
 /** For the public page: fetch the full exhibition from username + slug (null if private, missing, or the fetch fails) */
-export async function fetchPublicExhibition(
-  username: string,
-  slug: string
-): Promise<PublicExhibition | null> {
-  if (!supabase) return null
-  try {
-    return await fetchPublicExhibitionInner(username, slug)
-  } catch (e) {
-    console.error('fetchPublicExhibition failed:', e)
-    return null
-  }
+/** `buildExhibition` が読む profile の形（`fetchPublicExhibitionInner` の select と対応）。 */
+interface ExhibitionProfileRow {
+  id: string
+  username: string | null
+  display_name: string | null
+  avatar_url: string | null
+  bio: string | null
+  sns: unknown
+  expo_slug?: string | null
 }
 
-async function fetchPublicExhibitionInner(
-  username: string,
-  slug: string
+/** 同じく部屋の形。**`is_public` は入っていない** — 見せてよいかを決めるのは呼び手で、
+ *  ここは「見せてよいと決まった部屋」から展示データを組むだけ。
+ *
+ *  `?` が付いているものは**古いDBで列そのものが無いことがある**（0012〜0033 未適用の
+ *  経路で select から落とす）。付いていないものは 0001 から `not null` なので、
+ *  行が取れた以上必ず値がある。 */
+interface ExhibitionGalleryRow {
+  id: string
+  title: string
+  statement: string
+  theme: string
+  layout: string
+  /** jsonb。中身は保証が無いので `unknown`（読み手が防御的に正規化する）。 */
+  layout_params?: unknown
+  frame_default: string
+  mat_default?: string | null
+  hanging_default?: string | null
+  caption_default?: string | null
+  cover_artwork_id?: string | null
+  work_cap?: number | null
+  design_overrides?: unknown
+  bgm_url?: string | null
+  guestbook_enabled?: boolean | null
+}
+
+/** 合同展示として組むときに、入口が渡すもの。 */
+interface ExpoBinding {
+  ctx: ExpoContext
+  /** その展示の部屋（`expo_id` で引いたもの）。**`is_public` では引けない。** */
+  rooms: SiblingRoom[]
+}
+
+/**
+ * **見せてよいと決まった部屋**から `PublicExhibition` を組む（配置・作品・上書きを読む）。
+ *
+ * 「見せてよいか」の判断はここに**入れない**。入口が2つあり、条件が違う:
+ *   ・`fetchPublicExhibitionInner` — `/@ハンドル{/slug}`。`is_public` で絞る
+ *   ・`fetchExpoExhibitionInner` — `/expo/{name}`。**会期**で決まる（0045。合同展示の部屋は
+ *     `is_public` を持てないので、`is_public` で絞ると1行も取れない）
+ * 判断を混ぜると、どちらかの条件がもう一方に漏れる。
+ *
+ * `expo` が渡ったときだけ、**隣の部屋の集め方が変わる**（会期の部屋 vs 作家の公開部屋）。
+ * それ以外は完全に同じ ── 作品の読み方も上書きも1か所しかない。
+ */
+async function buildExhibition(
+  slug: string,
+  profile: ExhibitionProfileRow,
+  gallery: ExhibitionGalleryRow,
+  expo: ExpoBinding | null = null
 ): Promise<PublicExhibition | null> {
-  // `expo_slug` is the newest column; drop it and carry on when 0040 has not been
-  // applied, in which case no exhibition has a slug and every canonical stays on
-  // `/@username` — exactly the behaviour before exhibition URLs existed.
-  let pfRes = await supabase!
-    .from('profiles')
-    .select('id, username, display_name, avatar_url, bio, sns, expo_slug')
-    .eq('username', username)
-    .maybeSingle()
-  if (pfRes.error) {
-    pfRes = (await supabase!
-      .from('profiles')
-      .select('id, username, display_name, avatar_url, bio, sns')
-      .eq('username', username)
-      .maybeSingle()) as unknown as typeof pfRes
-  }
-  const profile = pfRes.data as
-    | { id: string; username: string | null; display_name: string | null; avatar_url: string | null; bio: string | null; sns: unknown; expo_slug?: string | null }
-    | null
-  if (!profile) return null
-
-  let gRes = await supabase!
-    .from('galleries')
-    .select(
-      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides, bgm_url, guestbook_enabled'
-    )
-    .eq('owner_id', profile.id)
-    .eq('slug', slug)
-    .eq('is_public', true)
-    .maybeSingle()
-  if (gRes.error) {
-    // Migration 0027 (bgm_url) not applied — bgm_url is the newest column, drop it first
-    gRes = (await supabase!
-      .from('galleries')
-      .select(
-        'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides'
-      )
-      .eq('owner_id', profile.id)
-      .eq('slug', slug)
-      .eq('is_public', true)
-      .maybeSingle()) as unknown as typeof gRes
-  }
-  if (gRes.error) {
-    // Migration 0014 (design_overrides) not applied
-    gRes = (await supabase!
-      .from('galleries')
-      .select(
-        'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap'
-      )
-      .eq('owner_id', profile.id)
-      .eq('slug', slug)
-      .eq('is_public', true)
-      .maybeSingle()) as unknown as typeof gRes
-  }
-  if (gRes.error) {
-    // Migration 0013 (work_cap) not applied
-    gRes = (await supabase!
-      .from('galleries')
-      .select(
-        'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public'
-      )
-      .eq('owner_id', profile.id)
-      .eq('slug', slug)
-      .eq('is_public', true)
-      .maybeSingle()) as unknown as typeof gRes
-  }
-  if (gRes.error) {
-    // Migration 0012 (mat) not applied — the public page must still render
-    gRes = (await supabase!
-      .from('galleries')
-      .select(
-        'id, title, statement, theme, layout, layout_params, frame_default, hanging_default, caption_default, cover_artwork_id, is_public'
-      )
-      .eq('owner_id', profile.id)
-      .eq('slug', slug)
-      .eq('is_public', true)
-      .maybeSingle()) as unknown as typeof gRes
-  }
-  const gallery = gRes.data as
-    | (NonNullable<typeof gRes.data> & {
-        mat_default?: string | null
-        work_cap?: number | null
-        design_overrides?: unknown
-        bgm_url?: string | null
-      })
-    | null
-  if (!gallery) return null
-
   // Each work is embedded WITH ITS OWN OWNER's profile. A room can hold works by
   // several people (a joint exhibition, once invites are wired — migration 0037), and
   // the name plate has to credit the artist rather than whoever owns the room. The
@@ -529,30 +525,36 @@ async function fetchPublicExhibitionInner(
   //   - the count, which used to be its own head-only query
   // Fails soft to "this room alone": a self-canonical page with no doors is a safe
   // degradation, never a wrong claim about another room.
-  let rooms: SiblingRoom[] = [{ slug, title: gallery.title, isMain: true }]
-  try {
-    let rRes = await supabase!
-      .from('galleries')
-      .select('id, slug, title, is_main')
-      .eq('owner_id', profile.id)
-      .eq('is_public', true)
-      .order('created_at', { ascending: true })
-    if (rRes.error) {
-      // 0036 not applied — no flag to read, so the oldest room is the front door
-      rRes = (await supabase!
+  //
+  // 合同展示のときは**入口が集めた会期の部屋をそのまま使う**。ここで引き直さないのは、
+  // 隣の部屋の条件が違うから: 合同展示の部屋は `is_public` を持てない（0045）ので
+  // 下の問い合わせでは1室も取れず、扉が消える。
+  let rooms: SiblingRoom[] = expo ? expo.rooms : [{ slug, title: gallery.title, isMain: true }]
+  if (!expo) {
+    try {
+      let rRes = await supabase!
         .from('galleries')
-        .select('id, slug, title')
+        .select('id, slug, title, is_main')
         .eq('owner_id', profile.id)
         .eq('is_public', true)
-        .order('created_at', { ascending: true })) as unknown as typeof rRes
+        .order('created_at', { ascending: true })
+      if (rRes.error) {
+        // 0036 not applied — no flag to read, so the oldest room is the front door
+        rRes = (await supabase!
+          .from('galleries')
+          .select('id, slug, title')
+          .eq('owner_id', profile.id)
+          .eq('is_public', true)
+          .order('created_at', { ascending: true })) as unknown as typeof rRes
+      }
+      const rows = (rRes.data ?? []) as { id: string; slug: string; title: string; is_main?: boolean | null }[]
+      if (rows.length) {
+        const mainId = mainRoomOf(rows)?.id ?? null
+        rooms = rows.map((r) => ({ slug: r.slug, title: r.title, isMain: r.id === mainId }))
+      }
+    } catch {
+      /* non-fatal — see above */
     }
-    const rows = (rRes.data ?? []) as { id: string; slug: string; title: string; is_main?: boolean | null }[]
-    if (rows.length) {
-      const mainId = mainRoomOf(rows)?.id ?? null
-      rooms = rows.map((r) => ({ slug: r.slug, title: r.title, isMain: r.id === mainId }))
-    }
-  } catch {
-    /* non-fatal — see above */
   }
   const isMain = rooms.find((r) => r.slug === slug)?.isMain ?? true
   const publicGalleryCount = rooms.length
@@ -565,11 +567,16 @@ async function fetchPublicExhibitionInner(
     ownerAvatar: profile.avatar_url ?? null,
     ownerBio: profile.bio ?? '',
     ownerSns: readSns(profile.sns),
-    username: profile.username!,
+    // `/@ハンドル` 経由なら必ず入っている（それで引いたから）。合同展示は主催者の id で
+    // 引くので、ハンドルを決めていない主催者だと空になりうる ── その場合 `/@` へのリンクは
+    // 出せないが、部屋のURLは `/expo/{name}` 側で組むので展示は成立する。
+    username: profile.username ?? '',
     slug,
     theme: gallery.theme,
     layout: gallery.layout,
-    layoutParams: normalizeLayoutParams(gallery.layout_params),
+    // jsonb は形の保証が無いので `unknown` で受け、正規化に任せる（`normalizeLayoutParams`
+    // は全ての値を `Number()` と `!!` で通すので、何が入っていても既定に落ちる）。
+    layoutParams: normalizeLayoutParams(gallery.layout_params as Partial<CustomLayoutParams> | null),
     frame: gallery.frame_default,
     // Older galleries predate these columns; fall back to sensible defaults
     mat: gallery.mat_default ?? 'auto',
@@ -586,7 +593,11 @@ async function fetchPublicExhibitionInner(
     publicGalleryCount,
     rooms,
     isMain,
-    expoSlug: profile.expo_slug ?? null,
+    // 合同展示のときは**アカウントの別名を持ち込まない**。canonical を決める名前が
+    // 2つあると、どちらが勝つかが解決順に依ってしまう（0045 が名前の取り合いを
+    // 塞いだのと同じ話）。合同展示のURLは下の `expo` が決める。
+    expoSlug: expo ? null : profile.expo_slug ?? null,
+    expo: expo?.ctx ?? null,
     artists,
     frameOverrides,
     matOverrides,
@@ -595,6 +606,200 @@ async function fetchPublicExhibitionInner(
     lightOverrides,
     artworks,
   }
+}
+
+export async function fetchPublicExhibition(
+  username: string,
+  slug: string
+): Promise<PublicExhibition | null> {
+  if (!supabase) return null
+  try {
+    return await fetchPublicExhibitionInner(username, slug)
+  } catch (e) {
+    console.error('fetchPublicExhibition failed:', e)
+    return null
+  }
+}
+
+async function fetchPublicExhibitionInner(
+  username: string,
+  slug: string
+): Promise<PublicExhibition | null> {
+  // `expo_slug` is the newest column; drop it and carry on when 0040 has not been
+  // applied, in which case no exhibition has a slug and every canonical stays on
+  // `/@username` — exactly the behaviour before exhibition URLs existed.
+  let pfRes = await supabase!
+    .from('profiles')
+    .select('id, username, display_name, avatar_url, bio, sns, expo_slug')
+    .eq('username', username)
+    .maybeSingle()
+  if (pfRes.error) {
+    pfRes = (await supabase!
+      .from('profiles')
+      .select('id, username, display_name, avatar_url, bio, sns')
+      .eq('username', username)
+      .maybeSingle()) as unknown as typeof pfRes
+  }
+  const profile = pfRes.data as
+    | { id: string; username: string | null; display_name: string | null; avatar_url: string | null; bio: string | null; sns: unknown; expo_slug?: string | null }
+    | null
+  if (!profile) return null
+
+  let gRes = await supabase!
+    .from('galleries')
+    .select(
+      'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides, bgm_url, guestbook_enabled'
+    )
+    .eq('owner_id', profile.id)
+    .eq('slug', slug)
+    .eq('is_public', true)
+    .maybeSingle()
+  if (gRes.error) {
+    // Migration 0027 (bgm_url) not applied — bgm_url is the newest column, drop it first
+    gRes = (await supabase!
+      .from('galleries')
+      .select(
+        'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap, design_overrides'
+      )
+      .eq('owner_id', profile.id)
+      .eq('slug', slug)
+      .eq('is_public', true)
+      .maybeSingle()) as unknown as typeof gRes
+  }
+  if (gRes.error) {
+    // Migration 0014 (design_overrides) not applied
+    gRes = (await supabase!
+      .from('galleries')
+      .select(
+        'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, work_cap'
+      )
+      .eq('owner_id', profile.id)
+      .eq('slug', slug)
+      .eq('is_public', true)
+      .maybeSingle()) as unknown as typeof gRes
+  }
+  if (gRes.error) {
+    // Migration 0013 (work_cap) not applied
+    gRes = (await supabase!
+      .from('galleries')
+      .select(
+        'id, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public'
+      )
+      .eq('owner_id', profile.id)
+      .eq('slug', slug)
+      .eq('is_public', true)
+      .maybeSingle()) as unknown as typeof gRes
+  }
+  if (gRes.error) {
+    // Migration 0012 (mat) not applied — the public page must still render
+    gRes = (await supabase!
+      .from('galleries')
+      .select(
+        'id, title, statement, theme, layout, layout_params, frame_default, hanging_default, caption_default, cover_artwork_id, is_public'
+      )
+      .eq('owner_id', profile.id)
+      .eq('slug', slug)
+      .eq('is_public', true)
+      .maybeSingle()) as unknown as typeof gRes
+  }
+  const gallery = gRes.data as
+    | (NonNullable<typeof gRes.data> & {
+        mat_default?: string | null
+        work_cap?: number | null
+        design_overrides?: unknown
+        bgm_url?: string | null
+      })
+    | null
+  if (!gallery) return null
+
+  return buildExhibition(slug, profile, gallery)
+}
+
+/** `buildExhibition` が要る列。合同展示の部屋は 0044 以降にしか存在しないので、
+ *  こちらは**古いDB向けの段階的な取り下げをしない**（0012〜0033 が入っていない環境に
+ *  合同展示は無い）。列を1つ足すときは `ExhibitionGalleryRow` と対で足す。 */
+const EXPO_ROOM_COLS =
+  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, work_cap, design_overrides, bgm_url, guestbook_enabled, created_at'
+
+/**
+ * 合同展示（`/expo/{name}`）を読む。`room` を省くとロビー（最初の部屋）。
+ *
+ * **見せてよいかはDBが決める。** `expos` の select は会期中（＋猶予）の行しか返さず
+ * （0044 `expos_select_live`）、部屋・配置・作品も同じ条件でしか開かない（0045）。
+ * だからここには「公開かどうか」の判定が無い ── 下書きも期限切れも、単に0行になる。
+ */
+export async function fetchExpoExhibition(
+  expoSlug: string,
+  room?: string
+): Promise<PublicExhibition | null> {
+  if (!supabase) return null
+  try {
+    return await fetchExpoExhibitionInner(expoSlug, room)
+  } catch (e) {
+    console.error('fetchExpoExhibition failed:', e)
+    return null
+  }
+}
+
+async function fetchExpoExhibitionInner(
+  expoSlug: string,
+  room?: string
+): Promise<PublicExhibition | null> {
+  const { data: xRow, error: xErr } = await supabase!
+    .from('expos')
+    .select('id, owner_id, slug, title, statement, starts_at, ends_at')
+    .eq('slug', expoSlug.toLowerCase())
+    .maybeSingle()
+  // 0044 未適用（表が無い）も「そんな展示は無い」と同じ扱いにする — `/expo/{name}` は
+  // アカウント別名（0040）でも使われていて、そちらは表が無くても動く。
+  if (xErr || !xRow) return null
+  const expo = xRow as {
+    id: string
+    owner_id: string
+    slug: string
+    title: string
+    statement: string
+    starts_at: string | null
+    ends_at: string | null
+  }
+
+  // その展示の部屋。**`expo_id` で引く**（`is_public` は立たない）。会期外なら 0行。
+  const { data: rRows, error: rErr } = await supabase!
+    .from('galleries')
+    .select(EXPO_ROOM_COLS)
+    .eq('expo_id', expo.id)
+    .order('created_at', { ascending: true })
+  if (rErr) throw rErr
+  const rows = (rRows ?? []) as (ExhibitionGalleryRow & { slug: string; created_at: string })[]
+  if (!rows.length) return null
+
+  // ロビーは**いちばん古い部屋**。`is_main`（0036）は作家の公開部屋のための旗で、
+  // 合同展示の部屋には立たないので、ここでは作成順が唯一の根拠。
+  const rooms: SiblingRoom[] = rows.map((r, i) => ({ slug: r.slug, title: r.title, isMain: i === 0 }))
+  const target = room ? rows.find((r) => r.slug === room) : rows[0]
+  if (!target) return null
+
+  const { data: pfRow, error: pfErr } = await supabase!
+    .from('profiles')
+    .select('id, username, display_name, avatar_url, bio, sns')
+    .eq('id', expo.owner_id)
+    .maybeSingle()
+  if (pfErr) throw pfErr
+  if (!pfRow) return null
+
+  return buildExhibition(target.slug, pfRow as ExhibitionProfileRow, target, {
+    rooms,
+    ctx: {
+      slug: expo.slug,
+      title: expo.title,
+      statement: expo.statement,
+      startsAt: expo.starts_at,
+      endsAt: expo.ends_at,
+      // 猶予中かどうか。**見せる/見せないの判断ではない**（それはDBが済ませている）:
+      // 「終了しました」と出すためだけの旗。
+      hasEnded: !!expo.ends_at && Date.now() >= new Date(expo.ends_at).getTime(),
+    },
+  })
 }
 
 /** Owner-only private preview (client-side). Returns the SIGNED-IN viewer's OWN
@@ -627,6 +832,11 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       )
       .eq('owner_id', uid)
       .eq('is_public', false) // public galleries are already shown by the server page
+      // **合同展示の部屋を除く**（migration 0044/0045）。あちらは `is_public` を持てない
+      // ので必ず false で、この問い合わせは作成順の1室しか取らない ── 除かないと、
+      // 主催者が `/@ハンドル` を開いたときに自分の下書きの代わりに合同展示の部屋が
+      // 出る（合同展示は `/expo/{名前}` で会期に開くもので、ここの下見の対象ではない）。
+      .is('expo_id', null)
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle()
@@ -712,6 +922,10 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       rooms: [],
       // A private draft is never the canonical anything, so the slug is irrelevant here.
       expoSlug: null,
+      // この経路は**作家自身の下書き**しか返さない。合同展示の部屋はここに来ない
+      // （`is_public = false` で引いているが、合同展示の部屋は `/expo/{name}` から
+      // 会期で開くもので、主催者の下書きプレビューの対象ではない）。
+      expo: null,
       isMain: true,
       // An owner previewing their own draft: every work here is theirs, so the room's
       // owner IS the artist and the map adds nothing. `roomExhibitor` falls back to the
