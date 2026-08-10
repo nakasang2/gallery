@@ -141,6 +141,9 @@ export default function CapacityTransfer({
                   ))}
                 </select>
               </label>
+              {/* 選んだ部屋が既に上限のとき、枚数欄が動かない理由をここで伝える
+                  （そうしないと「(15/15)」の数字を読めた人にしか理由が分からない）。 */}
+              {dest && maxToDest < 1 && <p className="me-note">{t('me.transferSlotsFailedCeiling')}</p>}
               <label className="me-field">
                 <span>{t('me.transferSlotsAmount', { max: maxAmount })}</span>
                 <input
