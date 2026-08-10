@@ -628,6 +628,7 @@ export const it: PartialDictionary = {
     discard: 'Elimina la bozza',
     payNote: 'Scegliendo la durata si passa al pagamento. La mostra parte — e l’indirizzo diventa pubblico — appena il pagamento va a buon fine.',
     payOption: '{days} giorni {price}',
+    endedBanner: 'Il periodo di questa mostra è terminato.',
   },
 
   notif: {

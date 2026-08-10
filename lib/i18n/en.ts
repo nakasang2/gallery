@@ -937,6 +937,7 @@ export const en = {
     discard: 'Discard draft',
     payNote: 'Choosing a run takes you to checkout. The run begins — and the URL goes public — the moment the payment goes through.',
     payOption: '{days} days {price}',
+    endedBanner: 'This exhibition’s run has ended.',
   },
 
   notif: {

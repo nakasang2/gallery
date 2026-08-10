@@ -1,5 +1,6 @@
 // One room of an exhibition: `xibit360.art/expo/tokyo-geidai-2026/painting`.
-// See ../page.tsx for why this URL shape was chosen and why there is no listing fallback.
+// See ../page.tsx for why this URL shape was chosen, why a joint exhibition (0044) is
+// resolved before an account alias (0040), and why there is no listing fallback.
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import VisitorGallery from '@/components/gallery/VisitorGallery'
@@ -10,6 +11,7 @@ import {
   exhibitionTitle,
   exhibitionUrl,
   getExhibition,
+  getExpoExhibition,
 } from '@/lib/seo'
 import { getUsernameForExpoSlug } from '@/lib/expoResolve'
 
@@ -17,6 +19,13 @@ export const dynamic = 'force-dynamic'
 
 async function resolve(params: Promise<{ slug: string; room: string }>) {
   const { slug, room } = await params
+
+  // ① 合同展示の1室。`room` はその展示の部屋の slug（`expo_id` で引くので、他の作家の
+  //    部屋や主催者の通常の部屋には当たらない）。
+  const joint = await getExpoExhibition(slug, room)
+  if (joint) return joint
+
+  // ② アカウントの別名なら、`room` はその作家の公開部屋の slug。
   const username = await getUsernameForExpoSlug(slug)
   if (!username) return null
   return (await getExhibition(username, room)) ?? null
@@ -38,6 +47,8 @@ export async function generateMetadata({
     alternates: { canonical },
     openGraph: { title, description, type: 'website', url: canonical },
     twitter: { card: 'summary_large_image' },
+    // 終了後の猶予中は索引に入れない（../page.tsx に理由）。
+    ...(ex.expo?.hasEnded ? { robots: { index: false, follow: true } } : {}),
   }
 }
 

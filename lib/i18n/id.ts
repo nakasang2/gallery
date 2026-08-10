@@ -629,6 +629,7 @@ export const id: PartialDictionary = {
     discard: 'Buang draf',
     payNote: 'Memilih masa pamer membawa Anda ke pembayaran. Masa pamer dimulai — dan alamatnya menjadi publik — begitu pembayaran berhasil.',
     payOption: '{days} hari {price}',
+    endedBanner: 'Masa pameran ini telah berakhir.',
   },
 
   notif: {

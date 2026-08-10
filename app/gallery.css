@@ -139,7 +139,11 @@ body:not(.gallery-mode) {
 /* ---- HUD ---- */
 /* Owner private-preview banner (docs/DECISIONS 2026-07-27) — pinned bottom-centre,
    above the HUD, so the owner always knows this draft is only visible to them. */
-.owner-preview-banner {
+/* `.expo-ended-banner` は「会期が終わった合同展示（猶予中）」の帯。同じ見た目を
+   共有するのは、どちらも**このページの状態そのものを告げる**同じ役目だから
+   （どちらか一方しか出ない: 下書きの下見は `/@ハンドル` の経路にしか無い）。 */
+.owner-preview-banner,
+.expo-ended-banner {
   position: fixed;
   bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
   left: 50%;

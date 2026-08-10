@@ -902,6 +902,7 @@ export const ja: Dictionary = {
     discard: '下書きを捨てる',
     payNote: '会期を選ぶと決済に進みます。支払いが済んだ時点で会期が始まり、URLが公開されます。',
     payOption: '{days}日 {price}',
+    endedBanner: 'この展示の会期は終わりました。',
   },
 
   notif: {

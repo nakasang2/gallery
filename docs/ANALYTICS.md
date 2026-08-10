@@ -324,7 +324,7 @@ F2（セッション要約）は他が全部落ちても単体で意味を持つ
 `me_stage_view` / `me_work_upload_start` / `me_work_upload_done` / `me_work_upload_error` / `me_work_limit_hit` / `me_publish_on` / `me_publish_off` / `me_publish_blocked` / `checkout_modal_open` / `checkout_start` / `checkout_redirect` / `checkout_return` / `checkout_blocked` / `checkout_error` / `room_created`
 
 **複数展示室（2026-08-09 追加）**
-`room_switch`（ダッシュボードで編集対象の部屋を切り替えた: `to` `main`） / `room_enter`（来場者が部屋を移動した: `to` `main` `embed`。3Dの扉とHUDの部屋一覧の両方から） / `room_created`（買った枠で部屋を作った: `rooms` `purchased`）
+`room_switch`（ダッシュボードで編集対象の部屋を切り替えた: `to` `main`） / `room_enter`（来場者が部屋を移動した: `to` `main` `embed` `expo`。3Dの扉とHUDの部屋一覧の両方から。`expo` は合同展示の名前で、通常展示では `null` ── 場所代を払った会期の中で来場者が何室まわったかは、通常展示の回遊とは別に読む） / `room_created`（買った枠で部屋を作った: `rooms` `purchased`）
 
 `gallery_arrive` に `room_slug` `room_main` `rooms` を追加した。**多室の展示では1人の来場でこのイベントが部屋数ぶん出る**（部屋ごとに別ページ＝別ロードなので、部屋の閲覧としては正しい）。したがって:
 

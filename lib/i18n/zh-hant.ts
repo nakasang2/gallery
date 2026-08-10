@@ -628,6 +628,7 @@ export const zhHant: PartialDictionary = {
     discard: '捨棄草稿',
     payNote: '選擇展期後將進入結帳。付款完成的那一刻展期開始，網址隨即公開。',
     payOption: '{days} 天 {price}',
+    endedBanner: '本展覽的展期已結束。',
   },
 
   notif: {

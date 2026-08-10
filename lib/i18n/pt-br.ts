@@ -629,6 +629,7 @@ export const ptBr: PartialDictionary = {
     discard: 'Descartar rascunho',
     payNote: 'Escolher o período leva ao pagamento. O período começa — e o endereço fica público — assim que o pagamento é aprovado.',
     payOption: '{days} dias {price}',
+    endedBanner: 'O período desta exposição terminou.',
   },
 
   notif: {

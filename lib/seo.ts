@@ -22,9 +22,11 @@
 // public galleries (the C option, deliberately not taken).
 import { cache } from 'react'
 import {
+  fetchExpoExhibition,
   fetchPublicExhibition,
   fetchPublicProfile,
   isPlaceholderTitle,
+  roomPath,
   type PublicExhibition,
   type PublicProfile,
 } from './publish'
@@ -42,6 +44,8 @@ import type { ArtworkData } from './artworks'
  *  arguments, so the second call inside one request is free. */
 export const getExhibition = cache(fetchPublicExhibition)
 export const getProfile = cache(fetchPublicProfile)
+/** 合同展示（`/expo/{name}`）。同じ理由で memo する。 */
+export const getExpoExhibition = cache(fetchExpoExhibition)
 /** Same deal for a guide: `generateMetadata` and the page body both read it. */
 export const getArticle = cache(fetchArticle)
 
@@ -60,7 +64,9 @@ export function artistPath(username: string): string {
  *  off `publicGalleryCount === 1`, which said the same thing back when one room was
  *  the only possibility. */
 export function exhibitionPath(ex: PublicExhibition): string {
-  return ex.isMain ? artistPath(ex.username) : `/@${ex.username}/${ex.slug}`
+  // 扉（RoomPortals.enterRoom）と同じ関数で組む。別々に書くと、扉がリダイレクトする
+  // URLや404を指すようになる。合同展示なら `/expo/{name}` 側にぶら下がる。
+  return roomPath(ex, { slug: ex.slug, title: ex.title, isMain: ex.isMain })
 }
 
 function abs(path: string): string {
@@ -83,6 +89,11 @@ function abs(path: string): string {
  * Without a slug this is exactly what it always was.
  */
 export function exhibitionUrl(ex: PublicExhibition): string {
+  // 合同展示は `/expo/{展示の名前}` でしか開かない（`/@ハンドル/...` では 0行になる ──
+  // 0045）。ホスト形式（`expoHostsEnabled`）はアカウント別名のための仕掛けなので
+  // ここでは使わない: 合同展示は会期ごとに生まれて消えるものを1つのドメインに載せる
+  // 話ではない。
+  if (ex.expo) return abs(exhibitionPath(ex))
   if (!ex.expoSlug) return abs(exhibitionPath(ex))
   const room = ex.isMain ? '' : `/${ex.slug}`
   return expoHostsEnabled ? expoUrl(ex.expoSlug, room) : abs(expoPath(ex.expoSlug, room))

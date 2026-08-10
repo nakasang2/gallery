@@ -629,6 +629,7 @@ export const fr: PartialDictionary = {
     discard: 'Supprimer le brouillon',
     payNote: 'Choisir une durée vous mène au paiement. L’exposition démarre — et l’URL devient publique — dès que le paiement est validé.',
     payOption: '{days} jours {price}',
+    endedBanner: 'La période de cette exposition est terminée.',
   },
 
   notif: {

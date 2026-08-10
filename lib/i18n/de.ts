@@ -629,6 +629,7 @@ export const de: PartialDictionary = {
     discard: 'Entwurf verwerfen',
     payNote: 'Mit der Wahl der Laufzeit geht es zur Kasse. Die Laufzeit beginnt — und die URL wird öffentlich — sobald die Zahlung durch ist.',
     payOption: '{days} Tage {price}',
+    endedBanner: 'Die Laufzeit dieser Ausstellung ist beendet.',
   },
 
   notif: {

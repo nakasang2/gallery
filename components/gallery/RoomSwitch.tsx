@@ -54,7 +54,7 @@ export default function RoomSwitch() {
         <button
           type="button"
           className="roomswitch-prompt"
-          onClick={() => (only ? enterRoom(visitor.username, only) : setPickerOpen(true))}
+          onClick={() => (only ? enterRoom(visitor, only) : setPickerOpen(true))}
         >
           <span className="roomswitch-prompt-icon" aria-hidden="true">→</span>
           {only ? t('hud.roomWalkThrough', { name: label(only.title, only.slug) }) : t('hud.roomChoose')}
@@ -80,7 +80,7 @@ export default function RoomSwitch() {
                     className={`roomswitch-item${here ? ' current' : ''}`}
                     aria-current={here ? 'page' : undefined}
                     disabled={here}
-                    onClick={() => enterRoom(visitor.username, room)}
+                    onClick={() => enterRoom(visitor, room)}
                   >
                     {label(room.title, room.slug)}
                     {here && <span className="roomswitch-here">{t('hud.roomHere')}</span>}

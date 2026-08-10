@@ -630,6 +630,7 @@ export const zhHans: PartialDictionary = {
     discard: '舍弃草稿',
     payNote: '选择展期后将进入结算。付款完成的那一刻展期开始，网址随即公开。',
     payOption: '{days} 天 {price}',
+    endedBanner: '本展览的展期已结束。',
   },
 
   notif: {

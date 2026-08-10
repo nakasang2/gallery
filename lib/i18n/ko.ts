@@ -694,6 +694,7 @@ export const ko: PartialDictionary = {
     discard: '초안 버리기',
     payNote: '회기를 고르면 결제로 넘어갑니다. 결제가 완료된 시점에 회기가 시작되고 URL이 공개됩니다.',
     payOption: '{days}일 {price}',
+    endedBanner: '이 전시의 회기가 끝났습니다.',
   },
 
   notif: {

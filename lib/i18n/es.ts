@@ -629,6 +629,7 @@ export const es: PartialDictionary = {
     discard: 'Descartar borrador',
     payNote: 'Al elegir el periodo pasarás al pago. El periodo empieza —y la URL se hace pública— en cuanto se completa el pago.',
     payOption: '{days} días {price}',
+    endedBanner: 'El periodo de esta exposición ha terminado.',
   },
 
   notif: {

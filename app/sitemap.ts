@@ -98,8 +98,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       return []
     }
   })()
+  // 会期中の合同展示（migration 0044）。**部屋は上の問い合わせには入らない** ──
+  // 合同展示の部屋は `is_public` を持てない（0045）ので、そこから拾う道が無い。
+  // 主催者は場所代を払って会期を買っているので、その会期のあいだは索引に載せる。
+  //
+  // 猶予中（会期は終わったがURLは生きている）は載せない: そのページは「終了しました」と
+  // 出すだけで、ページ側も `robots: noindex` を返す。sitemap と canonical/robots が
+  // 食い違うのは、2026-07-30 のSEO整理が潰したのと同じ種類の間違い。
+  const exposQ = (async (): Promise<{ id: string; slug: string; ends_at: string | null }[]> => {
+    try {
+      const { data, error } = await supabase!
+        .from('expos')
+        .select('id, slug, ends_at')
+        .order('created_at', { ascending: true })
+      // 0044 未適用（表が無い）なら「合同展示は無い」。sitemap は落とさない。
+      if (error) return []
+      const rows = (data ?? []) as { id: string; slug: string; ends_at: string | null }[]
+      // RLS は猶予中のものも返すので、**会期そのものが生きているものだけ**に絞る。
+      return rows.filter((x) => !!x.ends_at && new Date(x.ends_at).getTime() > Date.now())
+    } catch {
+      return []
+    }
+  })()
   const articlesQ = fetchPublishedArticles().catch(() => [] as Awaited<ReturnType<typeof fetchPublishedArticles>>)
-  const [galleries, articles] = await Promise.all([galleriesQ, articlesQ])
+  const [galleries, expos, articles] = await Promise.all([galleriesQ, exposQ, articlesQ])
 
   // Group by artist first: with exactly one public gallery, `/@name` renders that
   // exhibition and `/@name/{slug}` is the same page again. Listing both — which this
@@ -157,10 +179,50 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
+  // 合同展示。ロビー（`/expo/{name}`）と、その中の部屋（`/expo/{name}/{room}`）。
+  // 部屋も載せるのは、**扉が canvas の中にあってクローラは辿れない**から（plain-HTML
+  // の控えは作品を出すが部屋のリンクは出さない）。載せなければロビーの1室しか索引に
+  // 入らない。ロビーは `fetchExpoExhibition` と同じ「いちばん古い部屋」なので、
+  // ロビー自身の `/expo/{name}/{room}` は canonical ではなく、ここには入れない。
+  const expoPages: MetadataRoute.Sitemap = []
+  if (expos.length) {
+    // 会期中の展示の部屋を1度で引く。作成順なので、各展示の先頭がロビー
+    // （`fetchExpoExhibition` と同じ根拠）。
+    let expoRooms: { slug: string; updated_at: string | null; expo_id: string }[] = []
+    try {
+      const { data } = await supabase!
+        .from('galleries')
+        .select('slug, updated_at, expo_id')
+        .in('expo_id', expos.map((x) => x.id))
+        .order('created_at', { ascending: true })
+      expoRooms = (data ?? []) as typeof expoRooms
+    } catch {
+      /* 部屋が引けなければロビーだけ載せる（sitemap は落とさない） */
+    }
+    for (const x of expos) {
+      expoPages.push({
+        url: `${base}/expo/${x.slug}`,
+        lastModified: now,
+        changeFrequency: 'daily',
+        priority: 0.8,
+      })
+      const mine = expoRooms.filter((r) => r.expo_id === x.id)
+      for (const r of mine.slice(1)) {
+        expoPages.push({
+          url: `${base}/expo/${x.slug}/${r.slug}`,
+          lastModified: r.updated_at ? new Date(r.updated_at) : now,
+          changeFrequency: 'daily',
+          priority: 0.7,
+        })
+      }
+    }
+  }
+
   return [
     ...staticPages,
     ...artistPages,
     ...rooms,
+    ...expoPages,
     ...articles.map((a) => ({
       url: articleUrl(base, `/articles/${a.slug}`),
       lastModified: a.publishedAt ? new Date(a.publishedAt) : now,
