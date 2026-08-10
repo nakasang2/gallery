@@ -105,6 +105,10 @@ set local "request.jwt.claim.sub" = 'd3000000-0000-0000-0000-0000000000d3';
 select public.admin_add_room('d3000000-0000-0000-0000-0000000000d3');
 rollback to s;
 set local role anon;
+-- **クレームも消す。** `reset role` はロールだけを戻し、`request.jwt.claim.sub` は
+-- 残る ── そのままだと anon でも `auth.uid()` が直前の人を返し、所有者ポリシーが
+-- 通ってしまう（実測 2026-08-09。「未ログインから下書きが見える」と誤診しかけた）。
+set local "request.jwt.claim.sub" = '';
 \echo -n '12 未ログインは呼べない → '
 select public.admin_add_room('d3000000-0000-0000-0000-0000000000d3');
 rollback to s;

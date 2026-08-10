@@ -48,6 +48,10 @@ begin;
 \echo '--- 回帰: 未ログインの来場者が公開サイトを使えるか（0041 の事故） ---'
 savepoint s;
 set local role anon;
+-- **クレームも消す。** `reset role` はロールだけを戻し、`request.jwt.claim.sub` は
+-- 残る ── そのままだと anon でも `auth.uid()` が直前の人を返し、所有者ポリシーが
+-- 通ってしまう（実測 2026-08-09。「未ログインから下書きが見える」と誤診しかけた）。
+set local "request.jwt.claim.sub" = '';
 \echo -n 'A1 公開ギャラリーを読める: '
 select count(*)=1 from public.galleries where is_public;
 \echo -n 'A2 公開ギャラリーに掛かった作品を読める: '
@@ -88,6 +92,10 @@ insert into public.notifications (user_id, kind, title)
 rollback to s;
 
 set local role anon;
+-- **クレームも消す。** `reset role` はロールだけを戻し、`request.jwt.claim.sub` は
+-- 残る ── そのままだと anon でも `auth.uid()` が直前の人を返し、所有者ポリシーが
+-- 通ってしまう（実測 2026-08-09。「未ログインから下書きが見える」と誤診しかけた）。
+set local "request.jwt.claim.sub" = '';
 \echo -n '03 未ログインでも作れない → '
 insert into public.notifications (user_id, kind, title)
   values ('aaaaaaaa-0000-0000-0000-000000000001', 'like', 'x');
@@ -108,6 +116,10 @@ release s;
 
 \echo '--- いいね（匿名・作品ごと1日1件にまとめる） ---'
 set local role anon;
+-- **クレームも消す。** `reset role` はロールだけを戻し、`request.jwt.claim.sub` は
+-- 残る ── そのままだと anon でも `auth.uid()` が直前の人を返し、所有者ポリシーが
+-- 通ってしまう（実測 2026-08-09。「未ログインから下書きが見える」と誤診しかけた）。
+set local "request.jwt.claim.sub" = '';
 insert into public.likes (gallery_id, artwork_id) values
   ('9a000000-0000-0000-0000-0000000000f1','a0000000-0000-0000-0000-0000000000a1'),
   ('9a000000-0000-0000-0000-0000000000f1','a0000000-0000-0000-0000-0000000000a1'),
@@ -125,6 +137,10 @@ select title='夜の庭' from public.notifications where kind='like';
 select actor_name is null from public.notifications where kind='like';
 
 set local role anon;
+-- **クレームも消す。** `reset role` はロールだけを戻し、`request.jwt.claim.sub` は
+-- 残る ── そのままだと anon でも `auth.uid()` が直前の人を返し、所有者ポリシーが
+-- 通ってしまう（実測 2026-08-09。「未ログインから下書きが見える」と誤診しかけた）。
+set local "request.jwt.claim.sub" = '';
 insert into public.likes (gallery_id, artwork_id)
   values ('9a000000-0000-0000-0000-0000000000f1','a0000000-0000-0000-0000-0000000000a2');
 reset role;
@@ -134,6 +150,10 @@ select count(*)=2 from public.notifications where kind='like';
 \echo -n '12 既読にしたあとの新しいいいねは新しい通知になる: '
 update public.notifications set read_at=now() where kind='like';
 set local role anon;
+-- **クレームも消す。** `reset role` はロールだけを戻し、`request.jwt.claim.sub` は
+-- 残る ── そのままだと anon でも `auth.uid()` が直前の人を返し、所有者ポリシーが
+-- 通ってしまう（実測 2026-08-09。「未ログインから下書きが見える」と誤診しかけた）。
+set local "request.jwt.claim.sub" = '';
 insert into public.likes (gallery_id, artwork_id)
   values ('9a000000-0000-0000-0000-0000000000f1','a0000000-0000-0000-0000-0000000000a1');
 reset role;
@@ -154,6 +174,10 @@ release s;
 
 \echo '--- 芳名帳（1件ずつ・署名は載せる） ---'
 set local role anon;
+-- **クレームも消す。** `reset role` はロールだけを戻し、`request.jwt.claim.sub` は
+-- 残る ── そのままだと anon でも `auth.uid()` が直前の人を返し、所有者ポリシーが
+-- 通ってしまう（実測 2026-08-09。「未ログインから下書きが見える」と誤診しかけた）。
+set local "request.jwt.claim.sub" = '';
 insert into public.guestbook (gallery_id, name, message)
   values ('9a000000-0000-0000-0000-0000000000f1','ゆき','とても良かったです');
 insert into public.guestbook (gallery_id, name, message)
@@ -286,6 +310,10 @@ savepoint s;
 -- プロフィールが消えた作品（宛先が居ない）へのいいね。push_notification は黙って
 -- 何もしないので、いいね自体は成功しなければならない。
 set local role anon;
+-- **クレームも消す。** `reset role` はロールだけを戻し、`request.jwt.claim.sub` は
+-- 残る ── そのままだと anon でも `auth.uid()` が直前の人を返し、所有者ポリシーが
+-- 通ってしまう（実測 2026-08-09。「未ログインから下書きが見える」と誤診しかけた）。
+set local "request.jwt.claim.sub" = '';
 insert into public.likes (gallery_id, artwork_id)
   values ('9a000000-0000-0000-0000-0000000000f1','b0000000-0000-0000-0000-0000000000b1');
 reset role;
