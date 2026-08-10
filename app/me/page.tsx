@@ -495,6 +495,9 @@ function GalleryCard({
   roomCount,
   isMain,
   roomAdd,
+  rooms,
+  frontDoorId,
+  onSwitchRoom,
 }: {
   row: GalleryRow
   onChanged: () => void
@@ -510,6 +513,14 @@ function GalleryCard({
   /** Whether `/@username` renders THIS room. Resolved by the caller through
    *  `mainRoomOf()`, so the pre-0036 fallback ("oldest room") is decided in one place. */
   isMain: boolean
+  /** 部屋の切替タブに出す一覧（自分＝通常展示の部屋だけ。合同展示の部屋は含まない）。
+   *  **ユーザー指示 2026-08-10**: 以前は全ステージの上に一律で出していたが、部屋の
+   *  中身が変わるのは「部屋」と「配置」ステージだけなので、そこにだけ置く。 */
+  rooms?: GalleryRow[]
+  /** `/@username` が開く部屋のid（切替タブの目印用）。 */
+  frontDoorId?: string | null
+  /** タブを押したときの切替。トラッキングと `roomId` の更新は呼び手（ページ側）が持つ。 */
+  onSwitchRoom?: (id: string) => void
 }) {
   const roomOffer = useRoomOffer()
   const t = useT()
@@ -1346,6 +1357,32 @@ function GalleryCard({
     </div>
   ) : null
 
+  // 部屋の切替タブ。**「部屋」「配置」ステージの中にだけ置く**（ユーザー指示
+  // 2026-08-10）。以前は全ステージの上に一律で出していたが、部屋によって中身が
+  // 変わるのはこの2ステージだけ（作品は口座全体の作品庫・公開は「いま開いている
+  // 部屋」の話で、どちらも切替の意味が薄い）。ロジックは変えず、置き場所だけ動かした。
+  const roomSwitcher = rooms && rooms.length > 1 && (
+    <nav className="me-rooms" aria-label={t('me.roomsNav')}>
+      {rooms.map((g) => {
+        const label = isPlaceholderTitle(g.title) ? g.slug : g.title
+        return (
+          <button
+            key={g.id}
+            type="button"
+            className={`me-room-tab${g.id === row.id ? ' active' : ''}`}
+            aria-current={g.id === row.id ? 'page' : undefined}
+            onClick={() => onSwitchRoom?.(g.id)}
+          >
+            {label}
+            {g.id === frontDoorId && (
+              <span className="me-room-main" title={t('me.frontDoor')}>{t('me.frontDoorShort')}</span>
+            )}
+          </button>
+        )
+      })}
+    </nav>
+  )
+
   return (
     <>
     {/* The stage bar is the only navigation (the header card and the top tabs are
@@ -1409,6 +1446,7 @@ function GalleryCard({
       <div className="me-card me-subcard">
       {stage === 'room' ? (
         <>
+        {roomSwitcher}
         {/* The room's editing surface: sticky 3D preview on the left, its design on the right */}
         <div className="works-detail">
         <GalleryPreview
@@ -1829,6 +1867,8 @@ function GalleryCard({
         /* Placement is a top-down room map (ユーザー指示 2026-07-31): drag a work from the
            tray onto a wall slot to hang it, drag a hung work onto another to swap them.
            editPlacement persists the arrangement + rebuilds the public room. */
+        <>
+        {roomSwitcher}
         <div className="placement-stage">
           {cloudArtworks.length > 0 ? (
             <>
@@ -1856,6 +1896,7 @@ function GalleryCard({
             </>
           )}
         </div>
+        </>
       ) : stage === 'participants' && row.expo_id ? (
         /* 合同展示の部屋だけに出るタブ（ユーザー指示 2026-08-10）。中身は
            `ExpoManager` の各展示カードにあった参加者パネルそのもの ── 招く・承認する・
@@ -2962,35 +3003,6 @@ export default function MePage() {
                   {galleries !== null && !loadErr && galleries.length === 0 && (
                     <CreateCard onCreated={() => void reload()} />
                   )}
-                  {/* The room switcher. One room renders nothing here (the stage bar is
-                      already the only navigation); a second room turns it into a row of
-                      tabs, so the screen below always edits exactly one room. */}
-                  {rooms.length > 1 && (
-                    <nav className="me-rooms" aria-label={t('me.roomsNav')}>
-                      {rooms.map((g) => {
-                        const label = isPlaceholderTitle(g.title) ? g.slug : g.title
-                        return (
-                          <button
-                            key={g.id}
-                            type="button"
-                            className={`me-room-tab${g.id === current?.id ? ' active' : ''}`}
-                            aria-current={g.id === current?.id ? 'page' : undefined}
-                            onClick={() => {
-                              track('room_switch', { to: g.slug, main: g.id === frontDoor?.id })
-                              setRoomId(g.id)
-                            }}
-                          >
-                            {label}
-                            {/* Which room `/@name` opens on — the one fact that makes the
-                                tabs more than a list of names. */}
-                            {g.id === frontDoor?.id && (
-                              <span className="me-room-main" title={t('me.frontDoor')}>{t('me.frontDoorShort')}</span>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </nav>
-                  )}
                   {current && (
                     <GalleryCard
                       key={current.id}
@@ -2998,6 +3010,15 @@ export default function MePage() {
                       onChanged={() => void reload()}
                       roomCount={rooms.length}
                       isMain={current.id === frontDoor?.id}
+                      /* 部屋の切替タブ（ユーザー指示 2026-08-10: 「部屋」「配置」ステージの
+                         中だけに置く。UIとロジックは変えず場所だけ動かした）。 */
+                      rooms={rooms}
+                      frontDoorId={frontDoor?.id ?? null}
+                      onSwitchRoom={(id) => {
+                        const g = rooms.find((r) => r.id === id)
+                        track('room_switch', { to: g?.slug, main: id === frontDoor?.id })
+                        setRoomId(id)
+                      }}
                       /* 未使用の部屋枠、または購入の誘い。**「部屋」ステージの中**に置く
                          （ユーザー指示 2026-08-09「部屋の中に追加して欲しい」）。以前は
                          ダッシュボード直下＝どのステージを見ていても足元に居たので、
