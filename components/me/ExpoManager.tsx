@@ -4,16 +4,18 @@
 // 通常展示（部屋）とは別の実体なので、**ダッシュボードの第3のタブ**として独立させた
 // ── 部屋の設定の中に混ぜると「どの部屋の話か」が分からなくなる。
 //
-// 流れ: ①下書きを作る（無料・誰にも見えない）→ ②部屋を用意して作品を掛ける
-// → ③**会期を選んで公開＝支払い** → ④会期中は `/expo/{name}` が見える
-// → ⑤終了後7日でURLごと消える（同じ名前で次の会期を立てられる）。
+// **ここは「展示一覧＋部屋を増やす」だけの軽い画面**（ユーザー指示 2026-08-10）。
+// 参加者の招待・会期を選んで公開（＝決済）は、**部屋を開いた先の編集画面**
+// （通常展示と同じタブバー。合同展示の部屋にだけ「参加者」タブが出る／「公開」タブの
+// 中身が会期ベースに変わる）に移した。ここに残るのは「展示を作る」「部屋を足す」
+// 「部屋を開く」だけ。
 //
-// **「公開する」ボタンは決済へ送るだけ。** 会期を始めるのは Stripe の webhook だけで、
-// この画面から会期を始める経路は無い（0044 の `guard_expo_run` が塞いでいる）。
+// 流れ: ①下書きを作る（無料・誰にも見えない）→ ②部屋を足す → ③部屋を開いて招待・
+// 作品掛け・会期を選んで公開 → ④会期中は `/expo/{name}` が見える → ⑤終了後7日で
+// URLごと消える（同じ名前で次の会期を立てられる）。
 import { useCallback, useEffect, useState } from 'react'
 import { useT } from '@/components/I18nProvider'
 import { useGallery } from '@/lib/store'
-import { expoRunOptions, usd } from '@/lib/pricing'
 import { listExpoRooms, type GalleryRow } from '@/lib/galleries'
 import {
   EXPO_SLUG_RE,
@@ -25,11 +27,8 @@ import {
   expoPhase,
   expoPurgeAt,
   listMyExpos,
-  startExpoCheckout,
-  updateExpo,
   type Expo,
 } from '@/lib/expos'
-import { ParticipantsPanel } from '@/components/me/ExpoInvites'
 import { track } from '@/lib/analytics'
 
 /** 日付だけ（時刻は会期の話では意味がないので出さない）。 */
@@ -53,14 +52,6 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
   const [creating, setCreating] = useState(false)
   const [slug, setSlug] = useState('')
   const [title, setTitle] = useState('')
-  // 会期の長さは**作成時に選ばせない**（支払いの直前に選ぶ）。作成フォームに置くと
-  // 「作った時点で決まった」ように見えるが、確定するのは決済が通ったときだけ。
-  // DB側の既定（14日）のまま作る。
-  /** どの展示の会期選びを開いているか。 */
-  const [payingId, setPayingId] = useState<string | null>(null)
-  /** どの展示の参加者を開いているか。**畳んであるのが既定** ── 一覧が主役で、
-   *  招待は「その展示を運営しに入った」ときの作業。 */
-  const [peopleId, setPeopleId] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
     if (!user) return
@@ -197,53 +188,34 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
                   </ul>
                 )}
 
+                {/* 壁が空のまま公開させない（来場者が空の部屋に着く）ヒントだけここに残す。
+                    招待・会期を選んで公開は、部屋を開いた先（部屋編集画面の「参加者」
+                    「公開」タブ）でする（ユーザー指示 2026-08-10）。 */}
+                {phase === 'draft' && xr.length === 0 && (
+                  <p className="me-note">{t('expo.needRoomFirst')}</p>
+                )}
+
                 <div className="hako-actions expo-actions">
-                  {/* 参加者。**合同展示に招く道はここだけ**（部屋への招待は 0047 で撤去した）。
-                      会期が終わっても開けるままにするのは、誰が出していたかを後から
-                      確かめられるようにするため。 */}
                   <button
                     type="button"
                     className="btn-line"
-                    onClick={() => {
-                      const next = peopleId === x.id ? null : x.id
-                      setPeopleId(next)
-                      if (next) track('me_stage_view', { stage: 'participants', from: 'expo' })
-                    }}
-                  >
-                    {peopleId === x.id ? t('invite.hideParticipants') : t('invite.openParticipants')}
-                  </button>
-
-                  {xr.length === 0 && (
-                    <button
-                      type="button"
-                      className="btn-line"
-                      disabled={busy}
-                      onClick={() =>
-                        void run(async () => {
-                          await addExpoRoom(user.id, x.id, {
-                            // 主催者の他の部屋とぶつからない名前にする（一意制約は
-                            // (owner_id, slug)）。
-                            slug: `expo-${x.slug}`.slice(0, 40),
-                            title: x.title || x.slug,
-                          })
-                          track('expo_room_add', { expo: x.slug })
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        const roomId = await addExpoRoom(user.id, x.id, {
+                          // 主催者の他の部屋とぶつからない名前にする（一意制約は
+                          // (owner_id, slug)）。既に部屋があれば連番で。
+                          slug: `expo-${x.slug}-${xr.length + 1}`.slice(0, 40),
+                          title: x.title || x.slug,
                         })
-                      }
-                    >
-                      {t('expo.addRoom')}
-                    </button>
-                  )}
-
-                  {phase === 'draft' && payingId !== x.id && (
-                    <button
-                      type="button"
-                      className="btn-line btn-gold"
-                      disabled={busy || xr.length === 0}
-                      onClick={() => setPayingId(x.id)}
-                    >
-                      {t('expo.openIt')}
-                    </button>
-                  )}
+                        track('expo_room_add', { expo: x.slug })
+                        // 作った部屋をすぐ開く（そこで招待・作品掛け・会期選びをする）。
+                        onOpenRoom?.(roomId)
+                      })
+                    }
+                  >
+                    {t('expo.addRoom')}
+                  </button>
 
                   {phase === 'draft' && (
                     <button
@@ -256,48 +228,6 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
                     </button>
                   )}
                 </div>
-
-                {peopleId === x.id && (
-                  <div className="expo-people">
-                    <ParticipantsPanel expoId={x.id} />
-                  </div>
-                )}
-
-                {/* 壁が空のまま公開させない（来場者が空の部屋に着く）。 */}
-                {phase === 'draft' && xr.length === 0 && (
-                  <p className="me-note">{t('expo.needRoomFirst')}</p>
-                )}
-
-                {/* 会期を選ぶ＝支払いへ。**ここで会期は始まらない。** */}
-                {phase === 'draft' && payingId === x.id && (
-                  <div className="expo-pay">
-                    <p className="me-note" style={{ marginTop: 0 }}>{t('expo.payNote')}</p>
-                    <div className="hako-actions">
-                      {expoRunOptions().map((o) => (
-                        <button
-                          key={o.sku}
-                          type="button"
-                          className="btn-line btn-gold"
-                          disabled={busy}
-                          onClick={() =>
-                            void run(async () => {
-                              track('expo_checkout', { expo: x.slug, days: o.days })
-                              // 会期の長さは決済に入る値なので、先に保存しておく
-                              // （webhook は SKU から日数を引くので保存は表示用）。
-                              await updateExpo(x.id, { durationDays: o.days })
-                              window.location.href = await startExpoCheckout(x.id, o.sku)
-                            })
-                          }
-                        >
-                          {t('expo.payOption', { days: o.days, price: usd(o.cents) })}
-                        </button>
-                      ))}
-                      <button type="button" className="btn-line" onClick={() => setPayingId(null)} disabled={busy}>
-                        {t('common.cancel')}
-                      </button>
-                    </div>
-                  </div>
-                )}
               </li>
             )
           })}

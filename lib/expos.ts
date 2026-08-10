@@ -89,6 +89,21 @@ export async function listMyExpos(ownerId: string): Promise<Expo[]> {
   return ((data ?? []) as ExpoRow[]).map(rowToExpo)
 }
 
+/**
+ * 1件だけ、idで直接引く。**部屋編集画面（合同展示の部屋の「公開」ステージ）が、
+ * その部屋が属する展示の題名・会期を出すために使う**（ユーザー指示 2026-08-10:
+ * 通常展示と合同展示の部屋編集画面を同じ形にする）。見つからなければ null。
+ */
+export async function getExpoById(id: string): Promise<Expo | null> {
+  const { data, error } = await supabase!
+    .from('expos')
+    .select(COLS)
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return data ? rowToExpo(data as ExpoRow) : null
+}
+
 export type ExpoError = 'slug_taken' | 'slug_invalid' | 'missing_table' | 'other'
 
 /** 生のDBエラーを、UIが文言を選べる形に翻訳する。 */

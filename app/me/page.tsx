@@ -15,7 +15,7 @@ import { SIZE_GROUPS, matchPreset, presetByLabel } from '@/lib/artSizes'
 import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
 import WorkDesign from '@/components/WorkDesign'
 import PlacementEditor from '@/components/PlacementEditor'
-import { InviteInbox } from '@/components/me/ExpoInvites'
+import { InviteInbox, ParticipantsPanel } from '@/components/me/ExpoInvites'
 import { listSubmittedArtworksForRoom } from '@/lib/invites'
 import PurchaseModal from '@/components/PurchaseModal'
 import HelpModal from '@/components/HelpModal'
@@ -24,7 +24,16 @@ import NotificationBell from '@/components/me/NotificationBell'
 import ExpoManager from '@/components/me/ExpoManager'
 import RoomExpoBadge from '@/components/me/RoomExpoBadge'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
-import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_USD_CENTS, type PaidKind } from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_USD_CENTS, usd, expoRunOptions, type PaidKind } from '@/lib/pricing'
+import {
+  getExpoById,
+  expoPhase,
+  expoPurgeAt,
+  expoPath,
+  updateExpo,
+  startExpoCheckout,
+  type Expo,
+} from '@/lib/expos'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
@@ -516,8 +525,33 @@ function GalleryCard({
   // profile tabs are gone — ユーザー指示 2026-07-30). The publish flow (works → room →
   // placement → publish) leads, then the two housekeeping stages (guestbook, profile).
   // Order is visible but never enforced — every stage stays reachable.
-  type Stage = 'works' | 'room' | 'placement' | 'publish' | 'profile'
+  // `participants` は合同展示の部屋（`row.expo_id` が付いている）だけに出す
+  // （ユーザー指示 2026-08-10: 通常展示と合同展示の部屋編集画面を「タブの数が違うだけ」
+  // の同じ形にする。招待の管理は `ExpoManager` から部屋編集の中へ移した）。
+  type Stage = 'works' | 'room' | 'placement' | 'participants' | 'publish' | 'profile'
   const [stage, setStage] = useState<Stage>('works')
+  // この部屋が属する展示（合同展示の部屋のときだけ）。会期・題名を「公開」ステージで
+  // 出すため。通常展示の部屋では常に null。
+  const [expo, setExpo] = useState<Expo | null>(null)
+  useEffect(() => {
+    if (!row.expo_id) {
+      setExpo(null)
+      return
+    }
+    let alive = true
+    void getExpoById(row.expo_id).then((x) => {
+      if (alive) setExpo(x)
+    }).catch(() => {
+      if (alive) setExpo(null)
+    })
+    return () => {
+      alive = false
+    }
+  }, [row.expo_id])
+  // 通常展示に戻した直後、タブが「参加者」に居座って中身の無い画面にならないように。
+  useEffect(() => {
+    if (stage === 'participants' && !row.expo_id) setStage('works')
+  }, [stage, row.expo_id])
   // The work being edited in the shared editor sheet (works + placement stages).
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // Phones render the editor sheet as a bottom sheet over the grid/map.
@@ -1311,12 +1345,13 @@ function GalleryCard({
           // 部屋 → 作品 の順（ユーザー指示 2026-08-09。空間を決めてから中身を入れる）。
           ['room', t('me.navRoom'), null],
           ['works', t('me.stageWorks'), cloudArtworks.length || null],
-          // **参加者はタブに出さない**（ユーザー指示 2026-08-09: 合同展示はオプションで、
-          // 既定で見せるものではない）。到達経路は配置ステージの「作家を招く」だけ
-          // ── 恒久的な置き場所は未決なので、**新しい入口を勝手に作らない**。
           ['placement', t('me.placement'), null],
+          // **合同展示の部屋にだけ出す**（ユーザー指示 2026-08-10）。招待の管理は
+          // `ExpoManager` からここへ移した ── 通常展示と合同展示の部屋編集画面を
+          // 「タブの数が違うだけ」の同じ形にする。
+          row.expo_id ? ['participants', t('me.stageParticipants'), null] : null,
           ['publish', t('me.stagePublish'), null],
-        ] as const
+        ].filter((x): x is [Stage, string, number | null] => x !== null)
       ).map(([key, label, count]) => (
         <button
           key={key}
@@ -1807,6 +1842,11 @@ function GalleryCard({
             </>
           )}
         </div>
+      ) : stage === 'participants' && row.expo_id ? (
+        /* 合同展示の部屋だけに出るタブ（ユーザー指示 2026-08-10）。中身は
+           `ExpoManager` の各展示カードにあった参加者パネルそのもの ── 招く・承認する・
+           招待リンクを配る、のすべてがここに移った。 */
+        <ParticipantsPanel expoId={row.expo_id} onChanged={onChanged} />
       ) : (
         /* Publish: everything about going public in one place — the URL name gate,
            the statement, the share cover, the switch, and the numbers */
@@ -1825,8 +1865,73 @@ function GalleryCard({
             mode="room"
           />
           <div className="we-right">
-            {/* The URL and its state live together: flip the switch to open / close the room */}
-            {username ? (
+            {/* 合同展示の部屋: 見える/見えないは会期そのものが決める（0045。この部屋の
+                `is_public` は常にfalseに固定されているのでトグルの出しようがない）。
+                「会期を選んで公開＝支払い」も、旧 `ExpoManager` の中身をそのままここへ
+                移した（ユーザー指示 2026-08-10: 通常展示と同じ『公開』タブの中で扱う）。 */}
+            {row.expo_id ? (
+              <>
+                <div className="hako-url-row">
+                  <div className="hako-url-line">
+                    {expo && expoPhase(expo) !== 'draft' ? (
+                      <a
+                        className="hako-url"
+                        href={`${origin}${expoPath(expo.slug)}/${row.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {/* i18n-ok: URLの見本（ドメイン名は訳す対象ではない） */}
+                        {`xibit360.art${expoPath(expo.slug)}/${row.slug}`}
+                      </a>
+                    ) : (
+                      <span className="hako-url off">
+                        {/* i18n-ok: URLの見本（ドメイン名は訳す対象ではない） */}
+                        {`xibit360.art${expo ? expoPath(expo.slug) : ''}/${row.slug}`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="hako-state-line">
+                    <span className={`hako-state${expo && expoPhase(expo) !== 'draft' ? ' open' : ''}`}>
+                      {!expo
+                        ? t('me.loading')
+                        : expoPhase(expo) === 'draft'
+                          ? t('expo.phaseDraft')
+                          : expoPhase(expo) === 'running'
+                            ? t('expo.phaseRunning', { until: fmtDate(expo.endsAt) })
+                            : t('expo.phaseEnded', { on: fmtDate(expo.endsAt) })}
+                    </span>
+                  </div>
+                </div>
+                {expo && expoPhase(expo) === 'draft' && (
+                  <div className="expo-pay">
+                    <p className="me-note" style={{ marginTop: 0 }}>{t('expo.payNote')}</p>
+                    <div className="hako-actions">
+                      {expoRunOptions().map((o) => (
+                        <button
+                          key={o.sku}
+                          type="button"
+                          className="btn-line btn-gold"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(t('expo.openIt'), async () => {
+                              track('expo_checkout', { expo: expo.slug, days: o.days })
+                              await updateExpo(expo.id, { durationDays: o.days })
+                              window.location.href = await startExpoCheckout(expo.id, o.sku)
+                            })
+                          }
+                        >
+                          {t('expo.payOption', { days: o.days, price: usd(o.cents) })}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {expo && expoPhase(expo) === 'ended' && expoPurgeAt(expo) && (
+                  <p className="me-note expo-warn">{t('expo.purgeNote', { on: fmtDate(expoPurgeAt(expo)!.toISOString()) })}</p>
+                )}
+              </>
+            ) : /* The URL and its state live together: flip the switch to open / close the room */
+            username ? (
               /* Two lines so the toggle never wraps away from its label (ユーザー指示
                  2026-07-31): the URL + copy on top, the open/close switch + state below. */
               <div className="hako-url-row">
@@ -1899,7 +2004,7 @@ function GalleryCard({
             {/* Multi-room only: which room `/@name` opens on, and the path segment the
                 other rooms sit at. With one room there is no front door to choose and no
                 second URL to name, so none of this appears (ユーザー決定 2026-08-09). */}
-            {roomCount > 1 && username && (
+            {!row.expo_id && roomCount > 1 && username && (
               <div className="me-room-url">
                 {isMain ? (
                   <p className="me-note" style={{ marginTop: 0 }}>{t('me.frontDoorThis')}</p>
@@ -1943,8 +2048,16 @@ function GalleryCard({
               {/* `/demo` renders the STORE's settings, and the store only ever loads the
                   front-door room — from a sub-room's tab it would walk the wrong room.
                   A sub-room is walked at its real URL instead, which works before it is
-                  public too (the owner-preview path in app/[handle]/[slug]). */}
-              {isMain || !username ? (
+                  public too (the owner-preview path in app/[handle]/[slug]). 合同展示の
+                  部屋は会期が生きているあいだだけ本物のURLがある（0045。下書き中は
+                  どこにも通じないので出さない）。 */}
+              {row.expo_id ? (
+                expo && expoPhase(expo) !== 'draft' && (
+                  <a className="btn-line" href={`${expoPath(expo.slug)}/${row.slug}`} target="_blank" rel="noreferrer">
+                    {t('me.navWalk')}
+                  </a>
+                )
+              ) : isMain || !username ? (
                 <LocaleLink className="btn-line" href="/demo">{t('me.navWalk')}</LocaleLink>
               ) : (
                 <a className="btn-line" href={`/@${username}/${row.slug}`} target="_blank" rel="noreferrer">
