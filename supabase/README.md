@@ -6,7 +6,7 @@
 
 ### かんたん(推奨): 一発適用
 
-**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0044 が
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0045 が
 一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
 
 **未適用ぶんだけを1枚に束ねたいとき**は `npm run sql:pending -- <開始番号>`
@@ -76,6 +76,7 @@ authenticated・service_role の3ロール)を最小限スタブした素のPost
    - `0042_notifications.sql` — **通知**(`notifications` 表＋トリガ5本＋管理者の一斉送信 RPC)。行を書くのは definer のトリガと RPC だけで **insert ポリシーを1つも作らない**（許すと他人宛に偽の通知を作れる）。いいねは作品ごと1日1件にまとめ、部屋名・作品名は書いた時点の値を焼き込む（source を消しても読める）。**冒頭で 0041 の権限事故も直す** — 0041 のポリシー関数の execute が `authenticated` だけだったため、**未ログインの来場者から公開サイトが全滅していた**（0041 適用済みの環境は 0042 で回復する）
    - `0043_admin_add_room.sql` — 管理者の「展示室を追加」で**部屋が実際に増える**(`admin_add_room` RPC。台帳への記録と `galleries` の作成を1トランザクションで。**台帳→部屋の順**でないと 0038 の `enforce_room_allowance` が自分のinsertを弾く。部屋は有料等級=`slots_included`/15枠で作る。slugは空いている `room-N`。**冪等にしない**=押した回数だけ増える)
    - `0044_expos.sql` — **合同展示(Expo)の土台**(`expos` 表＋`galleries.expo_id`)。`/expo/{name}` で開き**会期**を持ち、**主催者が公開時に場所代を払う**(7日\$15 / 14日\$25 / 30日\$40)。要点: ①**見える/見えないは日付から導出**(`expo_is_live`。自由な旗を置かないので削除ジョブが止まっても会期切れは公開されない) ②**支払いと公開は1つの操作**(`record_expo_purchase`。service role 限定＝クライアントから公開できる経路が無い) ③**合同展示の部屋は $25 の枠を消費しない**(`enforce_room_allowance` を差し替え) ④猶予7日のあと `purge_expired_expos` が消す(**参加作家の作品は残る**)。**pg_cron が無効なら掃除ジョブは登録されず NOTICE が出る** — Dashboard → Database → Extensions で有効にしてから流し直す
+   - `0045_expo_public_read.sql` — 合同展示を**会期のあいだだけ・専用URLでだけ**見せる。0044 だけでは読み経路が足りず、**主催者が部屋の公開スイッチを入れれば場所代を払う前から見えて**しまい、しかも `/@ハンドル` と `/explore` にも混ざった。①`galleries_select_public` を `is_public and expo_id is null` に締める ②会期だけで開く `galleries_select_expo_live` と、配置・作品の同条件のポリシー ③**合同展示の部屋は `is_public` を持てない**（トリガが無条件に false。ポリシーはORで足されるので、`is_public` で絞る既存クエリが会期中の部屋を拾ってしまうのを塞ぐ）④`/expo/{name}` を**合同展示とアカウント別名(0040)が取り合う**のを互いに弾く（既存の重複は NOTICE で知らせるだけ＝どちらを残すかは人が決める）。**ポリシーで呼ぶ関数は anon にも grant**（0041 の事故と同じ形）
 3. 「Success. No rows returned」が出れば完了
 
 **番号順に流すこと**が前提です。後の番号が前の番号を上書きする箇所があります —
