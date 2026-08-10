@@ -98,16 +98,11 @@ for t in "$HERE"/[0-9]*.sql; do
   out=$($P -d app -f "$t" 2>&1)
   echo "$out" | grep -Ev '^(SET|RESET|SAVEPOINT|ROLLBACK|RELEASE|BEGIN|INSERT|UPDATE|DELETE|SELECT|DO|Output|Tuples|[0-9a-f]{8}-)' \
     | grep -v '^CONTEXT' | grep -v '^ *$' | sed 's/^/  /'
-  # 判定は2つ見る。`ERROR` そのものは**期待しているケースもある**（拒否の確認）ので
-  # 数えないが:
-  #   ・`: f`  → 期待外れ
-  #   ・`is aborted` → **想定外のエラーが後続を全部巻き込んだ**合図。ここを見ていな
-  #     かったせいで、0043 のテストが土台不足で全滅しているのに「すべて期待どおり」と
-  #     表示した（実測 2026-08-09）。**検証が嘘をつくのは、検証が無いより悪い。**
-  if echo "$out" | grep -qE ': f$'; then echo "  ✗ 期待と違う項目がある"; fail=1; fi
-  if echo "$out" | grep -q 'is aborted'; then
-    echo "  ✗ 想定外のエラーで以降が流れていない（土台不足か構文エラー）"; fail=1
-  fi
+  # 判定は **`scripts/sql-verdict.mjs`** に出してある（`node scripts/check-gates.mjs`
+  # が合成出力を流して「本当に検出するか」を試験できるように）。ここで grep を書いて
+  # いたときに、ラベルと値のあいだに `INSERT 0 1` が挟まった形の `f` を取りこぼした。
+  printf '%s' "$out" > "$WORK/out.txt"
+  if ! node "$ROOT/scripts/sql-verdict.mjs" "$WORK/out.txt"; then fail=1; fi
 done
 
 echo

@@ -43,7 +43,7 @@ for (const sig of ['SIGINT', 'SIGTERM']) {
   })
 }
 
-const run = ({ files, gate, add = true, setup }) => {
+const run = ({ files, gate, add = true, setup, args = [] }) => {
   const dir = mkdtempSync(join(tmpdir(), 'gate-'))
   madeDirs.add(dir)
   try {
@@ -60,7 +60,7 @@ const run = ({ files, gate, add = true, setup }) => {
     // git の履歴/リモートまで作らないと試せない番人（check:ship-ready）用のフック。
     // 合成リポジトリの中だけで完結させる（ネットワークには出ない）。
     if (setup) setup(dir, (...args) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' }))
-    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', gate)], {
+    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', gate), ...args], {
       cwd: dir,
       encoding: 'utf8',
       // 本番の番人は CI/Vercel では自分を飛ばす。自己テストでその分岐に入ると
@@ -1032,6 +1032,57 @@ gateCase('check:schema — 未追跡の migration を見落とさず落ちる（
   add: false,
   expectFail: true,
   contains: ['未追跡'],
+})
+
+// ------------------------------------------------------------- sql-verdict
+// SQLテストの判定（`supabase/tests/run.sh` が呼ぶ）。**判定をシェルの grep から
+// node に出したのは、ここで試験できるようにするため。** 取りこぼしを実測している
+// （2026-08-10）: ラベルと値のあいだに `INSERT 0 1` が挟まると `f` が行頭単独になり、
+// `grep -E ': f$'` では引っかからず、期待外れ2件を抱えて「すべて期待どおり」と出た。
+const psqlOut = (body) => ({ 'out.txt': body })
+
+gateCase('sql-verdict — ラベルと同じ行の `f` を検出する', {
+  gate: 'sql-verdict.mjs',
+  args: ['out.txt'],
+  files: psqlOut('01 なにか: t\n02 べつのこと: f\n'),
+  expectFail: true,
+  contains: ['期待と違う'],
+})
+
+gateCase('sql-verdict — 行頭単独の `f` を検出する（ラベルと値のあいだに INSERT が挟まる形）', {
+  gate: 'sql-verdict.mjs',
+  args: ['out.txt'],
+  // psql の実出力そのまま: `\echo -n 'ラベル: '` → insert の状態行 → select の値。
+  files: psqlOut('05 来場を記録できる: INSERT 0 1\nf\n06 つぎ: t\n'),
+  expectFail: true,
+  contains: ['期待と違う'],
+})
+
+gateCase('sql-verdict — `is aborted` を検出する（土台不足で以降が全滅した形）', {
+  gate: 'sql-verdict.mjs',
+  args: ['out.txt'],
+  files: psqlOut('01 なにか: t\nERROR:  current transaction is aborted, commands ignored until end of transaction block\n'),
+  expectFail: true,
+  contains: ['以降が流れていない'],
+})
+
+gateCase('sql-verdict — 期待どおりの出力を誤検知しない（`ERROR` は拒否の確認で期待している）', {
+  gate: 'sql-verdict.mjs',
+  args: ['out.txt'],
+  // 誤検知の負の対照を全部入れる: 拒否を期待した ERROR／`f` で終わる語（`off`）／
+  // 値が `t` の行／`false` を含む文字列。
+  files: psqlOut(
+    [
+      '01 書けない → ERROR:  new row violates row-level security policy for table "guestbook"',
+      '02 読める: t',
+      '03 設定は off',
+      "04 coalesce(bool_and(...), false) の結果: t",
+      'INSERT 0 1',
+      't',
+      '',
+    ].join('\n')
+  ),
+  expectFail: false,
 })
 
 // --------------------------------------------------------------------- 実行
