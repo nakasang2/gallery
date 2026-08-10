@@ -22,6 +22,7 @@ import HelpModal from '@/components/HelpModal'
 import TopActions from '@/components/TopActions'
 import NotificationBell from '@/components/me/NotificationBell'
 import ExpoManager from '@/components/me/ExpoManager'
+import RoomExpoBadge from '@/components/me/RoomExpoBadge'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_USD_CENTS, type PaidKind } from '@/lib/pricing'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
@@ -30,6 +31,7 @@ import { useIsAdmin } from '@/lib/admin'
 import { PLAN, MAX_WORKS_PER_ROOM, GALLERY_BGM_MAX_BYTES, tallyRooms, unbuiltRooms } from '@/lib/limits'
 import {
   listMyGalleries,
+  getGalleryById,
   createGallery,
   updateGalleryDetails,
   updateGallerySlug,
@@ -206,7 +208,9 @@ function useRoomOffer() {
 
 
 // The first thing a signed-in artist sees: their own face and name, not a form
-function Hero() {
+// `topRight` は合同展示への導線（ユーザー指示 2026-08-10: `.me-top` の文字ボタン列に
+// 埋もれていたのを、この行の右側の空き領域へ引き上げる）。
+function Hero({ topRight }: { topRight?: React.ReactNode }) {
   const t = useT()
   const user = useGallery((s) => s.user)!
   const displayName = useGallery((s) => s.profileDisplayName)
@@ -224,7 +228,7 @@ function Hero() {
       ) : (
         <div className="me-hero-avatar empty">{name.slice(0, 1).toUpperCase()}</div>
       )}
-      <div>
+      <div className="me-hero-text">
         <div className="me-hero-greet">{greet}, {name}.</div>
         <p className="me-hero-sub">
           {username ? (
@@ -237,6 +241,7 @@ function Hero() {
           )}
         </p>
       </div>
+      {topRight && <div className="me-hero-actions">{topRight}</div>}
     </div>
   )
 }
@@ -2656,7 +2661,28 @@ export default function MePage() {
   // `mainRoomOf` owns the pre-0036 fallback (no flag → the oldest room), so every
   // consumer here agrees on which room `/@name` renders.
   const frontDoor = mainRoomOf(rooms)
-  const current = rooms.find((g) => g.id === roomId) ?? frontDoor
+  // `rooms`（`listMyGalleries`）は合同展示の部屋を弾く（`lib/galleries.ts` 冒頭参照）ので、
+  // ExpoManager の「部屋を開く」で立てた `roomId` がそこに無いことがある。**見つからない
+  // ときは黙って玄関の部屋に化けさせず、id で直接引く**（見つかるまでは玄関に留まる＝
+  // 何も壊れて見えない）。
+  const [expoRoom, setExpoRoom] = useState<GalleryRow | null>(null)
+  useEffect(() => {
+    if (!user || !roomId || rooms.some((g) => g.id === roomId)) {
+      setExpoRoom(null)
+      return
+    }
+    let alive = true
+    void getGalleryById(roomId).then((r) => {
+      if (alive) setExpoRoom(r)
+    }).catch(() => {
+      if (alive) setExpoRoom(null)
+    })
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, roomId, galleries])
+  const current = rooms.find((g) => g.id === roomId) ?? expoRoom ?? frontDoor
   /** An unused room grant — bought a room but hasn't built it yet. */
   const canBuildRoom = rooms.length > 0 && waiting > 0
 
@@ -2731,9 +2757,6 @@ export default function MePage() {
               <Link className="btn-line btn-gold" href="/admin">{t('me.admin')}</Link>
             )}
             {user && (
-              <button className="btn-line" onClick={() => setTab('expo')}>{t('expo.tab')}</button>
-            )}
-            {user && (
               <button className="btn-line" onClick={() => setTab('account')}>{t('me.tabAccount')}</button>
             )}
             {user && (
@@ -2754,7 +2777,18 @@ export default function MePage() {
 
         {user && (
           <>
-            <Hero />
+            <Hero topRight={
+              tab === 'gallery' && current ? (
+                <RoomExpoBadge
+                  room={current}
+                  userId={user.id}
+                  onOpenExpoTab={() => setTab('expo')}
+                  onChanged={() => void reload()}
+                />
+              ) : (
+                <button className="btn-line" onClick={() => setTab('expo')}>{t('expo.tab')}</button>
+              )
+            } />
             {purchaseReturn && (
               <div className={`me-card purchase-return${purchaseReturn === 'success' ? ' ok' : ''}`} role="status">
                 <p className="me-note" style={{ margin: 0 }}>

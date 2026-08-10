@@ -724,6 +724,15 @@ export const ko: PartialDictionary = {
     payNote: '회기를 고르면 결제로 넘어갑니다. 결제가 완료된 시점에 회기가 시작되고 URL이 공개됩니다.',
     payOption: '{days}일 {price}',
     endedBanner: '이 전시의 회기가 끝났습니다.',
+    roomModeNormal: '일반 전시실',
+    roomModeJoint: '합동 전시: {title}',
+    roomSwitchAddHeading: '이 전시실을 합동 전시에 추가',
+    roomSwitchNoExpo: '아직 합동 전시가 없습니다.',
+    roomSwitchCurrentHeading: '「{title}」의 일부',
+    roomSwitchToNormal: '일반 전시실로 되돌리기',
+    roomSwitchFailedEmpty: '이 전시실에는 이미 작품이 걸려 있어 전환할 수 없습니다.',
+    roomSwitchFailedAllowance: '비어 있는 전시실 자리가 없습니다. 먼저 전시실을 구매하세요.',
+    roomSwitchFailedOther: '전시실을 전환하지 못했습니다.',
   },
 
   notif: {

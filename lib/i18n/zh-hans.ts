@@ -660,6 +660,15 @@ export const zhHans: PartialDictionary = {
     payNote: '选择展期后将进入结算。付款完成的那一刻展期开始，网址随即公开。',
     payOption: '{days} 天 {price}',
     endedBanner: '本展览的展期已结束。',
+    roomModeNormal: '常规展厅',
+    roomModeJoint: '联合展览: {title}',
+    roomSwitchAddHeading: '将此展厅加入联合展览',
+    roomSwitchNoExpo: '您还没有任何联合展览。',
+    roomSwitchCurrentHeading: '属于「{title}」',
+    roomSwitchToNormal: '改回常规展厅',
+    roomSwitchFailedEmpty: '此展厅已经挂有作品，无法切换。',
+    roomSwitchFailedAllowance: '没有空余的展厅名额——请先购买展厅。',
+    roomSwitchFailedOther: '无法切换此展厅。',
   },
 
   notif: {

@@ -658,6 +658,15 @@ export const it: PartialDictionary = {
     payNote: 'Scegliendo la durata si passa al pagamento. La mostra parte — e l’indirizzo diventa pubblico — appena il pagamento va a buon fine.',
     payOption: '{days} giorni {price}',
     endedBanner: 'Il periodo di questa mostra è terminato.',
+    roomModeNormal: 'Sala normale',
+    roomModeJoint: 'Collettiva: {title}',
+    roomSwitchAddHeading: 'Aggiungi questa sala a una mostra collettiva',
+    roomSwitchNoExpo: 'Non hai ancora nessuna mostra collettiva.',
+    roomSwitchCurrentHeading: 'Parte di «{title}»',
+    roomSwitchToNormal: 'Rendila di nuovo una sala normale',
+    roomSwitchFailedEmpty: 'In questa sala ci sono già opere esposte, quindi non può essere cambiata.',
+    roomSwitchFailedAllowance: 'Nessuno spazio sala libero — acquista prima una sala.',
+    roomSwitchFailedOther: 'Impossibile cambiare questa sala.',
   },
 
   notif: {

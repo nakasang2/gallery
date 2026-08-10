@@ -211,3 +211,24 @@ export async function startExpoCheckout(expoId: string, sku: string): Promise<st
 export function expoPath(slug: string): string {
   return `/expo/${slug}`
 }
+
+/**
+ * 部屋を通常展示⇄合同展示に切り替える（migration 0050、ユーザー指示 2026-08-10）。
+ * `expoId` に null を渡すと通常展示に戻す。**空の部屋（何も掛かっていない）にしか
+ * 効かない** — DB側が拒否するので、ここでは判定しない。
+ */
+export async function switchRoomExpo(galleryId: string, expoId: string | null): Promise<void> {
+  const { error } = await supabase!.rpc('switch_room_expo', { p_gallery: galleryId, p_expo: expoId })
+  if (error) throw error
+}
+
+export type RoomExpoSwitchError = 'not_empty' | 'no_allowance' | 'not_owner' | 'other'
+
+/** 生のDBエラーを、UIが文言を選べる形に翻訳する（`expoErrorKey` と対の作法）。 */
+export function roomExpoSwitchErrorKey(e: unknown): RoomExpoSwitchError {
+  const msg = ((e as { message?: string } | null)?.message ?? '').toLowerCase()
+  if (msg.includes('room is not empty')) return 'not_empty'
+  if (msg.includes('no unused room purchase')) return 'no_allowance'
+  if (msg.includes('not your room') || msg.includes('does not belong to this user')) return 'not_owner'
+  return 'other'
+}

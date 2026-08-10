@@ -659,6 +659,15 @@ export const id: PartialDictionary = {
     payNote: 'Memilih masa pamer membawa Anda ke pembayaran. Masa pamer dimulai — dan alamatnya menjadi publik — begitu pembayaran berhasil.',
     payOption: '{days} hari {price}',
     endedBanner: 'Masa pameran ini telah berakhir.',
+    roomModeNormal: 'Ruang biasa',
+    roomModeJoint: 'Bersama: {title}',
+    roomSwitchAddHeading: 'Tambahkan ruang ini ke pameran bersama',
+    roomSwitchNoExpo: 'Anda belum memiliki pameran bersama.',
+    roomSwitchCurrentHeading: 'Bagian dari “{title}”',
+    roomSwitchToNormal: 'Jadikan ruang biasa lagi',
+    roomSwitchFailedEmpty: 'Ruang ini sudah memiliki karya yang dipajang, jadi tidak dapat diubah.',
+    roomSwitchFailedAllowance: 'Tidak ada slot ruang kosong — beli ruang terlebih dahulu.',
+    roomSwitchFailedOther: 'Tidak dapat mengubah ruang ini.',
   },
 
   notif: {

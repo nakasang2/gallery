@@ -658,6 +658,15 @@ export const zhHant: PartialDictionary = {
     payNote: '選擇展期後將進入結帳。付款完成的那一刻展期開始，網址隨即公開。',
     payOption: '{days} 天 {price}',
     endedBanner: '本展覽的展期已結束。',
+    roomModeNormal: '常規展廳',
+    roomModeJoint: '聯合展覽: {title}',
+    roomSwitchAddHeading: '將此展廳加入聯合展覽',
+    roomSwitchNoExpo: '您還沒有任何聯合展覽。',
+    roomSwitchCurrentHeading: '屬於「{title}」',
+    roomSwitchToNormal: '改回常規展廳',
+    roomSwitchFailedEmpty: '此展廳已經掛有作品，無法切換。',
+    roomSwitchFailedAllowance: '沒有空餘的展廳名額——請先購買展廳。',
+    roomSwitchFailedOther: '無法切換此展廳。',
   },
 
   notif: {

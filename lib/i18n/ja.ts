@@ -933,6 +933,15 @@ export const ja: Dictionary = {
     payNote: '会期を選ぶと決済に進みます。支払いが済んだ時点で会期が始まり、URLが公開されます。',
     payOption: '{days}日 {price}',
     endedBanner: 'この展示の会期は終わりました。',
+    roomModeNormal: '通常展示',
+    roomModeJoint: '合同展示: {title}',
+    roomSwitchAddHeading: 'この部屋を合同展示に入れる',
+    roomSwitchNoExpo: 'まだ合同展示がありません。',
+    roomSwitchCurrentHeading: '「{title}」の一部',
+    roomSwitchToNormal: '通常展示に戻す',
+    roomSwitchFailedEmpty: '作品が置かれているため、切り替えられません。',
+    roomSwitchFailedAllowance: '空いている部屋枠がありません。先に部屋を購入してください。',
+    roomSwitchFailedOther: '切り替えに失敗しました。',
   },
 
   notif: {

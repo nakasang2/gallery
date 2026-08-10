@@ -659,6 +659,15 @@ export const de: PartialDictionary = {
     payNote: 'Mit der Wahl der Laufzeit geht es zur Kasse. Die Laufzeit beginnt — und die URL wird öffentlich — sobald die Zahlung durch ist.',
     payOption: '{days} Tage {price}',
     endedBanner: 'Die Laufzeit dieser Ausstellung ist beendet.',
+    roomModeNormal: 'Normaler Raum',
+    roomModeJoint: 'Gemeinschaft: {title}',
+    roomSwitchAddHeading: 'Diesen Raum einer Gemeinschaftsausstellung hinzufügen',
+    roomSwitchNoExpo: 'Sie haben noch keine Gemeinschaftsausstellung.',
+    roomSwitchCurrentHeading: 'Teil von „{title}“',
+    roomSwitchToNormal: 'Wieder zu einem normalen Raum machen',
+    roomSwitchFailedEmpty: 'In diesem Raum hängen bereits Werke, daher kann er nicht umgestellt werden.',
+    roomSwitchFailedAllowance: 'Kein freier Raumplatz verfügbar — kaufen Sie zuerst einen Raum.',
+    roomSwitchFailedOther: 'Dieser Raum konnte nicht umgestellt werden.',
   },
 
   notif: {

@@ -967,6 +967,15 @@ export const en = {
     payNote: 'Choosing a run takes you to checkout. The run begins — and the URL goes public — the moment the payment goes through.',
     payOption: '{days} days {price}',
     endedBanner: 'This exhibition’s run has ended.',
+    roomModeNormal: 'Regular room',
+    roomModeJoint: 'Joint: {title}',
+    roomSwitchAddHeading: 'Add this room to a joint exhibition',
+    roomSwitchNoExpo: 'You don’t have a joint exhibition yet.',
+    roomSwitchCurrentHeading: 'Part of “{title}”',
+    roomSwitchToNormal: 'Make it a regular room',
+    roomSwitchFailedEmpty: 'This room already has work on its walls, so it can’t be switched.',
+    roomSwitchFailedAllowance: 'No free room slot is available — buy a room first.',
+    roomSwitchFailedOther: 'Could not switch this room.',
   },
 
   notif: {

@@ -75,7 +75,46 @@
 }
 
 /* ヒーロー: サインイン後の最初の一言(挨拶+アバター) */
-.me-hero { display: flex; align-items: center; gap: 1.1rem; margin-bottom: 1.8rem; }
+.me-hero { display: flex; align-items: center; gap: 1.1rem; margin-bottom: 1.8rem; flex-wrap: wrap; }
+.me-hero-text { flex: 1 1 auto; min-width: 0; }
+/* 合同展示への導線（旧 `.me-top` の文字ボタン列から移設）。この行の右端に置く。
+   幅が足りないときは折り返して次の行の全幅に（375pxで実測）。 */
+.me-hero-actions { margin-left: auto; }
+@media (max-width: 480px) {
+  .me-hero-actions { margin-left: 0; flex: 1 0 100%; }
+  .me-hero-actions .btn-line { width: 100%; justify-content: center; }
+}
+/* いま編集している部屋の種別バッジ（通常展示/合同展示）と切替パネル。
+   `.notif-wrap`/`.notif-panel`（NotificationBell）と同じ作り ── 自分を基準にした
+   絶対配置のポップオーバー。 */
+.room-expo-badge { position: relative; }
+.room-expo-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 40;
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: #12100d;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.room-expo-panel-title {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+}
+.room-expo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.room-expo-list .btn-line { width: 100%; justify-content: flex-start; }
+.room-expo-manage { margin-top: 0.3rem; border-color: transparent; color: var(--muted); }
+.room-expo-manage:hover { color: var(--gold); }
 .me-hero-avatar {
   width: 58px;
   height: 58px;

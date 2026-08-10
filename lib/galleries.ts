@@ -189,6 +189,29 @@ export async function listExpoRooms(expoId: string): Promise<GalleryRow[]> {
 }
 
 /**
+ * 1件だけ、idで直接引く。**合同展示の部屋を`roomId`で開くときに使う**
+ * ── `listMyGalleries()` は合同展示の部屋を弾くので、そちらの一覧には乗ってこない
+ * （このファイル冒頭のコメント参照）。RLS は所有者なら `expo_id` の有無に関わらず
+ * 読めるので、素直に id で引くだけでよい。見つからない/権限が無いときは null。
+ */
+export async function getGalleryById(id: string): Promise<GalleryRow | null> {
+  const { data, error } = await supabase!
+    .from('galleries')
+    .select(COLS)
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  return {
+    ...(data as object),
+    mat_default: (data as { mat_default?: string }).mat_default ?? 'auto',
+    work_cap: (data as { work_cap?: number }).work_cap ?? PLAN.worksPerGallery,
+    design_overrides: (data as { design_overrides?: unknown }).design_overrides ?? null,
+    arrangement: (data as { arrangement?: unknown }).arrangement ?? null,
+  } as GalleryRow
+}
+
+/**
  * The room that `/@username` renders — the front door of the show.
  *
  * The flagged room (migration 0036) when there is one, otherwise the FIRST room in
