@@ -23,7 +23,6 @@ import TopActions from '@/components/TopActions'
 import NotificationBell from '@/components/me/NotificationBell'
 import ExpoManager from '@/components/me/ExpoManager'
 import RoomExpoBadge from '@/components/me/RoomExpoBadge'
-import CapacityTransfer from '@/components/me/CapacityTransfer'
 import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
 import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_USD_CENTS, usd, expoRunOptions, type PaidKind } from '@/lib/pricing'
 import {
@@ -38,9 +37,10 @@ import {
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
 import { usePurchasedIds } from '@/lib/purchases'
 import { useIsAdmin } from '@/lib/admin'
-import { PLAN, MAX_WORKS_PER_ROOM, GALLERY_BGM_MAX_BYTES, tallyRooms, unbuiltRooms } from '@/lib/limits'
+import { PLAN, MAX_WORKS_PER_ROOM, GALLERY_BGM_MAX_BYTES, tallyRooms, unbuiltRooms, poolCapacityOf } from '@/lib/limits'
 import {
   listMyGalleries,
+  listAllOwnedRooms,
   getGalleryById,
   createGallery,
   updateGalleryDetails,
@@ -499,6 +499,7 @@ function GalleryCard({
   rooms,
   frontDoorId,
   onSwitchRoom,
+  poolCapacity,
 }: {
   row: GalleryRow
   onChanged: () => void
@@ -522,6 +523,13 @@ function GalleryCard({
   frontDoorId?: string | null
   /** タブを押したときの切替。トラッキングと `roomId` の更新は呼び手（ページ側）が持つ。 */
   onSwitchRoom?: (id: string) => void
+  /** 作品スロットの合計（口座内の全部屋の`work_cap`の合計、合同展示の部屋も含む）。
+   *  ユーザー指摘 2026-08-11: 部屋ごとに別々の数字を考えず「共通」で扱いたい ──
+   *  部屋間で手動で「移動」する案（migration 0052）は撤回し、代わりに全部屋の
+   *  `work_cap`を合算した1つの数字を作品タブの上限に使う（DBのwork_cap自体は
+   *  購入・等級の記帳としてそのまま残す。集計はアプリ側のみ）。未取得のときは
+   *  `null`＝この部屋自身のwork_capにフォールバックする。 */
+  poolCapacity: number | null
 }) {
   const roomOffer = useRoomOffer()
   const t = useT()
@@ -1420,6 +1428,15 @@ function GalleryCard({
         </button>
       ))}
     </nav>
+    {/* 部屋の切替タブ＋部屋の追加は「部屋」「配置」ステージの枠の外・タブの直下に出す
+        （ユーザー指示 2026-08-11: 以前は箱の中にあった。UIとロジックは変えず場所だけ
+        動かした）。部屋の追加は「部屋」ステージのときだけ（従来の範囲を変えていない）。 */}
+    {(stage === 'room' || stage === 'placement') && (roomSwitcher || (stage === 'room' && roomAdd)) && (
+      <div className="me-rooms-row">
+        {roomSwitcher}
+        {stage === 'room' && roomAdd}
+      </div>
+    )}
     {/* One next step at a time toward publishing — not shown on the housekeeping stages */}
     {(() => {
       if (stage === 'profile') return null
@@ -1447,7 +1464,6 @@ function GalleryCard({
       <div className="me-card me-subcard">
       {stage === 'room' ? (
         <>
-        {roomSwitcher}
         {/* The room's editing surface: sticky 3D preview on the left, its design on the right */}
         <div className="works-detail">
         <GalleryPreview
@@ -1496,52 +1512,10 @@ function GalleryCard({
                 })}
               </div>
             </div>
-            <div className="wd-row">
-              <span className="wd-label">{t('me.layout')}</span>
-              <div className="chips">
-                {unlockedFirst(Object.entries(LAYOUTS), ([key]) => isLayoutUnlocked(key, entitlements)).map(([key, def]) => {
-                  const unlocked = isLayoutUnlocked(key, entitlements)
-                  return (
-                    <button
-                      key={key}
-                      className={`chip chip-visual${key === row.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
-                      disabled={busy}
-                      onClick={() => {
-                        if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: t(`presets.layout.${key}`) }); return }
-                        void setSpace({ layout: key })
-                      }}
-                    >
-                      <LayoutPlan layoutKey={key} className="chip-plan" />
-                      {t(`presets.layout.${key}`)}
-                      {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
-                    </button>
-                  )
-                })}
-                {/* Not released yet, so no chip offers it to a new room (lib/presets →
-                    CUSTOM_LAYOUT_RELEASED). A room already ON 'custom' keeps the chip and
-                    its size sliders — it renders as before and can still come back to its
-                    own shape. Once released, the chip goes through the same lock/purchase
-                    path as the presets: free access was the bug, not the feature.
-                    layout_params survive preset switches (saveGallerySpace preserves them). */}
-                {(CUSTOM_LAYOUT_RELEASED || row.layout === 'custom') && (() => {
-                  const unlocked = row.layout === 'custom' || isLayoutUnlocked('custom', entitlements)
-                  return (
-                    <button
-                      className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}${unlocked ? '' : ' locked'}`}
-                      disabled={busy}
-                      onClick={() => {
-                        if (!unlocked) { setPurchaseItem({ kind: 'layout', key: 'custom', label: t('me.custom') }); return }
-                        void setSpace({ layout: 'custom' })
-                      }}
-                    >
-                      <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
-                      {t('me.custom')}
-                      {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
-                    </button>
-                  )
-                })()}
-              </div>
-            </div>
+            {/* 間取り選択（＋カスタムサイズ）は配置ステージへ引っ越した（ユーザー指示
+                2026-08-11: 「配置」の話なので「配置」タブの中で選びたい）。ハンドラは
+                このGalleryCard内で共有のまま（`setSpace`/`editCustom`等）なので、
+                描画位置を動かすだけでロジックは何も変えていない。 */}
             <div className="wd-row">
               <span className="wd-label">{t('me.lighting')}</span>
               <div className="chips">
@@ -1560,34 +1534,6 @@ function GalleryCard({
                 ))}
               </div>
             </div>
-            {row.layout === 'custom' && (
-              <div className="wd-row wd-row-block">
-                <span className="wd-label">{t('me.customSize')}</span>
-                <div className="wd-block-body custom-size">
-                  <label className="slider-row">
-                    <span>{t('common.widthM', { n: Math.round(custom.hw * 2) })}</span>
-                    <input
-                      type="range" min={8} max={18} step={0.5} value={custom.hw} disabled={busy}
-                      onChange={(e) => editCustom({ hw: Number(e.target.value) })}
-                    />
-                  </label>
-                  <label className="slider-row">
-                    <span>{t('common.depthM', { n: Math.round(custom.hd * 2) })}</span>
-                    <input
-                      type="range" min={4} max={10} step={0.5} value={custom.hd} disabled={busy}
-                      onChange={(e) => editCustom({ hd: Number(e.target.value) })}
-                    />
-                  </label>
-                  <label className="toggle">
-                    <input
-                      type="checkbox" checked={custom.island} disabled={busy}
-                      onChange={(e) => editCustom({ island: e.target.checked })}
-                    />
-                    {t('me.centreWall')}
-                  </label>
-                </div>
-              </div>
-            )}
             <div className="wd-row wd-row-block">
               <span className="wd-label me-field-label">
                 {t('me.ambience')}
@@ -1727,7 +1673,6 @@ function GalleryCard({
           )}
         </div>
       </div>
-        {roomAdd}
         </>
       ) : stage === 'works' ? (
         /* The works library: grid + the shared editor sheet */
@@ -1747,10 +1692,10 @@ function GalleryCard({
           />
           <div className="we-right">
             <div className="me-works-head">
-              <span className="me-works-count">{t('me.navWorksCount', { count: cloudArtworks.length, cap: row.work_cap })}</span>
-              {/* 部屋間で枠を移動（migration 0052、ユーザー指示・DECISIONS 2026-08-10）。
-                  「枠を買う」の隣に置く ── 合計を増やさず配分だけ変える、別の手段。 */}
-              <CapacityTransfer room={row} userId={user.id} onChanged={onChanged} />
+              {/* count/capは口座全体の合計（migration 0052の「移動」は撤回。ユーザー指摘
+                  2026-08-11: 部屋ごとの数字を分けて考えず「共通」で扱いたい）。部屋ごとの
+                  `work_cap`は購入・等級の記帳として残るが、合計だけを見せる。 */}
+              <span className="me-works-count">{t('me.navWorksCount', { count: cloudArtworks.length, cap: poolCapacity ?? row.work_cap })}</span>
               <button
                 type="button"
                 className="btn-line"
@@ -1770,7 +1715,7 @@ function GalleryCard({
                 had to and find out afterwards, so both are on screen together
                 (ユーザー決定 2026-08-09). Only shown once this room is actually full:
                 before that neither is a decision the owner needs to make. */}
-            {cloudArtworks.length >= row.work_cap && roomOffer && (
+            {cloudArtworks.length >= (poolCapacity ?? row.work_cap) && roomOffer && (
               <div className="me-capacity-offer">
                 <p className="me-note" style={{ marginTop: 0 }}>{t('me.capacityChoice')}</p>
                 <div className="me-capacity-choices">
@@ -1801,7 +1746,7 @@ function GalleryCard({
                 there are a few works — the same trap the old rail fell into
                 (ユーザー指摘 2026-07-28). */}
             <div className="me-works-row">
-              {cloudArtworks.length < row.work_cap && (
+              {cloudArtworks.length < (poolCapacity ?? row.work_cap) && (
                 <label className={`me-work-tile me-add-tile${uploading ? ' busy' : ''}`} aria-disabled={uploading}>
                   <span className="me-add-tile-plus" aria-hidden="true">{uploading ? '…' : '+'}</span>
                   <small>{uploading ? t('me.uploading') : cloudArtworks.length === 0 ? t('me.addFirstWork') : t('me.addWork')}</small>
@@ -1872,8 +1817,86 @@ function GalleryCard({
            tray onto a wall slot to hang it, drag a hung work onto another to swap them.
            editPlacement persists the arrangement + rebuilds the public room. */
         <>
-        {roomSwitcher}
         <div className="placement-stage">
+          {/* 間取り選択（＋カスタムサイズ）は部屋ステージから引っ越した（ユーザー指示
+              2026-08-11: 「間取り」は配置の話なので配置タブの中に置く）。作品0件でも
+              間取りは決められるので、下の「作品を先に追加」の分岐より前に置く。 */}
+          <div className="wd-group wd-group--flush">
+            <div className="wd-row">
+              <span className="wd-label">{t('me.layout')}</span>
+              <div className="chips">
+                {unlockedFirst(Object.entries(LAYOUTS), ([key]) => isLayoutUnlocked(key, entitlements)).map(([key, def]) => {
+                  const unlocked = isLayoutUnlocked(key, entitlements)
+                  return (
+                    <button
+                      key={key}
+                      className={`chip chip-visual${key === row.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      disabled={busy}
+                      onClick={() => {
+                        if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: t(`presets.layout.${key}`) }); return }
+                        void setSpace({ layout: key })
+                      }}
+                    >
+                      <LayoutPlan layoutKey={key} className="chip-plan" />
+                      {t(`presets.layout.${key}`)}
+                      {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
+                    </button>
+                  )
+                })}
+                {/* Not released yet, so no chip offers it to a new room (lib/presets →
+                    CUSTOM_LAYOUT_RELEASED). A room already ON 'custom' keeps the chip and
+                    its size sliders — it renders as before and can still come back to its
+                    own shape. Once released, the chip goes through the same lock/purchase
+                    path as the presets: free access was the bug, not the feature.
+                    layout_params survive preset switches (saveGallerySpace preserves them). */}
+                {(CUSTOM_LAYOUT_RELEASED || row.layout === 'custom') && (() => {
+                  const unlocked = row.layout === 'custom' || isLayoutUnlocked('custom', entitlements)
+                  return (
+                    <button
+                      className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      disabled={busy}
+                      onClick={() => {
+                        if (!unlocked) { setPurchaseItem({ kind: 'layout', key: 'custom', label: t('me.custom') }); return }
+                        void setSpace({ layout: 'custom' })
+                      }}
+                    >
+                      <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
+                      {t('me.custom')}
+                      {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
+                    </button>
+                  )
+                })()}
+              </div>
+            </div>
+            {row.layout === 'custom' && (
+              <div className="wd-row wd-row-block">
+                <span className="wd-label">{t('me.customSize')}</span>
+                <div className="wd-block-body custom-size">
+                  <label className="slider-row">
+                    <span>{t('common.widthM', { n: Math.round(custom.hw * 2) })}</span>
+                    <input
+                      type="range" min={8} max={18} step={0.5} value={custom.hw} disabled={busy}
+                      onChange={(e) => editCustom({ hw: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="slider-row">
+                    <span>{t('common.depthM', { n: Math.round(custom.hd * 2) })}</span>
+                    <input
+                      type="range" min={4} max={10} step={0.5} value={custom.hd} disabled={busy}
+                      onChange={(e) => editCustom({ hd: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="toggle">
+                    <input
+                      type="checkbox" checked={custom.island} disabled={busy}
+                      onChange={(e) => editCustom({ island: e.target.checked })}
+                    />
+                    {t('me.centreWall')}
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
           {cloudArtworks.length > 0 ? (
             <>
               <div className="placement-head">
@@ -2779,6 +2802,9 @@ export default function MePage() {
   const [checked, setChecked] = useState(false)
   // null = still loading (prevents flashing the create card at returning users)
   const [galleries, setGalleries] = useState<GalleryRow[] | null>(null)
+  // 口座内の全部屋（合同展示の部屋も含む）。作品スロットの合計を出すためだけに持つ
+  // ── `galleries`（`listMyGalleries`）は合同展示の部屋を落とすので、これは別に引く。
+  const [allOwnedRooms, setAllOwnedRooms] = useState<GalleryRow[] | null>(null)
   // Which room the stage bar below is editing. null = the front-door room (resolved
   // after load, so it survives a room being deleted or bought while this is open).
   const [roomId, setRoomId] = useState<string | null>(null)
@@ -2837,6 +2863,14 @@ export default function MePage() {
       setUsage(await getStorageUsage(user.id))
     } catch {
       setUsage(null) // storage unconfigured or unreachable — hide the meter
+    }
+    try {
+      // 作品スロットの合計（migration 0052の「移動」を撤回し、口座内の全部屋
+      // ── 合同展示の部屋も含む ── のwork_capを合算した1つの数字にする。
+      // ユーザー指摘 2026-08-11: 部屋ごとの数字を分けて考えたくない。
+      setAllOwnedRooms(await listAllOwnedRooms(user.id))
+    } catch {
+      setAllOwnedRooms(null) // 取れないときは呼び手がこの部屋自身のwork_capへフォールバックする
     }
   }, [user])
 
@@ -3030,6 +3064,7 @@ export default function MePage() {
                       onChanged={() => void reload()}
                       roomCount={rooms.length}
                       isMain={current.id === frontDoor?.id}
+                      poolCapacity={allOwnedRooms ? poolCapacityOf(allOwnedRooms) : null}
                       /* 部屋の切替タブ（ユーザー指示 2026-08-10: 「部屋」「配置」ステージの
                          中だけに置く。UIとロジックは変えず場所だけ動かした）。 */
                       rooms={rooms}

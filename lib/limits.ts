@@ -110,6 +110,15 @@ export function unbuiltRooms(tally: RoomTally, roomsPurchased: number): number {
  * Advisory only — the DB enforces the same rule in `enforce_room_allowance` (0038),
  * because `galleries` is inserted into directly through RLS.
  */
+/** 口座内の全部屋（合同展示の部屋も含む）の`work_cap`を合算した、作品スロットの
+ *  合計。移動の代わり（ユーザー指摘 2026-08-11、DECISIONS 2026-08-11）: 部屋ごとに
+ *  別々の数字を見せず、口座全体で1つの残り枠数だけを扱う。部屋ごとの`work_cap`は
+ *  購入・等級の記帳としてはそのまま残る（DBスキーマは無変更）ので、集計はここで
+ *  行うだけでよい。 */
+export function poolCapacityOf(rooms: { work_cap?: number | null }[]): number {
+  return rooms.reduce((sum, r) => sum + (r.work_cap ?? 0), 0)
+}
+
 export function gradeForNewRoom(
   tally: RoomTally,
   roomsPurchased: number

@@ -110,33 +110,6 @@
 .room-expo-list .btn-line { width: 100%; justify-content: flex-start; }
 .room-expo-manage { margin-top: 0.3rem; border-color: transparent; color: var(--muted); }
 .room-expo-manage:hover { color: var(--gold); }
-
-/* 作品スロットの部屋間移動（migration 0052、ユーザー指示 2026-08-10）。
-   `.room-expo-badge`/`.room-expo-panel` と同じ「トリガー＋絶対配置ドロップダウン」の型。 */
-.capacity-transfer { position: relative; }
-.capacity-transfer-panel {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  z-index: 40;
-  width: min(20rem, calc(100vw - 2rem));
-  padding: 0.9rem 1rem 1rem;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: #12100d;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.capacity-transfer-panel-title {
-  margin: 0;
-  font-family: var(--sans);
-  font-size: 0.68rem;
-  letter-spacing: 0.1em;
-  color: var(--gold);
-}
 .me-hero-avatar {
   width: 58px;
   height: 58px;
@@ -453,7 +426,7 @@
 /* ダッシュボードの入力欄。**セレクタの列挙に入れ忘れた欄はブラウザ既定の白地で描かれる**
    — SNSの欄がそれで、カードの中で白く浮いていた（ユーザー指摘 2026-08-03）。
    新しい入力欄を足したら、ここに並べたか確認する。 */
-.me-field input, .me-field textarea, .me-field select, .spotlight-row input,
+.me-field input, .me-field textarea, .spotlight-row input,
 .sns-field input, .sns-custom-row input {
   width: 100%;
   font-family: var(--sans);
@@ -467,7 +440,7 @@
   transition: border-color 0.2s;
   resize: vertical;
 }
-.me-field input:focus, .me-field textarea:focus, .me-field select:focus, .spotlight-row input:focus,
+.me-field input:focus, .me-field textarea:focus, .spotlight-row input:focus,
 .sns-field input:focus, .sns-custom-row input:focus { border-color: var(--gold); }
 
 /* Size row W×H number inputs — match the dashboard's other fields (were browser-default) */
@@ -1568,6 +1541,12 @@
 /* ── 複数展示室（ユーザー決定 2026-08-09） ───────────────────────────────
    部屋のタブ・部屋の追加・満杯時の2択・サブ部屋のURL。いずれも2室目が
    存在してはじめて描かれる（1室のときは何も足さない＝従来の画面のまま）。 */
+/* 部屋タブ＋部屋の追加を横に並べる行（ユーザー指示 2026-08-11: 「部屋」「配置」
+   ステージの枠の外・タブの直下に。新規追加ボタンは部屋タブの横に）。タブ側は
+   横スクロール・伸びる側、追加ボタンは自分の幅のまま右に付く。幅が無ければ折り返す。 */
+.me-rooms-row { display: flex; align-items: flex-start; gap: 0.6rem; margin-top: 1.1rem; flex-wrap: wrap; }
+.me-rooms-row .me-rooms { margin-top: 0; flex: 1 1 auto; min-width: 0; }
+.me-rooms-row .me-room-add { margin-top: 0; flex: 0 0 auto; }
 .me-rooms {
   display: flex;
   gap: 0.3rem;
@@ -1891,45 +1870,20 @@
 .notif-item-x:hover { color: var(--ink); }
 
 /* ベルは畳まれない場所（`.me-top-nav` 直下、ハンバーガーの隣）に立つ。ハンバーガーと
-   同じ 44px の当たり判定にして、狭い幅でも指で押せるようにする。 */
-@media (max-width: 640px) {
-  /* 高さは行（＝ハンバーガーの44px）に揃うので指定しない。**幅は 44px を明示する** ──
-     `aspect-ratio` は幅には効かない（幅が主軸で内容から先に決まる）ので、放っておくと
-     21px の細長いボタンになって指で押せない。44px はハンバーガー自身が持っている値
-     （タップ領域の下限）で、隣り合う2つが同じ数字を持つ形にする。 */
-  .notif-bell { width: 44px; padding: 0; justify-content: center; font-size: 1.15rem; }
-}
+   **常に**同じ44px角・角丸10pxにする（ユーザー指摘 2026-08-11: 角丸とwidthが
+   ハンバーガーと揃っていなかった）。以前はPC幅(≥641px)だけ`aspect-ratio`任せの
+   可変幅にしていたが、PCでも常にハンバーガーを出す形（2026-08-10）になった今は
+   幅で分ける理由が無い。`.btn-line`由来の角丸6pxも上書きする。 */
+.notif-bell { width: 44px; height: 44px; padding: 0; justify-content: center; font-size: 1.15rem; border-radius: 10px; }
 
 /* ベルの見た目をテキストボタンと釣り合わせる（ユーザー指摘 2026-08-09、2回目）。
    `.btn-line` は**文字用**の器で、`font-size: .74rem` / `padding: .6em 1.1em`。
    `1em` のアイコンをそこに入れると 11.8px の点になり、左右 13px のパディングと
-   釣り合わず横長のピルの中で泳ぐ。
-
-   **1回目の直しは「アイコンを 16px にすれば行boxと同じ高さになる」だったが、これは
-   間違いだった** — 16px という数字は**本物のフォント（Geist）を読み込んでいない
-   ハーネスで測った行box**で、実際の高さは Geist の行boxで決まる。フォントに依存する
-   数字を当てにしていた（preview-verify の「測り方を疑う」の一例）。
-
-   直し方: **高さを自分で決めさせない。行に揃えさせる。** `.me-top-nav` を
-   `align-items: stretch` にすると、ベルの高さは**行の高さ（＝隣のテキストボタンの高さ、
-   狭い幅ではハンバーガーの44px）そのもの**になる。幅は `aspect-ratio: 1` で高さに
-   追従するので正方形になる。**数字もフォントも出てこない**ので、文字サイズや
-   フォントが変わっても勝手に付いてくる。
-   （幅0の支柱を `::before` で作る方法も試したが、行boxの作られ方が違って2px合わなかった。
-   実測 2026-08-09。） */
-/* 幅で**分けて**書く。無条件のルールをこのあと（狭い幅のブロックより後ろ）に置くと、
-   狭い幅用の `padding: 0` を上書きしてしまう ── モバイルのベルが 44px のハンバーガーに
-   対して 49px になっていた（実測 2026-08-09）。**打ち消し合わないように、幅ごとに
-   閉じたブロックへ入れる。** */
-.notif-bell { gap: 0; aspect-ratio: 1; }
+   釣り合わず横長のピルの中で泳ぐ。**今は固定44px角（上のルール）にしたので、
+   ここでは`gap`とアイコン自体の大きさだけ揃える** — 幅・高さ・パディングは
+   幅ごとに分けない（2026-08-11、上のコメント参照）。 */
+.notif-bell { gap: 0; }
 .notif-bell svg { width: 1.05em; height: 1.05em; }
-
-@media (min-width: 641px) {
-  /* 左右 0.75em は「アイコン(1.05em)＋左右パディング＋枠線」がちょうど行の高さに一致する
-     点。em なので文字サイズが変わっても比が保たれる ── sans/serif/等幅 ×
-     0.6/0.74/1rem の5通りで**正方形からのズレ0px・高さは行と一致**を実測（2026-08-09）。 */
-  .notif-bell { padding: 0.6em 0.75em; }
-}
 
 /* 合同展示の主催者画面（migration 0044、ユーザー決定 2026-08-09）。既存の `.me-section`
    に載せるので、器そのものは通常の設定と同じ見え方にする。 */

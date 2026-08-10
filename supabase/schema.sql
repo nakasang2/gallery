@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0052 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0053 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -4964,3 +4964,6 @@ $$;
 
 revoke all on function public.transfer_room_capacity(uuid, uuid, int) from public, anon;
 grant execute on function public.transfer_room_capacity(uuid, uuid, int) to authenticated;
+
+-- # 0053_drop_room_capacity_transfer.sql — 0052の「部屋間で枠を移動」を撤回する(ユーザー指摘 2026-08-11)
+drop function if exists public.transfer_room_capacity(uuid, uuid, int);

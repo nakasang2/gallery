@@ -178,35 +178,11 @@ export async function listMyGalleries(userId: string): Promise<GalleryRow[]> {
   return rows.filter((r) => !r.expo_id)
 }
 
-/** 所有するギャラリー行を**合同展示の部屋も含めて**全部引く。作品スロットの
- *  部屋間移動（migration 0052）は個人の部屋⇄合同展示の部屋の間でも成り立つので、
- *  移動先候補には `listMyGalleries()` が落とす合同展示の部屋も出す必要がある。 */
+/** 所有するギャラリー行を**合同展示の部屋も含めて**全部引く。作品スロットの合計
+ *  （`lib/limits.poolCapacityOf`）は個人の部屋⇄合同展示の部屋の間でも成り立つので、
+ *  合算には `listMyGalleries()` が落とす合同展示の部屋も含める必要がある。 */
 export async function listAllOwnedRooms(userId: string): Promise<GalleryRow[]> {
   return fetchOwnedRooms(userId)
-}
-
-/** 作品スロットを部屋間で移動する（migration 0052、ユーザー指示・DECISIONS
- *  2026-08-10）。口座内の合計は変えないまま、移動元の`work_cap`を減らし移動先を
- *  同じ量だけ増やす。守ることはDB側の`transfer_room_capacity`が持つ（移動元は
- *  最低1枠残す・移動先は物理上限15枠を超えない・呼び手が両方の所有者であること）。 */
-export async function transferRoomCapacity(fromId: string, toId: string, amount: number): Promise<void> {
-  const { error } = await supabase!.rpc('transfer_room_capacity', {
-    p_from: fromId,
-    p_to: toId,
-    p_amount: amount,
-  })
-  if (error) throw error
-}
-
-export type TransferCapacityError = 'floor' | 'ceiling' | 'not_owner' | 'other'
-
-/** 生のDBエラーを、UIが文言を選べる形に翻訳する（`roomExpoSwitchErrorKey` と対の作法）。 */
-export function transferCapacityErrorKey(e: unknown): TransferCapacityError {
-  const msg = ((e as { message?: string } | null)?.message ?? '').toLowerCase()
-  if (msg.includes('must keep at least')) return 'floor'
-  if (msg.includes('cannot exceed 15 slots')) return 'ceiling'
-  if (msg.includes('not your room')) return 'not_owner'
-  return 'other'
 }
 
 /** 1つの合同展示に属する部屋（migration 0044）。所有者の視点で引く。 */

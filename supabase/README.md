@@ -6,7 +6,7 @@
 
 ### かんたん(推奨): 一発適用
 
-**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0052 が
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0053 が
 一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
 
 **未適用ぶんだけを1枚に束ねたいとき**は `npm run sql:pending -- <開始番号>`
@@ -83,7 +83,8 @@ authenticated・service_role の3ロール)を最小限スタブした素のPost
    - `0049_expo_launch_guard_fix.sql` — **合同展示の確定バグ2件を塞ぐ**（別視点レビュー 2026-08-10、PR #8 マージ前に発見。素のPostgresで実際に再現して確認済み）。①`guard_expo_run` が `before update` にしか付いておらず、authenticated が **INSERT で `starts_at` を自分で入れると、決済を一度も通さずに即座に公開できた**（30日ぶん・$0で再現） → トリガを `before insert or update` に広げ、INSERT でも `starts_at is not null` を拒否する。②`enforce_room_allowance` が `new.expo_id is not null` なら無条件に return していたため、**他人の展示のIDを付けるだけで所有者チェックも work_cap の上限チェックも一切素通りし、work_cap=999999 の部屋が無料で作れた**（他人の展示に紐づく形で再現） → `expo_id` の所有者が `new.owner_id` と一致するかを確認し、work_cap も15枠上限を通すように直した。
    - `0050_room_expo_toggle.sql` — **部屋を「通常展示↔合同展示」に切り替える**（ユーザー指示 2026-08-10。範囲は**作成直後・空の部屋だけ**に絞った — 作品を置いた後の部屋を動かすには参加作家の同意・配置の巻き戻しが要る本格的な工事になるため）。「空」は日付ではなく**その部屋の `placements` が0件であること**で判定する。唯一の書き込み経路 `switch_room_expo(gallery, expo|null)` を新設し、①呼び手がその部屋の所有者であること②部屋が空であること③合同展示に入れるときはその展示が呼び手自身のものであること（0049と同じ理由でただ乗りを禁止）④通常展示に戻すときは**この部屋を除いた台帳**で無料/有料の等級を判定し、空きが無ければ拒否する、を守る。直接の `update galleries set expo_id=...` は追加のトリガで塞ぎ、必ずこの関数を通す（`security invoker` で呼び手のロールを見るガード。0036と同じ作法）。
    - `0051_expo_schedule.sql` — **合同展示の公開日時を予約できるようにする**（ユーザー指示 2026-08-10。上限は無し）。`record_expo_purchase` に7つ目の引数 `p_starts_at`（省略時は従来どおり即時）を追加。**`expo_is_live()` の判定式は元から `now() >= starts_at` だった**ので、未来の日時を入れるだけで「まだ始まっていない」がそのまま表現できる ── DB側の判定ロジックは1行も変えていない。旧6引数版は落とし、既定値で6引数呼び出しも解決される。**このファイルを書く過程で確定バグを1件見つけて同時に直した**: 2つのチェックアウトを並行して開き両方で支払いを終える競合状態で、2件目が別セッションidを持つため「再送判定」（セッションidの一致）を素通りし、`purchases (user_id, kind, item_key)` の一意制約に落ちて**webhookがクラッシュ→Stripeが延々と再送する**状態を実際に再現した。判定を「このセッションid、または**この展示への支払いが既にある**」に広げて解決（先勝ちのまま台帳が1本になる）。
-   - `0052_room_capacity_transfer.sql` — **作品スロットを部屋間で移動する**（ユーザー指示・DECISIONS 2026-08-10。無料室5枠＋合同展示部屋15枠＝合計20枠を、口座内で合計を変えずに自由に配分し直せるようにする）。`galleries.work_cap` の構造は変えず、唯一の書き込み経路 `transfer_room_capacity(from, to, amount)` を新設。①移動元・移動先どちらも呼び手の所有であること②移動元は移動後も最低1枠残す③移動先は物理上限（15枠）を超えない、を守る。`switch_room_expo`（0050）と同じ理屈で `security definer` にし、`guard_work_cap_raise`（0036）の「authenticated/anonからの引き上げ拒否」を関数の内側だけ素通りさせる。
+   - `0052_room_capacity_transfer.sql` — **作品スロットを部屋間で移動する**（ユーザー指示・DECISIONS 2026-08-10。無料室5枠＋合同展示部屋15枠＝合計20枠を、口座内で合計を変えずに自由に配分し直せるようにする）。`galleries.work_cap` の構造は変えず、唯一の書き込み経路 `transfer_room_capacity(from, to, amount)` を新設。①移動元・移動先どちらも呼び手の所有であること②移動元は移動後も最低1枠残す③移動先は物理上限（15枠）を超えない、を守る。`switch_room_expo`（0050）と同じ理屈で `security definer` にし、`guard_work_cap_raise`（0036）の「authenticated/anonからの引き上げ拒否」を関数の内側だけ素通りさせる。**→ 0053で撤回。**
+   - `0053_drop_room_capacity_transfer.sql` — **0052の「移動」を撤回**（ユーザー指摘・DECISIONS 2026-08-11。「移動とかややこしいので、共通扱いにしてほしい」）。部屋ごとに別々の数字を考えず、口座全体で1つの残り枠数だけを扱う方式（本当の共通プール）に作り直した。集計（全部屋の`work_cap`の合算）は`lib/limits.poolCapacityOf`でアプリ側だけが行うので、DB側は0052で作った移動用のRPCを`drop function if exists`で落とすだけ。`galleries.work_cap`列・等級ロジック・購入経路は無変更。
 3. 「Success. No rows returned」が出れば完了
 
 **番号順に流すこと**が前提です。後の番号が前の番号を上書きする箇所があります —
