@@ -1,0 +1,16 @@
+<svg viewBox="-24 -24 448 448" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    /* The mark is pure black, so a dark tab strip would swallow it. This rule is the only
+       lever available, and it does NOT cover every browser: a favicon is rasterised with no
+       embedding document, so there is no scheme for the query to match unless the browser
+       supplies one. Firefox does; Chrome and Edge render this SVG but leave the mark black,
+       and favicon.ico cannot rescue them because ICO holds no dark variant and they are not
+       reading it anyway. Accepted rather than solved — the alternative is baking an opaque
+       tile behind the mark, which changes the brand mark itself. Revisit if Chromium ships
+       favicon colour-scheme support. (favicon.ico stays regardless: SVG-blind clients need
+       it, and crawlers, feed readers and Windows pinned sites request it by convention.) */
+    #mark { fill: #000000; }
+    @media (prefers-color-scheme: dark) { #mark { fill: #FFFFFF; } }
+  </style>
+  <path id="mark" d="M370 100C386.569 100 400 113.431 400 130V370C400 386.569 386.569 400 370 400H130C113.431 400 100 386.569 100 370V300H270C286.569 300 300 286.569 300 270V100H370ZM270 0C286.569 3.86556e-06 300 13.4315 300 30V100H130C113.431 100 100 113.431 100 130V300H30C13.4315 300 2.41612e-07 286.569 0 270V30C3.8658e-06 13.4315 13.4315 2.41598e-07 30 0H270Z"/>
+</svg>
