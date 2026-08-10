@@ -50,7 +50,20 @@ apply_range() { # $1=db  $2=開始番号  $3=終了番号
     [ -n "$3" ] && [ "$n" \> "$3" ] && continue
     # **エラーを1つも無視しない。** 以前 `grep -v` でエラーを捨てていたせいで、
     # 0001 の途中で止まった「後半が未適用のDB」を相手に検査していた。
-    $P -d "$1" -v ON_ERROR_STOP=1 -q -f "$f" 2>&1 | grep -v NOTICE || true
+    #
+    # **パイプで psql の終了状態を捨てないこと。** ここは長らく
+    # `psql … | grep -v NOTICE || true` で、パイプラインの状態＝最後の `grep`／`true` に
+    # なるため **migration が途中で落ちても静かに次へ進んでいた**（実測 2026-08-10:
+    # 0047 の `drop function` が依存関係で落ち、表だけ消えて関数とポリシーが残った
+    # 半端なDBを相手に43項目を検査していた）。出力は変数で受けて、状態を自分で見る。
+    local out
+    if ! out=$($P -d "$1" -v ON_ERROR_STOP=1 -q -f "$f" 2>&1); then
+      echo "$out"
+      echo "✗ migration $(basename "$f") が途中で落ちました（この先の検査は嘘になるので止めます）"
+      exit 1
+    fi
+    # NOTICE は量が多いので伏せる。WARNING と、その他の出力はそのまま見せる。
+    echo "$out" | grep -v NOTICE || true
   done
 }
 

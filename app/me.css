@@ -1908,6 +1908,15 @@
   padding: 0;
 }
 .expo-actions { margin-top: 0.7rem; }
+/* 参加者（migration 0047）。招待は展示に対するものなので、置き場所はここだけ。
+   会期の選択と並ぶので、あちらの金色とは違う地にして「お金の話ではない」と分ける。 */
+.expo-people {
+  margin-top: 0.8rem;
+  padding: 0.8rem;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+}
+.expo-people .placement-title { margin-top: 0; }
 /* 会期の選択。押すと決済に飛ぶので、他の操作と視覚的に分ける。 */
 .expo-pay {
   margin-top: 0.8rem;

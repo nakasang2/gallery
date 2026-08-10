@@ -13,7 +13,7 @@ import {
   type DesignOverrides,
 } from './presets'
 import { placeWorks, balancedFillOrder } from './arrangement'
-import { listSubmittedArtworks } from './invites'
+import { listSubmittedArtworksForRoom } from './invites'
 import type { Settings } from './store'
 import type { ArtworkData } from './artworks'
 
@@ -497,7 +497,7 @@ export async function rebuildPlacements(
   const sb = supabase!
   // 取得の失敗は**投げる**。ゼロ件として続けると下の delete が他作家の作品を落とす。
   // （0041 未適用のDBは `listSubmittedArtworks` が [] を返すので落ちない。）
-  const guests = guestArtworks ?? (await listSubmittedArtworks(galleryId))
+  const guests = guestArtworks ?? (await listSubmittedArtworksForRoom(galleryId))
   const layout = resolveLayout(settings.layout, settings.layoutParams)
   const cap = effectiveSlotCount(layout.slots.length, settings.workCap)
   // Honour the room's manual arrangement (§11.13): a work hangs on its chosen slot,

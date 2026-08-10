@@ -1,9 +1,10 @@
 'use client'
-// 合同展示の招待（migration 0041、ユーザー承認 2026-08-09）。2つの面を1ファイルに置く:
+// 合同展示の招待（migration 0047。0041 の部屋単位から**展示単位**へ載せ替えた）。
+// 2つの面を1ファイルに置く:
 //
-//   InviteInbox      — **作家側**。/me の一番上。「招かれた」ことに気づく場所は、
-//                      ダッシュボードを開いた最初の画面しか無い（通知の仕組みは無い）。
-//   ParticipantsPanel — **主催者側**。参加者ステージの中身。
+//   InviteInbox      — **作家側**。/me の一番上。招待は通知にも出るが、**通知は流れて
+//                      いく**ので「いま自分が参加している展示」を置く場所が要る。
+//   ParticipantsPanel — **主催者側**。合同展示タブ（`ExpoManager`）の各展示の中身。
 //
 // 同じ file にしたのは、両者が同じ状態機械（pending → accepted/declined → 提出）の
 // 別の端であり、片方だけ直すと必ず食い違うため。
@@ -12,15 +13,15 @@ import { useT } from '@/components/I18nProvider'
 import { useGallery } from '@/lib/store'
 import { artworkSrcSet } from '@/lib/cloud'
 import {
-  inviteArtistByHandle,
+  inviteArtistToExpo,
   inviteErrorKey,
+  listExpoInvites,
   listMyInvites,
-  listRoomInvites,
   respondToInvite,
   revokeInvite,
   setMySubmissions,
+  type ExpoInvite,
   type MyInvite,
-  type RoomInvite,
 } from '@/lib/invites'
 import { track } from '@/lib/analytics'
 
@@ -40,9 +41,9 @@ export function InviteInbox() {
     try {
       setInvites(await listMyInvites(user.id))
     } catch (e) {
-      // 0041 未適用のDBでは表が無い。受信箱は「無い」と同じ扱いにする（/me 全体を
+      // 0047 未適用のDBでは表が無い。受信箱は「無い」と同じ扱いにする（/me 全体を
       // 落とさない — 招待は主機能ではない）。
-      console.error('could not load invites (is migration 0041 applied?):', e)
+      console.error('could not load invites (is migration 0047 applied?):', e)
       setInvites([])
     }
     // `user` を deps に入れる。`[]` だと**サインイン直後に受信箱が出ない** —
@@ -84,7 +85,7 @@ export function InviteInbox() {
       : [...inv.submittedIds, artworkId]
     setBusyId(inv.id)
     try {
-      await setMySubmissions(inv.galleryId, next)
+      await setMySubmissions(inv.expoId, next)
       track('invite_submit', { count: next.length })
       await reload()
     } catch (e) {
@@ -100,13 +101,13 @@ export function InviteInbox() {
       <p className="invite-inbox-title">{t('invite.inboxTitle')}</p>
 
       {[...pending, ...accepted].map((inv) => {
-        const organizer = inv.room.organizer
+        const organizer = inv.expo.organizer
         const who = organizer?.displayName || (organizer?.username ? `@${organizer.username}` : '')
         const open = openId === inv.id
         return (
           <div key={inv.id} className="invite-row">
             <div className="invite-row-head">
-              <span className="invite-room">{inv.room.title}</span>
+              <span className="invite-room">{inv.expo.title || inv.expo.slug}</span>
               <span className="invite-who">{t('invite.from', { name: who })}</span>
             </div>
 
@@ -141,7 +142,7 @@ export function InviteInbox() {
                   <button className="btn-line" onClick={() => setOpenId(open ? null : inv.id)}>
                     {open ? t('invite.hideWorks') : t('invite.chooseWorks')}
                   </button>
-                  {/* 降りる道は常に開けておく。0041 のトリガが提出も掛かっている作品も
+                  {/* 降りる道は常に開けておく。0047 のトリガが提出も掛かっている作品も
                       引き上げるので、これは本当に「降りる」ボタン。 */}
                   <button
                     className="btn-line"
@@ -200,7 +201,7 @@ export function InviteInbox() {
       {declined.map((inv) => (
         <div key={inv.id} className="invite-row invite-row-declined">
           <div className="invite-row-head">
-            <span className="invite-room">{inv.room.title}</span>
+            <span className="invite-room">{inv.expo.title || inv.expo.slug}</span>
             <span className="invite-who">{t('invite.youDeclined')}</span>
           </div>
         </div>
@@ -212,27 +213,27 @@ export function InviteInbox() {
 /* ============================ 主催者側: 参加者 ============================ */
 
 export function ParticipantsPanel({
-  galleryId,
+  expoId,
   onChanged,
 }: {
-  galleryId: string
+  expoId: string
   /** 招待の増減で配置トレイの中身が変わるので、親に読み直させる。 */
-  onChanged: () => void
+  onChanged?: () => void
 }) {
   const t = useT()
-  const [invites, setInvites] = useState<RoomInvite[] | null>(null)
+  const [invites, setInvites] = useState<ExpoInvite[] | null>(null)
   const [handle, setHandle] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
     try {
-      setInvites(await listRoomInvites(galleryId))
+      setInvites(await listExpoInvites(expoId))
     } catch (e) {
-      console.error('could not load participants (is migration 0041 applied?):', e)
+      console.error('could not load participants (is migration 0047 applied?):', e)
       setInvites([])
     }
-  }, [galleryId])
+  }, [expoId])
 
   useEffect(() => {
     void reload()
@@ -244,11 +245,11 @@ export function ParticipantsPanel({
     setBusy(true)
     setErr(null)
     try {
-      await inviteArtistByHandle(galleryId, raw)
+      await inviteArtistToExpo(expoId, raw)
       track('participant_invite', {})
       setHandle('')
       await reload()
-      onChanged()
+      onChanged?.()
     } catch (e) {
       // DBの例外文を出さずキーに畳む（英語が画面に漏れる／原因が伝わらない）。
       // キーは**リテラルで書く** — 組み立てると check:i18n も grep も見つけられない。
@@ -265,14 +266,14 @@ export function ParticipantsPanel({
     }
   }
 
-  async function revoke(inv: RoomInvite) {
+  async function revoke(inv: ExpoInvite) {
     if (!confirm(t('invite.revokeConfirm', { name: inv.artist.displayName }))) return
     setBusy(true)
     try {
       await revokeInvite(inv.id)
       track('participant_revoke', {})
       await reload()
-      onChanged()
+      onChanged?.()
     } catch (e) {
       console.error('revoke failed:', e)
       alert(t('invite.errGeneric'))

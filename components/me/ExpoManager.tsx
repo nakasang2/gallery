@@ -29,6 +29,7 @@ import {
   updateExpo,
   type Expo,
 } from '@/lib/expos'
+import { ParticipantsPanel } from '@/components/me/ExpoInvites'
 import { track } from '@/lib/analytics'
 
 /** 日付だけ（時刻は会期の話では意味がないので出さない）。 */
@@ -57,6 +58,9 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
   // DB側の既定（14日）のまま作る。
   /** どの展示の会期選びを開いているか。 */
   const [payingId, setPayingId] = useState<string | null>(null)
+  /** どの展示の参加者を開いているか。**畳んであるのが既定** ── 一覧が主役で、
+   *  招待は「その展示を運営しに入った」ときの作業。 */
+  const [peopleId, setPeopleId] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
     if (!user) return
@@ -194,6 +198,21 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
                 )}
 
                 <div className="hako-actions expo-actions">
+                  {/* 参加者。**合同展示に招く道はここだけ**（部屋への招待は 0047 で撤去した）。
+                      会期が終わっても開けるままにするのは、誰が出していたかを後から
+                      確かめられるようにするため。 */}
+                  <button
+                    type="button"
+                    className="btn-line"
+                    onClick={() => {
+                      const next = peopleId === x.id ? null : x.id
+                      setPeopleId(next)
+                      if (next) track('me_stage_view', { stage: 'participants', from: 'expo' })
+                    }}
+                  >
+                    {peopleId === x.id ? t('invite.hideParticipants') : t('invite.openParticipants')}
+                  </button>
+
                   {xr.length === 0 && (
                     <button
                       type="button"
@@ -237,6 +256,12 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
                     </button>
                   )}
                 </div>
+
+                {peopleId === x.id && (
+                  <div className="expo-people">
+                    <ParticipantsPanel expoId={x.id} />
+                  </div>
+                )}
 
                 {/* 壁が空のまま公開させない（来場者が空の部屋に着く）。 */}
                 {phase === 'draft' && xr.length === 0 && (

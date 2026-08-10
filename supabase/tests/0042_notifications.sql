@@ -191,38 +191,47 @@ select actor_name='ゆき' and body='とても良かったです' from public.no
 \echo -n '16 無記名は actor_name が null（空文字にしない）: '
 select count(*)=1 from public.notifications where kind='guestbook' and actor_name is null;
 
-\echo '--- 招待（0041 の発端） ---'
+\echo '--- 招待（0042 の発端。**単位は展示** ── 0047 で部屋から載せ替えた） ---'
+-- 招待は合同展示（`expos`）に対して出す。0047 が `room_invites` を落としたので、
+-- ここも展示で試す（通知の中身＝誰に・何が載るかを見るのがこのファイルの仕事で、
+-- 招待の同意そのものは 0047 のテストが見る）。
+insert into public.expos (id, owner_id, slug, title, duration_days) values
+  ('9e000000-0000-0000-0000-0000000000f2', 'aaaaaaaa-0000-0000-0000-000000000001',
+   'joint-42', 'A の合同展示', 14);
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'aaaaaaaa-0000-0000-0000-000000000001';
-select public.invite_artist_by_handle('9a000000-0000-0000-0000-0000000000f1', 'artist_b');
+select public.invite_artist_to_expo('9e000000-0000-0000-0000-0000000000f2', 'artist_b');
 reset role;
 \echo -n '17 招かれた作家に通知が届く: '
 select count(*)=1 from public.notifications
   where kind='invite' and user_id='bbbbbbbb-0000-0000-0000-000000000002';
-\echo -n '18 部屋名と主催者名が載っている: '
-select title='A の展示' and actor_name='Artist A' from public.notifications where kind='invite';
+\echo -n '18 展示名と主催者名が載っている: '
+select coalesce(bool_and(title='A の合同展示' and actor_name='Artist A'), false)
+  from public.notifications where kind='invite';
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
-update public.room_invites set status='accepted' where artist_id='bbbbbbbb-0000-0000-0000-000000000002';
+update public.expo_invites set status='accepted' where artist_id='bbbbbbbb-0000-0000-0000-000000000002';
 reset role;
 \echo -n '19 受諾が主催者に返る: '
 select count(*)=1 from public.notifications
   where kind='invite_reply' and user_id='aaaaaaaa-0000-0000-0000-000000000001' and body='accepted';
 \echo -n '20 誰が返事したか載っている: '
-select actor_name='Artist B' from public.notifications where kind='invite_reply';
+select coalesce(bool_and(actor_name='Artist B'), false)
+  from public.notifications where kind='invite_reply';
 
 \echo '--- 提出（作家ごとにまとめる） ---'
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
-insert into public.room_submissions (gallery_id, artwork_id)
-  values ('9a000000-0000-0000-0000-0000000000f1','b0000000-0000-0000-0000-0000000000b1');
+insert into public.expo_submissions (expo_id, artwork_id)
+  values ('9e000000-0000-0000-0000-0000000000f2','b0000000-0000-0000-0000-0000000000b1');
 reset role;
 \echo -n '21 提出が主催者に通知される: '
 select count(*)=1 from public.notifications
   where kind='submission' and user_id='aaaaaaaa-0000-0000-0000-000000000001';
 \echo -n '22 出した作家の名前が載っている（まとめの鍵でもある）: '
-select actor_name='Artist B' from public.notifications where kind='submission';
+select coalesce(bool_and(actor_name='Artist B'), false)
+  from public.notifications where kind='submission';
 
 \echo '--- 一斉送信（管理者） ---'
 set local role authenticated;
