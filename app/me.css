@@ -1957,7 +1957,10 @@
   border-radius: 10px;
   background: rgba(212, 162, 78, 0.04);
 }
-.expo-new { margin-top: 1rem; }
+/* 展示の新規作成はポップアップに（ユーザー指示 2026-08-10）。`.help-modal` の
+   共通の枠に、フィールドの上マージンだけ詰める。 */
+.expo-new-modal .me-field { margin-top: 1rem; }
+.expo-new-modal .me-field:first-of-type { margin-top: 1.2rem; }
 
 /* ---- 招待リンク（migration 0048。参加者パネルの中） ---- */
 .invite-links {

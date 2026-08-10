@@ -12,6 +12,9 @@ import { supabase } from './supabase'
 export type ExpoPhase =
   /** まだ払っていない。誰にも見えない。無料で準備できる */
   | 'draft'
+  /** 支払いは済んだが、選んだ開始日時がまだ来ていない（ユーザー指示 2026-08-10:
+   *  公開日を予約できるようにした）。`starts_at` はあるが `now() < starts_at`。 */
+  | 'scheduled'
   /** 会期中。`/expo/{slug}` が見えている */
   | 'running'
   /** 会期は終わったが、猶予のあいだURLは生きている（表示側が「終了」と出す） */
@@ -63,9 +66,15 @@ export const EXPO_GRACE_DAYS = 7
 /**
  * いまどの段階か。**表示のためだけに使う** — 見せてよいかどうかを本当に決めているのは
  * DB の RLS（`expo_is_live`）で、ここが間違っても他人の下書きは見えない。
+ *
+ * `scheduled`（支払い済みだが選んだ開始日時がまだ来ていない）は `starts_at` が未来の
+ * ときだけ成立する。会期の予約（migration 0051）を入れる前は `starts_at` は常に
+ * 「今」だったので、この分岐は実質常に false だった。
  */
 export function expoPhase(x: Expo, now = Date.now()): ExpoPhase {
   if (!x.startsAt || !x.endsAt) return 'draft'
+  const starts = new Date(x.startsAt).getTime()
+  if (now < starts) return 'scheduled'
   return now < new Date(x.endsAt).getTime() ? 'running' : 'ended'
 }
 
@@ -201,9 +210,11 @@ export async function addExpoRoom(
  * 場所代の決済へ送る。**公開はこの決済が通ったときにだけ起きる**（webhook →
  * `record_expo_purchase`）。ここが返すのは Stripe のURLだけで、会期は始まらない。
  *
- * 金額も日数も送らない（SKUから一意に決まる）。
+ * 金額も日数も送らない（SKUから一意に決まる）。`startsAt` は**いつから見せるか**の
+ * 予約（migration 0051。ユーザー指示 2026-08-10）── 省略すると支払い完了と同時に
+ * 公開される（従来どおり）。
  */
-export async function startExpoCheckout(expoId: string, sku: string): Promise<string> {
+export async function startExpoCheckout(expoId: string, sku: string, startsAt?: string): Promise<string> {
   const { data: auth } = await supabase!.auth.getSession()
   const token = auth.session?.access_token
   if (!token) throw new Error('Please sign in again.')
@@ -211,7 +222,7 @@ export async function startExpoCheckout(expoId: string, sku: string): Promise<st
   const res = await fetch('/api/checkout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ sku, expoId }),
+    body: JSON.stringify({ sku, expoId, ...(startsAt ? { startsAt } : {}) }),
   })
   if (!res.ok) {
     const detail = (await res.json().catch(() => null)) as { error?: string } | null

@@ -44,6 +44,9 @@ interface CheckoutBody {
   quantity?: number
   /** expo_*: どの合同展示の場所代か */
   expoId?: string
+  /** expo_*: いつから見せるかの予約（ISO文字列。省略=支払い完了と同時に公開。
+   *  ユーザー指示 2026-08-10、上限なし）。 */
+  startsAt?: string
 }
 
 export async function POST(req: NextRequest) {
@@ -149,6 +152,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 公開の予約日時（任意・上限なし・ユーザー決定 2026-08-10）。壊れた値をStripeの
+  // metadataに乗せて後で困るより、ここで一度パースして弾く。
+  let startsAtIso = ''
+  if (isExpoSku(sku) && body.startsAt) {
+    const d = new Date(body.startsAt)
+    if (Number.isNaN(d.getTime())) {
+      return NextResponse.json({ error: 'That start date is not valid.' }, { status: 400 })
+    }
+    startsAtIso = d.toISOString()
+  }
+
   // Per-unit amount in USD cents (Stripe's unit_amount for USD is cents). The
   // capacity line uses Stripe's own quantity so amount_total = unit × quantity.
   // single_item is priced per item: the kind's base price ($8 theme / $5 layout /
@@ -199,6 +213,9 @@ export async function POST(req: NextRequest) {
         // 会期の日数は metadata に入れない。**SKU から引く**（`expoDaysForSku`）ので、
         // metadata が書き換わっても払った長さは変わらない。
         expo_id: isExpoSku(sku) ? expoId : '',
+        // 公開の予約日時（任意）。書き換えられても実害は「公開される日時が変わる」
+        // だけ ── 会期の長さも料金もSKUで固定されているので、決済の額は変わらない。
+        starts_at: startsAtIso,
         // Which acknowledgement the buyer passed through, not free prose: the
         // wording itself lives in lib/i18n (`purchase.agreeNote`) and the Terms.
         consent: 'terms-accepted', // i18n-ok: 対人文言ではなくStripeの記録用の識別子

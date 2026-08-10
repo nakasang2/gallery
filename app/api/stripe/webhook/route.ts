@@ -186,6 +186,11 @@ export async function POST(req: NextRequest) {
           break
         }
         const days = expoDaysForSku(sku)
+        // 公開の予約日時（任意・ユーザー決定 2026-08-10）。壊れていたら「今すぐ公開」に
+        // 倒す（省略時と同じ挙動。予約が壊れているせいで永久に非公開のままにしない）。
+        const startsAtRaw = meta.starts_at ?? ''
+        const startsAtDate = startsAtRaw ? new Date(startsAtRaw) : null
+        const startsAtIso = startsAtDate && !Number.isNaN(startsAtDate.getTime()) ? startsAtDate.toISOString() : null
         const { error: rpcErr } = await db.rpc('record_expo_purchase', {
           p_session: session.id,
           p_user: userId,
@@ -193,6 +198,7 @@ export async function POST(req: NextRequest) {
           p_days: days,
           p_amount: amount,
           p_currency: currency,
+          p_starts_at: startsAtIso,
         })
         if (rpcErr) {
           // 展示が消えている等の「retryしても直らない」理由と、一時的なDBエラーを

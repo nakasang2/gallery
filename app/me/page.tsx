@@ -164,6 +164,17 @@ function fmtDate(iso: string | null): string {
   }
 }
 
+/** `<input type="datetime-local">` の `min` 用。**現地時刻**（UTCではない）を
+ *  `YYYY-MM-DDTHH:mm` に切って返す — datetime-local はタイムゾーンを持たない文字列
+ *  なので、そのまま `toISOString()`（常にUTC）を使うとずれる。UTCへの見かけ上の
+ *  シフトで現地時刻を読ませる、よく使われる回避策（ユーザー指示 2026-08-10、
+ *  合同展示の公開日時予約）。 */
+function nowForDatetimeLocal(): string {
+  const d = new Date()
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 16)
+}
+
 const IMPORT_DISMISS_KEY = 'xibit360.importDismissed.v1'
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
@@ -552,6 +563,9 @@ function GalleryCard({
   useEffect(() => {
     if (stage === 'participants' && !row.expo_id) setStage('works')
   }, [stage, row.expo_id])
+  // 合同展示の公開日時の予約（`<input type="datetime-local">` の値。空欄=今すぐ。
+  // ユーザー指示 2026-08-10、上限なし）。
+  const [scheduleInput, setScheduleInput] = useState('')
   // The work being edited in the shared editor sheet (works + placement stages).
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // Phones render the editor sheet as a bottom sheet over the grid/map.
@@ -1869,19 +1883,23 @@ function GalleryCard({
                 `is_public` は常にfalseに固定されているのでトグルの出しようがない）。
                 「会期を選んで公開＝支払い」も、旧 `ExpoManager` の中身をそのままここへ
                 移した（ユーザー指示 2026-08-10: 通常展示と同じ『公開』タブの中で扱う）。 */}
-            {row.expo_id ? (
+            {row.expo_id ? (() => {
+              // 'running'/'ended' だけが本当に開いている（0051: 'scheduled' はまだ
+              // 始まっていない予約状態なので、下書きと同じくリンクにしない）。
+              const isLive = !!expo && (expoPhase(expo) === 'running' || expoPhase(expo) === 'ended')
+              return (
               <>
                 <div className="hako-url-row">
                   <div className="hako-url-line">
-                    {expo && expoPhase(expo) !== 'draft' ? (
+                    {isLive ? (
                       <a
                         className="hako-url"
-                        href={`${origin}${expoPath(expo.slug)}/${row.slug}`}
+                        href={`${origin}${expoPath(expo!.slug)}/${row.slug}`}
                         target="_blank"
                         rel="noreferrer"
                       >
                         {/* i18n-ok: URLの見本（ドメイン名は訳す対象ではない） */}
-                        {`xibit360.art${expoPath(expo.slug)}/${row.slug}`}
+                        {`xibit360.art${expoPath(expo!.slug)}/${row.slug}`}
                       </a>
                     ) : (
                       <span className="hako-url off">
@@ -1891,20 +1909,31 @@ function GalleryCard({
                     )}
                   </div>
                   <div className="hako-state-line">
-                    <span className={`hako-state${expo && expoPhase(expo) !== 'draft' ? ' open' : ''}`}>
+                    <span className={`hako-state${isLive ? ' open' : ''}`}>
                       {!expo
                         ? t('me.loading')
                         : expoPhase(expo) === 'draft'
                           ? t('expo.phaseDraft')
-                          : expoPhase(expo) === 'running'
-                            ? t('expo.phaseRunning', { until: fmtDate(expo.endsAt) })
-                            : t('expo.phaseEnded', { on: fmtDate(expo.endsAt) })}
+                          : expoPhase(expo) === 'scheduled'
+                            ? t('expo.phaseScheduled', { on: fmtDate(expo.startsAt) })
+                            : expoPhase(expo) === 'running'
+                              ? t('expo.phaseRunning', { until: fmtDate(expo.endsAt) })
+                              : t('expo.phaseEnded', { on: fmtDate(expo.endsAt) })}
                     </span>
                   </div>
                 </div>
                 {expo && expoPhase(expo) === 'draft' && (
                   <div className="expo-pay">
                     <p className="me-note" style={{ marginTop: 0 }}>{t('expo.payNote')}</p>
+                    <label className="me-field">
+                      <span>{t('expo.scheduleLabel')}</span>
+                      <input
+                        type="datetime-local"
+                        value={scheduleInput}
+                        min={nowForDatetimeLocal()}
+                        onChange={(e) => setScheduleInput(e.target.value)}
+                      />
+                    </label>
                     <div className="hako-actions">
                       {expoRunOptions().map((o) => (
                         <button
@@ -1914,9 +1943,10 @@ function GalleryCard({
                           disabled={busy}
                           onClick={() =>
                             void run(t('expo.openIt'), async () => {
-                              track('expo_checkout', { expo: expo.slug, days: o.days })
+                              track('expo_checkout', { expo: expo.slug, days: o.days, scheduled: !!scheduleInput })
                               await updateExpo(expo.id, { durationDays: o.days })
-                              window.location.href = await startExpoCheckout(expo.id, o.sku)
+                              const startsAt = scheduleInput ? new Date(scheduleInput).toISOString() : undefined
+                              window.location.href = await startExpoCheckout(expo.id, o.sku, startsAt)
                             })
                           }
                         >
@@ -1930,7 +1960,8 @@ function GalleryCard({
                   <p className="me-note expo-warn">{t('expo.purgeNote', { on: fmtDate(expoPurgeAt(expo)!.toISOString()) })}</p>
                 )}
               </>
-            ) : /* The URL and its state live together: flip the switch to open / close the room */
+              )
+            })() : /* The URL and its state live together: flip the switch to open / close the room */
             username ? (
               /* Two lines so the toggle never wraps away from its label (ユーザー指示
                  2026-07-31): the URL + copy on top, the open/close switch + state below. */
@@ -2052,7 +2083,7 @@ function GalleryCard({
                   部屋は会期が生きているあいだだけ本物のURLがある（0045。下書き中は
                   どこにも通じないので出さない）。 */}
               {row.expo_id ? (
-                expo && expoPhase(expo) !== 'draft' && (
+                expo && (expoPhase(expo) === 'running' || expoPhase(expo) === 'ended') && (
                   <a className="btn-line" href={`${expoPath(expo.slug)}/${row.slug}`} target="_blank" rel="noreferrer">
                     {t('me.navWalk')}
                   </a>

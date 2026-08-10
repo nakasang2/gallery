@@ -84,6 +84,16 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
     void reload()
   }, [reload])
 
+  // Escapeで閉じる（HelpModal/PurchaseModalと同じ作法）。
+  useEffect(() => {
+    if (!creating) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCreating(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [creating])
+
   if (!user) return null
 
   const run = async (fn: () => Promise<void>) => {
@@ -145,16 +155,19 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
                   <span className="expo-phase">
                     {phase === 'draft'
                       ? t('expo.phaseDraft')
-                      : phase === 'running'
-                        ? t('expo.phaseRunning', { until: day(x.endsAt) })
-                        : t('expo.phaseEnded', { on: day(x.endsAt) })}
+                      : phase === 'scheduled'
+                        ? t('expo.phaseScheduled', { on: day(x.startsAt) })
+                        : phase === 'running'
+                          ? t('expo.phaseRunning', { until: day(x.endsAt) })
+                          : t('expo.phaseEnded', { on: day(x.endsAt) })}
                   </span>
                 </div>
 
                 {/* URL は下書きのうちから見せる（配る前に確かめられる）。会期が始まって
-                    いなければ開いても404なので、リンクにするのは公開後だけ。 */}
+                    いなければ開いても404なので、リンクにするのは公開後（running/ended）
+                    だけ ── scheduled はまだ始まっていない（0051）。 */}
                 <p className="expo-url">
-                  {phase === 'draft' ? (
+                  {phase === 'draft' || phase === 'scheduled' ? (
                     <code>{expoPath(x.slug)}</code>
                   ) : (
                     <a href={expoPath(x.slug)} target="_blank" rel="noreferrer">
@@ -234,64 +247,93 @@ export default function ExpoManager({ onOpenRoom }: { onOpenRoom?: (roomId: stri
         </ul>
       )}
 
-      {/* 新規作成 */}
-      {!creating && (
-        <div className="hako-actions" style={{ marginTop: '0.9rem' }}>
-          <button type="button" className="btn-line" onClick={() => setCreating(true)} disabled={busy}>
-            {t('expo.create')}
-          </button>
-        </div>
-      )}
+      {/* 新規作成。**ポップアップで行う**（ユーザー指示 2026-08-10）。タイトルとURLを
+          決めて作成を押すと、**展示だけでなくその最初の部屋も自動でできる** —
+          以前は展示を作った後に別途「部屋を追加」を押す2手間だった。 */}
+      <div className="hako-actions" style={{ marginTop: '0.9rem' }}>
+        <button type="button" className="btn-line" onClick={() => setCreating(true)} disabled={busy}>
+          {t('expo.create')}
+        </button>
+      </div>
 
       {creating && (
-        <div className="expo-new">
-          <label className="me-field">
-            <span>{t('expo.fieldTitle')}</span>
-            <input
-              value={title}
-              placeholder={t('expo.fieldTitlePlaceholder')}
-              maxLength={80}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </label>
-          <label className="me-field">
-            <span>{t('expo.fieldSlug')}</span>
-            <input
-              value={slug}
-              placeholder="spring-show" /* i18n-ok: URLの見本（訳す対象ではない） */
-              maxLength={40}
-              onChange={(e) => setSlug(e.target.value)}
-            />
-          </label>
-          <p className="me-note" style={{ marginTop: 0 }}>
-            {t('expo.slugNote', { url: expoPath(slug.trim().toLowerCase() || 'spring-show') })}
-          </p>
-          <div className="hako-actions" style={{ marginTop: '0.9rem' }}>
+        <div className="purchase-backdrop" onClick={() => !busy && setCreating(false)}>
+          <div
+            className="help-modal expo-new-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('expo.create')}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              type="button"
-              className="btn-line btn-gold"
-              disabled={busy || !slugOk}
-              onClick={() =>
-                void run(async () => {
-                  await createExpo(user.id, { slug, title })
-                  track('expo_create', {})
-                  setCreating(false)
-                  setSlug('')
-                  setTitle('')
-                })
-              }
+              className="purchase-close"
+              aria-label={t('common.close')}
+              disabled={busy}
+              onClick={() => setCreating(false)}
             >
-              {busy ? t('common.saving') : t('expo.createGo')}
+              ×
             </button>
-            <button type="button" className="btn-line" onClick={() => setCreating(false)} disabled={busy}>
-              {t('common.cancel')}
-            </button>
+            <h1 className="help-modal-title">{t('expo.create')}</h1>
+            <label className="me-field">
+              <span>{t('expo.fieldTitle')}</span>
+              <input
+                value={title}
+                placeholder={t('expo.fieldTitlePlaceholder')}
+                maxLength={80}
+                onChange={(e) => setTitle(e.target.value)}
+                autoFocus
+              />
+            </label>
+            <label className="me-field">
+              <span>{t('expo.fieldSlug')}</span>
+              <input
+                value={slug}
+                placeholder="spring-show" /* i18n-ok: URLの見本（訳す対象ではない） */
+                maxLength={40}
+                onChange={(e) => setSlug(e.target.value)}
+              />
+            </label>
+            <p className="me-note" style={{ marginTop: 0 }}>
+              {t('expo.slugNote', { url: expoPath(slug.trim().toLowerCase() || 'spring-show') })}
+            </p>
+            <div className="hako-actions" style={{ marginTop: '0.9rem' }}>
+              <button
+                type="button"
+                className="btn-line btn-gold"
+                disabled={busy || !slugOk}
+                onClick={() =>
+                  void run(async () => {
+                    const x = await createExpo(user.id, { slug, title })
+                    track('expo_create', {})
+                    // 最初の部屋も同時に作る（ユーザー指示 2026-08-10）。名前は展示の
+                    // slugから機械的に決める ── 主催者の他の部屋とぶつからない名前は
+                    // 「部屋を追加」ボタンと同じ作法。
+                    const roomId = await addExpoRoom(user.id, x.id, {
+                      slug: `expo-${x.slug}-1`.slice(0, 40),
+                      title: x.title || x.slug,
+                    })
+                    track('expo_room_add', { expo: x.slug })
+                    setCreating(false)
+                    setSlug('')
+                    setTitle('')
+                    // 作った部屋をすぐ開く（そこで招待・作品掛け・会期選びをする）。
+                    onOpenRoom?.(roomId)
+                  })
+                }
+              >
+                {busy ? t('common.saving') : t('expo.createGo')}
+              </button>
+              <button type="button" className="btn-line" onClick={() => setCreating(false)} disabled={busy}>
+                {t('common.cancel')}
+              </button>
+            </div>
+            {!slugOk && slug.trim() !== '' && <p className="me-error">{t('expo.slugInvalid')}</p>}
+            {err && <p className="me-error">{err}</p>}
           </div>
-          {!slugOk && slug.trim() !== '' && <p className="me-error">{t('expo.slugInvalid')}</p>}
         </div>
       )}
 
-      {err && <p className="me-error">{err}</p>}
+      {!creating && err && <p className="me-error">{err}</p>}
     </section>
   )
 }
