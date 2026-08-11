@@ -487,6 +487,18 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
   )
 }
 
+// The stage tabs are the ONLY navigation now (the old top-level gallery/guestbook/
+// profile tabs are gone — ユーザー指示 2026-07-30). The publish flow (works → room →
+// placement → publish) leads, then the two housekeeping stages (guestbook, profile).
+// Order is visible but never enforced — every stage stays reachable.
+// `participants` は合同展示の部屋（`row.expo_id` が付いている）だけに出す
+// （ユーザー指示 2026-08-10: 通常展示と合同展示の部屋編集画面を「タブの数が違うだけ」
+// の同じ形にする。招待の管理は `ExpoManager` から部屋編集の中へ移した）。
+//
+// **モジュール直下に置く**（GalleryCardの中ではない）: `stage` はMePage側に持たせて
+// いる（下記GalleryCardのpropsコメント参照）ので、その型もページ側から使える必要がある。
+type Stage = 'works' | 'room' | 'placement' | 'participants' | 'publish' | 'profile'
+
 // The gallery card IS the gallery workbench: status + publish on top, then the
 // works library on the left and the real-3D preview with every design control —
 // per-work title/caption/frame and the room-wide theme/layout — on the right.
@@ -500,6 +512,8 @@ function GalleryCard({
   frontDoorId,
   onSwitchRoom,
   poolCapacity,
+  stage,
+  onStageChange,
 }: {
   row: GalleryRow
   onChanged: () => void
@@ -530,6 +544,13 @@ function GalleryCard({
    *  購入・等級の記帳としてそのまま残す。集計はアプリ側のみ）。未取得のときは
    *  `null`＝この部屋自身のwork_capにフォールバックする。 */
   poolCapacity: number | null
+  /** いま表示中のステージ。**ページ側(MePage)に持たせる**（ユーザー指摘 2026-08-11:
+   *  部屋を切り替えると「作品」タブに戻ってしまう）。`GalleryCard`は`key={current.id}`
+   *  で部屋が変わるたびに再マウントされる（他のper-room入力欄をrowの新しい値で
+   *  初期化し直すため必要）ので、`stage`をこの中のuseStateに置くと部屋切替のたびに
+   *  初期値'works'へ戻っていた。ページ側に置けば再マウントを跨いで持続する。 */
+  stage: Stage
+  onStageChange: (s: Stage) => void
 }) {
   const roomOffer = useRoomOffer()
   const t = useT()
@@ -552,15 +573,9 @@ function GalleryCard({
   const [showEmbed, setShowEmbed] = useState(false)
   const [stats, setStats] = useState<EngagementSummary | null>(null)
   const [uploading, setUploading] = useState(false)
-  // The stage tabs are the ONLY navigation now (the old top-level gallery/guestbook/
-  // profile tabs are gone — ユーザー指示 2026-07-30). The publish flow (works → room →
-  // placement → publish) leads, then the two housekeeping stages (guestbook, profile).
-  // Order is visible but never enforced — every stage stays reachable.
-  // `participants` は合同展示の部屋（`row.expo_id` が付いている）だけに出す
-  // （ユーザー指示 2026-08-10: 通常展示と合同展示の部屋編集画面を「タブの数が違うだけ」
-  // の同じ形にする。招待の管理は `ExpoManager` から部屋編集の中へ移した）。
-  type Stage = 'works' | 'room' | 'placement' | 'participants' | 'publish' | 'profile'
-  const [stage, setStage] = useState<Stage>('works')
+  // `stage`/`setStage`は今はpropで受け取る（上のprops型コメント参照。部屋切替を
+  // 跨いで持続させるためページ側に持たせた）。ローカルのuseStateは持たない。
+  const setStage = onStageChange
   // この部屋が属する展示（合同展示の部屋のときだけ）。会期・題名を「公開」ステージで
   // 出すため。通常展示の部屋では常に null。
   const [expo, setExpo] = useState<Expo | null>(null)
@@ -1096,10 +1111,12 @@ function GalleryCard({
     const bytes = Array.from(files).reduce((n, f) => n + f.size, 0)
     track('me_work_upload_start', { count: files.length, bytes })
     try {
-      // Keep the library within the room's cap: a multi-file drop must not push past
-      // work_cap, or the extra works can't hang (placeWorks caps at the plan) and would
-      // vanish from the room (ユーザー指示 2026-07-31「スロット上限より多くは追加不可」).
-      let room = Math.max(0, row.work_cap - cloudArtworks.length)
+      // ライブラリの上限は口座全体の合計（ユーザー指摘 2026-08-11: 50枠に増やしても
+      // このロジックだけ`row.work_cap`単独を見ていたため15枚超のアップロードで
+      // 「上限に達しました」誤爆が出ていた）。表示側（me-works-head等）と同じ
+      // `poolCapacity ?? row.work_cap`に揃える。
+      const cap = poolCapacity ?? row.work_cap
+      let room = Math.max(0, cap - cloudArtworks.length)
       let skipped = 0
       for (const f of Array.from(files)) {
         if (f.type.startsWith('video/')) {
@@ -1117,8 +1134,8 @@ function GalleryCard({
       }
       if (skipped > 0) {
         // Hitting the cap is the moment the capacity add-on has real demand.
-        track('me_work_limit_hit', { cap: row.work_cap, skipped, attempted: files.length })
-        alert(t('me.capReachedSkipped', { cap: row.work_cap }))
+        track('me_work_limit_hit', { cap, skipped, attempted: files.length })
+        alert(t('me.capReachedSkipped', { cap }))
       }
       track('me_work_upload_done', { count: files.length - skipped, bytes, ms: Date.now() - startedAt })
       await refreshCloud()
@@ -2799,6 +2816,10 @@ export default function MePage() {
 
   const isAdmin = useIsAdmin(user?.id ?? null)
   const [tab, setTab] = useState<MeTab>('gallery')
+  // GalleryCardの中ではなくここに持つ（ユーザー指摘 2026-08-11: 部屋を切り替えると
+  // 「作品」タブに戻ってしまう）。`GalleryCard`は`key={current.id}`で部屋ごとに
+  // 再マウントされるので、ここに置かないと切替のたびに初期値'works'に戻る。
+  const [stage, setStage] = useState<Stage>('works')
   const [checked, setChecked] = useState(false)
   // null = still loading (prevents flashing the create card at returning users)
   const [galleries, setGalleries] = useState<GalleryRow[] | null>(null)
@@ -3065,6 +3086,8 @@ export default function MePage() {
                       roomCount={rooms.length}
                       isMain={current.id === frontDoor?.id}
                       poolCapacity={allOwnedRooms ? poolCapacityOf(allOwnedRooms) : null}
+                      stage={stage}
+                      onStageChange={setStage}
                       /* 部屋の切替タブ（ユーザー指示 2026-08-10: 「部屋」「配置」ステージの
                          中だけに置く。UIとロジックは変えず場所だけ動かした）。 */
                       rooms={rooms}
@@ -3078,34 +3101,32 @@ export default function MePage() {
                          （ユーザー指示 2026-08-09「部屋の中に追加して欲しい」）。以前は
                          ダッシュボード直下＝どのステージを見ていても足元に居たので、
                          「いま編集している部屋の設定」と見分けがつかなかった。 */
+                      /* 部屋タブ（`.me-room-tab`）と同じ形のピル1つに簡略化
+                         （ユーザー指示 2026-08-11: 「展示室追加ボタンは、部屋タブと
+                         同じ形で横並びにして」）。説明文は`title`（ホバーで見える）に
+                         退避させ、見た目は部屋タブ列に馴染む1枚のピルにする。 */
                       roomAdd={
                         galleries !== null && rooms.length > 0 ? (
-                          <div className="me-room-add">
-                            {canBuildRoom ? (
-                              <>
-                                <p className="me-note" style={{ marginTop: 0 }}>
-                                  {t('me.roomGrantWaiting', { count: waiting })}
-                                </p>
-                                <button
-                                  type="button"
-                                  className="btn-line btn-gold"
-                                  disabled={creatingRoom}
-                                  onClick={() => void buildRoom()}
-                                >
-                                  {creatingRoom ? t('me.roomAdding') : t('me.roomBuild')}
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <p className="me-note" style={{ marginTop: 0 }}>
-                                  {t('me.roomAddWhy', { price: PRICE_ROOM, slots: MAX_WORKS_PER_ROOM })}
-                                </p>
-                                <button type="button" className="btn-line" onClick={() => setRoomOfferOpen(true)}>
-                                  {t('me.roomAdd')}
-                                </button>
-                              </>
-                            )}
-                          </div>
+                          canBuildRoom ? (
+                            <button
+                              type="button"
+                              className="me-room-tab me-room-add-tab ready"
+                              disabled={creatingRoom}
+                              title={t('me.roomGrantWaiting', { count: waiting })}
+                              onClick={() => void buildRoom()}
+                            >
+                              {creatingRoom ? t('me.roomAdding') : t('me.roomBuild')}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="me-room-tab me-room-add-tab"
+                              title={t('me.roomAddWhy', { price: PRICE_ROOM, slots: MAX_WORKS_PER_ROOM })}
+                              onClick={() => setRoomOfferOpen(true)}
+                            >
+                              {t('me.roomAdd')}
+                            </button>
+                          )
                         ) : null
                       }
                     />
