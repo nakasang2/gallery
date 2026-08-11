@@ -138,6 +138,12 @@ export default function PlacementEditor({
   const [picked, setPicked] = useState<Picked | null>(null)
   const dragRef = useRef<Drag | null>(null)
   const pending = useRef<Pending | null>(null)
+  // Set right after a real drag completes, cleared on the next tick. Pointer capture
+  // retargets the compatibility mouseup/click to whatever element started the press
+  // (see endDrag) — without this guard, dragging a work off the ✕ button's corner fires
+  // a spurious click on that same button right after the drop and removes what was just
+  // placed.
+  const justDraggedRef = useRef(false)
 
   function toMap(clientX: number, clientY: number): { x: number; z: number } | null {
     const svg = svgRef.current
@@ -219,6 +225,8 @@ export default function PlacementEditor({
     else if (d.fromSlot != null && overTray(e.clientX, e.clientY)) removeSlot(d.fromSlot)
     setDrag(null)
     setOverSlot(null)
+    justDraggedRef.current = true
+    setTimeout(() => { justDraggedRef.current = false }, 0)
   }
   // True when the point is over the tray (so a drop there removes rather than places).
   // The drag ghost is pointer-events:none, so elementFromPoint sees the tray beneath it.
@@ -393,9 +401,20 @@ export default function PlacementEditor({
                   className="place-tray-remove"
                   aria-label={t('me.placementRemove')}
                   title={t('me.placementRemove')}
-                  onPointerDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => {
+                    // Stop the press from bubbling to the tile's own onPointerDown (which
+                    // would double up on the tile's `press()` call below), but still start
+                    // a press HERE — so a drag that begins on this small ✕ corner still
+                    // picks the work up instead of silently doing nothing (2026-08-11 bug:
+                    // stopPropagation alone swallowed the press entirely, so grabbing near
+                    // the badge/✕ corner of a placed tile could not start a drag).
+                    if (disabled || (e.button != null && e.button > 0)) return
+                    e.stopPropagation()
+                    press(e.currentTarget, e.pointerId, art.id, null, e.clientX, e.clientY)
+                  }}
                   onClick={(e) => {
                     e.stopPropagation()
+                    if (justDraggedRef.current) return
                     const slot = current.indexOf(art.id)
                     if (slot >= 0) removeSlot(slot)
                   }}

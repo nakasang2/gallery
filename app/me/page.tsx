@@ -1743,8 +1743,16 @@ function GalleryCard({
                 Showing only the slot offer here would let someone spend more than they
                 had to and find out afterwards, so both are on screen together
                 (ユーザー決定 2026-08-09). Only shown once this room is actually full:
-                before that neither is a decision the owner needs to make. */}
-            {cloudArtworks.length >= (poolCapacity ?? row.work_cap) && roomOffer && (
+                before that neither is a decision the owner needs to make.
+
+                Gated on `poolCapacity !== null` — not `poolCapacity ?? row.work_cap`
+                (ユーザー指摘 2026-08-11: 「この部屋はいっぱいです」が読み込み時に一瞬
+                出る)。`allOwnedRooms`（口座全体の作品プールを合算する材料）は
+                `cloudArtworks` と別のfetchで、後から届く。届く前に `row.work_cap`
+                （この部屋"だけ"の枠、共通プール化以降は口座合計よりずっと小さいこと
+                が多い）へフォールバックすると、口座全体では余裕があるのに一瞬だけ
+                満室の文言が出る。真の合計が分かるまでは出さない。 */}
+            {poolCapacity !== null && cloudArtworks.length >= poolCapacity && roomOffer && (
               <div className="me-capacity-offer">
                 <p className="me-note" style={{ marginTop: 0 }}>{t('me.capacityChoice')}</p>
                 <div className="me-capacity-choices">
@@ -2657,10 +2665,14 @@ function ProfileCard() {
 
   return (
     <>
-    <div className="me-section-head">
-      <h2>{t('me.tabProfile')}</h2>
-      {profileState === 'saving' && <span className="hako-save-state">saving…</span>}
-    </div>
+    {/* No "プロフィール" heading here — the stage tab directly above already reads
+        "プロフィール" and is highlighted active, so a repeat heading was pure noise
+        (ユーザー指示 2026-08-11). The saving indicator still needs somewhere to sit. */}
+    {profileState === 'saving' && (
+      <div className="me-section-head">
+        <span className="hako-save-state">{t('common.saving')}</span>
+      </div>
+    )}
     <div className="me-card">
       <div className="avatar-row">
         {avatarUrl ? (
