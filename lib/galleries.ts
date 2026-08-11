@@ -185,6 +185,21 @@ export async function listAllOwnedRooms(userId: string): Promise<GalleryRow[]> {
   return fetchOwnedRooms(userId)
 }
 
+/** `excludeRoomId`以外の部屋すべての`arrangement`（保存済みの手動配置）に載っている
+ *  作品idの集合。配置タブで「この作品は別の部屋にも掛かっている」を示すために使う
+ *  （ユーザー指示 2026-08-11）。公開用の`placements`テーブルではなく各部屋の
+ *  `arrangement`を見る ── 非公開の部屋でもオーナーが実際に組んだ配置だから。 */
+export function elsewherePlacedWorkIds(rooms: GalleryRow[], excludeRoomId: string): Set<string> {
+  const ids = new Set<string>()
+  for (const r of rooms) {
+    if (r.id === excludeRoomId) continue
+    for (const id of normalizeArrangement(r.arrangement)) {
+      if (id) ids.add(id)
+    }
+  }
+  return ids
+}
+
 /** 1つの合同展示に属する部屋（migration 0044）。所有者の視点で引く。 */
 export async function listExpoRooms(expoId: string): Promise<GalleryRow[]> {
   const { data, error } = await supabase!

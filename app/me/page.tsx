@@ -41,6 +41,7 @@ import { PLAN, MAX_WORKS_PER_ROOM, GALLERY_BGM_MAX_BYTES, tallyRooms, unbuiltRoo
 import {
   listMyGalleries,
   listAllOwnedRooms,
+  elsewherePlacedWorkIds,
   getGalleryById,
   createGallery,
   updateGalleryDetails,
@@ -498,6 +499,9 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
 // **モジュール直下に置く**（GalleryCardの中ではない）: `stage` はMePage側に持たせて
 // いる（下記GalleryCardのpropsコメント参照）ので、その型もページ側から使える必要がある。
 type Stage = 'works' | 'room' | 'placement' | 'participants' | 'publish' | 'profile'
+// `allOwnedRooms`が未取得のときの安定した空集合（`EMPTY_OVERRIDES`と同じ作法。
+// レンダーごとに`new Set()`すると子コンポーネントの参照比較を毎回変えてしまう）。
+const EMPTY_ELSEWHERE: ReadonlySet<string> = new Set()
 
 // The gallery card IS the gallery workbench: status + publish on top, then the
 // works library on the left and the real-3D preview with every design control —
@@ -512,6 +516,7 @@ function GalleryCard({
   frontDoorId,
   onSwitchRoom,
   poolCapacity,
+  placedElsewhere,
   stage,
   onStageChange,
 }: {
@@ -544,6 +549,10 @@ function GalleryCard({
    *  購入・等級の記帳としてそのまま残す。集計はアプリ側のみ）。未取得のときは
    *  `null`＝この部屋自身のwork_capにフォールバックする。 */
   poolCapacity: number | null
+  /** 口座内の他の部屋（この部屋以外）の配置に載っている作品idの集合。配置タブの
+   *  トレイで「この作品は別の部屋にも掛かっている」を示すために使う（ユーザー指示
+   *  2026-08-11）。 */
+  placedElsewhere: ReadonlySet<string>
   /** いま表示中のステージ。**ページ側(MePage)に持たせる**（ユーザー指摘 2026-08-11:
    *  部屋を切り替えると「作品」タブに戻ってしまう）。`GalleryCard`は`key={current.id}`
    *  で部屋が変わるたびに再マウントされる（他のper-room入力欄をrowの新しい値で
@@ -1419,9 +1428,11 @@ function GalleryCard({
       {(
         [
           ['profile', t('me.tabProfile'), null],
-          // 部屋 → 作品 の順（ユーザー指示 2026-08-09。空間を決めてから中身を入れる）。
-          ['room', t('me.navRoom'), null],
+          // 作品 → 部屋 の順（ユーザー指示 2026-08-11で元に戻した。0809時点では
+          // 「空間を決めてから中身を入れる」で部屋→作品にしていたが、ユーザーが
+          // 使ってみて並びを戻したいと判断した）。
           ['works', t('me.stageWorks'), cloudArtworks.length || null],
+          ['room', t('me.navRoom'), null],
           ['placement', t('me.placement'), null],
           // **合同展示の部屋にだけ出す**（ユーザー指示 2026-08-10）。招待の管理は
           // `ExpoManager` からここへ移した ── 通常展示と合同展示の部屋編集画面を
@@ -1445,10 +1456,11 @@ function GalleryCard({
         </button>
       ))}
     </nav>
-    {/* 部屋の切替タブ＋部屋の追加は「部屋」「配置」ステージの枠の外・タブの直下に出す
-        （ユーザー指示 2026-08-11: 以前は箱の中にあった。UIとロジックは変えず場所だけ
-        動かした）。部屋の追加は「部屋」ステージのときだけ（従来の範囲を変えていない）。 */}
-    {(stage === 'room' || stage === 'placement') && (roomSwitcher || (stage === 'room' && roomAdd)) && (
+    {/* 部屋の切替タブ＋部屋の追加は「部屋」「配置」「公開」ステージの枠の外・タブの
+        直下に出す（ユーザー指示 2026-08-11: 以前は箱の中にあった／公開タブにも
+        出してほしいと追加指示。UIとロジックは変えず場所だけ動かした）。部屋の追加は
+        「部屋」ステージのときだけ（従来の範囲を変えていない）。 */}
+    {(stage === 'room' || stage === 'placement' || stage === 'publish') && (roomSwitcher || (stage === 'room' && roomAdd)) && (
       <div className="me-rooms-row">
         {roomSwitcher}
         {stage === 'room' && roomAdd}
@@ -1928,6 +1940,7 @@ function GalleryCard({
                 guests={guests}
                 arrangement={placement}
                 onChange={editPlacement}
+                placedElsewhere={placedElsewhere}
                 disabled={busy}
               />
             </>
@@ -3086,6 +3099,7 @@ export default function MePage() {
                       roomCount={rooms.length}
                       isMain={current.id === frontDoor?.id}
                       poolCapacity={allOwnedRooms ? poolCapacityOf(allOwnedRooms) : null}
+                      placedElsewhere={allOwnedRooms ? elsewherePlacedWorkIds(allOwnedRooms, current.id) : EMPTY_ELSEWHERE}
                       stage={stage}
                       onStageChange={setStage}
                       /* 部屋の切替タブ（ユーザー指示 2026-08-10: 「部屋」「配置」ステージの

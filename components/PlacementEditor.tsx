@@ -34,6 +34,7 @@ export default function PlacementEditor({
   guests = [],
   arrangement,
   onChange,
+  placedElsewhere,
   disabled,
 }: {
   layoutKey: string
@@ -47,7 +48,9 @@ export default function PlacementEditor({
   guests?: ArtworkData[]
   arrangement: (string | null)[]
   onChange: (next: (string | null)[]) => void
-  disabled?: boolean
+  // 口座内の他の部屋（この部屋以外）に既に配置済みの作品idの集合（ユーザー指示 2026-08-11）。
+  placedElsewhere?: ReadonlySet<string>
+  disabled?: boolean // i18n-ok: TS型宣言（直前行の`<string>`をタグと誤認する検知器の誤検知）
 }) {
   const t = useT()
   const def = useMemo(() => resolveLayout(layoutKey, layoutParams), [layoutKey, layoutParams])
@@ -347,24 +350,27 @@ export default function PlacementEditor({
       {/* Points from the tray up into the map — drag a work up to hang it. */}
       <div className="place-arrow" aria-hidden="true">↑</div>
 
-      {/* The tray: every work, 5 per row. A hung work is dimmed and badged with the spot
-          number it's on; the picked-up work is ringed. */}
+      {/* The tray: every work, 5 per row. A hung work is dimmed and badged (top-left) with
+          the spot number it's on, plus a ✕ (top-right) to take it off the wall without
+          picking it up first; the picked-up work is ringed. A work already hung in a
+          DIFFERENT room gets its own marker so it's clear it's not exclusive to this room
+          （ユーザー指示 2026-08-11）。 */}
       <div className="place-tray" role="list" aria-label={t('me.placementTrayLabel')}>
         {trayWorks.map((art) => {
           const src = thumb(art)
           const pos = placedPos.get(art.id)
           const isPicked = picked?.workId === art.id
           const guest = guestIds.has(art.id)
+          const elsewhere = placedElsewhere?.has(art.id) ?? false
+          const baseTitle = guest
+            ? `${art.title || t('common.untitled')} — ${art.artist}`
+            : art.title || t('common.untitled')
           return (
             <div
               key={art.id}
               role="listitem"
               className={`place-tray-item${pos ? ' placed' : ''}${isPicked ? ' picked' : ''}${drag?.workId === art.id ? ' dragging' : ''}${disabled ? '' : ' grab'}${guest ? ' guest' : ''}`}
-              title={
-                guest
-                  ? `${art.title || t('common.untitled')} — ${art.artist}`
-                  : art.title || t('common.untitled')
-              }
+              title={elsewhere ? `${baseTitle} — ${t('me.placementElsewhereHint')}` : baseTitle}
               onPointerDown={(e) => {
                 if (disabled || (e.button != null && e.button > 0)) return
                 e.preventDefault()
@@ -381,6 +387,25 @@ export default function PlacementEditor({
                 <span className="place-tray-vid" aria-hidden="true"><VideoIcon /></span>
               )}
               {pos && <span className="place-tray-num" aria-hidden="true">{pos}</span>}
+              {pos && !disabled && (
+                <button
+                  type="button"
+                  className="place-tray-remove"
+                  aria-label={t('me.placementRemove')}
+                  title={t('me.placementRemove')}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const slot = current.indexOf(art.id)
+                    if (slot >= 0) removeSlot(slot)
+                  }}
+                >
+                  ×
+                </button>
+              )}
+              {elsewhere && (
+                <span className="place-tray-elsewhere" aria-hidden="true" />
+              )}
               {/* 作家名は**タイルの上に出す**（title 属性だけだとタッチでは読めない）。 */}
               {guest && <span className="place-tray-artist">{art.artist}</span>}
             </div>
