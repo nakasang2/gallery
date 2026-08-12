@@ -3,7 +3,7 @@ import Link from 'next/link'
 import LandingEffects from '@/components/landing/LandingEffects'
 import HeroCanvas from '@/components/landing/HeroCanvas'
 import { PLAN } from '@/lib/limits'
-import { PRICE_SLOT, paidIdsFor, priceRangeLabel } from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_ROOM, PRICE_VIDEO_PASS, paidIdsFor, priceRangeLabel, expoPriceRangeLabel } from '@/lib/pricing'
 import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
 import { localeAlternates } from '@/lib/i18n/metadata'
@@ -200,8 +200,16 @@ export default async function LandingPage() {
             <div className="price-badge">{t('lp.upgradesBadge')}</div>
             <h3>{t('lp.upgradesTitle')}</h3>
             <div className="price"><b>{t('lp.upgradesPrice')}</b><span>{t('lp.upgradesNoSub')}</span></div>
+            {/* 売っているものは全部ここに並ぶ（ユーザー決定 2026-08-12・D-3）。部屋・
+                ビデオパス・合同展示は売れる状態なのに長く載っていなかった＝見込み客が
+                読む唯一のページで、単価の高い商品が見えていなかった。並びは
+                「広さ → 出せるもの → 見た目 → 一緒に開く」。 */}
             <ul>
               <li>{t('lp.upSlots')}<span className="amt">{t('lp.each', { price: PRICE_SLOT })}</span></li>
+              {/* 部屋は繰り返し買えるので「1つ {price}」の書式が合う */}
+              <li>{t('lp.upRooms')}<span className="amt">{t('lp.each', { price: PRICE_ROOM })}</span></li>
+              {/* ビデオパスは買い切りで1つだけなので「1つ」を付けず金額だけ出す */}
+              <li>{t('lp.upVideo')}<span className="amt">{PRICE_VIDEO_PASS}</span></li>
               {/* One price while every theme costs the same, a range once one doesn't
                   — priceRangeLabel derives it from the price table (AGENTS.md 5.3) */}
               <li>{t('lp.upThemes')}<span className="amt">{t('lp.each', { price: priceRangeLabel('theme', t('lp.priceRange')) })}</span></li>
@@ -211,6 +219,10 @@ export default async function LandingPage() {
               {paidIdsFor('frame').length > 0 && (
                 <li>{t('lp.upFrames')}<span className="amt">{t('lp.each', { price: priceRangeLabel('frame', t('lp.priceRange')) })}</span></li>
               )}
+              {/* 合同展示は「1つ」でも「買い切り」でもなく会期ごとの場所代。幅は
+                  会期の集合から導出する（会期を足しても古い幅を名乗らない）。
+                  「会期ごと」はラベル側に入れてあるので金額は幅だけ。 */}
+              <li>{t('lp.upExpo')}<span className="amt">{expoPriceRangeLabel(t('lp.priceRange'))}</span></li>
             </ul>
             {billingLive ? (
               <Link className="btn btn-small price-cta" href="/me">{t('lp.buyFromGallery')}</Link>

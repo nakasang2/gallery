@@ -71,6 +71,25 @@ export function usd(cents: number): string {
   return `$${d % 1 === 0 ? d.toFixed(0) : d.toFixed(2)}`
 }
 
+/**
+ * 合同展示の場所代を公開の価格表示で名乗るときの幅（'$15–$40'）。会期ごとに値段が
+ * 違うので、**会期の集合から導出する** — 会期を1つ足しても、LPが古い幅を名乗ったまま
+ * 置き去りにならない（`priceRangeLabel` と同じ作法・AGENTS.md 5.3）。
+ *
+ * `EXPO_SKUS` は空になりえない const タプルなので、`priceRangeLabel` が持っている
+ * 「売り物ゼロ」の分岐はここには要らない（要らない分岐を書くと、通らないコードが
+ * 検証済みのふりをする — docs/LESSONS「保険として書いたコード」）。
+ *
+ * @param rangeFormat 幅の書式。`t('lp.priceRange')` を渡す（日本語の幅は – ではなく 〜）。
+ */
+export function expoPriceRangeLabel(rangeFormat = '{min}–{max}'): string {
+  const prices = expoRunOptions().map((o) => o.cents)
+  const min = Math.min(...prices)
+  const max = Math.max(...prices)
+  if (min === max) return usd(min)
+  return rangeFormat.replace('{min}', usd(min)).replace('{max}', usd(max))
+}
+
 // Currencies whose smallest unit IS the unit — no cents to divide by. Stripe
 // reports amounts for these as whole yen/won, not hundredths.
 const ZERO_DECIMAL = new Set(['bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf'])

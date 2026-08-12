@@ -799,9 +799,14 @@ export const en = {
     upgradesPrice: 'À la carte',
     upgradesNoSub: 'no subscription',
     upSlots: 'Extra work slots',
+    upRooms: 'Another exhibition room',
+    upVideo: 'Video Pass — exhibit video works',
     upThemes: 'New themes',
     upLayouts: 'New layouts',
     upFrames: 'New frames',
+    // 「会期ごと」はラベルに入れる — 金額側は幅（$15–$40）だけを出すので、
+    // 何に対する値段なのかがここで分からないと枠の単価と読み違えられる。
+    upExpo: 'A joint exhibition, per run',
     each: '{price} each',
     // 値段が1点ごとに違うときだけ出る「$8〜$12」の形。区切りは言語によって違う
     // （日本語は〜、韓国語は~）ので辞書に置く。使うのは料金カードと特商法ページ。
