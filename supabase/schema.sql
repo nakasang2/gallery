@@ -4978,9 +4978,19 @@ alter table public.artworks
 alter table public.artworks
   add column if not exists purchase_links jsonb not null default '[]'::jsonb;
 
-update public.artworks
-set purchase_links = jsonb_build_array(jsonb_build_object('label', '', 'url', purchase_url))
-where purchase_url is not null and purchase_url <> '' and purchase_links = '[]'::jsonb;
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'artworks' and column_name = 'purchase_url'
+  ) then
+    execute $q$
+      update public.artworks
+      set purchase_links = jsonb_build_array(jsonb_build_object('label', '', 'url', purchase_url))
+      where purchase_url is not null and purchase_url <> '' and purchase_links = '[]'::jsonb
+    $q$;
+  end if;
+end $$;
 
 alter table public.artworks drop column if exists purchase_url;
 
