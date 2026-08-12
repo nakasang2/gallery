@@ -1,12 +1,9 @@
-:root {
-  --bg: #0b0a09;
-  --ink: #ece7de;
-  --muted: #9a938a;
-  --gold: #d4a24e;
-  --hairline: rgba(236, 231, 222, 0.14);
-  --serif: 'Shippori Mincho', serif;
-  --sans: 'Zen Kaku Gothic New', sans-serif;
-}
+/* トークンの定義は `app/landing.css` の `:root` に1つだけ置いてある（D-1 2026-08-12）。
+   ここにも同名の `:root` があり、import 順で**こちらが全ページを支配**していた
+   ＝ landing.css 側が死んだ宣言になっていた。色はこちらの値を landing.css へ移して
+   見た目を保ち、書体は読み込まれていない日本語書体を指していたので撤去した
+   （3Dの壁に焼く文字は `components/gallery/textures.ts` が 'Instrument Serif' /
+   'Geist' を直書きしており、HUDだけがOS標準フォントで食い違っていた）。 */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 

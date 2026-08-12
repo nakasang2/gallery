@@ -1,9 +1,29 @@
+/* サイト全体のデザイントークン。**ここが唯一の定義**（ユーザー決定 2026-08-12・D-1）。
+ *
+ * 以前は landing.css と gallery.css の両方が同じ名前を別の値で `:root` に定義していて、
+ * `app/layout.tsx` の import 順（landing → gallery）で**後勝ちの gallery.css が全ページを
+ * 支配**していた。片方は誰にも読まれない死んだ宣言で、しかもそれが「意図した値」の
+ * ように見えるので、次に触る人が必ず誤解する構造だった。
+ *
+ * 色は**実際に効いていた側（gallery.css）の値をそのまま採った** — 全ページがこの値で
+ * 描かれてきたので、`auth.css` / `me.css` が直書きしている `rgba(236, 231, 222, …)` の
+ * ような色もこのインクに合わせて調整されている。見た目を変えずに定義だけ1つにする。
+ *
+ * 書体だけは**直した**。gallery.css が指していた 'Shippori Mincho' / 'Zen Kaku Gothic New'
+ * は `app/layout.tsx` の Google Fonts に無く**一度も読み込まれていない**ので、本文と見出しが
+ * OS標準フォント（Times / Helvetica）で描かれていた。決め手は3Dギャラリー自身で、
+ * 壁の題箋・作家名を焼く `components/gallery/textures.ts` は 'Instrument Serif' と 'Geist' を
+ * 直書きしている ＝ **HUDが自分の壁の文字と食い違っていた**。実測: 本文の宣言の文字幅
+ * 808.8px ＝ 汎用sans と同値・Geist(300) は 713.34px、`document.fonts` 上で Geist 300 が
+ * "unloaded"（本文がGeistなら必ず読み込まれるウェイト）。
+ */
 :root {
-  --bg: #08080a;
+  --bg: #0b0a09;
   --bg-2: #0d0d0f;
-  --ink: #ececea;
-  --muted: #8f8f8c;
-  --hairline: rgba(236, 236, 234, 0.1);
+  --ink: #ece7de;
+  --muted: #9a938a;
+  --gold: #d4a24e;
+  --hairline: rgba(236, 231, 222, 0.14);
   --glow: rgba(255, 240, 214, 0.06);
   --serif: 'Instrument Serif', serif;
   --sans: 'Geist', sans-serif;
@@ -775,6 +795,13 @@ a { color: inherit; }
   justify-content: center;
   align-items: flex-start;
 }
+/* `align-items: flex-start` は「CTAボタンを横いっぱいに伸ばさない」ために要るが、
+   その副作用で**各アイテムが自分の中身の幅になる**（stretch されない）。日本語の
+   見出しは1文字ずつ折れるとはいえ fit-content が親を超えることがあり、375px の
+   日本語で `.section-title` が 349px になって親の内容幅 277px から 23px はみ出していた
+   （実測。`--serif` を直す前から同じだったので、この変更とは無関係の既存の不具合）。
+   ボタンを伸ばさずに、はみ出しだけを止める。 */
+.demo-body > * { max-width: 100%; }
 .demo-body p {
   font-size: 0.9rem;
   color: var(--muted);
