@@ -78,6 +78,32 @@
   transition: border-color 0.2s;
 }
 .auth-textarea:focus { border-color: var(--gold); }
+/* 通報の種別を選ぶ select（/report。migration 0056）。入力欄と同じ箱に見せる —
+   `appearance: none` を入れないのは、OSの矢印が「選べる」ことの唯一の手掛かりだから。
+   色は明示する: 未指定だとOSの既定（白地・黒文字）になる環境がある。 */
+.auth-field select {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: rgba(236, 231, 222, 0.05);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 0.7em 0.9em;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.auth-field select:focus { border-color: var(--gold); }
+/* 選択肢そのものはOSが描くので、暗い地のままだと読めない環境がある */
+.auth-field select option { color: #14120f; background: #ece7de; }
+/* 入力欄の下に付く一行の補足（「ここに書いた氏名が電子署名になります」） */
+.auth-hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
 
 /* Password input with the show/hide toggle sitting inside the box. */
 .auth-pw { position: relative; }
@@ -202,6 +228,11 @@
   color: var(--muted);
   margin-top: 1rem;
 }
+/* 注記のあとに入力欄が続く形（/report の著作権の申立て）。`.auth-note` には下方向の
+   余白が無く、`.auth-field` にも上方向が無いので**ここだけ隙間が 0px になっていた**
+   （フォーム内の他の間隔は全部 17px。実測して発見）。注記が最後に来る既存の使い方
+   （サインイン・サインアップ）に影響しないよう、続く場合だけに絞って足す。 */
+.auth-note + .auth-field { margin-top: 1.05rem; }
 
 .auth-links {
   display: flex;

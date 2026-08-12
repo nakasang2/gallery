@@ -6,7 +6,7 @@
 
 ### かんたん(推奨): 一発適用
 
-**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0055 が
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0056 が
 一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
 
 **未適用ぶんだけを1枚に束ねたいとき**は `npm run sql:pending -- <開始番号>`
@@ -87,6 +87,7 @@ authenticated・service_role の3ロール)を最小限スタブした素のPost
    - `0053_drop_room_capacity_transfer.sql` — **0052の「移動」を撤回**（ユーザー指摘・DECISIONS 2026-08-11。「移動とかややこしいので、共通扱いにしてほしい」）。部屋ごとに別々の数字を考えず、口座全体で1つの残り枠数だけを扱う方式（本当の共通プール）に作り直した。集計（全部屋の`work_cap`の合算）は`lib/limits.poolCapacityOf`でアプリ側だけが行うので、DB側は0052で作った移動用のRPCを`drop function if exists`で落とすだけ。`galleries.work_cap`列・等級ロジック・購入経路は無変更。
    - `0054_crop_align.sql` — **作品画像のトリミング位置**（ユーザー指示・DECISIONS 2026-08-12）。`artworks.crop_align`（`start`/`center`/`end`、既定`center`）を新設。3D側（`Exhibit.tsx`）が画像を実寸のサイズに合わせてカバー表示（cover-fit）する際、これまで常に中央基準でトリミングしていたのを、作家が3択（開始/中央/終了）で選べるようにする。
    - `0055_artwork_purchase_links.sql` — **購入リンクを複数化**（ユーザー指示・DECISIONS 2026-08-12。「壁紙やNFTなどある場合」）。`artworks.purchase_url`（単一URL）を`purchase_links`（`{label, url}`の配列・jsonb）に置き換える。既存の`purchase_url`は空ラベルの1件としてバックフィルしたうえで列を削除（二重の真実の元を残さない）。ラベルは作家の自由入力（固定の種類を用意しない）。
+   - `0056_report_dmca.sql` — **通報にDMCAの法定要件を記録**（ユーザー決定・DECISIONS 2026-08-12・D-4）。`reports` に `kind`（`copyright`/`harassment`/`illegal`/`other`）、`claimant`（申立人の氏名＝電子署名）、`work_identified`（侵害されたとする著作物の特定）、`sworn`（善意の申立てと偽証罰の下での宣誓への同意）を追加する。米国 17 U.S.C. §512(c)(3) が有効な削除通知に要求する4要素を受け取っていなかったため（＝有効な通知が1件も届かず、§512セーフハーバーの前提が成立しない状態）。**著作権の通報だけ**4要件を要求する check 制約を置く（嫌がらせの報告に偽証罰の宣誓を求めるのは筋が違うので種別で分ける）。既存行を壊さないため `not valid`（新しい行には効く）。閲覧ポリシーは引き続き作らない——申立人の氏名と連絡先は個人情報。
 3. 「Success. No rows returned」が出れば完了
 
 **番号順に流すこと**が前提です。後の番号が前の番号を上書きする箇所があります —

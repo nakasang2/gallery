@@ -99,6 +99,16 @@ export default async function LegalPage() {
               {t('legal.valAge')} <Link href="/terms">{t('footer.terms')}</Link>
             </Row>
             <Row label={t('legal.rowSystem')}>{t('legal.valSystem')}</Row>
+            {/* 著作権の削除通知の受取先（米国 17 U.S.C. §512(c)(2) の指定代理人）。
+                **この欄を置いただけでは §512 の保護は付かない** — 米国著作権局の
+                DMCA Designated Agent Directory への登録が別に要る（ユーザー作業。
+                DECISIONS 2026-08-12・D-4）。文面は要弁護士確認。 */}
+            <Row label={t('legal.rowDmcaAgent')}>
+              {t('legal.valDmcaAgent')}{' '}
+              {/* i18n-ok: メールアドレス */}
+              <a href="mailto:support@xibit360.art">support@xibit360.art</a>{' '}
+              <Link href="/report">{t('artist.reportProblem')}</Link>
+            </Row>
           </dl>
         </div>
         <footer className="artist-footer">

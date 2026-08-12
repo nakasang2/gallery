@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0055 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0056 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -4983,3 +4983,21 @@ set purchase_links = jsonb_build_array(jsonb_build_object('label', '', 'url', pu
 where purchase_url is not null and purchase_url <> '' and purchase_links = '[]'::jsonb;
 
 alter table public.artworks drop column if exists purchase_url;
+
+-- # 0056_report_dmca.sql — 通報にDMCA §512(c)(3)の法定要件を記録する(ユーザー決定 2026-08-12)
+alter table public.reports
+  add column if not exists kind text not null default 'other',
+  add column if not exists claimant text not null default '' check (char_length(claimant) <= 200),
+  add column if not exists work_identified text not null default '' check (char_length(work_identified) <= 1000),
+  add column if not exists sworn boolean not null default false;
+alter table public.reports drop constraint if exists reports_kind_check;
+alter table public.reports
+  add constraint reports_kind_check
+  check (kind in ('copyright', 'harassment', 'illegal', 'other'));
+alter table public.reports drop constraint if exists reports_dmca_complete;
+alter table public.reports
+  add constraint reports_dmca_complete
+  check (
+    kind <> 'copyright'
+    or (sworn and char_length(claimant) > 0 and char_length(work_identified) > 0)
+  ) not valid;

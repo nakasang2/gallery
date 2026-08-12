@@ -121,11 +121,50 @@ export async function engagementSummary(galleryId: string): Promise<EngagementSu
 
 /* ---- Reports ---- */
 
-export async function submitReport(about: string, reason: string, contact: string): Promise<void> {
-  const { error } = await supabase!.from('reports').insert({
-    about: about.trim().slice(0, 200),
-    reason: reason.trim().slice(0, 1000),
-    contact: contact.trim().slice(0, 200),
-  })
-  if (error) throw error
+/** 通報の種別。migration 0056 の `reports_kind_check` と同じ集合。 */
+export type ReportKind = 'copyright' | 'harassment' | 'illegal' | 'other'
+
+export interface ReportInput {
+  about: string
+  reason: string
+  contact: string
+  kind: ReportKind
+  /** 申立人の氏名（§512(c)(3)(A)(i) の電子署名）。著作権のときだけ埋まる */
+  claimant: string
+  /** 侵害されたとする著作物の特定（§512(c)(3)(A)(ii)） */
+  workIdentified: string
+  /** 善意の申立て＋偽証罰の下での宣誓に同意したか（§512(c)(3)(A)(v)(vi)） */
+  sworn: boolean
+}
+
+/** 列が無い＝migration 0056 が未適用。**エラーコードだけで判定する** —
+ *  表名や 'column' のような語で見分けると、正常に存在する表の別の失敗まで
+ *  「未適用」に流れ込む（docs/LESSONS 2026-08-09「縮退の入口は広く採らない」）。 */
+const MISSING_COLUMN = new Set(['42703', 'PGRST204'])
+
+export async function submitReport(input: ReportInput): Promise<void> {
+  const about = input.about.trim().slice(0, 200)
+  const contact = input.contact.trim().slice(0, 200)
+  const reason = input.reason.trim().slice(0, 1000)
+  const claimant = input.claimant.trim().slice(0, 200)
+  const workIdentified = input.workIdentified.trim().slice(0, 1000)
+
+  const { error } = await supabase!
+    .from('reports')
+    .insert({ about, reason, contact, kind: input.kind, claimant, work_identified: workIdentified, sworn: input.sworn })
+  if (!error) return
+
+  // 0056 を本番に貼る前にこのコードが出ても、通報だけは必ず届くようにする
+  // （通報の入口が落ちるのは、法令上要る仕組みが止まるのと同じ）。**法的に意味の
+  // あるところ（署名・特定・宣誓）は本文の先頭に畳んで残す** — 末尾に足すと
+  // 1000字の切り詰めでちょうどそこが消える。
+  if (!MISSING_COLUMN.has(error.code)) throw error
+  const header =
+    input.kind === 'copyright'
+      ? `[copyright] signed: ${claimant} / work: ${workIdentified} / sworn: ${input.sworn ? 'yes' : 'NO'}\n`
+      : `[${input.kind}]\n`
+  const retry = await supabase!
+    .from('reports')
+    .insert({ about, contact, reason: `${header}${reason}`.slice(0, 1000) })
+  if (retry.error) throw retry.error
 }

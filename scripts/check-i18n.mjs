@@ -580,6 +580,8 @@ const NOT_TRANSLATED = new Set([
   // 形にする** — ここは葉のキー名だけで照合するので、`listSep` のような一般名を入れると
   // 将来ほかの節に同名のキーが出たとき、それも黙って分母から外れる（レビュー指摘）。
   'valPriceExpo', 'valPriceExpoItem', 'valPriceListSep',
+  // 同じ特商法ページの著作権通知の受取先（DMCA指定代理人。D-4 2026-08-12）
+  'rowDmcaAgent', 'valDmcaAgent',
   'code', // notFound.code = '404'
   'legal', // footer.legal — 導線は locale === 'ja' のときだけ出す
 ])

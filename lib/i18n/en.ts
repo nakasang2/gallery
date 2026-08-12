@@ -245,6 +245,29 @@ export const en = {
     contactLabel: 'Your contact (optional, for follow-up)',
     contactPlaceholder: 'email or handle',
     send: 'Send report',
+    // 通報の種別。著作権のときだけ §512(c)(3) の法定要件を尋ねる（嫌がらせの報告に
+    // 偽証罰の宣誓を求めるのは筋が違う）。値は migration 0056 の check と同じ集合。
+    kindLabel: 'What kind of problem is it?',
+    kindCopyright: 'Copyright — my work is being shown without permission',
+    kindHarassment: 'Harassment or abuse',
+    kindIllegal: 'Illegal content',
+    kindOther: 'Something else',
+    claimantLabel: 'Your full legal name',
+    claimantPlaceholder: 'as it would appear on a legal document',
+    claimantNote: 'Typing your name here is your electronic signature on this notice.',
+    workLabel: 'Which of your works is being infringed?',
+    workPlaceholder: 'Its title, and where the original can be seen (a link helps)',
+    contactRequiredLabel: 'Your email address (required for a copyright notice)',
+    // §512(c)(3)(A)(v)(vi) の善意の申立てと偽証罰の下での宣誓。**要弁護士確認**
+    // （DECISIONS 2026-08-12・D-4。文言の法的な効力は訳し方に左右される）。
+    swornLabel:
+      'I have a good faith belief that this use is not authorised by the copyright owner, its agent, or the law. The information in this notice is accurate, and I state under penalty of perjury that I am the owner of this work or am authorised to act on the owner’s behalf.',
+    dmcaNote:
+      'A copyright notice is a legal statement. We pass it on to the person who published the material, including your name and the reason, so that they can reply. Knowingly filing a false notice can make you liable for damages.',
+    needClaimant: 'Please enter your full legal name.',
+    needWork: 'Please tell us which of your works is being infringed.',
+    needContact: 'Please enter an email address we can reply to.',
+    needSworn: 'Please confirm the statement above to send a copyright notice.',
     thanksTitle: 'Thank you',
     thanksBody:
       'Your report has been received. We review reports and take down content that violates the terms.',
@@ -1182,6 +1205,10 @@ export const en = {
     valAge: 'Xibit360 is for people aged 18 and over. See the Terms.',
     rowSystem: 'System requirements',
     valSystem: 'A current version of Chrome, Safari, Edge or Firefox on desktop or mobile. The 3D gallery needs WebGL; where it is unavailable, exhibitions fall back to a flat list of works.',
+    // 著作権の削除通知の受取先（§512(c)(2)）。**要弁護士確認**（DECISIONS 2026-08-12・D-4）
+    rowDmcaAgent: 'Copyright notices',
+    valDmcaAgent:
+      'Notices of claimed copyright infringement should be sent to Nakamae Yusuke at the address above, marked “DMCA”, or by email. The report form collects everything a notice needs.',
   },
 } as const
 
