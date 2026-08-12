@@ -1085,6 +1085,152 @@ gateCase('sql-verdict — 期待どおりの出力を誤検知しない（`ERROR
   expectFail: false,
 })
 
+// ------------------------------------------------- check:price-disclosure
+// 「売っているものが全部、公開の価格表示に載っているか」の番人（2026-08-12 に追加）。
+// 同じ漏れが×3起きたので機械化した（ユーザー決定 2026-08-12・D-2）。ここのケースは
+// **3回の実際の漏れ方**と、番人を書きながら実測で見つけた2つの抜け道を固定する:
+//   - import だけ残して使用箇所を消すと通ってしまった（tsconfig に noUnusedLocals が
+//     無いので tsc も黙る）→ import 行を落としてから数えるようにした
+//   - コメントの中の言及を数えてしまう（開示面には実際に注意書きがある）
+const PD_PRICING = (extra = '', videoCents = 2000) => `export const PRICE_USD_CENTS = {
+  room: 2500,
+  capacity_addon: 300,
+  single_item: 500,
+  theme_collection: 0,
+  design_tools: 0,
+  video_pass: ${videoCents},
+  expo_7: 1500,
+  expo_14: 2500,
+  expo_30: 4000,${extra}
+} as const
+export const PRICE_SLOT = usd(300)
+export const PRICE_ROOM = usd(2500)
+export const PRICE_VIDEO_PASS = usd(2000)
+`
+
+const PD_CHECKOUT = (extra = '') => `const ONE_TIME_SKUS: readonly Sku[] = [
+  'capacity_addon', 'single_item', 'video_pass', 'room', 'expo_7', 'expo_14', 'expo_30'${extra},
+]
+`
+
+// 全SKUを開示している面（負の対照はこれを使う）
+const PD_LEGAL_OK = `import { PRICE_SLOT, PRICE_ROOM, PRICE_VIDEO_PASS, priceRangeLabel, expoRunOptions } from '@/lib/pricing'
+export default function LegalPage() {
+  return (
+    <dl>
+      <dd>{t('legal.valPrice', { slot: PRICE_SLOT, room: PRICE_ROOM, video: PRICE_VIDEO_PASS, theme: priceRangeLabel('theme') })}</dd>
+      <dd>{t('legal.valPriceExpo', { options: expoRunOptions().map(fmt).join(sep) })}</dd>
+    </dl>
+  )
+}
+`
+const PD_LP_OK = `import { PRICE_SLOT, PRICE_ROOM, PRICE_VIDEO_PASS, priceRangeLabel, expoPriceRangeLabel } from '@/lib/pricing'
+export default function LandingPage() {
+  return (
+    <ul>
+      <li>{t('lp.upSlots')}<span className="amt">{t('lp.each', { price: PRICE_SLOT })}</span></li>
+      <li>{t('lp.upRooms')}<span className="amt">{t('lp.each', { price: PRICE_ROOM })}</span></li>
+      <li>{t('lp.upVideo')}<span className="amt">{PRICE_VIDEO_PASS}</span></li>
+      <li>{t('lp.upThemes')}<span className="amt">{priceRangeLabel('theme')}</span></li>
+      <li>{t('lp.upExpo')}<span className="amt">{expoPriceRangeLabel()}</span></li>
+    </ul>
+  )
+}
+`
+
+const pdFiles = ({ pricing = PD_PRICING(), checkout = PD_CHECKOUT(), legal = PD_LEGAL_OK, lp = PD_LP_OK } = {}) => ({
+  'lib/pricing.ts': pricing,
+  'app/api/checkout/route.ts': checkout,
+  'app/legal/page.tsx': legal,
+  'app/page.tsx': lp,
+})
+
+const PD = 'check-price-disclosure.mjs'
+
+gateCase('check:price-disclosure — 全部そろっていれば通る（負の対照）', {
+  gate: PD,
+  files: pdFiles(),
+  expectFail: false,
+  contains: ['売り物と価格表示: 0 件'],
+})
+
+gateCase('check:price-disclosure — 売れるSKUが特商法の開示に無いと落ちる（3回起きた形）', {
+  gate: PD,
+  // 合同展示だけを開示から落とす（2026-08-12 に実際にこうなっていた）
+  files: pdFiles({ legal: PD_LEGAL_OK.replace(/\n\s+<dd>\{t\('legal\.valPriceExpo'[\s\S]*?<\/dd>/, '') }),
+  expectFail: true,
+  contains: ['expo_7', 'expo_30', '特商法の価格表示'],
+  notContains: ['room  ', 'video_pass  '],
+})
+
+gateCase('check:price-disclosure — 売れるSKUがLPの料金表に無いと落ちる', {
+  gate: PD,
+  files: pdFiles({ lp: PD_LP_OK.replace(/\n\s+<li>\{t\('lp\.upRooms'\)[\s\S]*?<\/li>/, '') }),
+  expectFail: true,
+  contains: ['room', 'LPの料金セクション'],
+})
+
+gateCase('check:price-disclosure — 対応表に無い新しいSKUは素通りさせない', {
+  gate: PD,
+  files: pdFiles({
+    pricing: PD_PRICING('\n  poster_print: 1200,'),
+    checkout: PD_CHECKOUT(", 'poster_print'"),
+  }),
+  expectFail: true,
+  contains: ['poster_print', 'DISCLOSURE_TOKENS'],
+})
+
+gateCase('check:price-disclosure — import だけ残して使用箇所が無いのは開示と数えない', {
+  gate: PD,
+  // import 行は触らず、使っている行だけ消す（tsc は noUnusedLocals が無いので黙る）
+  files: pdFiles({ lp: PD_LP_OK.replace(/\{t\('lp\.each', \{ price: PRICE_ROOM \}\)\}/, "{'—'}") }),
+  expectFail: true,
+  contains: ['room', 'LPの料金セクション'],
+})
+
+gateCase('check:price-disclosure — コメントの中の言及は開示と数えない', {
+  gate: PD,
+  files: pdFiles({
+    lp: PD_LP_OK.replace(
+      /\{t\('lp\.each', \{ price: PRICE_ROOM \}\)\}/,
+      '{/* PRICE_ROOM をここに出す予定 */}',
+    ),
+  }),
+  expectFail: true,
+  contains: ['room', 'LPの料金セクション'],
+})
+
+gateCase('check:price-disclosure — 売れるのに値段が0だと落ちる', {
+  gate: PD,
+  files: pdFiles({ pricing: PD_PRICING('', 0) }),
+  expectFail: true,
+  contains: ['video_pass', '0円の請求'],
+})
+
+gateCase('check:price-disclosure — 売れるのに値段表に無いと落ちる', {
+  gate: PD,
+  files: pdFiles({ pricing: PD_PRICING().replace('  video_pass: 2000,\n', '') }),
+  expectFail: true,
+  contains: ['video_pass', '値段がありません'],
+})
+
+gateCase('check:price-disclosure — 決済できないSKU（retired）には開示を求めない', {
+  gate: PD,
+  // theme_collection / design_tools は値段0で ONE_TIME_SKUS に無い＝開示不要
+  files: pdFiles(),
+  expectFail: false,
+  notContains: ['theme_collection', 'design_tools'],
+})
+
+gateCase('check:price-disclosure — 値段表を読めなければ「0件」と言わずに落ちる', {
+  gate: PD,
+  // 書式が変わって静的に読めなくなった状況。**読めていないのに緑**が最悪なので落ちる
+  files: pdFiles({ pricing: 'export const PRICES_RENAMED = { room: 2500 }\n' }),
+  expectFail: true,
+  contains: ['PRICE_USD_CENTS を読めませんでした'],
+  notContains: ['0 件'],
+})
+
 // --------------------------------------------------------------------- 実行
 let failed = 0
 for (const c of cases) {
