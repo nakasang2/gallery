@@ -8,11 +8,16 @@
 // doorway is a free-standing frame plus a proximity test; walking "through" it is a
 // navigation.
 //
-// Free-standing on purpose. `Room`'s walls are single planes with no opening, and
-// cutting a hole in one would mean reworking wall geometry, the shadow bake and the
-// clamp for every layout. A doorframe standing against the floor reads as a way out
-// without any of that, and it lands in walkable space in EVERY layout because it is
-// positioned from `layout.entry` — the spot the visitor already spawns on.
+// No hole is cut in the wall. `Room`'s walls are single planes with no opening, and
+// cutting one would mean reworking wall geometry, the shadow bake and the clamp for
+// every layout. Instead the doorway is **built in front of** the wall: a frame plus a
+// short recess (`TUNNEL_D`), which reads as a thick wall with an opening in it
+// (ユーザー決定 2026-08-12・C案). It stands `JAMB + TUNNEL_D` = 0.52m off the wall line,
+// which the visitor can never walk into — `WalkControls.clampToRoom` keeps them 1.0m
+// clear of every wall, so they stop 0.48m short of the mouth.
+//
+// Placement is flush along a wall (ユーザー指摘 2026-08-12), with the entry-anchored
+// free-standing spot kept only as a last resort for rooms too tight on all four walls.
 //
 // ONE door per room, however many other rooms there are (ユーザー決定 2026-08-09). The
 // door is the way out; which room it opens onto is chosen AT the door, in the HUD. One
@@ -33,6 +38,23 @@ import { getDoorwayDepth } from './textures'
 const DOOR_W = 1.6
 const DOOR_H = 2.5
 const JAMB = 0.12
+/**
+ * 開口の奥行き（ユーザー決定 2026-08-12・C案「開口部の奥に短い暗いトンネルを置く」）。
+ *
+ * **扉をこの分だけ壁から離す**必要がある。壁は厚みの無い1枚のプレーンで、しかも
+ * `FrontSide`（部屋の内側を向く片面）なので、**壁の裏に伸ばしたトンネルは壁自身に
+ * 隠れて見えない**。以前の `nudge` は `JAMB`（0.12m）だけで、枠の箱が奥行き 0.192m
+ * あるため実際に残っていた余地は 0.024m しか無かった。壁を切り欠く案は、影の焼き込みと
+ * 当たり判定を全間取りで作り直すことになるので採らない（このファイル冒頭の判断）。
+ *
+ * 離した結果トンネルの外側が部屋に出るが、**外面を枠と同じ暗色にしてあるので
+ * 「厚い壁に開いた開口」として読める** ── 箱が浮いて見えるのではなく建築になる。
+ * 0.4m は実際の厚い壁の開口と同じくらいで、突き出しは 0.52m に収まる
+ * （最も浅い間取りでも半奥行き 4m あるので、通路を塞がない）。
+ */
+const TUNNEL_D = 0.4
+/** 敷居の帯の高さ。床から零れる光に見える程度に抑える（開口の1/8ほど）。 */
+const THRESHOLD_H = DOOR_H / 8
 /** How close the camera has to be for the doorway to offer itself. Generous, because
  *  the prompt is a suggestion — the visitor still has to press it. */
 const NEAR_DIST = 2.8
@@ -82,17 +104,22 @@ const CLEARANCE_STEPS = [0.35, 0.1]
 /** One of the room's four walls, in the terms `doorOnWall` needs: which coordinate is
  *  fixed (and its value), how far the wall runs (half-length, along the other axis),
  *  the yaw that faces the doorway into the room, and which way to nudge it off the
- *  wall line (`+JAMB` or `-JAMB`) so the frame doesn't clip into the wall. */
+ *  wall line so the frame doesn't clip into the wall.
+ *
+ *  **`WALL_OFFSET` は `JAMB` ではなく `JAMB + TUNNEL_D`**（ユーザー決定 2026-08-12・C案）。
+ *  開口の奥にトンネルを掘るには、壁の手前にその分の空間が要る ── 壁の裏へ伸ばしても
+ *  片面プレーンの壁に隠れるだけなので（`TUNNEL_D` の説明を参照）。 */
+const WALL_OFFSET = JAMB + TUNNEL_D
 function wallSpec(layout: LayoutDef, id: 'west' | 'east' | 'north' | 'south') {
   switch (id) {
     case 'west':
-      return { fixedAxis: 'x' as const, fixed: -layout.hw, half: layout.hd, rotY: Math.PI / 2, nudge: JAMB }
+      return { fixedAxis: 'x' as const, fixed: -layout.hw, half: layout.hd, rotY: Math.PI / 2, nudge: WALL_OFFSET }
     case 'east':
-      return { fixedAxis: 'x' as const, fixed: layout.hw, half: layout.hd, rotY: -Math.PI / 2, nudge: -JAMB }
+      return { fixedAxis: 'x' as const, fixed: layout.hw, half: layout.hd, rotY: -Math.PI / 2, nudge: -WALL_OFFSET }
     case 'north':
-      return { fixedAxis: 'z' as const, fixed: -layout.hd, half: layout.hw, rotY: 0, nudge: JAMB }
+      return { fixedAxis: 'z' as const, fixed: -layout.hd, half: layout.hw, rotY: 0, nudge: WALL_OFFSET }
     case 'south':
-      return { fixedAxis: 'z' as const, fixed: layout.hd, half: layout.hw, rotY: Math.PI, nudge: -JAMB }
+      return { fixedAxis: 'z' as const, fixed: layout.hd, half: layout.hw, rotY: Math.PI, nudge: -WALL_OFFSET }
   }
 }
 
@@ -222,27 +249,58 @@ function Doorway({
         <boxGeometry args={[DOOR_W + JAMB * 2, JAMB, JAMB * 1.6]} />
         <meshStandardMaterial color={0x0e0c0a} roughness={0.7} />
       </mesh>
-      {/* The opening itself: **opaque**, so nothing behind the door shows through.
-          以前はここが半透明の板1枚しか無く、奥の壁がそのまま見えて「光る板」に
-          見えていた（ユーザー指摘 2026-08-12「扉が透けている。奥には続くように
-          黒くフェードさせられないか」）。テクスチャは周縁がわずかに明るく中心へ
-          黒く沈む勾配で、暗い部屋の入口と同じ向きに奥行きを出す。
-          `depthWrite` は既定（true）に任せる ── 手前のグローを正しく前後させるため。 */}
-      <mesh position={[0, DOOR_H / 2, 0]} renderOrder={0}>
+      {/* 開口の奥のトンネル（ユーザー決定 2026-08-12・C案）。**実際に奥行きがある**ので、
+          側壁が開口の近くだけ光を拾って奥へ落ちていく ── 平らな板に勾配を描く方式（B案）
+          との違いはそこ。ローカル -z が壁の側、+z が部屋の側（`rotY` が開口を部屋へ向ける）。
+
+          側壁・天井・床は `DoubleSide` の1マテリアルで兼用する: 内側から見ればトンネルの
+          内壁、外側から見れば枠と同じ暗色の箱＝「厚い壁」に見える。面を2組持たない。 */}
+      {/* 奥の面。ここだけ `meshBasicMaterial` で照明に依存させない ── テーマの明るさで
+          奥が明るくなると「穴」に見えなくなる。勾配は中心が最も暗い（getDoorwayDepth）。 */}
+      <mesh position={[0, DOOR_H / 2, -TUNNEL_D]} renderOrder={0}>
         <planeGeometry args={[DOOR_W, DOOR_H]} />
         <meshBasicMaterial map={getDoorwayDepth()} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
-      {/* The threshold glow. Emissive rather than lit, so it reads the same under every
-          theme's lighting; the theme only decides its colour temperature. **不透明な
-          開口の手前に重ねる**ので、これは「生きている扉」の合図だけを担う ── 近づくと
-          明るくなる。クリックの的もこちら（開口いっぱいの面）。 */}
-      {/* **Zオフセットではなく `renderOrder` で手前に出す。** +Z にずらすと、扉の
-          どちら側が部屋側かに依存してしまい（両面 `DoubleSide` なので裏から見ると
-          グローが不透明面の後ろに隠れる）、扉は壁沿いに4方向どこにでも立つ。
-          同じ位置・`depthWrite: false`・後から描く、なら向きに関係なく必ず前に出る。 */}
+      {/* 側壁（左右） */}
+      {[-1, 1].map((sx) => (
+        <mesh
+          key={`tw${sx}`}
+          position={[(sx * DOOR_W) / 2, DOOR_H / 2, -TUNNEL_D / 2]}
+          rotation-y={Math.PI / 2}
+        >
+          <planeGeometry args={[TUNNEL_D, DOOR_H]} />
+          <meshStandardMaterial color={0x0e0c0a} roughness={0.8} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+      {/* 天井と床 */}
+      {[
+        { y: DOOR_H, rx: Math.PI / 2 },
+        { y: 0, rx: -Math.PI / 2 },
+      ].map((f) => (
+        <mesh key={`tf${f.y}`} position={[0, f.y, -TUNNEL_D / 2]} rotation-x={f.rx}>
+          <planeGeometry args={[DOOR_W, TUNNEL_D]} />
+          <meshStandardMaterial color={0x0e0c0a} roughness={0.8} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+      {/* 敷居の帯（ユーザー決定 2026-08-12・C案の付随変更）。**開口いっぱいの半透明の板は
+          やめた** ── トンネルの手前に膜が張ると、せっかくの奥行きが霞んで「膜の向こうの
+          暗がり」に見える。光は開口の**下端**から床へ零れる形にする（実際の明るい部屋から
+          暗い部屋を見たときと同じ）。近づくと明るくなるのは以前のまま。 */}
+      <mesh position={[0, THRESHOLD_H / 2, -TUNNEL_D * 0.5]} renderOrder={1}>
+        <planeGeometry args={[DOOR_W, THRESHOLD_H]} />
+        <meshBasicMaterial
+          color={theme.stripColor}
+          transparent
+          opacity={active ? 0.34 : 0.12}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* クリックの的は開口いっぱい（見えないまま）。帯だけを的にすると狙いにくく、
+          扉は主要な移動手段なので的は大きく保つ。`opacity: 0` でもレイキャストは通る
+          （three は `visible` を見るが不透明度は見ない）。 */}
       <mesh
         position={[0, DOOR_H / 2, 0]}
-        renderOrder={1}
         onClick={(e) => {
           e.stopPropagation()
           onEnter()
@@ -251,14 +309,7 @@ function Doorway({
         onPointerOut={() => (gl.domElement.style.cursor = '')}
       >
         <planeGeometry args={[DOOR_W, DOOR_H]} />
-        <meshBasicMaterial
-          color={theme.stripColor}
-          transparent
-          // 不透明な開口の上に乗るので、以前より薄くても「光っている」と読める
-          opacity={active ? 0.22 : 0.08}
-          side={THREE.DoubleSide}
-          depthWrite={false}
-        />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
     </group>
   )
