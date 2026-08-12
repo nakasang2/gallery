@@ -42,6 +42,7 @@ import {
   listMyGalleries,
   listAllOwnedRooms,
   elsewherePlacedWorkIds,
+  elsewherePlacedCount,
   getGalleryById,
   createGallery,
   updateGalleryDetails,
@@ -517,6 +518,7 @@ function GalleryCard({
   onSwitchRoom,
   poolCapacity,
   placedElsewhere,
+  placedElsewhereCount,
   stage,
   onStageChange,
 }: {
@@ -553,6 +555,11 @@ function GalleryCard({
    *  トレイで「この作品は別の部屋にも掛かっている」を示すために使う（ユーザー指示
    *  2026-08-11）。 */
   placedElsewhere: ReadonlySet<string>
+  /** 口座内の他の部屋に**今置かれている点数**（配置枠、重複あり）。配置タブの共有
+   *  プール上限に使う ── `placedElsewhere.size`（作品idの集合）は同じ作品を複数の
+   *  他室に掛けていると1回しか数えないため、容量計算にはこちらを使う（別視点レビュー
+   *  指摘 2026-08-12）。 */
+  placedElsewhereCount: number
   /** いま表示中のステージ。**ページ側(MePage)に持たせる**（ユーザー指摘 2026-08-11:
    *  部屋を切り替えると「作品」タブに戻ってしまう）。`GalleryCard`は`key={current.id}`
    *  で部屋が変わるたびに再マウントされる（他のper-room入力欄をrowの新しい値で
@@ -1944,7 +1951,14 @@ function GalleryCard({
               <PlacementEditor
                 layoutKey={row.layout}
                 layoutParams={normalizeLayoutParams(row.layout_params)}
-                workCap={row.work_cap}
+                // 部屋ごとに固定ではなく、口座全体の枠を自由配分する（ユーザー決定
+                // 2026-08-12: 「合計20枠あるのに、デフォルトの部屋では5枠しか置けない」
+                // という指摘に対し、部屋ごとの固定割りを撤廃。この部屋が使える枠は
+                // 「口座の合計 − 他の部屋に今置かれている点数」— 他の部屋を空ければ
+                // この部屋はその分まで増やせる。`row.work_cap`はpoolCapacity未取得時
+                // （＝旧来の1部屋だけの口座）のフォールバックとして残す。
+                workCap={poolCapacity != null ? Math.max(0, poolCapacity - placedElsewhereCount) : row.work_cap}
+                poolTotal={poolCapacity ?? row.work_cap}
                 works={cloudArtworks}
                 guests={guests}
                 arrangement={placement}
@@ -3113,6 +3127,7 @@ export default function MePage() {
                       isMain={current.id === frontDoor?.id}
                       poolCapacity={allOwnedRooms ? poolCapacityOf(allOwnedRooms) : null}
                       placedElsewhere={allOwnedRooms ? elsewherePlacedWorkIds(allOwnedRooms, current.id) : EMPTY_ELSEWHERE}
+                      placedElsewhereCount={allOwnedRooms ? elsewherePlacedCount(allOwnedRooms, current.id) : 0}
                       stage={stage}
                       onStageChange={setStage}
                       /* 部屋の切替タブ（ユーザー指示 2026-08-10: 「部屋」「配置」ステージの

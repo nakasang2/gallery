@@ -200,6 +200,23 @@ export function elsewherePlacedWorkIds(rooms: GalleryRow[], excludeRoomId: strin
   return ids
 }
 
+/** How many physical slots `excludeRoomId`'s siblings are using, for the shared-pool
+ *  placement cap (ユーザー決定 2026-08-12: 部屋ごと固定ではなく口座全体で自由配分)。
+ *  **Not** `elsewherePlacedWorkIds(...).size` — that de-dupes by work id, so hanging
+ *  the same work in two other rooms would only count once and let this room's derived
+ *  cap creep past the account's real total (別視点レビュー指摘 2026-08-12). Counting
+ *  filled slots rather than distinct works matches what actually consumes the pool. */
+export function elsewherePlacedCount(rooms: GalleryRow[], excludeRoomId: string): number {
+  let n = 0
+  for (const r of rooms) {
+    if (r.id === excludeRoomId) continue
+    for (const id of normalizeArrangement(r.arrangement)) {
+      if (id) n++
+    }
+  }
+  return n
+}
+
 /** 1つの合同展示に属する部屋（migration 0044）。所有者の視点で引く。 */
 export async function listExpoRooms(expoId: string): Promise<GalleryRow[]> {
   const { data, error } = await supabase!

@@ -38,6 +38,7 @@ export default function PlacementEditor({
   layoutKey,
   layoutParams,
   workCap,
+  poolTotal,
   works,
   guests = [],
   arrangement,
@@ -47,7 +48,14 @@ export default function PlacementEditor({
 }: {
   layoutKey: string
   layoutParams: CustomLayoutParams
+  // この部屋が**今**使える枠（口座全体の枠 − 他の部屋に今置かれている点数）。部屋ごと
+  // 固定ではなく口座全体で自由配分する（ユーザー決定 2026-08-12）ため、他の部屋の
+  // 配置が変われば同じ部屋でもこの値は変わる。
   workCap: number
+  /** cap到達メッセージに出す「口座全体の枠」。省略時は`workCap`（1部屋だけの口座では
+   *  同じ数）。`workCap`自体は上の理由で部屋ごとに変わる派生値なので、そのままメッセージに
+   *  出すと「なぜこの部屋だけこの数なのか」が伝わらない。 */
+  poolTotal?: number
   works: ArtworkData[]
   /** 合同展示で他の作家が出した作品。掛けられるが**自動では並ばない**
    *  （提出は申し出であって決定ではない — lib/arrangement.placeWorks 参照）。
@@ -196,7 +204,7 @@ export default function PlacementEditor({
   function drop(target: number, workId: string, fromSlot: number | null) {
     const grows = !current.includes(workId) && current[target] == null
     if (grows && current.filter((v) => v != null).length >= cap) {
-      showToast(t('me.placementCapReached', { cap }))
+      showToast(t('me.placementCapReached', { cap: poolTotal ?? cap }))
       return
     }
     const next = [...current]
@@ -311,7 +319,11 @@ export default function PlacementEditor({
     press(e.currentTarget, e.pointerId, current[s], current[s] != null ? s : null, e.clientX, e.clientY)
   }
 
-  if (cap === 0) return null
+  // Reachable now that capacity is shared across rooms rather than fixed per room
+  // (ユーザー決定 2026-08-12): a room can end up with nothing left of the pool if every
+  // slot is in use elsewhere. Say so — a blank editor with no explanation is the exact
+  // "can't drag and drop" report this change was meant to fix, just moved to a new spot.
+  if (cap === 0) return <p className="me-note">{t('me.placementCapReached', { cap: poolTotal ?? cap })}</p>
 
   return (
     <div className="place-editor">
