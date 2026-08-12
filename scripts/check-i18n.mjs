@@ -576,6 +576,10 @@ const NOT_TRANSLATED = new Set([
   'rowPayMethod', 'valPayMethod', 'rowPayTiming', 'valPayTiming', 'rowDelivery',
   'valDelivery', 'rowReturns', 'valReturns', 'rowAge', 'valAge', 'rowSystem', 'valSystem',
   'valPriceFrames', // 同じ特商法ページの1文（有料の額縁が出たときだけ表示）
+  // 同じ特商法ページの合同展示の開示（1文＋一覧の1行＋区切り）。**キー名は節が分かる
+  // 形にする** — ここは葉のキー名だけで照合するので、`listSep` のような一般名を入れると
+  // 将来ほかの節に同名のキーが出たとき、それも黙って分母から外れる（レビュー指摘）。
+  'valPriceExpo', 'valPriceExpoItem', 'valPriceListSep',
   'code', // notFound.code = '404'
   'legal', // footer.legal — 導線は locale === 'ja' のときだけ出す
 ])

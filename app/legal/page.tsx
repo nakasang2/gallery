@@ -10,8 +10,9 @@
 // governing version.
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { PRICE_SLOT, PRICE_ROOM, PRICE_VIDEO_PASS, paidIdsFor, priceRangeLabel } from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_ROOM, PRICE_VIDEO_PASS, paidIdsFor, priceRangeLabel, expoRunOptions, usd } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM } from '@/lib/limits'
+import { EXPO_GRACE_DAYS } from '@/lib/expos'
 import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
 import { getServerT } from '@/lib/i18n/server'
 import { siteUrl } from '@/lib/publicUrl'
@@ -75,11 +76,22 @@ export default async function LegalPage() {
                   売っていないうちは1文まるごと出さない */}
               {paidIdsFor('frame').length > 0 &&
                 ' ' + t('legal.valPriceFrames', { frame: priceRangeLabel('frame', t('lp.priceRange')) })}
+              {/* 合同展示の場所代（2026-08-10 から売れる状態）。会期ごとに値段が違うので
+                  `expoRunOptions()` から一覧を組み立てる ＝ 会期を1つ足しても開示が漏れない。
+                  1行の書式と区切りは**この節のキー**を使う。`expo.payOption`（購入ボタン用）を
+                  使い回すと、あちらは11言語ぶん訳があるのにこの節は ja / en だけなので、
+                  英語の開示文にドイツ語の「7 Tage」が挟まる（実測で確認・レビュー指摘） */}
+              {' ' +
+                t('legal.valPriceExpo', {
+                  options: expoRunOptions()
+                    .map((o) => t('legal.valPriceExpoItem', { days: o.days, price: usd(o.cents) }))
+                    .join(t('legal.valPriceListSep')),
+                })}
             </Row>
             <Row label={t('legal.rowExtra')}>{t('legal.valExtra')}</Row>
             <Row label={t('legal.rowPayMethod')}>{t('legal.valPayMethod')}</Row>
             <Row label={t('legal.rowPayTiming')}>{t('legal.valPayTiming')}</Row>
-            <Row label={t('legal.rowDelivery')}>{t('legal.valDelivery')}</Row>
+            <Row label={t('legal.rowDelivery')}>{t('legal.valDelivery', { grace: EXPO_GRACE_DAYS })}</Row>
             <Row label={t('legal.rowReturns')}>
               {t('legal.valReturns')} <Link href="/terms">{t('footer.terms')}</Link>
             </Row>

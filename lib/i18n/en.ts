@@ -977,6 +977,8 @@ export const en = {
     openIt: 'Choose a run and open',
     discard: 'Discard draft',
     payNote: 'Choosing a run takes you to checkout. The run begins — and the URL goes public — the moment the payment goes through.',
+    payNoteScheduled: 'Choosing a run takes you to checkout. The URL goes public at the start date and time you set above, not when the payment goes through.',
+    payNoteRun: 'The run ends on its own after the days you buy; nothing renews. The show and its URL are removed {grace} days after it ends.',
     payOption: '{days} days {price}',
     endedBanner: 'This exhibition’s run has ended.',
     roomModeNormal: 'Regular room',
@@ -1136,7 +1138,9 @@ export const en = {
   legal: {
     heading: 'Legal',
     // script-ok: 日本の法律名を原語で示す（英文の中の意図した和文）
-    intro: 'Seller information disclosed under the Japanese Act on Specified Commercial Transactions (特定商取引法に基づく表記). Last updated: July 28, 2026.',
+    // 日付はこのページの開示内容を変えたら必ず更新する（施行されている版がどれかは
+    // 争いになったときにまさにここで決まる）。2026-08-12: 合同展示の場所代と引渡時期。
+    intro: 'Seller information disclosed under the Japanese Act on Specified Commercial Transactions (特定商取引法に基づく表記). Last updated: August 12, 2026.',
     rowService: 'Service',
     rowOperator: 'Operator',
     rowAddress: 'Address',
@@ -1147,6 +1151,16 @@ export const en = {
     rowPrice: 'Price',
     valPrice: 'Creating an account, building a gallery and publishing it are free. Optional one-time purchases, no subscription: extra work slots {slot} each (up to {max} works per room), an extra exhibition room {room} each (its full {max} slots included, repeatable), the Video Pass {video} (exhibit video works, buy once), layouts {layout} each, themes {theme} each. Prices are shown before you confirm, in the currency your payment provider presents.',
     valPriceFrames: 'Frames are also available at {frame} each.',
+    // 合同展示の場所代。会期の長さで値段が変わるので、`expoRunOptions()` から
+    // 導出した一覧を差し込む（3通り決め打ちにすると4通り目が出たとき静かに漏れる）。
+    valPriceExpo: 'A joint exhibition — a show several artists open together — is charged once per run, by the length of the run: {options}. The run ends on its own; nothing renews.',
+    // 一覧の1行と区切り。**購入ボタンの `expo.payOption` を使い回してはいけない** —
+    // あちらは11言語ぜんぶ訳してあるのに、この節は ja / en しか無い。混ぜると
+    // 「英語の開示文の中にドイツ語の『7 Tage』が挟まる」（実測で確認）。
+    // 節ごと英語に落ちてほしいので、書式もこの節に置く。
+    valPriceExpoItem: '{days} days {price}',
+    // 区切りも同じ理由でこの節に置く（英語は「, 」・日本語は「、」）。
+    valPriceListSep: ', ',
     rowExtra: 'Additional costs',
     valExtra: 'None from us. You are responsible for your own internet connection. Any consumption tax or VAT is shown at checkout.',
     rowPayMethod: 'Payment method',
@@ -1154,7 +1168,9 @@ export const en = {
     rowPayTiming: 'Payment timing',
     valPayTiming: 'At the time you confirm the purchase.',
     rowDelivery: 'Delivery',
-    valDelivery: 'Immediately on payment confirmation — the upgrade unlocks in your dashboard.',
+    // 「ただちに提供」だけでは合同展示について嘘になる（会期の開始日時を予約できる・
+    // 会期には終わりがあり、猶予のあと消える）。日数は EXPO_GRACE_DAYS から導出する。
+    valDelivery: 'Immediately on payment confirmation — the upgrade unlocks in your dashboard. A joint exhibition opens at the start date and time you pick before paying (right after payment, if you leave it blank), stays open for the number of days you bought, and the show and its URL are removed {grace} days after the run ends.',
     rowReturns: 'Returns and cancellation',
     valReturns: 'Upgrades are digital goods delivered immediately, so they are not refundable once unlocked, except where the law requires otherwise. If an upgrade does not unlock after you were charged, write to us and we will fix it or refund you. See the Terms for the full policy.',
     rowAge: 'Age',
