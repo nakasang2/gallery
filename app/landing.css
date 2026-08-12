@@ -792,7 +792,10 @@ a { color: inherit; }
 }
 .pricing-grid {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
+  /* minmax(0, …) にしてあるのは、`1fr` の既定の最小が `auto` ＝ 中身の min-content
+     幅で、カードの行がトラックを押し広げられるため（ドイツ語の複合語で 324→337px に
+     なるのを実測）。0 を最小にすると、トラックは常に容れ物の幅に収まる。 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 1.6rem;
   max-width: 900px;
   margin: 0 auto;
@@ -895,6 +898,20 @@ html { scroll-padding-top: 72px; }
   color: var(--muted);
   padding: 0.5em 0 0.5em 1.5em;
   position: relative;
+  /* 値段を「同じ行の右端」に固定するために flex にしてある。以前は .amt を
+     float:right にしていたが、**ラベルが行幅を埋めると float が次の行へ落ち**、
+     値段が自分のラベルから離れて次の項目の隣に見えた（ドイツ語375pxで実測。
+     「Ein weiterer Ausstellungsraum」の je $25 が Video-Pass の側に落ちていた）。
+     はみ出しは無いので矩形測定では気づけず、スクリーンショットで見つかった。 */
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8em;
+  /* トラックが押し広げられるのは `.pricing-grid` の minmax(0, …) で塞いである。
+     ここは最後の手段としての語中改行だけ — `anywhere` ではなく `break-word` なので、
+     1行に収まらない語だけが折れる（`anywhere` は「Ausstellungsrau / m」のように
+     余裕があっても貪欲に折るので、狭い幅の組版が汚くなる。実測して差し替えた）。 */
+  overflow-wrap: break-word;
 }
 .price-card li::before {
   content: '—';
@@ -904,8 +921,8 @@ html { scroll-padding-top: 72px; }
 }
 /* Buy-once price, right-aligned against each upgrade line */
 .price-card li .amt {
-  float: right;
-  margin-left: 0.8em;
+  /* 折り返さず縮まない＝ラベルが長い言語でもラベル側だけが折り返す */
+  flex: 0 0 auto;
   color: var(--ink);
   font-family: var(--mono);
   font-size: 0.68rem;
@@ -1129,7 +1146,11 @@ html { scroll-padding-top: 72px; }
   .demo-card { grid-template-columns: 1fr; }
   .demo-art { min-height: 280px; }
   .demo-body { padding: 2.6rem 1.8rem 3rem; }
-  .pricing-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: minmax(0, 1fr); }
+  /* 左右 2.6rem は 320px 幅ではカードの 1/3 を食い、ラベルの列が 186px しか残らない
+     （値段を同じ行に置くと語中改行が必要になっていた）。狭い幅だけ詰める。 */
+  .price-card { padding: 2.6rem 1.6rem; }
+  .price-badge { left: 1.4rem; }
   .concept-stats { gap: 2rem; flex-wrap: wrap; }
   .closing { padding: 9rem 1.6rem; }
 }
