@@ -13,6 +13,10 @@ export interface PurchaseLink {
   url: string
 }
 
+/** UV-space position (offset 0 / the far offset / the midpoint), axis-agnostic —
+ *  see the `cropAlign` field below for what start/end mean on each axis. */
+export type CropAlign = 'start' | 'center' | 'end'
+
 // Shared type for demo works (generative art) and user-submitted works (with src).
 export interface ArtworkData {
   id: string
@@ -62,7 +66,7 @@ export interface ArtworkData {
    *  are UV-space positions (offset 0 / the far offset), axis-agnostic: whichever
    *  edge that reads as depends on which axis is actually being cropped, decided
    *  in the editor UI (app/me/page.tsx). */
-  cropAlign?: 'start' | 'center' | 'end'
+  cropAlign?: CropAlign
   /** The following are for demo generative art. */
   style?: string
   palette?: keyof typeof PALETTES

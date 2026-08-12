@@ -6,7 +6,7 @@
 // quota, which used to be a Supabase RLS policy plus an advisory client check.
 // See docs/DECISIONS.md 2026-07-27.
 import { supabase } from './supabase'
-import type { ArtworkData, PurchaseLink } from './artworks'
+import type { ArtworkData, CropAlign, PurchaseLink } from './artworks'
 import { loadImage, loadImageFile } from './upload'
 import { publicUrl } from './publicUrl'
 import { GALLERY_BGM_MAX_BYTES } from './limits'
@@ -30,7 +30,7 @@ export interface ArtworkRow {
   height_cm?: number | null
   medium?: string | null
   has_card?: boolean | null
-  crop_align?: 'start' | 'center' | 'end' | null
+  crop_align?: CropAlign | null
 }
 
 /** Upload purposes the server will sign for (app/api/upload-url/route.ts owns the
@@ -439,7 +439,7 @@ export async function updateArtworkDetails(
     widthCm?: number | null
     heightCm?: number | null
     medium?: string | null
-    cropAlign?: 'start' | 'center' | 'end'
+    cropAlign?: CropAlign
   }
 ): Promise<void> {
   const update: Record<string, unknown> = {
@@ -447,9 +447,13 @@ export async function updateArtworkDetails(
     description: fields.description.trim(),
   }
   if (fields.purchaseLinks !== undefined) {
+    // Keep a row once EITHER half is filled in — dropping on `!url` alone would
+    // silently erase a label the artist just typed if the autosave debounce fires
+    // before they get to the URL field (別視点レビュー確定 2026-08-12). Only a
+    // row nobody has touched yet (both blank, from pressing "+") gets discarded.
     update.purchase_links = fields.purchaseLinks
       .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
-      .filter((l) => l.url)
+      .filter((l) => l.label || l.url)
   }
   if (fields.price !== undefined) update.price = (fields.price ?? '').trim() || null
   if (fields.widthCm !== undefined) update.width_cm = fields.widthCm ?? null

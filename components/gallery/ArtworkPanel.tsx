@@ -37,6 +37,18 @@ function toHref(url: string): string {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`
 }
 
+// Fallback text for a purchase link the artist left unlabelled, beyond the first
+// (the first keeps the old price/"for sale" wording). Without this, two unlabelled
+// links both read "For sale" with no way to tell which button goes where
+// (別視点レビュー確定 2026-08-12).
+function hostnameFallback(url: string, forSale: string): string {
+  try {
+    return new URL(toHref(url)).hostname.replace(/^www\./, '')
+  } catch {
+    return forSale
+  }
+}
+
 // Visitor-only like button (anonymous; dedupe per browser)
 function LikeButton({ galleryId, artworkId }: { galleryId: string; artworkId: string }) {
   const [count, setCount] = useState<number | null>(null)
@@ -204,31 +216,42 @@ export default function ArtworkPanel() {
             ))}
           </div>
           {guide && <AudioGuideButton source={guide} />}
-          {art.purchaseLinks && art.purchaseLinks.length > 0 ? (
-            art.purchaseLinks.map((link, i) => (
-              <a
-                key={i}
-                className="panel-buy"
-                href={toHref(link.url)}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() =>
-                  track('gallery_work_buy_click', {
-                    gallery_id: visitor?.galleryId,
-                    artwork_id: art.id,
-                    has_price: !!art.price,
-                  })
-                }
-              >
-                {/* A blank label (the common case: exactly one link, migrated from the
-                    old single-URL field) reads as price/"for sale" — same look as
-                    before purchase links could be labelled and multiplied. */}
-                {link.label.trim() || `${i === 0 && art.price ? `${art.price} · ` : ''}${t('artwork.forSale')}`}
-              </a>
-            ))
-          ) : (
-            art.price && <div className="panel-price">{art.price}</div>
-          )}
+          {/* Only links with a URL render — a label-only row (still being typed,
+              or the URL field left empty) has nowhere to send a click. */}
+          {(() => {
+            const links = (art.purchaseLinks ?? []).filter((l) => l.url.trim())
+            return links.length > 0 ? (
+              links.map((link, i) => (
+                <a
+                  key={i}
+                  className="panel-buy"
+                  href={toHref(link.url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() =>
+                    track('gallery_work_buy_click', {
+                      gallery_id: visitor?.galleryId,
+                      artwork_id: art.id,
+                      has_price: !!art.price,
+                    })
+                  }
+                >
+                  {/* A blank label on the first link (the common case: exactly one
+                      link, migrated from the old single-URL field) reads as
+                      price/"for sale" — same look as before links could be
+                      labelled and multiplied. A blank label on any OTHER link
+                      falls back to its hostname instead of repeating "for sale"
+                      with no way to tell the buttons apart. */}
+                  {link.label.trim() ||
+                    (i === 0
+                      ? `${art.price ? `${art.price} · ` : ''}${t('artwork.forSale')}`
+                      : hostnameFallback(link.url, t('artwork.forSale')))}
+                </a>
+              ))
+            ) : (
+              art.price && <div className="panel-price">{art.price}</div>
+            )
+          })()}
           {/* Per-work design editor: owner-editing only. Hidden in the public visitor
               view AND on the /demo showcase (the demo is a curated "sampler" — its
               varied looks are set in code, not tweaked by casual visitors). */}

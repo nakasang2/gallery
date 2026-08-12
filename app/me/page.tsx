@@ -87,7 +87,7 @@ import {
 } from '@/lib/engagement'
 import { track } from '@/lib/analytics'
 import { loadImage } from '@/lib/upload'
-import type { ArtworkData, PurchaseLink } from '@/lib/artworks'
+import type { ArtworkData, CropAlign, PurchaseLink } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
 import { LegalLink, LocaleLink, useT } from '@/components/I18nProvider'
 
@@ -632,7 +632,7 @@ function GalleryCard({
   const [captionInput, setCaptionInput] = useState('')
   const [purchaseLinksInput, setPurchaseLinksInput] = useState<PurchaseLink[]>([])
   const [priceInput, setPriceInput] = useState('')
-  const [cropAlignInput, setCropAlignInput] = useState<'start' | 'center' | 'end'>('center')
+  const [cropAlignInput, setCropAlignInput] = useState<CropAlign>('center')
   const [widthInput, setWidthInput] = useState('')
   const [heightInput, setHeightInput] = useState('')
   // The W×H cm fields only show in "custom" mode; a preset shows just the dropdown + swap.
@@ -1191,7 +1191,7 @@ function GalleryCard({
   // works mid-debounce still commits the edit to the work it was made on.
   function editWork(next: Partial<{
     title: string; caption: string; purchaseLinks: PurchaseLink[]; price: string; width: string; height: string; medium: string
-    cropAlign: 'start' | 'center' | 'end'
+    cropAlign: CropAlign
   }>) {
     if (next.title !== undefined) setTitleInput(next.title)
     if (next.caption !== undefined) setCaptionInput(next.caption)
@@ -1416,7 +1416,7 @@ function GalleryCard({
           // cropped: the U axis is unflipped (start=left), but the V axis is
           // flipped for texture upload, so a vertical crop's start=bottom.
           const vertical = imgA <= sizeA
-          const alignOptions: { value: 'start' | 'center' | 'end'; labelKey: string }[] = vertical
+          const alignOptions: { value: CropAlign; labelKey: string }[] = vertical
             ? [
                 { value: 'end', labelKey: 'me.cropAlignTop' },
                 { value: 'center', labelKey: 'me.cropAlignCenter' },

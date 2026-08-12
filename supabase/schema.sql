@@ -758,8 +758,9 @@ create policy "articles_write_admin" on public.articles
 -- Per-work audio guide (REQUIREMENTS §6-3 / STRATEGY P3-12): a short narration
 -- that plays as the visitor reaches each work — the automatic version turns the
 -- guided tour into an audio tour. The file lives in the artworks storage bucket
--- (owner's folder); this column just holds its public URL, mirroring
--- artworks.purchase_url (0015). No schema beyond one nullable column.
+-- (owner's folder); this column just holds its public URL — the same one-nullable-
+-- column shape 0015 originally gave purchase_url (since replaced by purchase_links,
+-- 0055). No schema beyond one nullable column.
 
 alter table public.artworks add column if not exists audio_url text;
 
