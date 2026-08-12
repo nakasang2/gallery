@@ -632,6 +632,7 @@ function GalleryCard({
   const [captionInput, setCaptionInput] = useState('')
   const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
   const [priceInput, setPriceInput] = useState('')
+  const [cropAlignInput, setCropAlignInput] = useState<'start' | 'center' | 'end'>('center')
   const [widthInput, setWidthInput] = useState('')
   const [heightInput, setHeightInput] = useState('')
   // The W×H cm fields only show in "custom" mode; a preset shows just the dropdown + swap.
@@ -797,6 +798,7 @@ function GalleryCard({
     setCaptionInput(selected?.desc ?? '')
     setPurchaseUrlInput(selected?.purchaseUrl ?? '')
     setPriceInput(selected?.price ?? '')
+    setCropAlignInput(selected?.cropAlign ?? 'center')
     setWidthInput(selected?.widthCm ? String(selected.widthCm) : '')
     setHeightInput(selected?.heightCm ? String(selected.heightCm) : '')
     // Start in preset mode when the saved size matches a standard preset; otherwise
@@ -1189,6 +1191,7 @@ function GalleryCard({
   // works mid-debounce still commits the edit to the work it was made on.
   function editWork(next: Partial<{
     title: string; caption: string; purchaseUrl: string; price: string; width: string; height: string; medium: string
+    cropAlign: 'start' | 'center' | 'end'
   }>) {
     if (next.title !== undefined) setTitleInput(next.title)
     if (next.caption !== undefined) setCaptionInput(next.caption)
@@ -1197,6 +1200,7 @@ function GalleryCard({
     if (next.width !== undefined) setWidthInput(next.width)
     if (next.height !== undefined) setHeightInput(next.height)
     if (next.medium !== undefined) setMediumInput(next.medium)
+    if (next.cropAlign !== undefined) setCropAlignInput(next.cropAlign)
     const id = selected?.id
     if (!id) return
     const w = parseFloat(next.width ?? widthInput)
@@ -1209,6 +1213,7 @@ function GalleryCard({
       widthCm: Number.isFinite(w) && w > 0 ? w : null,
       heightCm: Number.isFinite(h) && h > 0 ? h : null,
       medium: next.medium ?? mediumInput,
+      cropAlign: next.cropAlign ?? cropAlignInput,
     }
     setWorkState('saving')
     if (workTimer.current) clearTimeout(workTimer.current)
@@ -1364,7 +1369,41 @@ function GalleryCard({
           const sizeA = w / h
           const crop = 1 - Math.min(imgA, sizeA) / Math.max(imgA, sizeA)
           if (crop <= 0.01) return null
-          return <p className="me-note me-note--warn">{t('me.cropWarn', { pct: Math.round(crop * 100) })}</p>
+          // The crop happens on exactly one axis (Exhibit.tsx's UV offset), and
+          // 'start'/'end' are UV-space positions (offset 0 / the far offset) —
+          // axis-agnostic on purpose (see the comment there). Whether that reads
+          // as Left/Right or Top/Bottom is decided here, from which axis is being
+          // cropped: the U axis is unflipped (start=left), but the V axis is
+          // flipped for texture upload, so a vertical crop's start=bottom.
+          const vertical = imgA <= sizeA
+          const alignOptions: { value: 'start' | 'center' | 'end'; labelKey: string }[] = vertical
+            ? [
+                { value: 'end', labelKey: 'me.cropAlignTop' },
+                { value: 'center', labelKey: 'me.cropAlignCenter' },
+                { value: 'start', labelKey: 'me.cropAlignBottom' },
+              ]
+            : [
+                { value: 'start', labelKey: 'me.cropAlignLeft' },
+                { value: 'center', labelKey: 'me.cropAlignCenter' },
+                { value: 'end', labelKey: 'me.cropAlignRight' },
+              ]
+          return (
+            <div style={{ margin: '0.45rem 0' }}>
+              <p className="me-note me-note--warn">{t('me.cropWarn', { pct: Math.round(crop * 100) })}</p>
+              <div className="chips" role="group" aria-label={t('me.cropAlignLabel')}>
+                {alignOptions.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    className={`chip${cropAlignInput === o.value ? ' active' : ''}`}
+                    onClick={() => editWork({ cropAlign: o.value })}
+                  >
+                    {t(o.labelKey)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
         })()}
         <label className="me-field" style={{ margin: '0.45rem 0' }}>
           <FieldLabel hint={t('me.mediumHint')}>{t('me.medium')}</FieldLabel>

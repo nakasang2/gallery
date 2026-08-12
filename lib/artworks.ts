@@ -48,6 +48,12 @@ export interface ArtworkData {
   heightCm?: number
   /** Medium, e.g. "Oil on canvas" — shown on the label. */
   medium?: string
+  /** Which edge of the image stays visible when the cover-fit crop (Exhibit.tsx)
+   *  has to cut something — unset (or 'center') keeps the middle. 'start'/'end'
+   *  are UV-space positions (offset 0 / the far offset), axis-agnostic: whichever
+   *  edge that reads as depends on which axis is actually being cropped, decided
+   *  in the editor UI (app/me/page.tsx). */
+  cropAlign?: 'start' | 'center' | 'end'
   /** The following are for demo generative art. */
   style?: string
   palette?: keyof typeof PALETTES

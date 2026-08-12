@@ -30,6 +30,7 @@ export interface ArtworkRow {
   height_cm?: number | null
   medium?: string | null
   has_card?: boolean | null
+  crop_align?: 'start' | 'center' | 'end' | null
 }
 
 /** Upload purposes the server will sign for (app/api/upload-url/route.ts owns the
@@ -169,6 +170,7 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
     widthCm: row.width_cm ?? undefined,
     heightCm: row.height_cm ?? undefined,
     medium: row.medium ?? undefined,
+    cropAlign: row.crop_align ?? undefined,
   }
 }
 
@@ -437,6 +439,7 @@ export async function updateArtworkDetails(
     widthCm?: number | null
     heightCm?: number | null
     medium?: string | null
+    cropAlign?: 'start' | 'center' | 'end'
   }
 ): Promise<void> {
   const update: Record<string, unknown> = {
@@ -448,11 +451,12 @@ export async function updateArtworkDetails(
   if (fields.widthCm !== undefined) update.width_cm = fields.widthCm ?? null
   if (fields.heightCm !== undefined) update.height_cm = fields.heightCm ?? null
   if (fields.medium !== undefined) update.medium = (fields.medium ?? '').trim() || null
+  if (fields.cropAlign !== undefined) update.crop_align = fields.cropAlign
 
-  // Columns from later migrations (0015/0025/0026). If a target DB is behind, the write
+  // Columns from later migrations (0015/0025/0026/0054). If a target DB is behind, the write
   // fails naming a missing column — drop whichever it names (or all optionals on a generic
   // schema-cache miss) and retry, so title/caption always save.
-  const OPTIONAL = ['purchase_url', 'price', 'width_cm', 'height_cm', 'medium']
+  const OPTIONAL = ['purchase_url', 'price', 'width_cm', 'height_cm', 'medium', 'crop_align']
   let { error } = await supabase!.from('artworks').update(update).eq('id', artworkId)
   while (
     error &&

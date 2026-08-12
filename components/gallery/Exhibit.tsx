@@ -144,20 +144,30 @@ export default function Exhibit({
   // src, so its cached texture is used by a single exhibit within any one scene, and
   // repeat/offset feed the texture matrix (no re-upload). Cleared to full when the
   // aspects match (a preset size that fits, or size unset → plane already = image).
+  //
+  // Which part of the overflow stays visible follows art.cropAlign (ユーザー指示
+  // 2026-08-12): 'start' = UV offset 0, 'end' = the far offset, 'center' (default)
+  // = the midpoint. This is deliberately axis-agnostic here — cropOffset() doesn't
+  // know or care whether it's being applied to U or V. The editor UI is what turns
+  // 'start'/'end' into a Left/Right (U axis, unflipped) or Top/Bottom (V axis,
+  // flipped for texture upload) label, so don't "fix" this by adding axis-aware
+  // logic here — that mapping already lives in app/me/page.tsx.
   useEffect(() => {
     if (!artTex) return
     const imgA = art.ratio[0] / art.ratio[1]
     const planeA = width / height
+    const align = art.cropAlign ?? 'center'
+    const cropOffset = (r: number) => (align === 'start' ? 0 : align === 'end' ? 1 - r : (1 - r) / 2)
     if (imgA > planeA) {
       const r = planeA / imgA
       artTex.repeat.set(r, 1)
-      artTex.offset.set((1 - r) / 2, 0)
+      artTex.offset.set(cropOffset(r), 0)
     } else {
       const r = imgA / planeA
       artTex.repeat.set(1, r)
-      artTex.offset.set(0, (1 - r) / 2)
+      artTex.offset.set(0, cropOffset(r))
     }
-  }, [artTex, art.ratio, width, height])
+  }, [artTex, art.ratio, art.cropAlign, width, height])
 
   const plaqueTex = useMemo(() => makePlaqueTexture(art, index), [art, index])
   useEffect(() => () => disposeAll([plaqueTex]), [plaqueTex])
