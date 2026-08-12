@@ -568,6 +568,10 @@ export async function rebuildPlacements(
   // （0041 未適用のDBは `listSubmittedArtworks` が [] を返すので落ちない。）
   const guests = guestArtworks ?? (await listSubmittedArtworksForRoom(galleryId))
   const layout = resolveLayout(settings.layout, settings.layoutParams)
+  // 自動で埋める枚数の上限。**手で並べた部屋では効かない**（`placeWorks` が
+  // `usableSlots` でそう決める）── ここで切り捨てると下の delete が実際に placements の
+  // 行を消すので、「ダッシュボードで15点並べたのに3Dには5点」の直接の原因だった
+  // （ユーザー報告 2026-08-12）。
   const cap = effectiveSlotCount(layout.slots.length, settings.workCap)
   // Honour the room's manual arrangement (§11.13): a work hangs on its chosen slot,
   // and an intentionally-empty slot is simply skipped. No demo collection on a real

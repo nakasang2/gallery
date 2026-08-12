@@ -4,10 +4,10 @@
 //   • DRAG a work (from the tray or a spot) onto a spot.
 //   • TAP a work to pick it up, then tap a spot to drop it (tap the same work to cancel).
 // Dropping onto an occupied spot swaps the two. Every physical spot is a free target —
-// which wall a work hangs on is never locked. **This room's own `cap` still limits how
-// many works it can hold**, though (ユーザー指摘 2026-08-12: 「最初の展示室では作品が
-// ドラッグ&ドロップできない」— `works` is the account's whole shared pool since the
-// multi-room/共通プール化 work, so it can exceed a single room's `work_cap`; the comment
+// which wall a work hangs on is never locked. **The account's remaining `cap` still limits
+// how many works this room can TAKE ON**, though (ユーザー指摘 2026-08-12: 「最初の展示室
+// では作品がドラッグ&ドロップできない」— `works` is the account's whole shared pool since
+// the multi-room/共通プール化 work, so it can exceed a single room's `work_cap`; the comment
 // this replaced assumed the opposite and `drop()` had no cap check, so dropping a work
 // the room had no room left for was silently swallowed by `placeWorks` a render later —
 // `onChange` fired, arrangement grew past `cap`, and the extra entry just never got
@@ -70,7 +70,9 @@ export default function PlacementEditor({
 }) {
   const t = useT()
   const def = useMemo(() => resolveLayout(layoutKey, layoutParams), [layoutKey, layoutParams])
-  // How many works the room can hold — caps the number shown, not which spots are usable.
+  // How many works this room may GAIN up to — `drop()` refuses past it. It does not take
+  // already-hung works back down (lib/arrangement.usableSlots), and it never limits which
+  // spots are usable.
   const cap = effectiveSlotCount(def.slots.length, workCap)
 
   // Slot square side, in metres. Big (1.9) so the spots read as generous targets. The
@@ -83,9 +85,10 @@ export default function PlacementEditor({
   const h = def.hd * 2 + pad * 2
 
   const order = useMemo(() => balancedFillOrder(def), [def])
-  // Explicit placements at any physical spot are honoured up to `cap`; since works never
-  // exceed cap, every hung work survives (see lib/arrangement.placeWorks). rebuildPlacements
-  // uses the identical call, so the public room matches this preview.
+  // Explicit placements at any physical spot are honoured — `cap` bounds the AUTO-FILL of
+  // an un-arranged room, not what the owner hung (lib/arrangement.usableSlots). That rule
+  // now lives in ONE function, so rebuildPlacements and the 3D room land on the same
+  // answer as this preview instead of quietly showing fewer works (ユーザー報告 2026-08-12).
   const perSlot = useMemo(
     () => placeWorks(def.slots.length, arrangement, works, [], order, cap, guests),
     [def, cap, arrangement, works, order, guests]
@@ -353,7 +356,12 @@ export default function PlacementEditor({
   // (ユーザー決定 2026-08-12): a room can end up with nothing left of the pool if every
   // slot is in use elsewhere. Say so — a blank editor with no explanation is the exact
   // "can't drag and drop" report this change was meant to fix, just moved to a new spot.
-  if (cap === 0) return <p className="me-note">{t('me.placementCapReached', { cap: poolTotal ?? cap })}</p>
+  // **掛かっているものが1点でもあるなら地図は出す**: 手で並べた分は cap では下ろさなく
+  // なった（lib/arrangement.usableSlots）ので、ここで地図を消すと「壁には出ているのに
+  // 外す手段が無い」閉じ込みになる。外す操作は cap を増やす方向なので常に許してよい。
+  if (cap === 0 && current.every((v) => v == null)) {
+    return <p className="me-note">{t('me.placementCapReached', { cap: poolTotal ?? cap })}</p>
+  }
 
   return (
     <div className="place-editor">

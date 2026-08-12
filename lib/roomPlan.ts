@@ -11,7 +11,7 @@
 import { ARTWORKS, type ArtworkData } from './artworks'
 import { resolveLayout, type LayoutDef } from './presets'
 import { effectiveSlotCount } from './limits'
-import { placeWorks, toPlacement, balancedFillOrder, type Placement } from './arrangement'
+import { placeWorks, toPlacement, balancedFillOrder, usableSlots, type Placement } from './arrangement'
 import type { PublicArtist, PublicExhibition } from './publish'
 import type { Settings } from './store'
 
@@ -29,10 +29,14 @@ function isDemoShowcase(s: Settings, ownCount: number): boolean {
   return s.showDemo && ownCount === 0
 }
 
-/** Usable slots for the current layout (layout slots capped by the plan's works-per-gallery) */
+/** Usable slots for the current layout. The room's capacity caps the AUTO-FILL only;
+ *  a room the owner arranged by hand shows what they hung (`usableSlots` — this used to
+ *  be a second, drifting copy of that rule, which is why 15 arranged works appeared as
+ *  5 in the 3D room). */
 export function slotCount(s: Settings, ownCount = 1): number {
   const layoutSlots = resolveLayout(s.layout, s.layoutParams).slots.length
-  return isDemoShowcase(s, ownCount) ? layoutSlots : effectiveSlotCount(layoutSlots, s.workCap)
+  const cap = isDemoShowcase(s, ownCount) ? layoutSlots : effectiveSlotCount(layoutSlots, s.workCap)
+  return usableSlots(layoutSlots, s.arrangement, cap)
 }
 
 /** The full placement: which work hangs on which physical slot (honouring the room's
@@ -59,7 +63,9 @@ export function buildExhibitionList(s: Settings, own: ArtworkData[]): ArtworkDat
 
 export function overflowCount(s: Settings, ownCount: number): number {
   const total = ownCount + (s.showDemo ? ARTWORKS.length : 0)
-  // Surplus works auto-fill every slot, so anything past the slot count is hidden.
+  // Works past the usable slots can't be seen. For an arranged room that ceiling is the
+  // layout's physical slot count, so this no longer claims "10 works are hidden" about a
+  // room that is in fact showing all fifteen the owner hung.
   return Math.max(0, total - slotCount(s, ownCount))
 }
 

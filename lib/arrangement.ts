@@ -35,6 +35,29 @@ export function balancedFillOrder(layout: LayoutDef): number[] {
   return order
 }
 
+/**
+ * How many works a room can actually hang — the ONE place this is decided.
+ *
+ * `cap`（口座が持っている作品枠）が縛るのは **自動で埋める枚数だけ**。手で並べた部屋
+ * （`arrangement` が非空）では、オーナーが壁に掛けたものがそのまま出る ── 上限は間取りの
+ * 物理スロット数だけ（ユーザー決定 2026-08-12「配置したものを正とする」＝A案）。
+ *
+ * この関数が独立して存在するのは、同じ計算が**3か所に写して書かれていた**ため。
+ * 2026-08-12 に枠を口座全体の共通プールにしたとき、配置エディタだけが新しい計算
+ * （口座合計 − 他の部屋の配置数）に切り替わり、保存（lib/galleries.rebuildPlacements）と
+ * 3D描画（lib/roomPlan.slotCount）は昔の「その部屋自身の work_cap」のまま残った。結果、
+ * **ダッシュボードで15点並べても保存時に10点が捨てられ、3Dには5点しか出なかった**
+ * （ユーザー報告 2026-08-12）。3経路がこの1本を通る形にして、二度と食い違えなくする。
+ *
+ * 枠の総量は入口で守る: `PlacementEditor.drop()` が cap 到達時に新しい配置を断る。
+ * ここで既に掛かっているものを黙って落とすのは、**オーナーが作った展示を勝手に
+ * 削る**（しかも placements の行が実際に delete される）ことなので、やらない。
+ */
+export function usableSlots(slotCount: number, arrangement: (string | null)[], cap: number): number {
+  const n = Math.max(0, Math.floor(slotCount))
+  return arrangement.length > 0 ? n : Math.max(0, Math.min(n, Math.floor(cap)))
+}
+
 /** Resolve which work occupies each physical slot.
  *  Returns an array of length `slotCount`; entry i is the work at slot i, or null when
  *  the slot is empty.
@@ -58,21 +81,22 @@ export function placeWorks(
   extra: ArtworkData[] = [],
   /** Slot order for auto-fill (e.g. balancedFillOrder); sequential when omitted */
   fillOrder?: number[],
-  /** Max works shown (plan capacity). Defaults to every slot. Explicit arrangement
-   *  entries count toward it; auto-fill stops once it's reached. */
+  /** Max works AUTO-FILLED (plan capacity). Defaults to every slot. Does **not** truncate
+   *  an explicit `arrangement` — see `usableSlots` above for why. */
   cap: number = slotCount,
   /** Placeable but never auto-filled — see the note above. */
   guests: ArtworkData[] = []
 ): (ArtworkData | null)[] {
   const n = Math.max(0, Math.floor(slotCount))
-  const max = Math.max(0, Math.min(n, Math.floor(cap)))
+  const max = usableSlots(n, arrangement, cap)
   const slots: (ArtworkData | null)[] = new Array(n).fill(null)
   const byId = new Map([...own, ...guests].map((a) => [a.id, a]))
   const placedIds = new Set<string>()
   let placed = 0
   // 1. Honour explicit placements at ANY physical slot (skip ids that no longer
   //    exist, and duplicates). Pre-balanced rooms arranged works on slots 0..cap-1;
-  //    those stay exactly where the owner put them.
+  //    those stay exactly where the owner put them. `max` is the physical slot count
+  //    whenever an arrangement exists, so `cap` never silently un-hangs a work here.
   for (let i = 0; i < n && i < arrangement.length; i++) {
     if (placed >= max) break
     const id = arrangement[i]

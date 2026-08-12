@@ -123,8 +123,11 @@ export interface PublicExhibition {
   captionOverrides: Record<string, string>
   /** Per-work lighting override (migration 0035) — 'ceiling' | 'overhead' */
   lightOverrides: Record<string, string>
-  /** This room's own work-slot cap (§11.5/§11.7) — the placements are already
-   *  trimmed to it server-side; carried through so slotCount() agrees */
+  /** This room's own work-slot cap (§11.5/§11.7). Only bounds the AUTO-FILL of a room
+   *  nobody arranged — an arranged room shows every placement, because the arrangement
+   *  is the owner's decision (lib/arrangement.usableSlots). Since枠は口座全体の共通
+   *  プールになった（2026-08-12）ので、この列だけを見て壁の点数を決めると、公開側が
+   *  ダッシュボードより少なく出る。 */
   workCap: number
   /** Design Tools overrides (§11.5/§11.8) — rendered for every visitor, not just the owner */
   designOverrides: DesignOverrides
