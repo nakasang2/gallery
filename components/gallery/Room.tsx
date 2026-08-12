@@ -7,6 +7,7 @@ import { MeshReflectorMaterial } from '@react-three/drei'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { walkRef, LOW_POWER, QUALITY } from '@/lib/controller'
 import { getFloorTextures, getPlasterBump, getPlasterNormal, getConcreteMaps, getBlobShadowTexture, disposeAll } from './textures'
+import { useDoorway, DOOR_W, DOOR_H, type WallId } from './doorway'
 import SpotWithTarget from './SpotWithTarget'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 
@@ -17,50 +18,63 @@ if (typeof window !== 'undefined' && !rectAreaInited) {
   rectAreaInited = true
 }
 
-const TRIM_COLOR = 0x0e0c0a
+/** 幅木・回り縁・間仕切りの笠木の色。扉の枠（`RoomPortals`）も同じ色を使う ── 枠は
+ *  「部屋の造作の一部」に見えるべきで、値がずれると壁に貼った別物に見える。 */
+export const TRIM_COLOR = 0x0e0c0a
 
 // Wall surface maps, tiled to real-world scale (one tile = 3.2m). Plaster =
 // normal + roughness only; concrete adds a tinted color map (seams/tie holes/
 // stains) and a stronger relief.
 type WallFinish = 'plaster' | 'concrete'
-function useWallMaps(widthM: number, finish: WallFinish) {
+/** `w × h` の板1枚ぶんのマップ。壁を切り抜いて複数枚に割ったとき、**タイルが継ぎ目で
+ *  ずれない**ように `offU/offV`（その板が壁の左下から何m目に始まるか）をテクスチャの
+ *  offset に渡す。1枚のときは `offU = offV = 0` で従来と同じ。 */
+function useWallMaps(w: number, h: number, offU: number, offV: number, finish: WallFinish) {
   const maps = useMemo(() => {
-    const rep: [number, number] = [widthM / 3.2, CEIL_H / 3.2]
+    const rep: [number, number] = [w / 3.2, h / 3.2]
+    const off: [number, number] = [offU / 3.2, offV / 3.2]
+    const fit = (t: THREE.Texture) => {
+      t.repeat.set(...rep)
+      t.offset.set(...off)
+      return t
+    }
     if (finish === 'concrete') {
       const base = getConcreteMaps()
-      const map = base.map.clone()
-      const normalMap = base.normalMap.clone()
-      const roughnessMap = base.roughnessMap.clone()
-      for (const t of [map, normalMap, roughnessMap]) t.repeat.set(...rep)
+      const map = fit(base.map.clone())
+      const normalMap = fit(base.normalMap.clone())
+      const roughnessMap = fit(base.roughnessMap.clone())
       return { map, normalMap, roughnessMap, normalScale: 1.0 }
     }
-    const normalMap = getPlasterNormal().clone()
-    normalMap.repeat.set(...rep)
-    const roughnessMap = getPlasterBump().clone()
-    roughnessMap.repeat.set(...rep)
+    const normalMap = fit(getPlasterNormal().clone())
+    const roughnessMap = fit(getPlasterBump().clone())
     return { map: null, normalMap, roughnessMap, normalScale: 0.6 }
-  }, [widthM, finish])
+  }, [w, h, offU, offV, finish])
   useEffect(() => () => disposeAll([maps.map, maps.normalMap, maps.roughnessMap]), [maps])
   return maps
 }
 
-function Wall({
-  width,
+/** 壁の一部（切り抜きが無ければ壁そのもの）。位置は親 `Wall` のローカル座標で決める。 */
+function WallPiece({
+  w,
+  h,
+  offU,
+  offV,
+  wallWidth,
   color,
   finish,
-  position,
-  rotationY,
 }: {
-  width: number
+  w: number
+  h: number
+  offU: number
+  offV: number
+  wallWidth: number
   color: number
   finish: WallFinish
-  position: [number, number, number]
-  rotationY: number
 }) {
-  const { map, normalMap, roughnessMap, normalScale } = useWallMaps(width, finish)
+  const { map, normalMap, roughnessMap, normalScale } = useWallMaps(w, h, offU, offV, finish)
   return (
-    <mesh position={position} rotation-y={rotationY} receiveShadow>
-      <planeGeometry args={[width, CEIL_H]} />
+    <mesh position={[offU + w / 2 - wallWidth / 2, offV + h / 2 - CEIL_H / 2, 0]} receiveShadow>
+      <planeGeometry args={[w, h]} />
       {/* The normal map catches grazing light and the roughness map gives uneven sheen */}
       <meshStandardMaterial
         color={color}
@@ -72,6 +86,44 @@ function Wall({
         envMapIntensity={0.25}
       />
     </mesh>
+  )
+}
+
+/** 壁1枚。扉の開口がある壁だけ、**開口の左・右・上の3枚**に割って穴を開ける
+ *  （ユーザー選択 2026-08-13・A案）。開口は床まで届くので「下」の板は無い。
+ *  `holeU` は壁の左端からの距離で、`./doorway` の `useDoorway` が返す値をそのまま使う
+ *  ── 扉を建てる `RoomPortals` と同じ答えなので、穴と扉がずれることがない。 */
+function Wall({
+  width,
+  color,
+  finish,
+  position,
+  rotationY,
+  holeU,
+}: {
+  width: number
+  color: number
+  finish: WallFinish
+  position: [number, number, number]
+  rotationY: number
+  holeU?: number
+}) {
+  const pieces = useMemo(() => {
+    if (holeU === undefined) return [{ w: width, h: CEIL_H, offU: 0, offV: 0 }]
+    const u0 = holeU - DOOR_W / 2
+    const u1 = holeU + DOOR_W / 2
+    return [
+      { w: u0, h: CEIL_H, offU: 0, offV: 0 }, // 開口の左
+      { w: width - u1, h: CEIL_H, offU: u1, offV: 0 }, // 開口の右
+      { w: DOOR_W, h: CEIL_H - DOOR_H, offU: u0, offV: DOOR_H }, // 開口の上（まぐさの上）
+    ].filter((p) => p.w > 1e-4 && p.h > 1e-4)
+  }, [width, holeU])
+  return (
+    <group position={position} rotation-y={rotationY}>
+      {pieces.map((p) => (
+        <WallPiece key={`${p.offU},${p.offV}`} {...p} wallWidth={width} color={color} finish={finish} />
+      ))}
+    </group>
   )
 }
 
@@ -155,7 +207,12 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
   useEffect(() => () => disposeAll(Object.values(floorTex)), [floorTex])
 
   const finish: WallFinish = theme.wallFinish ?? 'plaster'
-  const partitionMaps = useWallMaps(8, finish)
+  const partitionMaps = useWallMaps(8, CEIL_H, 0, 0, finish)
+  // 扉の開口。`RoomPortals` が扉を建てるのと同じ関数なので、穴と扉は必ず同じ場所。
+  // 扉が建たない部屋（他の部屋が無い・どの壁にも収まらない）では `null` / `hole: null`
+  // になり、**壁は切り抜かれない**（穴の向こうに何も無いので開けてはいけない）。
+  const door = useDoorway(layout)
+  const holeU = (id: WallId) => (door?.hole?.wall === id ? door.hole.u : undefined)
   // The ceiling reuses the plaster normal map: dead-flat white overhead is a big
   // CG tell once the emissive strips and skylight graze it
   const ceilingNormal = useMemo(() => {
@@ -241,25 +298,52 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
       </mesh>
 
       {/* Walls (the west face uses the accent color for the title wall) */}
-      <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, -hd]} rotationY={0} />
-      <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, hd]} rotationY={Math.PI} />
-      <Wall width={hd * 2} color={theme.wall} finish={finish} position={[hw, h / 2, 0]} rotationY={-Math.PI / 2} />
-      <Wall width={hd * 2} color={theme.accentWall} finish={finish} position={[-hw, h / 2, 0]} rotationY={Math.PI / 2} />
+      <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, -hd]} rotationY={0} holeU={holeU('north')} />
+      <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, hd]} rotationY={Math.PI} holeU={holeU('south')} />
+      <Wall width={hd * 2} color={theme.wall} finish={finish} position={[hw, h / 2, 0]} rotationY={-Math.PI / 2} holeU={holeU('east')} />
+      <Wall width={hd * 2} color={theme.accentWall} finish={finish} position={[-hw, h / 2, 0]} rotationY={Math.PI / 2} holeU={holeU('west')} />
 
-      {/* Baseboards and crown molding */}
+      {/* Baseboards and crown molding.
+          **幅木は開口で切る**（ユーザー選択 2026-08-13・A案の付随。実際の戸口も幅木は
+          回り込まない）。切らないと 12cm の暗いバーが開口の足元を横切り、まさに前回
+          「明るい灰色の板」と言われたのと同じ「開口を塞ぐ帯」になる。回り縁（`h-0.09`）は
+          開口の上端 2.62m よりずっと高いので、割る必要がない。 */}
       {(
         [
-          [hw * 2, 0, -hd + 0.02, 0],
-          [hw * 2, 0, hd - 0.02, 0],
-          [hd * 2, hw - 0.02, 0, Math.PI / 2],
-          [hd * 2, -hw + 0.02, 0, Math.PI / 2],
-        ] as [number, number, number, number][]
-      ).map(([w, x, z, rotY], i) => (
-        <group key={i}>
-          <Trim w={w} x={x} z={z} rotY={rotY} y={0.06} h={0.12} d={0.04} />
-          <Trim w={w} x={x} z={z} rotY={rotY} y={h - 0.09} h={0.18} d={0.07} />
-        </group>
-      ))}
+          ['north', hw * 2, 0, -hd + 0.02, 0],
+          ['south', hw * 2, 0, hd - 0.02, 0],
+          ['east', hd * 2, hw - 0.02, 0, Math.PI / 2],
+          ['west', hd * 2, -hw + 0.02, 0, Math.PI / 2],
+        ] as [WallId, number, number, number, number][]
+      ).map(([id, w, x, z, rotY]) => {
+        // 幅木が伸びる軸（南北の壁なら x、東西の壁なら z）の世界座標で2本に割る。
+        const along: 'x' | 'z' = rotY === 0 ? 'x' : 'z'
+        const center = door?.hole?.wall === id ? (along === 'x' ? door.pos.x : door.pos.z) : null
+        const segs =
+          center === null
+            ? [{ w, at: 0 }]
+            : [
+                { w: center - DOOR_W / 2 + w / 2, at: (-w / 2 + (center - DOOR_W / 2)) / 2 },
+                { w: w / 2 - (center + DOOR_W / 2), at: (center + DOOR_W / 2 + w / 2) / 2 },
+              ].filter((s) => s.w > 1e-4)
+        return (
+          <group key={id}>
+            {segs.map((s) => (
+              <Trim
+                key={s.at}
+                w={s.w}
+                x={along === 'x' ? s.at : x}
+                z={along === 'x' ? z : s.at}
+                rotY={rotY}
+                y={0.06}
+                h={0.12}
+                d={0.04}
+              />
+            ))}
+            <Trim w={w} x={x} z={z} rotY={rotY} y={h - 0.09} h={0.18} d={0.07} />
+          </group>
+        )
+      })}
 
       {/* Central free-standing walls (depending on layout) */}
       {layout.partitions.map((p, i) => (

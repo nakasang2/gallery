@@ -13,6 +13,12 @@ import type { ArtworkData } from '@/lib/artworks'
 import type { FrameDef, ThemeDef } from '@/lib/presets'
 import { useT } from '@/components/I18nProvider'
 
+/** 正面から左右に回せる限度（ラジアン）。72° ── 額縁の側面と厚みがはっきり見える斜めで、
+ *  真横（90°）の一歩手前。 */
+const MAX_AZIMUTH = (72 * Math.PI) / 180
+/** 同じく上下の限度。60°。 */
+const MAX_ELEVATION = (60 * Math.PI) / 180
+
 // Faint symmetric environment (metal frame catches it) — same source the room uses,
 // so gold/steel frames read the way they do on the wall.
 function Env() {
@@ -245,6 +251,19 @@ export default function ArtworkPreview3D({
             rotateSpeed={0.8}
             minDistance={maxDim * 0.6}
             maxDistance={fitDist * 2.2}
+            // 裏へ回らせない（ユーザー報告 2026-08-13「作品の裏側にドラッグすると透けて
+            // しまっている」）。額縁は中空の枠＋マット＋作品面で、どれも片面（FrontSide）
+            // なので、裏から見ると板が消えて枠の穴が抜けて見える。壁に掛かっている物に
+            // 裏側は無いので、**見せないのが正しい** ── 両面にして裏地を作るより、
+            // 回れる範囲を正面側に限る。
+            // 水平: 正面(0)から左右 ±MAX_AZIMUTH。90°＝真横（紙一枚に見える）なので、
+            // 手前で止めて「厚みと額縁の側面が見える斜め」までにする。
+            minAzimuthAngle={-MAX_AZIMUTH}
+            maxAzimuthAngle={MAX_AZIMUTH}
+            // 垂直: 真上・真下（極）は既定でも越えられないが、極の直前は作品が線になり
+            // 操作の手応えも消えるので、同じ考えで手前で止める。
+            minPolarAngle={Math.PI / 2 - MAX_ELEVATION}
+            maxPolarAngle={Math.PI / 2 + MAX_ELEVATION}
             target={[0, 0, 0]}
           />
         )}

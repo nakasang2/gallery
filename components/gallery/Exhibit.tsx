@@ -247,38 +247,13 @@ export default function Exhibit({
               </>
             )
           })()
-        ) : (
-          <>
-            {/* Fallback while the bake runs (and on the low tier, which can't bake):
-                art-directed soft drop shadow, denser for the close picture light */}
-            <mesh position={[0.05, -0.24, 0.006]}>
-              <planeGeometry args={[halfW * 2 + 0.6, halfH * 2 + 0.85]} />
-              <meshBasicMaterial
-                map={getSoftShadowTexture()}
-                transparent
-                opacity={lightMode === 'overhead' ? 0.56 : 0.42}
-                color={0x000000}
-                depthWrite={false}
-                polygonOffset
-                polygonOffsetFactor={-1}
-              />
-            </mesh>
-            {/* Second, tighter core just past the frame edge — the two layers together
-                approximate contact hardening (sharp near the frame, soft further out) */}
-            <mesh position={[0.025, -0.11, 0.007]}>
-              <planeGeometry args={[halfW * 2 + 0.22, halfH * 2 + 0.34]} />
-              <meshBasicMaterial
-                map={getSoftShadowTexture()}
-                transparent
-                opacity={lightMode === 'overhead' ? 0.5 : 0.38}
-                color={0x000000}
-                depthWrite={false}
-                polygonOffset
-                polygonOffsetFactor={-1}
-              />
-            </mesh>
-          </>
-        )}
+        ) : null /* **影を描かない**（ユーザー決定 2026-08-13「形状が非常に不自然なので、
+            今後はなくしてください」）。ここには以前、作品より 0.6m/0.85m 大きい柔らかい
+            角丸の板を2枚、右下へずらして重ねる「作り物の影」があった。焼き込み
+            （`WallShadowBaker`）が走らない端末 ── つまり `gl.shadowMap.enabled` が false の
+            スマホ・低スペック機では**これが恒久的な見た目**になり、作品の形と無関係な
+            大きな滲みが壁に残っていた。影は**本物の輪郭を焼けたときだけ**出す。焼ける機種は
+            1作品1フレームで焼き終わるので、無い時間は一瞬。 */}
         {frameless ? (
           // Stretched canvas: no frame, just showing the thickness on the sides
           <mesh
