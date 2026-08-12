@@ -4,9 +4,16 @@
 //   • DRAG a work (from the tray or a spot) onto a spot.
 //   • TAP a work to pick it up, then tap a spot to drop it (tap the same work to cancel).
 // Dropping onto an occupied spot swaps the two. Every physical spot is a free target —
-// the plan cap limits how many WORKS a room holds (enforced in the works stage), not
-// which walls they hang on, so there are no locked spots here. Pointer Events unify mouse
-// + touch, and the map sets touch-action:none so a press-drag never scrolls the page.
+// which wall a work hangs on is never locked. **This room's own `cap` still limits how
+// many works it can hold**, though (ユーザー指摘 2026-08-12: 「最初の展示室では作品が
+// ドラッグ&ドロップできない」— `works` is the account's whole shared pool since the
+// multi-room/共通プール化 work, so it can exceed a single room's `work_cap`; the comment
+// this replaced assumed the opposite and `drop()` had no cap check, so dropping a work
+// the room had no room left for was silently swallowed by `placeWorks` a render later —
+// `onChange` fired, arrangement grew past `cap`, and the extra entry just never got
+// honoured, with no sign of why). `drop()` below refuses instead, with a toast. Pointer
+// Events unify mouse + touch, and the map sets touch-action:none so a press-drag never
+// scrolls the page.
 import { useMemo, useRef, useState } from 'react'
 import { resolveLayout } from '@/lib/presets'
 import { effectiveSlotCount, MAX_WORKS_PER_ROOM } from '@/lib/limits'
@@ -15,6 +22,7 @@ import { VideoIcon } from '@/components/icons'
 import type { ArtworkData } from '@/lib/artworks'
 import type { CustomLayoutParams } from '@/lib/presets'
 import { useT } from '@/components/I18nProvider'
+import { showToast } from '@/lib/toast'
 
 function thumb(a: ArtworkData): string | undefined {
   return a.kind === 'video' ? a.poster : a.thumb ?? a.src
@@ -177,8 +185,20 @@ export default function PlacementEditor({
   }
 
   // Hang `workId` on `target`. Onto an occupied spot swaps the two; onto an empty spot
-  // just moves it. A work hangs in one place, so its old spot is vacated.
+  // just moves it. A work hangs in one place, so its old spot is vacated. Only a drop
+  // that actually GROWS the filled count needs the cap check — moving/swapping a work
+  // already hanging here doesn't (net change zero), and neither does swapping an
+  // unplaced work onto an OCCUPIED spot (whoever it displaces leaves as this one
+  // arrives, so the count stays put too). The only way this room gains a work is an
+  // unplaced one landing on an EMPTY spot (別視点レビュー指摘 2026-08-12: 最初の版は
+  // target の空き/占有を見ておらず、満室でも「掛かっている作品を差し替える」という
+  // 元から効いていた操作までブロックしていた).
   function drop(target: number, workId: string, fromSlot: number | null) {
+    const grows = !current.includes(workId) && current[target] == null
+    if (grows && current.filter((v) => v != null).length >= cap) {
+      showToast(t('me.placementCapReached', { cap }))
+      return
+    }
     const next = [...current]
     const displaced = next[target] ?? null
     if (fromSlot != null && fromSlot !== target) {

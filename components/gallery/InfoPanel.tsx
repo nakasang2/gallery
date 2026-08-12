@@ -50,6 +50,9 @@ export default function InfoPanel() {
       <div className="panel-no">{eyebrow}</div>
       <h2 className="panel-title">{title}</h2>
       {exhibitor && <div className="panel-artist">{exhibitor}</div>}
+      {/* 上部（タイトル・作家名の直下）に置く（ユーザー指摘 2026-08-12: 「SNS情報は
+          タイトルなどの直下に」— 以前は本文の下、パネルの最後尾にあった）。 */}
+      <SnsLinks sns={sns} className="panel-sns" />
       {statement && <p className="panel-desc">{statement}</p>}
       {artistBio && (
         <>
@@ -59,7 +62,6 @@ export default function InfoPanel() {
           <p className="panel-desc">{artistBio}</p>
         </>
       )}
-      <SnsLinks sns={sns} className="panel-sns" />
     </aside>
   )
 }

@@ -365,17 +365,18 @@
 .hako-state.open { color: var(--gold); border-color: rgba(212, 162, 78, 0.5); }
 
 /* タイトル/説明文はその場で編集(編集モードなし)。他の入力欄と同じ箱の見た目に揃える
-   (ユーザー指示 2026-07-31)。タイトルはセリフで少し大きく、実体は input。 */
+   (ユーザー指示 2026-07-31)。**フォント・サイズも他の入力欄(.me-field input等)と
+   完全に揃える**（ユーザー指摘 2026-08-12: セリフ体で少し大きくしていたのがずれて
+   見える、とのことで撤回。DECISIONS 2026-07-31を上書き）。 */
 .hako-title-input {
   width: 100%;
-  font-family: var(--serif);
-  font-size: 1.15rem;
-  font-weight: 500;
+  font-family: var(--sans);
+  font-size: 0.9rem;
   color: var(--ink);
   background: rgba(236, 231, 222, 0.05);
   border: 1px solid var(--hairline);
   border-radius: 8px;
-  padding: 0.45em 0.7em;
+  padding: 0.6em 0.85em;
   outline: none;
   transition: border-color 0.2s;
 }

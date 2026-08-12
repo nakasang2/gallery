@@ -73,11 +73,65 @@ function freeSpan(
 /** Half the doorway's own footprint along the wall it stands against (opening +
  *  jambs), in metres. */
 const WALL_DOOR_HALF = DOOR_W / 2 + JAMB
-/** Gap left between the title board's edge and the doorway, so the two never read
- *  as touching. */
-const BOARD_CLEARANCE = 0.4
-/** Gap left between the doorway and the corner it stands nearest to. */
-const CORNER_CLEARANCE = 0.3
+/** Gap left between whatever the wall already carries (the title board, or the
+ *  nearest hanging slot) and the doorway, so the two never read as touching. Tried
+ *  generously first, then tightened once, before giving up on a given wall. */
+const CLEARANCE_STEPS = [0.35, 0.1]
+
+/** One of the room's four walls, in the terms `doorOnWall` needs: which coordinate is
+ *  fixed (and its value), how far the wall runs (half-length, along the other axis),
+ *  the yaw that faces the doorway into the room, and which way to nudge it off the
+ *  wall line (`+JAMB` or `-JAMB`) so the frame doesn't clip into the wall. */
+function wallSpec(layout: LayoutDef, id: 'west' | 'east' | 'north' | 'south') {
+  switch (id) {
+    case 'west':
+      return { fixedAxis: 'x' as const, fixed: -layout.hw, half: layout.hd, rotY: Math.PI / 2, nudge: JAMB }
+    case 'east':
+      return { fixedAxis: 'x' as const, fixed: layout.hw, half: layout.hd, rotY: -Math.PI / 2, nudge: -JAMB }
+    case 'north':
+      return { fixedAxis: 'z' as const, fixed: -layout.hd, half: layout.hw, rotY: 0, nudge: JAMB }
+    case 'south':
+      return { fixedAxis: 'z' as const, fixed: layout.hd, half: layout.hw, rotY: Math.PI, nudge: -JAMB }
+  }
+}
+
+/** How much of that wall's length is already claimed, as a half-extent from its
+ *  centre. The west wall carries the exhibition title board (TitleWall.tsx) and never
+ *  any hanging slots; the other three carry whatever `layout.slots` puts on them (a
+ *  wall with none of its own is reported as fully free). */
+function wallOccupiedHalf(layout: LayoutDef, spec: ReturnType<typeof wallSpec>): number {
+  if (spec.fixedAxis === 'x' && spec.fixed < 0) return titleWallWidth(layout) / 2
+  let half = 0
+  for (const s of layout.slots) {
+    const onThisWall = Math.abs((spec.fixedAxis === 'x' ? s.x : s.z) - spec.fixed) < 0.5
+    if (!onThisWall) continue
+    half = Math.max(half, Math.abs(spec.fixedAxis === 'x' ? s.z : s.x))
+  }
+  return half
+}
+
+/** Where the doorway stands on a given wall, past whichever end of that wall's own
+ *  slots/board has room for it — `null` if it doesn't fit even at the tightest
+ *  clearance tried. Faces straight into the room (perpendicular to the wall) rather
+ *  than toward the room's centre point, the way a real doorway set into a wall would. */
+function doorOnWall(layout: LayoutDef, id: 'west' | 'east' | 'north' | 'south'): { pos: THREE.Vector3; rotY: number } | null {
+  const spec = wallSpec(layout, id)
+  const occupiedHalf = wallOccupiedHalf(layout, spec)
+  for (const clearance of CLEARANCE_STEPS) {
+    const centerToDoor = occupiedHalf + clearance + WALL_DOOR_HALF
+    if (centerToDoor + WALL_DOOR_HALF + clearance > spec.half) continue
+    // Put it on the end farther from the entry point, so walking toward it reads as
+    // moving deeper into the room rather than turning back toward where you arrived.
+    const entryVary = spec.fixedAxis === 'x' ? layout.entry.z : layout.entry.x
+    const dir = entryVary <= 0 ? 1 : -1
+    const vary = dir * centerToDoor
+    const fixedPos = spec.fixed + spec.nudge
+    const x = spec.fixedAxis === 'x' ? fixedPos : vary
+    const z = spec.fixedAxis === 'x' ? vary : fixedPos
+    return { pos: new THREE.Vector3(x, 0, z), rotY: spec.rotY }
+  }
+  return null
+}
 
 /**
  * Where the doorway stands.
@@ -89,36 +143,27 @@ const CORNER_CLEARANCE = 0.3
  * door has no arithmetic to get wrong, and it reads better: several openings in a row
  * stop looking like doors.
  *
- * Preferred spot (ユーザー指示 2026-08-12): the far end of the title wall (the "back"
- * wall the exhibition board hangs on, TitleWall.tsx) — the doorway stands flush against
- * it, past the board, so it reads as the room's other landmark rather than an
- * arbitrary object floating mid-floor. Rooms too shallow for the board AND a clear
- * doorway on the same wall (the gap left on either side of the board is fixed
- * regardless of room size — see `titleWallWidth`) fall back to the previous
- * entry-anchored placement rather than clipping into the board or a side wall.
+ * **Always flush against a wall** (ユーザー指摘 2026-08-12: 「扉って壁沿いにあるものでは
+ * ないですか？」) — never free-standing in open floor space, which is what the previous
+ * entry-anchored fallback did for shallower rooms and read as an arbitrary object rather
+ * than a doorway. Tries the title wall first (past whichever end of the board has room —
+ * ユーザー指示 2026-08-12), then the opposite wall, then the two side walls, each at the
+ * end farther from the entry point. A room too tight on every wall (none in the current
+ * presets or the full custom size range) falls back to the old entry-anchored spot as a
+ * last resort rather than showing no door at all.
  */
 function doorPlacement(layout: LayoutDef): { pos: THREE.Vector3; rotY: number } | null {
-  return titleWallDoorPlacement(layout) ?? entryDoorPlacement(layout)
-}
-
-/** Flush against the title wall (x = -layout.hw), past whichever end of the board has
- *  room for it. Faces straight into the room (perpendicular to the wall) rather than
- *  toward the room's centre point, the way a real doorway set into a wall would. */
-function titleWallDoorPlacement(layout: LayoutDef): { pos: THREE.Vector3; rotY: number } | null {
-  const boardHalf = titleWallWidth(layout) / 2
-  const centerToDoor = boardHalf + BOARD_CLEARANCE + WALL_DOOR_HALF
-  if (centerToDoor + WALL_DOOR_HALF + CORNER_CLEARANCE > layout.hd) return null
-  // Put it on the end farther from the entry point, so walking toward it reads as
-  // moving deeper into the room rather than turning back toward where you arrived.
-  const dir = layout.entry.z <= 0 ? 1 : -1
-  const x = -layout.hw + JAMB
-  const z = dir * centerToDoor
-  return { pos: new THREE.Vector3(x, 0, z), rotY: Math.PI / 2 }
+  for (const id of ['west', 'east', 'north', 'south'] as const) {
+    const at = doorOnWall(layout, id)
+    if (at) return at
+  }
+  return entryDoorPlacement(layout)
 }
 
 /**
- * Previous placement, kept as the fallback for rooms too shallow to fit a doorway
- * beside the title board (docs/DECISIONS 2026-08-09 for the original design).
+ * Last-resort placement — free-standing in open floor space, anchored on
+ * `layout.entry` (docs/DECISIONS 2026-08-09 for the original design). Only reached if
+ * `doorPlacement` couldn't fit the doorway flush against any of the room's four walls.
  *
  * Anchored on `layout.entry` — always inside the room, always walkable, and never inside
  * a bench or a partition, because it is where visitors are placed on arrival — offset

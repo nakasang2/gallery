@@ -463,6 +463,7 @@ export const ja: Dictionary = {
     placementTrayLabel: '作品',
     placementRemove: '壁から外す',
     placementElsewhereHint: '他の部屋にも配置済み',
+    placementCapReached: 'この部屋の上限（{cap}点）に達しています。枠を増やすか、他の部屋に配置してください。',
     moveUp: '上へ',
     moveDown: '下へ',
     cropWarn: '歪ませずにこのサイズへ収めるため、画像の約{pct}%がトリミングされます。⇄で縦横を入れ替えられます。',

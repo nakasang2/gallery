@@ -491,6 +491,7 @@ export const en = {
     placementTrayLabel: 'Your works',
     placementRemove: 'Take off the wall',
     placementElsewhereHint: 'Also hung in another room',
+    placementCapReached: 'This room is already at its {cap}-work limit. Add more slots, or hang it in another room.',
     moveUp: 'Move up',
     moveDown: 'Move down',
     cropWarn: 'About {pct}% of the image is cropped to fill this size without distorting it. Use ⇄ to flip the ratio.',

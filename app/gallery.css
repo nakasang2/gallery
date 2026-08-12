@@ -518,8 +518,7 @@ body:not(.gallery-mode) {
 }
 .panel-sns {
   font-size: 1rem;
-  margin-top: -0.6rem;
-  margin-bottom: 1.6rem;
+  margin: 0 0 1.6rem;
 }
 .panel-sns a { color: var(--muted); }
 .panel-sns a:hover { color: var(--gold); }
