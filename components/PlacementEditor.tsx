@@ -290,19 +290,49 @@ export default function PlacementEditor({
   }
   // A press that never became a drag: place the picked work, switch pick, or pick up.
   function tap(p: Pending) {
-    const slot = slotAt(p.x, p.y)
+    activate({ slot: slotAt(p.x, p.y), workId: p.workId, fromSlot: p.fromSlot })
+  }
+  /**
+   * 「持ち上げる／置く」の判断そのもの。**座標ではなく対象を受け取る**ので、ポインタ
+   * （`tap`）とキーボード（Enter / Space）の両方が同じ1つの実装を通る ── 判断を2か所に
+   * 書くと、片方だけ直して食い違う（このファイルは既にその種のバグを2回踏んでいる）。
+   */
+  function activate(target: { slot: number | null; workId: string | null; fromSlot: number | null }) {
+    if (disabled) return
     if (picked) {
-      if (slot != null && slot !== picked.fromSlot) {
-        drop(slot, picked.workId, picked.fromSlot)
+      if (target.slot != null && target.slot !== picked.fromSlot) {
+        drop(target.slot, picked.workId, picked.fromSlot)
         setPicked(null)
-      } else if (p.workId && p.workId !== picked.workId) {
-        setPicked({ workId: p.workId, fromSlot: p.fromSlot })
+      } else if (target.workId && target.workId !== picked.workId) {
+        setPicked({ workId: target.workId, fromSlot: target.fromSlot })
       } else {
         setPicked(null)
       }
       return
     }
-    if (p.workId) setPicked({ workId: p.workId, fromSlot: p.fromSlot })
+    if (target.workId) setPicked({ workId: target.workId, fromSlot: target.fromSlot })
+  }
+  /**
+   * キーボード操作（WCAG 2.1 2.1.1・ユーザー決定 2026-08-12）。ポインタが無いと
+   * **壁から外せるのに掛けられない**状態だった（✕だけが `<button>` で、ドロップ先は
+   * role も tabindex も無い `<g>`、トレイのタイルは `<div>`）。
+   * 操作はタップと同じモデル: 作品を選ぶ → 枠を選ぶ → 置く。Esc で選択解除。
+   * Space は既定のスクロールを止める（枠は画面下にもあるため、ページが飛ぶと現在地を失う）。
+   */
+  function onKeyActivate(
+    e: React.KeyboardEvent,
+    target: { slot: number | null; workId: string | null; fromSlot: number | null },
+  ) {
+    if (e.key === 'Escape') {
+      if (picked) {
+        e.preventDefault()
+        setPicked(null)
+      }
+      return
+    }
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return
+    e.preventDefault()
+    activate(target)
   }
   function cancel() {
     pending.current = null
@@ -359,6 +389,24 @@ export default function PlacementEditor({
               // Scale about the spot's own centre (children are drawn at 0,0) so the hover
               // target visibly pops toward the pointer.
               transform={`translate(${s.x} ${s.z})${isOver ? ' scale(1.16)' : ''}`}
+              // キーボードで枠に到達できるようにする（ユーザー決定 2026-08-12）。SVGの
+              // `<g>` は既定でフォーカスも役割も持たないため、明示的に与える。
+              // `<title>` だけでは「押せるもの」として読まれないので `aria-label` も置く。
+              role="button"
+              tabIndex={disabled ? -1 : 0}
+              aria-label={
+                art
+                  ? t('design.spotWork', { n: pos + 1, title: art.title || t('common.untitled') })
+                  : t('design.spotEmpty', { n: pos + 1 })
+              }
+              aria-pressed={isPicked}
+              onKeyDown={(e) =>
+                onKeyActivate(e, {
+                  slot: slotIdx,
+                  workId: current[slotIdx] ?? null,
+                  fromSlot: current[slotIdx] != null ? slotIdx : null,
+                })
+              }
             >
               <title>
                 {art
@@ -419,6 +467,12 @@ export default function PlacementEditor({
               role="listitem"
               className={`place-tray-item${pos ? ' placed' : ''}${isPicked ? ' picked' : ''}${drag?.workId === art.id ? ' dragging' : ''}${disabled ? '' : ' grab'}${guest ? ' guest' : ''}`}
               title={elsewhere ? `${baseTitle} — ${t('me.placementElsewhereHint')}` : baseTitle}
+              // キーボードで作品を持ち上げられるようにする（ユーザー決定 2026-08-12）。
+              // `role="listitem"` は残す（トレイは `role="list"`）。押せることは
+              // `tabIndex` + `aria-pressed` + `title`（アクセシブルネーム）で伝える。
+              tabIndex={disabled ? -1 : 0}
+              aria-pressed={isPicked}
+              onKeyDown={(e) => onKeyActivate(e, { slot: null, workId: art.id, fromSlot })}
               onPointerDown={(e) => {
                 if (disabled || (e.button != null && e.button > 0)) return
                 e.preventDefault()
