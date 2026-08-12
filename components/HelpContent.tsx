@@ -10,17 +10,46 @@
 // The numbers that could drift — the per-slot price and the per-room cap — come
 // from lib/pricing and lib/limits, never typed into a sentence (AGENTS.md 5.3;
 // the same reason /legal interpolates them).
-import { PRICE_SLOT, PRICE_ROOM, PRICE_VIDEO_PASS } from '@/lib/pricing'
+import { PRICE_SLOT, PRICE_ROOM, PRICE_VIDEO_PASS, expoPriceRangeLabel } from '@/lib/pricing'
 import { MAX_WORKS_PER_ROOM, PLAN } from '@/lib/limits'
 
 type T = (key: string, params?: Record<string, string | number>) => string
 
-/** Section headings and the Q&A keys under each, in reading order. */
+/**
+ * Section headings and the Q&A keys under each, in reading order.
+ *
+ * **機能ごとの章立てにしてある**（ユーザー決定 2026-08-12・B案）。以前は
+ * 「はじめに／部屋をつくる／公開・共有／困ったとき」の4章10問で、**入口の質問しか
+ * 無く、出荷済み16機能のうち10個が一言も出てこなかった**（招待・トリミング位置・
+ * 購入リンク・額縁・テーマ・間取り・BGM・音声ガイド・カタログ・埋め込み・録画）。
+ * 作家が「これはどこで設定するのか」を探せる索引になっていなかった。
+ *
+ * 章は**作業の単位**に合わせる ── ダッシュボードのタブ（作品／部屋／公開）と同じ
+ * 並びにしてあるので、読んだあとどこを触ればいいかが対応する。
+ */
 const SECTIONS: { title: string; qa: [q: string, a: string][] }[] = [
-  { title: 'help.s1', qa: [['help.qWhat', 'help.aWhat'], ['help.qCost', 'help.aCost']] },
-  { title: 'help.s2', qa: [['help.qStart', 'help.aStart'], ['help.qMax', 'help.aMax'], ['help.qCaption', 'help.aCaption'], ['help.qVideo', 'help.aVideo']] },
-  { title: 'help.s3', qa: [['help.qShare', 'help.aShare'], ['help.qVisitor', 'help.aVisitor'], ['help.qReaction', 'help.aReaction']] },
-  { title: 'help.s4', qa: [['help.qTrouble', 'help.aTrouble']] },
+  { title: 'help.s1', qa: [['help.qWhat', 'help.aWhat'], ['help.qCost', 'help.aCost'], ['help.qStart', 'help.aStart']] },
+  // 作品タブでできること
+  { title: 'help.s2', qa: [
+    ['help.qMax', 'help.aMax'],
+    ['help.qCaption', 'help.aCaption'],
+    ['help.qCrop', 'help.aCrop'],
+    ['help.qVideo', 'help.aVideo'],
+    ['help.qGuide', 'help.aGuide'],
+    ['help.qBuy', 'help.aBuy'],
+  ] },
+  // 部屋タブ・配置タブでできること
+  { title: 'help.s3', qa: [['help.qLook', 'help.aLook'], ['help.qPlace', 'help.aPlace'], ['help.qBgm', 'help.aBgm']] },
+  // 公開タブでできること
+  { title: 'help.s4', qa: [
+    ['help.qShare', 'help.aShare'],
+    ['help.qVisitor', 'help.aVisitor'],
+    ['help.qReaction', 'help.aReaction'],
+    ['help.qElsewhere', 'help.aElsewhere'],
+  ] },
+  // 部屋を増やす・複数の作家で開く
+  { title: 'help.s5', qa: [['help.qRooms', 'help.aRooms'], ['help.qJoint', 'help.aJoint']] },
+  { title: 'help.s6', qa: [['help.qTrouble', 'help.aTrouble']] },
 ]
 
 /** Per-video size cap in whole MB, from the plan (never typed into a sentence). */
@@ -34,6 +63,12 @@ const A_PARAMS: Record<string, Record<string, string | number>> = {
 }
 
 export default function HelpContent({ t }: { t: T }) {
+  // 合同展示の場所代は会期ごとに違うので、幅を価格表から導出する（数字を文に書かない）
+  const params: Record<string, Record<string, string | number>> = {
+    ...A_PARAMS,
+    'help.aRooms': { room: PRICE_ROOM, max: MAX_WORKS_PER_ROOM },
+    'help.aJoint': { price: expoPriceRangeLabel(t('lp.priceRange')) },
+  }
   return (
     <div className="help-body">
       {SECTIONS.map((section) => (
@@ -43,7 +78,7 @@ export default function HelpContent({ t }: { t: T }) {
             {section.qa.map(([q, a]) => (
               <div className="help-qa" key={q}>
                 <dt className="help-q">{t(q)}</dt>
-                <dd className="help-a">{t(a, A_PARAMS[a])}</dd>
+                <dd className="help-a">{t(a, params[a])}</dd>
               </div>
             ))}
           </dl>
