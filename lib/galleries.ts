@@ -544,7 +544,7 @@ function missingOverrideColumns(error: { code?: string; message?: string }): boo
   )
 }
 
-/** One placement row as both write paths below need it. */
+/** One placement row, as `replace_placements` (migration 0058) takes them. */
 type PlacementRow = {
   gallery_id: string
   artwork_id: string
@@ -554,59 +554,6 @@ type PlacementRow = {
   hanging_override: string | null
   caption_override: string | null
   light_override: string | null
-}
-
-/**
- * 0058 未適用のDB向けの旧経路。**2回のリクエスト**で置き換えるので、あいだの状態
- * （枠を移す瞬間に上限＋1行）がコミットされる。だから 0058 でRPCに移した
- * （そこに詳しい理由がある）。ここは互換のためだけに残す。
- *
- * upsert してから余りを delete する順番なのは、原子的でないぶん「途中で失敗しても
- * 公開中の部屋が空にならない」方を選んでいるため（delete が先だと空の瞬間が見える）。
- * 0011/0012/0035 が無い古いDBへの段階的な縮退も、この経路にだけ必要。
- *
- * ### 枠の上限をDBで強制する工程（B案の第2段）に入るときは、**この関数を消す**
- * 別視点レビュー指摘 2026-08-13。`PGRST202` は「0058 が未適用」だけでなく
- * **migration 直後で PostgREST のスキーマキャッシュが古いとき**や**引数名が食い違って
- * いるとき**にも返る。そこでこちらに落ちると、
- *   ・件数を数えるトリガが**正常な配置の移動を拒否する**（上限＋1行の中間状態を
- *     コミットするため。まさにこのRPCを作った理由）
- *   ・上限の判定を**RPCの中**に書いた場合は、この経路が**丸ごと素通りする**
- * ので、第2段では ①判定は必ず `placements` の**トリガ**に置く（RPCの中に書かない）
- * ②この関数を削除し、`PGRST202` は「0058 が未適用です」と**はっきり投げる**
- * （`lib/admin.ts` の 0040 の扱いと同じ形）。
- */
-async function rebuildPlacementsLegacy(
-  sb: NonNullable<typeof supabase>,
-  galleryId: string,
-  rows: PlacementRow[]
-): Promise<void> {
-  if (rows.length) {
-    let { error } = await sb.from('placements').upsert(rows, { onConflict: 'gallery_id,slot_index' })
-    if (error && missingOverrideColumns(error)) {
-      // Migration 0035 (light_override) not applied yet — keep the other four axes
-      const noLight = rows.map(({ light_override: _light, ...rest }) => rest)
-      ;({ error } = await sb.from('placements').upsert(noLight, { onConflict: 'gallery_id,slot_index' }))
-    }
-    if (error && missingOverrideColumns(error)) {
-      // Migration 0011/0012 not applied yet — keep publishing working, frame-only
-      const legacy = rows.map(({ gallery_id, artwork_id, slot_index, frame_override }) => ({
-        gallery_id,
-        artwork_id,
-        slot_index,
-        frame_override,
-      }))
-      ;({ error } = await sb.from('placements').upsert(legacy, { onConflict: 'gallery_id,slot_index' }))
-    }
-    if (error) throw error
-  }
-  // Trim any placement whose slot is no longer used (slots the arrangement freed, or
-  // rows past a shrunk cap). Sparse indices mean we can't just delete "slot >= count".
-  const usedList = `(${rows.map((r) => r.slot_index).join(',')})`
-  let delQ = sb.from('placements').delete().eq('gallery_id', galleryId)
-  delQ = rows.length ? delQ.not('slot_index', 'in', usedList) : delQ
-  const { error: dErr } = await delQ
-  if (dErr) throw dErr
 }
 
 /** Rebuild placements from the current works, capped at the plan's effective slot count.
@@ -673,11 +620,18 @@ export async function rebuildPlacements(
   // 権限と同意の判定は placements のRLS（0037）に任せている＝RPCは security invoker。
   const { error } = await sb.rpc('replace_placements', { p_gallery: galleryId, p_rows: rows })
   if (!error) return
-  // **`PGRST202`（関数が無い＝0058 未適用）だけを見分ける。** 縮退の入口を広く採ると、
-  // 権限エラーや同意違反まで「未適用」に流れ込んで旧経路で書けてしまう
-  // （LESSONS 2026-08-09「縮退の入口は広く採らない」）。
-  if (error.code !== 'PGRST202') throw error
-  await rebuildPlacementsLegacy(sb, galleryId, rows)
+  // **旧経路（upsert → 余りを delete）は 0059 で撤去した。** 残しておくと、0059 の件数
+  // トリガが**あいだの状態**（枠を移す瞬間に上限＋1行）を拒否するので、正常な配置操作が
+  // 落ちる（別視点レビュー指摘 2026-08-13）。`PGRST202` はここでは「関数が見つからない」
+  // ＝**0058/0059 が未適用**か、migration 直後で PostgREST のスキーマキャッシュがまだ
+  // 古いかのどちらか。黙って別の書き方に逃げず、何をすればいいかを言って投げる。
+  if (error.code === 'PGRST202') {
+    throw new Error(
+      'Placements need migration 0058 applied first (and 0059 for the slot limits). ' +
+        'If it was just applied, reload — PostgREST caches the schema for a moment.'
+    )
+  }
+  throw error
 }
 
 /** Per-work design overrides (keyed by artwork id) as stored in the placements —
