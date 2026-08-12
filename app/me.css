@@ -814,7 +814,11 @@
   border-color: rgba(212, 162, 78, 0.5);
   font-family: var(--sans);
 }
-.me-add-tile small { font-size: 0.5rem; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); text-align: center; padding: 0 0.15rem; }
+/* 0.5rem = 8px は**このUI全体で最も小さい外れ値**だった（他の最小は 0.62rem=9.92px の
+   `.place-tray-num` / `.hako-state`）。しかも「作品を追加」という主要な操作のラベル。
+   既に使っている下限に揃える（新しいサイズを増やさない）。0.68rem まで上げると
+   日本語で2行に折れて 64px のタイルの中で窮屈になるので 0.62rem に留める（実測）。 */
+.me-add-tile small { font-size: 0.62rem; line-height: 1.2; letter-spacing: 0.04em; color: var(--muted); text-align: center; padding: 0 0.15rem; }
 .me-add-tile-plus { font-size: 1.05rem; line-height: 1; }
 .me-add-tile.busy { opacity: 0.6; cursor: default; }
 /* 編集面はどの幅でもその場に開く（ユーザー指示 2026-07-30）。以前は電話幅だけ
