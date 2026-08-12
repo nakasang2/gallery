@@ -1310,6 +1310,16 @@
   max-width: 420px;
   margin: 0.2rem auto 0;
 }
+/* 400px以下は4列にする（ユーザー決定 2026-08-12「タイルを大きくする」）。
+   理由は下の `.place-tray-remove::after`：✕の当たり判定を24pxにすると、
+   **タイル幅が54px以下だとタイルの中心が✕の判定に入る**（`tile/2 > tile − 27` が要件。
+   ✕は右3px・上2pxの位置で、内側へ広げるしか無いため）。5列だと320pxで47px・375pxで
+   58pxしか取れず、47pxでは実際に中央タップで作品が消えた（実測して撤回した経緯あり）。
+   4列なら320pxで約60px・375pxで約74pxになり、中心まで届かない。
+   1行の点数は5→4に減るが、狭い幅では1行増える方を選ぶ（ユーザー判断）。 */
+@media (max-width: 400px) {
+  .place-tray { grid-template-columns: repeat(4, 1fr); }
+}
 .place-tray-item {
   position: relative;
   aspect-ratio: 1;
@@ -1363,6 +1373,18 @@
   text-align: center;
   cursor: pointer;
 }
+/* 押せる範囲だけ 15px→24px に広げる（**見た目は 15px のまま**）。24px は WCAG 2.2
+   SC 2.5.8 の下限。✕はタイルの上に乗っており、タイル自身もドラッグ対象なので
+   「間隔による例外」は使えない ＝ 本体を広げるしかない。
+   **内側（下と左）へ広げている**のは `.place-tray-item` が `overflow: hidden` で、
+   外へ出した分は切られるため（四方 -4.5px で試したら上が 2px しか伸びず 24×22 になった）。
+   内側へ広げると狭いタイルでは中心を食うので、上の media query で 400px 以下を
+   4列にしてタイルを 60px 以上にしてある（54px が境界）。 */
+.place-tray-remove::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 -9px -9px;
+}
 .place-tray-remove:hover { background: var(--gold); color: #14110c; }
 /* 他の部屋にも配置済み（ユーザー指示 2026-08-11）。数字/✕バッジと被らない下辺に、
    小さな点だけ置く ── タイルが小さいので文字は入らない。詳細は`title`で読める。 */
@@ -1399,6 +1421,14 @@
 }
 /* Picked up by a tap — ringed gold, and un-dimmed even if it's already hung, so the
    piece you're about to move stands out. */
+/* キーボードの現在地（WCAG 2.4.7）。配置はキーボードでもできるようになったので
+   （ユーザー決定 2026-08-12）、どこにいるかが見えないと操作できない。
+   `:focus-visible` なのでポインタで押したときには出ない。
+   選択中（`.picked`）と混ざらないよう、フォーカスは**外側**に出す（picked は内側）。 */
+.place-tray-item:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* SVGの枠。`outline` はSVG要素では効かないブラウザがあるので、リング側の stroke で示す。 */
+.pe-slot:focus-visible { outline: none; }
+.pe-slot:focus-visible .pe-slot-ring { stroke: var(--ink); stroke-width: 0.26; opacity: 1; }
 .place-tray-item.picked { outline: 2px solid var(--gold); outline-offset: -2px; }
 .place-tray-item.picked img { opacity: 1; }
 
