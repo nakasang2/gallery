@@ -780,6 +780,43 @@ export function getBlobShadowTexture(): THREE.CanvasTexture {
   return blobShadowTex
 }
 
+/* ---- Doorway depth (the opening of a room portal) ----
+   ユーザー指摘 2026-08-12「複数展示室の扉が透けている。奥には続くように黒く
+   フェードさせられないか」。以前は開口部が**半透明の板1枚**（`opacity` 0.13〜0.3・
+   `depthWrite: false`）だったため、奥の壁がそのまま見えて「光る板」に見えていた。
+
+   **不透明にして透けを止め、明るさの勾配で奥行きに見せる。** 光は部屋の側から
+   入るので、開口の**周縁がわずかに明るく、中心へ向かって黒く沈む** ── 実際の
+   暗い部屋の入口と同じ向き。中心を完全な黒（#000）にせず 6/255 残しているのは、
+   真っ黒だと「穴」ではなく「板」に見えるため（周囲との段差が強すぎる）。
+   縦にわずかな非対称を入れてあるのは、床側に回り込む光を出すため。 */
+let doorwayDepthTex: THREE.CanvasTexture | null = null
+export function getDoorwayDepth(): THREE.CanvasTexture {
+  if (doorwayDepthTex) return doorwayDepthTex
+  const w = 128
+  const h = 256
+  const c = document.createElement('canvas')
+  c.width = w
+  c.height = h
+  const ctx = c.getContext('2d')!
+  // 下に少し寄せた楕円グラデーション。奥（中心）が黒、縁がわずかに明るい
+  const g = ctx.createRadialGradient(w / 2, h * 0.58, 0, w / 2, h * 0.58, h * 0.62)
+  g.addColorStop(0, 'rgb(6,6,7)')
+  g.addColorStop(0.55, 'rgb(9,9,10)')
+  g.addColorStop(1, 'rgb(20,19,17)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, w, h)
+  // 床側の回り込み: 下端だけ気持ち持ち上げる（真っ平らな塗りに見えないように）
+  const floor = ctx.createLinearGradient(0, h * 0.82, 0, h)
+  floor.addColorStop(0, 'rgba(30,28,25,0)')
+  floor.addColorStop(1, 'rgba(30,28,25,0.5)')
+  ctx.fillStyle = floor
+  ctx.fillRect(0, 0, w, h)
+  doorwayDepthTex = new THREE.CanvasTexture(c)
+  doorwayDepthTex.colorSpace = THREE.SRGBColorSpace
+  return doorwayDepthTex
+}
+
 /* ---- Canvas weave (procedural bump map for the paint surface) ----
    A perfectly flat plane under a spotlight is the biggest "screenshot on a wall"
    tell. A fine linen weave catches the raking spot light and reads as a physical

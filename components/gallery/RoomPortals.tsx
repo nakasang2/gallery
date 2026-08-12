@@ -26,6 +26,7 @@ import { useGallery } from '@/lib/store'
 import { track } from '@/lib/analytics'
 import { roomPath, type SiblingRoom } from '@/lib/publish'
 import { titleWallWidth } from '@/lib/roomPlan'
+import { getDoorwayDepth } from './textures'
 
 /** Clear height/width of the opening, in metres — a touch over a doorway so the frame
  *  reads at a glance from across the room. */
@@ -221,10 +222,27 @@ function Doorway({
         <boxGeometry args={[DOOR_W + JAMB * 2, JAMB, JAMB * 1.6]} />
         <meshStandardMaterial color={0x0e0c0a} roughness={0.7} />
       </mesh>
+      {/* The opening itself: **opaque**, so nothing behind the door shows through.
+          以前はここが半透明の板1枚しか無く、奥の壁がそのまま見えて「光る板」に
+          見えていた（ユーザー指摘 2026-08-12「扉が透けている。奥には続くように
+          黒くフェードさせられないか」）。テクスチャは周縁がわずかに明るく中心へ
+          黒く沈む勾配で、暗い部屋の入口と同じ向きに奥行きを出す。
+          `depthWrite` は既定（true）に任せる ── 手前のグローを正しく前後させるため。 */}
+      <mesh position={[0, DOOR_H / 2, 0]} renderOrder={0}>
+        <planeGeometry args={[DOOR_W, DOOR_H]} />
+        <meshBasicMaterial map={getDoorwayDepth()} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
       {/* The threshold glow. Emissive rather than lit, so it reads the same under every
-          theme's lighting; the theme only decides its colour temperature. */}
+          theme's lighting; the theme only decides its colour temperature. **不透明な
+          開口の手前に重ねる**ので、これは「生きている扉」の合図だけを担う ── 近づくと
+          明るくなる。クリックの的もこちら（開口いっぱいの面）。 */}
+      {/* **Zオフセットではなく `renderOrder` で手前に出す。** +Z にずらすと、扉の
+          どちら側が部屋側かに依存してしまい（両面 `DoubleSide` なので裏から見ると
+          グローが不透明面の後ろに隠れる）、扉は壁沿いに4方向どこにでも立つ。
+          同じ位置・`depthWrite: false`・後から描く、なら向きに関係なく必ず前に出る。 */}
       <mesh
         position={[0, DOOR_H / 2, 0]}
+        renderOrder={1}
         onClick={(e) => {
           e.stopPropagation()
           onEnter()
@@ -236,7 +254,8 @@ function Doorway({
         <meshBasicMaterial
           color={theme.stripColor}
           transparent
-          opacity={active ? 0.3 : 0.13}
+          // 不透明な開口の上に乗るので、以前より薄くても「光っている」と読める
+          opacity={active ? 0.22 : 0.08}
           side={THREE.DoubleSide}
           depthWrite={false}
         />
