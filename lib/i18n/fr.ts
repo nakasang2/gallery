@@ -666,6 +666,8 @@ export const fr: PartialDictionary = {
     openIt: 'Choisir une durée et ouvrir',
     discard: 'Supprimer le brouillon',
     payNote: 'Choisir une durée vous mène au paiement. L’exposition démarre — et l’URL devient publique — dès que le paiement est validé.',
+    payNoteScheduled: 'Choisir une durée vous mène au paiement. L’URL devient publique à la date et à l’heure de début indiquées ci-dessus, et non au moment du paiement.',
+    payNoteRun: 'L’exposition se termine d’elle-même après les jours achetés ; rien ne se renouvelle. L’exposition et son URL sont supprimées {grace} jours après la fin.',
     payOption: '{days} jours {price}',
     endedBanner: 'La période de cette exposition est terminée.',
     roomModeNormal: 'Salle normale',

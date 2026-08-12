@@ -665,6 +665,8 @@ export const zhHant: PartialDictionary = {
     openIt: '選擇展期並公開',
     discard: '捨棄草稿',
     payNote: '選擇展期後將進入結帳。付款完成的那一刻展期開始，網址隨即公開。',
+    payNoteScheduled: '選擇展期後將進入結帳。網址會在上面設定的開始時間公開，而不是付款完成的那一刻。',
+    payNoteRun: '展期在購買的天數結束後自動結束，不會續期。結束 {grace} 天後展覽與網址將被刪除。',
     payOption: '{days} 天 {price}',
     endedBanner: '本展覽的展期已結束。',
     roomModeNormal: '常規展廳',

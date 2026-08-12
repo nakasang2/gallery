@@ -666,6 +666,8 @@ export const es: PartialDictionary = {
     openIt: 'Elegir periodo y abrir',
     discard: 'Descartar borrador',
     payNote: 'Al elegir el periodo pasarás al pago. El periodo empieza —y la URL se hace pública— en cuanto se completa el pago.',
+    payNoteScheduled: 'Al elegir el periodo pasarás al pago. La URL se hace pública en la fecha y hora de inicio que has indicado arriba, no al completarse el pago.',
+    payNoteRun: 'El periodo termina solo al cabo de los días comprados; nada se renueva. La exposición y su URL se eliminan {grace} días después de terminar.',
     payOption: '{days} días {price}',
     endedBanner: 'El periodo de esta exposición ha terminado.',
     roomModeNormal: 'Sala normal',

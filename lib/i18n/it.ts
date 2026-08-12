@@ -665,6 +665,8 @@ export const it: PartialDictionary = {
     openIt: 'Scegli la durata e apri',
     discard: 'Elimina la bozza',
     payNote: 'Scegliendo la durata si passa al pagamento. La mostra parte — e l’indirizzo diventa pubblico — appena il pagamento va a buon fine.',
+    payNoteScheduled: 'Scegliendo la durata si passa al pagamento. L’indirizzo diventa pubblico alla data e ora di inizio impostate qui sopra, non al momento del pagamento.',
+    payNoteRun: 'La mostra si chiude da sé dopo i giorni acquistati; nulla si rinnova. La mostra e il suo indirizzo vengono rimossi {grace} giorni dopo la fine.',
     payOption: '{days} giorni {price}',
     endedBanner: 'Il periodo di questa mostra è terminato.',
     roomModeNormal: 'Sala normale',

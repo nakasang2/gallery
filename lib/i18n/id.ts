@@ -666,6 +666,8 @@ export const id: PartialDictionary = {
     openIt: 'Pilih masa pamer lalu buka',
     discard: 'Buang draf',
     payNote: 'Memilih masa pamer membawa Anda ke pembayaran. Masa pamer dimulai — dan alamatnya menjadi publik — begitu pembayaran berhasil.',
+    payNoteScheduled: 'Memilih masa pamer membawa Anda ke pembayaran. Alamatnya menjadi publik pada tanggal dan waktu mulai yang Anda atur di atas, bukan saat pembayaran berhasil.',
+    payNoteRun: 'Masa pamer berakhir sendiri setelah jumlah hari yang Anda beli; tidak ada perpanjangan. Pameran dan alamatnya dihapus {grace} hari setelah berakhir.',
     payOption: '{days} hari {price}',
     endedBanner: 'Masa pameran ini telah berakhir.',
     roomModeNormal: 'Ruang biasa',

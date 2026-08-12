@@ -731,6 +731,8 @@ export const ko: PartialDictionary = {
     openIt: '회기를 골라 공개하기',
     discard: '초안 버리기',
     payNote: '회기를 고르면 결제로 넘어갑니다. 결제가 완료된 시점에 회기가 시작되고 URL이 공개됩니다.',
+    payNoteScheduled: '회기를 고르면 결제로 넘어갑니다. URL이 공개되는 시점은 결제 완료가 아니라 위에서 지정한 시작 일시입니다.',
+    payNoteRun: '회기는 구매한 일수가 지나면 자동으로 끝나고 갱신되지 않습니다. 종료 {grace}일 후에 전시와 URL은 삭제됩니다.',
     payOption: '{days}일 {price}',
     endedBanner: '이 전시의 회기가 끝났습니다.',
     roomModeNormal: '일반 전시실',

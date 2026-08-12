@@ -666,6 +666,8 @@ export const ptBr: PartialDictionary = {
     openIt: 'Escolher o período e abrir',
     discard: 'Descartar rascunho',
     payNote: 'Escolher o período leva ao pagamento. O período começa — e o endereço fica público — assim que o pagamento é aprovado.',
+    payNoteScheduled: 'Escolher o período leva ao pagamento. O endereço fica público na data e hora de início definidas acima, não quando o pagamento é aprovado.',
+    payNoteRun: 'O período termina sozinho depois dos dias comprados; nada se renova. A exposição e seu endereço são removidos {grace} dias após o fim.',
     payOption: '{days} dias {price}',
     endedBanner: 'O período desta exposição terminou.',
     roomModeNormal: 'Sala normal',

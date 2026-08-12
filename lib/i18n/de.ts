@@ -666,6 +666,8 @@ export const de: PartialDictionary = {
     openIt: 'Laufzeit wählen und eröffnen',
     discard: 'Entwurf verwerfen',
     payNote: 'Mit der Wahl der Laufzeit geht es zur Kasse. Die Laufzeit beginnt — und die URL wird öffentlich — sobald die Zahlung durch ist.',
+    payNoteScheduled: 'Mit der Wahl der Laufzeit geht es zur Kasse. Die URL wird zum oben festgelegten Startzeitpunkt öffentlich, nicht schon bei der Zahlung.',
+    payNoteRun: 'Die Laufzeit endet nach den gekauften Tagen von selbst; nichts verlängert sich. Die Ausstellung und ihre URL werden {grace} Tage nach dem Ende entfernt.',
     payOption: '{days} Tage {price}',
     endedBanner: 'Die Laufzeit dieser Ausstellung ist beendet.',
     roomModeNormal: 'Normaler Raum',

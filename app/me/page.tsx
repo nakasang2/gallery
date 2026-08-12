@@ -32,6 +32,7 @@ import {
   expoPath,
   updateExpo,
   startExpoCheckout,
+  EXPO_GRACE_DAYS,
   type Expo,
 } from '@/lib/expos'
 import { getEntitlements, isThemeUnlocked, isLayoutUnlocked, isTemplateUnlocked, unlockedFirst } from '@/lib/entitlements'
@@ -2124,7 +2125,14 @@ function GalleryCard({
                 </div>
                 {expo && expoPhase(expo) === 'draft' && (
                   <div className="expo-pay">
-                    <p className="me-note" style={{ marginTop: 0 }}>{t('expo.payNote')}</p>
+                    {/* 開始日時を入れたら「支払った瞬間に公開」ではなくなる。状態を
+                        決めている `scheduleInput` から文を導出する（AGENTS.md 5.3）—
+                        直下の入力欄に日時が入っているのに「すぐ公開」と書いてあるのは
+                        購入前の説明として嘘になる。猶予での削除も購入前に開示する。 */}
+                    <p className="me-note" style={{ marginTop: 0 }}>
+                      {scheduleInput ? t('expo.payNoteScheduled') : t('expo.payNote')}{' '}
+                      {t('expo.payNoteRun', { grace: EXPO_GRACE_DAYS })}
+                    </p>
                     <label className="me-field">
                       <span>{t('expo.scheduleLabel')}</span>
                       <input

@@ -667,6 +667,8 @@ export const zhHans: PartialDictionary = {
     openIt: '选择展期并公开',
     discard: '舍弃草稿',
     payNote: '选择展期后将进入结算。付款完成的那一刻展期开始，网址随即公开。',
+    payNoteScheduled: '选择展期后将进入结算。网址会在上面设定的开始时间公开，而不是付款完成的那一刻。',
+    payNoteRun: '展期在购买的天数结束后自动结束，不会续期。结束 {grace} 天后展览与网址将被删除。',
     payOption: '{days} 天 {price}',
     endedBanner: '本展览的展期已结束。',
     roomModeNormal: '常规展厅',
