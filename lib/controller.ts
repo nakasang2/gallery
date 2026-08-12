@@ -17,6 +17,15 @@ export interface WalkAPI {
   cancel(): void
   /** Return to the entry position on layout change */
   resetToEntry(): void
+  /**
+   * いまフォーカスしている作品が画面のどこにあるか（CSS px、canvas基準）。
+   * フォーカスが無ければ null。
+   *
+   * 「空間で見る」ボタンを**作品の真下**に置くために要る（ユーザー決定 2026-08-12）。
+   * 毎フレーム読む必要はない ── `focusExhibit` はカメラのトゥイーンが**終わってから**
+   * `setFocused` するので、パネルが出た時点でカメラは静止している。
+   */
+  focusedScreenRect(): { left: number; top: number; width: number; height: number; bottom: number } | null
 }
 
 export const walkRef: { current: WalkAPI | null } = { current: null }

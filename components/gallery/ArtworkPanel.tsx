@@ -124,6 +124,73 @@ export default function ArtworkPanel() {
   // Swiping the sheet itself also pages between works (vertical scroll untouched)
   const touchStart = useRef<{ x: number; y: number } | null>(null)
 
+  /* ---- 「空間で見る」を作品の真下に置く（ユーザー決定 2026-08-12） ----
+     パネルの中ではなく、作品そのものの下に浮かせる。位置は3D側から投影して貰う
+     （`walkRef.current.focusedScreenRect()`）。
+     **毎フレーム追わない**: `focusExhibit` はカメラのトゥイーンが終わってから
+     `setFocused` するので、パネルが出た時点でカメラは静止している。追うのは
+     「作品が変わった」「画面サイズが変わった」ときだけ。 */
+  const [viewBtn, setViewBtn] = useState<{ left: number; top: number } | null>(null)
+  useEffect(() => {
+    if (!art) {
+      setViewBtn(null)
+      return
+    }
+    // 1フレーム待つ: `setFocused` の直後はまだカメラ行列が今フレームぶん更新されていない
+    let raf = requestAnimationFrame(() => {
+      const place = () => {
+        const r = walkRef.current?.focusedScreenRect()
+        if (!r) {
+          setViewBtn(null)
+          return
+        }
+        // パネルの上端より上に収める。電話では下シート、広い画面では右ドロワーなので
+        // 「上端」の意味が変わる ── 実測した矩形で決める（幅ごとの分岐を持たない）
+        const panelEl = document.getElementById('panel')
+        const pr = panelEl?.getBoundingClientRect()
+        const floor = pr && pr.top > window.innerHeight * 0.4 ? pr.top : window.innerHeight
+        const GAP = 14
+        const BTN_H = 44
+        const top = Math.max(8, Math.min(r.bottom + GAP, floor - BTN_H - GAP))
+        const left = Math.max(64, Math.min(r.left + r.width / 2, window.innerWidth - 64))
+        setViewBtn({ left, top })
+      }
+      place()
+      raf = requestAnimationFrame(place) // 次フレームでもう一度（行列が確定した後）
+    })
+    const onResize = () => {
+      const r = walkRef.current?.focusedScreenRect()
+      if (!r) return
+      const panelEl = document.getElementById('panel')
+      const pr = panelEl?.getBoundingClientRect()
+      const floor = pr && pr.top > window.innerHeight * 0.4 ? pr.top : window.innerHeight
+      setViewBtn({
+        left: Math.max(64, Math.min(r.left + r.width / 2, window.innerWidth - 64)),
+        top: Math.max(8, Math.min(r.bottom + 14, floor - 44 - 14)),
+      })
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [art?.id, art])
+
+  const viewIn3dButton =
+    art && viewBtn && !preview3d ? (
+      <button
+        className="panel-view3d panel-view3d-float"
+        style={{ left: viewBtn.left, top: viewBtn.top }}
+        onClick={() => {
+          preview3dAt.current = Date.now()
+          track('gallery_work_preview3d', { gallery_id: visitor?.galleryId, artwork_id: art.id })
+          setPreview3d(true)
+        }}
+      >
+        <span aria-hidden="true">⛶</span> {t('artwork.viewIn3D')}
+      </button>
+    ) : null
+
   return (
     <>
     <aside
@@ -192,17 +259,9 @@ export default function ArtworkPanel() {
           })()}
           {/* The visitor's one reaction deserves a real touch target, not an afterthought */}
           {visitor && <LikeButton galleryId={visitor.galleryId} artworkId={art.id} />}
-          {/* Lift the work off the wall into a dedicated preview space to rotate/zoom it */}
-          <button
-            className="panel-view3d"
-            onClick={() => {
-              preview3dAt.current = Date.now()
-              track('gallery_work_preview3d', { gallery_id: visitor?.galleryId, artwork_id: art.id })
-              setPreview3d(true)
-            }}
-          >
-            <span aria-hidden="true">⛶</span> {t('artwork.viewIn3D')}
-          </button>
+          {/* 「空間で見る」はパネルの外（作品の真下）へ移した（ユーザー決定 2026-08-12）。
+              作品に対する操作なので、作品の近くにある方が結びつきが分かる。下の
+              `viewIn3dButton` を参照 ── ここには置かない。 */}
           <p className="panel-desc">{art.desc}</p>
           {/* タグが無ければ行ごと出さない。以前は空でも `<div>` を描いていたが、
               架空のタグ（'Exhibited'）を作るのをやめた（lib/cloud）ので、実ユーザーの
@@ -294,6 +353,10 @@ export default function ArtworkPanel() {
         </>
       )}
     </aside>
+    {/* 作品の真下に浮かぶ「空間で見る」。パネルの外に出しているのは、パネルは
+        `position: fixed` で下（または右）に固定されており、その中では作品の位置に
+        置けないため。全画面プレビュー中は出さない（自分自身を開くボタンなので） */}
+    {viewIn3dButton}
     {preview3d && art && frameDef && (
       <ArtworkPreview3D
         art={art}

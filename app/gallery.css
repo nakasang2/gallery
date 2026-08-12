@@ -422,6 +422,25 @@ body:not(.gallery-mode) {
 }
 .panel-view3d:hover { background: rgba(212, 162, 78, 0.2); }
 .panel-view3d:active { transform: scale(0.98); }
+/* 作品の真下に浮かぶ版（ユーザー決定 2026-08-12）。位置は JS が投影して `left`/`top` を
+   入れる。`translateX(-50%)` で作品の中心に合わせる ── JS が渡すのは作品の中心x。
+   `z-index` は HUD（15〜16）より上、全画面プレビュー（50）より下。
+   背景を濃くしてぼかしを入れているのは、**壁や作品の上に重なる**ため（パネルの中と違い、
+   地の色が読めない）。`margin: 0` で親の余白指定を打ち消す。 */
+.panel-view3d-float {
+  position: fixed;
+  transform: translateX(-50%);
+  margin: 0;
+  z-index: 20;
+  background: rgba(11, 10, 9, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  /* 触る端末では44pxの高さを確保する（JSのクランプも 44 を前提にしている） */
+  min-height: 44px;
+}
+.panel-view3d-float:hover { background: rgba(212, 162, 78, 0.22); }
+.panel-view3d-float:active { transform: translateX(-50%) scale(0.98); }
 .panel-view3d span { font-size: 0.95rem; color: var(--gold); }
 /* Full-screen 3D preview overlay (its own on-demand canvas) */
 .artpreview {

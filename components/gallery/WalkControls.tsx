@@ -281,9 +281,51 @@ export default function WalkControls({
     }
   }
 
+  /**
+   * フォーカス中の作品の画面上の外接矩形（CSS px、canvas基準）。
+   *
+   * 四隅をワールド座標で作ってから投影する ── 中心1点だけを投影して幅を足すやり方は、
+   * 透視投影では正しくない（遠い側の角の方が内側に来る）。壁に沿う水平方向は法線を
+   * y軸まわりに90°回した向きで、`focusExhibit` が横シフトに使っているものと同じ式。
+   */
+  function focusedScreenRect() {
+    const i = useGallery.getState().focusedIndex
+    const ex = i >= 0 ? metaRef.current[i] : null
+    if (!ex) return null
+    const el = gl.domElement
+    const vw = el.clientWidth
+    const vh = el.clientHeight
+    if (!vw || !vh) return null
+    const side = new THREE.Vector3(ex.normal.z, 0, -ex.normal.x)
+    const hw = ex.width / 2
+    const hh = ex.height / 2
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        const p = ex.center
+          .clone()
+          .add(side.clone().multiplyScalar(sx * hw))
+          .add(new THREE.Vector3(0, sy * hh, 0))
+          .project(camera)
+        // カメラの後ろに回った点は投影が破綻する（w<0 で符号が反転する）ので捨てる
+        if (p.z > 1) return null
+        const x = (p.x * 0.5 + 0.5) * vw
+        const y = (-p.y * 0.5 + 0.5) * vh
+        minX = Math.min(minX, x)
+        maxX = Math.max(maxX, x)
+        minY = Math.min(minY, y)
+        maxY = Math.max(maxY, y)
+      }
+    }
+    return { left: minX, top: minY, width: maxX - minX, height: maxY - minY, bottom: maxY }
+  }
+
   // Expose so the UI (panel, tour, joystick) can call it
   useEffect(() => {
-    walkRef.current = { focusExhibit, focusStep, focusWall, walkTo, cancel: cancelTweens, resetToEntry }
+    walkRef.current = { focusExhibit, focusStep, focusWall, walkTo, cancel: cancelTweens, resetToEntry, focusedScreenRect }
     return () => {
       walkRef.current = null
     }
