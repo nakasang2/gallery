@@ -783,6 +783,7 @@ export const ko: PartialDictionary = {
     accepted: '{who} 님이 “{room}” 참가를 수락했습니다',
     declined: '{who} 님이 “{room}” 초대를 거절했습니다',
     submission: '{who} 님이 “{room}”에 작품 {n}점을 냈습니다',
+    unsubmit: '{who} 님이 “{room}”에서 {n} 점을 내렸습니다(벽에서 빠졌습니다)',
     like: '“{work}”에 좋아요가 달렸습니다',
     likes: '“{work}”에 좋아요 {n}개가 달렸습니다',
     guestbook: '{who} 님이 “{room}”의 방명록에 글을 남겼습니다',

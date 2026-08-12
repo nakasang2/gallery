@@ -995,6 +995,7 @@ export const ja: Dictionary = {
     accepted: '{who} さんが「{room}」への参加を受けました',
     declined: '{who} さんが「{room}」への招待を辞退しました',
     submission: '{who} さんが「{room}」に {n} 点を出しました',
+    unsubmit: '{who} さんが「{room}」から {n} 点を引っ込めました（壁から下りています）',
     like: '「{work}」がいいねされました',
     likes: '「{work}」が {n} 件いいねされました',
     guestbook: '「{room}」の芳名帳に {who} さんが記帳しました',

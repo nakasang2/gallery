@@ -16,6 +16,10 @@ export type NotificationKind =
   /** その参加希望が承認された（0048）。**宛先は作家**。 */
   | 'invite_approved'
   | 'submission'
+  /** 会期中の展示から作品を引っ込められた（0057）。**宛先は主催者**。
+   *  `submission` と逆向きの出来事なので別の種別にしてある — 同じ種別に畳むと
+   *  まとめ機能で「出した」と「引っ込めた」が1件に混ざって意味が反転する。 */
+  | 'unsubmit'
   | 'like'
   | 'guestbook'
   | 'announce'
@@ -54,6 +58,7 @@ const KINDS: readonly string[] = [
   'invite_request',
   'invite_approved',
   'submission',
+  'unsubmit',
   'like',
   'guestbook',
   'announce',

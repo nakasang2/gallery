@@ -718,6 +718,7 @@ export const id: PartialDictionary = {
     accepted: '{who} bergabung dengan “{room}”',
     declined: '{who} menolak undangan ke “{room}”',
     submission: '{who} mengajukan {n} karya untuk “{room}”',
+    unsubmit: '{who} menarik {n} karya dari “{room}” — karyanya sudah tidak terpasang',
     like: 'Seseorang menyukai “{work}”',
     likes: '“{work}” disukai {n} kali',
     guestbook: '{who} menulis di buku tamu “{room}”',

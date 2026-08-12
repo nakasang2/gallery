@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0056 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0057 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -5011,3 +5011,45 @@ alter table public.reports
     kind <> 'copyright'
     or (sworn and char_length(claimant) > 0 and char_length(work_identified) > 0)
   ) not valid;
+
+-- # 0057_notify_unsubmit.sql — 会期中の取り下げを主催者に知らせる(ユーザー指示 2026-08-12)
+/* ================= 1. 種別を1つ増やす ================= */
+alter table public.notifications drop constraint if exists notifications_kind_check;
+alter table public.notifications add constraint notifications_kind_check
+  check (kind in ('invite', 'invite_reply', 'invite_request', 'invite_approved',
+                  'submission', 'unsubmit', 'like', 'guestbook', 'announce'));
+/* ================= 2. 取り下げを主催者に知らせる ================= */
+create or replace function public.notify_expo_unsubmit()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_owner uuid;
+  v_title text;
+  v_starts timestamptz;
+  v_ends timestamptz;
+  v_artist_id uuid;
+  v_artist text;
+begin
+  select x.owner_id, x.title, x.starts_at, x.ends_at
+    into v_owner, v_title, v_starts, v_ends
+    from public.expos x where x.id = old.expo_id;
+  if v_owner is null then return old; end if;
+  if v_starts is null or v_ends is null or now() >= v_ends then return old; end if;
+  select a.owner_id into v_artist_id from public.artworks a where a.id = old.artwork_id;
+  if v_artist_id is not null and v_owner is not distinct from v_artist_id then return old; end if;
+  select coalesce(p.display_name, p.username) into v_artist
+    from public.profiles p where p.id = v_artist_id;
+  perform public.push_notification_rollup(
+    v_owner, 'unsubmit', null, null, coalesce(v_title, ''), v_artist
+  );
+  return old;
+end;
+$$;
+revoke all on function public.notify_expo_unsubmit() from public, anon, authenticated;
+drop trigger if exists expo_submissions_unsubmit_notify on public.expo_submissions;
+create trigger expo_submissions_unsubmit_notify
+  after delete on public.expo_submissions
+  for each row execute function public.notify_expo_unsubmit();

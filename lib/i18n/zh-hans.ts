@@ -719,6 +719,7 @@ export const zhHans: PartialDictionary = {
     accepted: '{who} 接受了“{room}”的邀请',
     declined: '{who} 谢绝了“{room}”的邀请',
     submission: '{who} 为“{room}”提交了 {n} 件作品',
+    unsubmit: '{who} 从「{room}」撤回了 {n} 件作品，已不在墙上展示',
     like: '有人喜欢了“{work}”',
     likes: '“{work}”获得了 {n} 次喜欢',
     guestbook: '{who} 在“{room}”的留言簿上留言了',

@@ -718,6 +718,7 @@ export const ptBr: PartialDictionary = {
     accepted: '{who} entrou em “{room}”',
     declined: '{who} recusou o convite para “{room}”',
     submission: '{who} ofereceu {n} obras para “{room}”',
+    unsubmit: '{who} retirou {n} obras de “{room}” — não estão mais na parede',
     like: 'Alguém curtiu “{work}”',
     likes: '“{work}” recebeu {n} curtidas',
     guestbook: '{who} assinou o livro de visitas de “{room}”',

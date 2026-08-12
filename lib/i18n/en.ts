@@ -1037,6 +1037,7 @@ export const en = {
     accepted: '{who} joined “{room}”',
     declined: '{who} declined the invitation to “{room}”',
     submission: '{who} offered {n} works for “{room}”',
+    unsubmit: '{who} withdrew {n} works from “{room}” — they are off the wall now',
     like: 'Someone liked “{work}”',
     likes: '“{work}” was liked {n} times',
     guestbook: '{who} signed the guestbook of “{room}”',

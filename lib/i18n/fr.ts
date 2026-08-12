@@ -718,6 +718,7 @@ export const fr: PartialDictionary = {
     accepted: '{who} a rejoint « {room} »',
     declined: '{who} a refusé l’invitation à « {room} »',
     submission: '{who} a proposé {n} œuvres pour « {room} »',
+    unsubmit: '{who} a retiré {n} œuvres de « {room} » — elles ne sont plus accrochées',
     like: 'Quelqu’un a aimé « {work} »',
     likes: '« {work} » a été aimé {n} fois',
     guestbook: '{who} a signé le livre d’or de « {room} »',
