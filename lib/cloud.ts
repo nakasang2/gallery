@@ -154,7 +154,13 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
     ownerId: row.owner_id,
     year: row.year ?? new Date(row.created_at).getFullYear(),
     desc: row.description,
-    tags: row.tags.length ? row.tags : [video ? 'Video' : 'Exhibited'],
+    // **架空のタグを作らない**（ユーザー指摘 2026-08-12「exhibited が表示されるが
+    // どういう条件なのか意味不明」）。以前は空のときに 'Exhibited' / 'Video' を差して
+    // いたが、**タグを入力するUIはアプリのどこにも無い**（DBの既定は空配列）ので、
+    // 実ユーザーの作品では**必ず**この架空の語が出ていた。しかも `textures.ts` の
+    // 題箋は説明文が無いときタグに落ちるため、**壁にも「Exhibited」と焼かれていた**。
+    // 空なら空のまま渡す ── 表示側が「無ければ出さない」を判断する。
+    tags: row.tags,
     ratio: [row.width, row.height],
     kind: video ? 'video' : 'image',
     src: publicUrl(`${row.storage_path}/${video ? 'video' : 'display.jpg'}`),

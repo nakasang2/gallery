@@ -6,7 +6,7 @@ import { walkRef } from '@/lib/controller'
 import { useExhibitionList, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, setOverride } from '@/lib/exhibition'
 import { frameDefFor, applyMat, resolveTheme } from '@/lib/presets'
 import { useGallery, useSettings } from '@/lib/store'
-import { addLike, hasLiked, likeCount } from '@/lib/engagement'
+import { addLike, hasLiked } from '@/lib/engagement'
 import { sessionFlags, track } from '@/lib/analytics'
 import { audioGuide, useGuidePlaying, guideSourceFor, type GuideSource } from '@/lib/guide'
 import WorkDesign from '@/components/WorkDesign'
@@ -50,20 +50,15 @@ function hostnameFallback(url: string, forSale: string): string {
 }
 
 // Visitor-only like button (anonymous; dedupe per browser)
+/** 来場者のいいね。**数は出さない**（ユーザー指示 2026-08-12）。
+ *  数を隠したので件数の取得もやめた ── 表示に使っていただけなので、作品を開くたびの
+ *  往復が1つ減る。作家向けの集計は `likeCountsByArtwork`（別経路）が持っている。 */
 function LikeButton({ galleryId, artworkId }: { galleryId: string; artworkId: string }) {
-  const [count, setCount] = useState<number | null>(null)
   const [liked, setLiked] = useState(false)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    let alive = true
     setLiked(hasLiked(artworkId))
-    likeCount(artworkId)
-      .then((n) => alive && setCount(n))
-      .catch(() => {}) // migration 0008 not applied — keep the button usable-looking but countless
-    return () => {
-      alive = false
-    }
   }, [artworkId])
 
   async function like() {
@@ -72,7 +67,6 @@ function LikeButton({ galleryId, artworkId }: { galleryId: string; artworkId: st
     try {
       await addLike(galleryId, artworkId)
       setLiked(true)
-      setCount((c) => (c ?? 0) + 1)
       sessionFlags.liked = true
       track('gallery_like', { gallery_id: galleryId, artwork_id: artworkId })
     } catch {
@@ -84,7 +78,7 @@ function LikeButton({ galleryId, artworkId }: { galleryId: string; artworkId: st
 
   return (
     <button className={`like-btn${liked ? ' liked' : ''}`} disabled={liked || busy} onClick={() => void like()}>
-      {liked ? '♥' : '♡'} {count ?? ''}
+      {liked ? '♥' : '♡'}
     </button>
   )
 }
@@ -210,11 +204,16 @@ export default function ArtworkPanel() {
             <span aria-hidden="true">⛶</span> {t('artwork.viewIn3D')}
           </button>
           <p className="panel-desc">{art.desc}</p>
-          <div className="panel-tags">
-            {(art.tags || []).map((t) => (
-              <span key={t}>{t}</span>
-            ))}
-          </div>
+          {/* タグが無ければ行ごと出さない。以前は空でも `<div>` を描いていたが、
+              架空のタグ（'Exhibited'）を作るのをやめた（lib/cloud）ので、実ユーザーの
+              作品ではここが常に空になる ── 空の箱だけが残ると余白の理由が分からない */}
+          {(art.tags?.length ?? 0) > 0 && (
+            <div className="panel-tags">
+              {art.tags.map((t) => (
+                <span key={t}>{t}</span>
+              ))}
+            </div>
+          )}
           {guide && <AudioGuideButton source={guide} />}
           {/* Only links with a URL render — a label-only row (still being typed,
               or the URL field left empty) has nowhere to send a click. */}

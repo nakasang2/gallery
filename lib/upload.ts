@@ -101,7 +101,11 @@ export function newArtworkEntry(params: {
     artist: params.artist || 'You',
     year: new Date().getFullYear(),
     desc: '',
-    tags: ['Exhibited'],
+    // タグは空で始める（ユーザー指摘 2026-08-12）。以前は `['Exhibited']` を入れて
+    // いたが、**タグを入力するUIはどこにも無い**ので誰も直せず、来場者には意味の
+    // 分からない語として見えていた（サインイン後のクラウド側も同じ語を読み出し時に
+    // 差していた ── `lib/cloud.ts` で撤去済み）。表示側は空なら行を出さない。
+    tags: [],
     ratio: [params.w, params.h],
     src: params.src,
   }

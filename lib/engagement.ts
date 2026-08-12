@@ -47,14 +47,9 @@ export async function addLike(galleryId: string, artworkId: string): Promise<voi
   }
 }
 
-export async function likeCount(artworkId: string): Promise<number> {
-  const { count, error } = await supabase!
-    .from('likes')
-    .select('id', { count: 'exact', head: true })
-    .eq('artwork_id', artworkId)
-  if (error) throw error
-  return count ?? 0
-}
+// `likeCount`（1作品ずつ数える版）は撤去した ── 唯一の呼び出し元だった作品パネルが
+// **いいね数を表示しなくなった**ため（ユーザー指示 2026-08-12）。作家向けの集計は
+// 下の `likeCountsByArtwork`（1部屋ぶんまとめて数える版）が担う。
 
 /** All like counts for a gallery, keyed by artwork id (client-side aggregation; MVP volumes) */
 export async function likeCountsByArtwork(galleryId: string): Promise<Record<string, number>> {
