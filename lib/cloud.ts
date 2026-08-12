@@ -6,7 +6,7 @@
 // quota, which used to be a Supabase RLS policy plus an advisory client check.
 // See docs/DECISIONS.md 2026-07-27.
 import { supabase } from './supabase'
-import type { ArtworkData } from './artworks'
+import type { ArtworkData, PurchaseLink } from './artworks'
 import { loadImage, loadImageFile } from './upload'
 import { publicUrl } from './publicUrl'
 import { GALLERY_BGM_MAX_BYTES } from './limits'
@@ -23,7 +23,7 @@ export interface ArtworkRow {
   tags: string[]
   created_at: string
   kind?: 'image' | 'video'
-  purchase_url?: string | null
+  purchase_links?: PurchaseLink[] | null
   price?: string | null
   audio_url?: string | null
   width_cm?: number | null
@@ -164,7 +164,7 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
     // Mid-size, only for rows uploaded after migration 0032; undefined means
     // "no card.jpg on R2", so callers fall back to `src` rather than 404.
     card: video || !row.has_card ? undefined : publicUrl(`${row.storage_path}/card.jpg`),
-    purchaseUrl: row.purchase_url ?? undefined,
+    purchaseLinks: row.purchase_links ?? undefined,
     price: row.price ?? undefined,
     audioUrl: row.audio_url ?? undefined,
     widthCm: row.width_cm ?? undefined,
@@ -426,7 +426,7 @@ export async function uploadVideoArtwork(params: {
   }
 }
 
-/** Rename a work / edit its caption (the plate text) and/or its purchase link.
+/** Rename a work / edit its caption (the plate text) and/or its purchase links.
  *  Shown on the name plate, the artwork panel and the public page —
  *  placements join artworks live */
 export async function updateArtworkDetails(
@@ -434,7 +434,7 @@ export async function updateArtworkDetails(
   fields: {
     title: string
     description: string
-    purchaseUrl?: string
+    purchaseLinks?: PurchaseLink[]
     price?: string | null
     widthCm?: number | null
     heightCm?: number | null
@@ -446,17 +446,21 @@ export async function updateArtworkDetails(
     title: fields.title.trim() || 'Untitled',
     description: fields.description.trim(),
   }
-  if (fields.purchaseUrl !== undefined) update.purchase_url = fields.purchaseUrl.trim() || null
+  if (fields.purchaseLinks !== undefined) {
+    update.purchase_links = fields.purchaseLinks
+      .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
+      .filter((l) => l.url)
+  }
   if (fields.price !== undefined) update.price = (fields.price ?? '').trim() || null
   if (fields.widthCm !== undefined) update.width_cm = fields.widthCm ?? null
   if (fields.heightCm !== undefined) update.height_cm = fields.heightCm ?? null
   if (fields.medium !== undefined) update.medium = (fields.medium ?? '').trim() || null
   if (fields.cropAlign !== undefined) update.crop_align = fields.cropAlign
 
-  // Columns from later migrations (0015/0025/0026/0054). If a target DB is behind, the write
+  // Columns from later migrations (0025/0026/0054/0055). If a target DB is behind, the write
   // fails naming a missing column — drop whichever it names (or all optionals on a generic
   // schema-cache miss) and retry, so title/caption always save.
-  const OPTIONAL = ['purchase_url', 'price', 'width_cm', 'height_cm', 'medium', 'crop_align']
+  const OPTIONAL = ['purchase_links', 'price', 'width_cm', 'height_cm', 'medium', 'crop_align']
   let { error } = await supabase!.from('artworks').update(update).eq('id', artworkId)
   while (
     error &&

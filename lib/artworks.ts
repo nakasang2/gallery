@@ -5,6 +5,14 @@ import { assetUrl } from './publicUrl'
 export type Rnd = () => number
 type StyleFn = (ctx: CanvasRenderingContext2D, w: number, h: number, pal: string[], rnd: Rnd) => void
 
+/** One "buy this" link on the artwork panel — a wallpaper, an NFT, a print
+ *  shop… The artist writes both the label and the URL, so Xibit360 doesn't
+ *  predefine a fixed set of link kinds. */
+export interface PurchaseLink {
+  label: string
+  url: string
+}
+
 // Shared type for demo works (generative art) and user-submitted works (with src).
 export interface ArtworkData {
   id: string
@@ -33,9 +41,10 @@ export interface ArtworkData {
   /** 800px derivative for cards. Undefined on works uploaded before migration
    *  0032 (and on videos), so callers must fall back to `src`. */
   card?: string
-  /** Where to buy this specific work (the artist's shop, Etsy, a DM link…). Shown
-   *  to visitors on the artwork panel; unset means "not for sale here". */
-  purchaseUrl?: string
+  /** Where to buy this specific work — one button per link on the artwork panel.
+   *  Unset/empty means "not for sale here". A lone link with an empty label shows
+   *  just the price/"for sale" text, matching the old single-URL behaviour. */
+  purchaseLinks?: PurchaseLink[]
   /** Display price as the artist typed it (e.g. "¥50,000", "$500", "Ask"). Free text so
    *  any currency/format works — Xibit360 doesn't process the sale, it just shows it. */
   price?: string

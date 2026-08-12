@@ -204,22 +204,28 @@ export default function ArtworkPanel() {
             ))}
           </div>
           {guide && <AudioGuideButton source={guide} />}
-          {art.purchaseUrl ? (
-            <a
-              className="panel-buy"
-              href={toHref(art.purchaseUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() =>
-                track('gallery_work_buy_click', {
-                  gallery_id: visitor?.galleryId,
-                  artwork_id: art.id,
-                  has_price: !!art.price,
-                })
-              }
-            >
-              {art.price ? `${art.price} · ` : ''}{t('artwork.forSale')}
-            </a>
+          {art.purchaseLinks && art.purchaseLinks.length > 0 ? (
+            art.purchaseLinks.map((link, i) => (
+              <a
+                key={i}
+                className="panel-buy"
+                href={toHref(link.url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() =>
+                  track('gallery_work_buy_click', {
+                    gallery_id: visitor?.galleryId,
+                    artwork_id: art.id,
+                    has_price: !!art.price,
+                  })
+                }
+              >
+                {/* A blank label (the common case: exactly one link, migrated from the
+                    old single-URL field) reads as price/"for sale" — same look as
+                    before purchase links could be labelled and multiplied. */}
+                {link.label.trim() || `${i === 0 && art.price ? `${art.price} · ` : ''}${t('artwork.forSale')}`}
+              </a>
+            ))
           ) : (
             art.price && <div className="panel-price">{art.price}</div>
           )}

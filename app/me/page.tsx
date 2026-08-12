@@ -87,7 +87,7 @@ import {
 } from '@/lib/engagement'
 import { track } from '@/lib/analytics'
 import { loadImage } from '@/lib/upload'
-import type { ArtworkData } from '@/lib/artworks'
+import type { ArtworkData, PurchaseLink } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
 import { LegalLink, LocaleLink, useT } from '@/components/I18nProvider'
 
@@ -630,7 +630,7 @@ function GalleryCard({
   }, [])
   const [titleInput, setTitleInput] = useState('')
   const [captionInput, setCaptionInput] = useState('')
-  const [purchaseUrlInput, setPurchaseUrlInput] = useState('')
+  const [purchaseLinksInput, setPurchaseLinksInput] = useState<PurchaseLink[]>([])
   const [priceInput, setPriceInput] = useState('')
   const [cropAlignInput, setCropAlignInput] = useState<'start' | 'center' | 'end'>('center')
   const [widthInput, setWidthInput] = useState('')
@@ -796,7 +796,7 @@ function GalleryCard({
   useEffect(() => {
     setTitleInput(selected?.title ?? '')
     setCaptionInput(selected?.desc ?? '')
-    setPurchaseUrlInput(selected?.purchaseUrl ?? '')
+    setPurchaseLinksInput(selected?.purchaseLinks ?? [])
     setPriceInput(selected?.price ?? '')
     setCropAlignInput(selected?.cropAlign ?? 'center')
     setWidthInput(selected?.widthCm ? String(selected.widthCm) : '')
@@ -1190,12 +1190,12 @@ function GalleryCard({
   // so there's no Save button. The payload is captured at call time, so switching
   // works mid-debounce still commits the edit to the work it was made on.
   function editWork(next: Partial<{
-    title: string; caption: string; purchaseUrl: string; price: string; width: string; height: string; medium: string
+    title: string; caption: string; purchaseLinks: PurchaseLink[]; price: string; width: string; height: string; medium: string
     cropAlign: 'start' | 'center' | 'end'
   }>) {
     if (next.title !== undefined) setTitleInput(next.title)
     if (next.caption !== undefined) setCaptionInput(next.caption)
-    if (next.purchaseUrl !== undefined) setPurchaseUrlInput(next.purchaseUrl)
+    if (next.purchaseLinks !== undefined) setPurchaseLinksInput(next.purchaseLinks)
     if (next.price !== undefined) setPriceInput(next.price)
     if (next.width !== undefined) setWidthInput(next.width)
     if (next.height !== undefined) setHeightInput(next.height)
@@ -1208,7 +1208,7 @@ function GalleryCard({
     const payload = {
       title: next.title ?? titleInput,
       description: next.caption ?? captionInput,
-      purchaseUrl: next.purchaseUrl ?? purchaseUrlInput,
+      purchaseLinks: next.purchaseLinks ?? purchaseLinksInput,
       price: next.price ?? priceInput,
       widthCm: Number.isFinite(w) && w > 0 ? w : null,
       heightCm: Number.isFinite(h) && h > 0 ? h : null,
@@ -1282,16 +1282,56 @@ function GalleryCard({
             onChange={(e) => editWork({ price: e.target.value })}
           />
         </label>
-        <label className="me-field" style={{ margin: '0.45rem 0' }}>
+        {/* Free-form label + URL pairs (a shop, a wallpaper, an NFT…) rather than one
+            fixed link — the artist decides what each offer is (ユーザー指示
+            2026-08-12). Not a <label>: nesting the add/remove <button>s inside one
+            would hijack its association away from the text inputs (see FieldLabel's
+            comment on this same hazard above). */}
+        <div className="me-field" style={{ margin: '0.45rem 0' }}>
           <FieldLabel hint={t('me.purchaseLinkHint')}>{t('me.purchaseLink')}</FieldLabel>
-          <input
-            type="text"
-            inputMode="url"
-            placeholder={t('me.purchaseLinkPlaceholder')}
-            value={purchaseUrlInput}
-            onChange={(e) => editWork({ purchaseUrl: e.target.value })}
-          />
-        </label>
+          <div className="sns-custom">
+            {purchaseLinksInput.map((link, i) => (
+              <div key={i} className="sns-custom-row">
+                <input
+                  type="text"
+                  aria-label={t('me.purchaseLinkLabelPlaceholder')}
+                  placeholder={t('me.purchaseLinkLabelPlaceholder')}
+                  className="sns-custom-label"
+                  value={link.label}
+                  onChange={(e) =>
+                    editWork({ purchaseLinks: purchaseLinksInput.map((l, j) => (j === i ? { ...l, label: e.target.value } : l)) })
+                  }
+                />
+                <input
+                  type="text"
+                  inputMode="url"
+                  aria-label={t('me.purchaseLinkPlaceholder')}
+                  placeholder={t('me.purchaseLinkPlaceholder')}
+                  value={link.url}
+                  onChange={(e) =>
+                    editWork({ purchaseLinks: purchaseLinksInput.map((l, j) => (j === i ? { ...l, url: e.target.value } : l)) })
+                  }
+                />
+                <button
+                  type="button"
+                  className="sns-custom-del"
+                  aria-label={t('me.purchaseLinkRemove')}
+                  title={t('me.purchaseLinkRemove')}
+                  onClick={() => editWork({ purchaseLinks: purchaseLinksInput.filter((_, j) => j !== i) })}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="btn-line sns-add"
+              onClick={() => editWork({ purchaseLinks: [...purchaseLinksInput, { label: '', url: '' }] })}
+            >
+              + {t('me.purchaseLinkAdd')}
+            </button>
+          </div>
+        </div>
         <div className="wd-row" style={{ margin: '0.45rem 0' }}>
           <span className="wd-label">{t('me.size')}</span>
           <div className="design-controls wd-size" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>

@@ -576,6 +576,9 @@ body:not(.gallery-mode) {
 .panel-guide:hover { border-color: var(--gold); color: var(--gold); }
 .panel-guide.playing { border-color: var(--gold); color: var(--gold); }
 .panel-guide + .panel-buy { margin-left: 0.6rem; }
+/* Multiple purchase links (wallpaper/NFT/print…) sit side by side, wrapping like
+   inline text when they don't fit on one line (2026-08-12). */
+.panel-buy + .panel-buy { margin-left: 0.6rem; }
 .panel-buy:active { transform: translateY(0) scale(0.98); }
 
 @media (max-width: 480px) {

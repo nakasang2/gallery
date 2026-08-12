@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0054 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0055 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -4972,3 +4972,13 @@ drop function if exists public.transfer_room_capacity(uuid, uuid, int);
 alter table public.artworks
   add column if not exists crop_align text not null default 'center'
   check (crop_align in ('start', 'center', 'end'));
+
+-- # 0055_artwork_purchase_links.sql — 購入リンクを複数化する(ユーザー指示 2026-08-12)
+alter table public.artworks
+  add column if not exists purchase_links jsonb not null default '[]'::jsonb;
+
+update public.artworks
+set purchase_links = jsonb_build_array(jsonb_build_object('label', '', 'url', purchase_url))
+where purchase_url is not null and purchase_url <> '' and purchase_links = '[]'::jsonb;
+
+alter table public.artworks drop column if exists purchase_url;

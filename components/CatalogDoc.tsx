@@ -41,7 +41,7 @@ export default function CatalogDoc({ exhibition: ex }: { exhibition: PublicExhib
                 {art.kind === 'video' ? ` · ${t('catalog.video')}` : ''}
               </p>
               {art.desc && <p className="catalog-plate-desc">{art.desc}</p>}
-              {art.purchaseUrl && <p className="catalog-plate-sale">{t('catalog.forSale')}</p>}
+              {art.purchaseLinks && art.purchaseLinks.length > 0 && <p className="catalog-plate-sale">{t('catalog.forSale')}</p>}
             </div>
           </section>
         )
