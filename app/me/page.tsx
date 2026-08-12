@@ -1458,12 +1458,13 @@ function GalleryCard({
     </nav>
     {/* 部屋の切替タブ＋部屋の追加は「部屋」「配置」「公開」ステージの枠の外・タブの
         直下に出す（ユーザー指示 2026-08-11: 以前は箱の中にあった／公開タブにも
-        出してほしいと追加指示。UIとロジックは変えず場所だけ動かした）。部屋の追加は
-        「部屋」ステージのときだけ（従来の範囲を変えていない）。 */}
-    {(stage === 'room' || stage === 'placement' || stage === 'publish') && (roomSwitcher || (stage === 'room' && roomAdd)) && (
+        出してほしいと追加指示）。追加ボタンも同じ3ステージすべてに出す（ユーザー指摘
+        2026-08-12: 「部屋タブは配置・公開タブ配下にも設置して」— 以前は「部屋」
+        ステージだけに限定されていた）。 */}
+    {(stage === 'room' || stage === 'placement' || stage === 'publish') && (roomSwitcher || roomAdd) && (
       <div className="me-rooms-row">
         {roomSwitcher}
-        {stage === 'room' && roomAdd}
+        {roomAdd}
       </div>
     )}
     {/* One next step at a time toward publishing — not shown on the housekeeping stages */}

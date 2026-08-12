@@ -25,6 +25,7 @@ import type { LayoutDef, ThemeDef } from '@/lib/presets'
 import { useGallery } from '@/lib/store'
 import { track } from '@/lib/analytics'
 import { roomPath, type SiblingRoom } from '@/lib/publish'
+import { titleWallWidth } from '@/lib/roomPlan'
 
 /** Clear height/width of the opening, in metres — a touch over a doorway so the frame
  *  reads at a glance from across the room. */
@@ -69,6 +70,15 @@ function freeSpan(
   return [Number.isFinite(lo) ? lo : 0, Number.isFinite(hi) ? hi : 0]
 }
 
+/** Half the doorway's own footprint along the wall it stands against (opening +
+ *  jambs), in metres. */
+const WALL_DOOR_HALF = DOOR_W / 2 + JAMB
+/** Gap left between the title board's edge and the doorway, so the two never read
+ *  as touching. */
+const BOARD_CLEARANCE = 0.4
+/** Gap left between the doorway and the corner it stands nearest to. */
+const CORNER_CLEARANCE = 0.3
+
 /**
  * Where the doorway stands.
  *
@@ -79,13 +89,44 @@ function freeSpan(
  * door has no arithmetic to get wrong, and it reads better: several openings in a row
  * stop looking like doors.
  *
+ * Preferred spot (ユーザー指示 2026-08-12): the far end of the title wall (the "back"
+ * wall the exhibition board hangs on, TitleWall.tsx) — the doorway stands flush against
+ * it, past the board, so it reads as the room's other landmark rather than an
+ * arbitrary object floating mid-floor. Rooms too shallow for the board AND a clear
+ * doorway on the same wall (the gap left on either side of the board is fixed
+ * regardless of room size — see `titleWallWidth`) fall back to the previous
+ * entry-anchored placement rather than clipping into the board or a side wall.
+ */
+function doorPlacement(layout: LayoutDef): { pos: THREE.Vector3; rotY: number } | null {
+  return titleWallDoorPlacement(layout) ?? entryDoorPlacement(layout)
+}
+
+/** Flush against the title wall (x = -layout.hw), past whichever end of the board has
+ *  room for it. Faces straight into the room (perpendicular to the wall) rather than
+ *  toward the room's centre point, the way a real doorway set into a wall would. */
+function titleWallDoorPlacement(layout: LayoutDef): { pos: THREE.Vector3; rotY: number } | null {
+  const boardHalf = titleWallWidth(layout) / 2
+  const centerToDoor = boardHalf + BOARD_CLEARANCE + WALL_DOOR_HALF
+  if (centerToDoor + WALL_DOOR_HALF + CORNER_CLEARANCE > layout.hd) return null
+  // Put it on the end farther from the entry point, so walking toward it reads as
+  // moving deeper into the room rather than turning back toward where you arrived.
+  const dir = layout.entry.z <= 0 ? 1 : -1
+  const x = -layout.hw + JAMB
+  const z = dir * centerToDoor
+  return { pos: new THREE.Vector3(x, 0, z), rotY: Math.PI / 2 }
+}
+
+/**
+ * Previous placement, kept as the fallback for rooms too shallow to fit a doorway
+ * beside the title board (docs/DECISIONS 2026-08-09 for the original design).
+ *
  * Anchored on `layout.entry` — always inside the room, always walkable, and never inside
  * a bench or a partition, because it is where visitors are placed on arrival — offset
  * SIDEWAYS by ENTRY_CLEAR so the visitor does not load standing in the frame. Whichever
  * side has the room gets it; a space too tight for either gets no door, and the room list
  * in the HUD is still the complete way around.
  */
-function doorPlacement(layout: LayoutDef): { pos: THREE.Vector3; rotY: number } | null {
+function entryDoorPlacement(layout: LayoutDef): { pos: THREE.Vector3; rotY: number } | null {
   const { entry } = layout
   const margin = 1.0
   // Unit vector perpendicular to the entry heading, along the floor.

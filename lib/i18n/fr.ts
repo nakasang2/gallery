@@ -661,7 +661,7 @@ export const fr: PartialDictionary = {
     endedBanner: 'La période de cette exposition est terminée.',
     roomModeNormal: 'Salle normale',
     roomModeJoint: 'Collective : {title}',
-    roomSwitchAddHeading: 'Ajouter cette salle à une exposition collective',
+    roomSwitchAddHeading: 'Créez une exposition collective depuis l’onglet « Expositions collectives ».',
     roomSwitchNoExpo: 'Vous n’avez pas encore d’exposition collective.',
     roomSwitchCurrentHeading: 'Fait partie de « {title} »',
     roomSwitchToNormal: 'En refaire une salle normale',

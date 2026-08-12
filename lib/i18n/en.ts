@@ -971,7 +971,7 @@ export const en = {
     endedBanner: 'This exhibition’s run has ended.',
     roomModeNormal: 'Regular room',
     roomModeJoint: 'Joint: {title}',
-    roomSwitchAddHeading: 'Add this room to a joint exhibition',
+    roomSwitchAddHeading: 'Start a joint exhibition from the “Joint exhibitions” tab.',
     roomSwitchNoExpo: 'You don’t have a joint exhibition yet.',
     roomSwitchCurrentHeading: 'Part of “{title}”',
     roomSwitchToNormal: 'Make it a regular room',

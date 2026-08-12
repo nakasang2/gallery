@@ -9,7 +9,7 @@ import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { useGallery, useSettings } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
-import { roomExhibitor } from '@/lib/roomPlan'
+import { roomExhibitor, titleWallWidth } from '@/lib/roomPlan'
 import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll, type TitleWallText } from './textures'
 import { walkRef } from '@/lib/controller'
 import { loadImage } from '@/lib/upload'
@@ -121,7 +121,7 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
   )
   useEffect(() => () => disposeAll([tex]), [tex])
 
-  const w = Math.min(9.6, layout.hd * 2 - 1.4)
+  const w = titleWallWidth(layout)
 
   // The board is clickable — like an artwork, it opens a detail panel (the exhibition
   // info). Tap-guard (e.delta) matches WalkControls so a drag never triggers it.

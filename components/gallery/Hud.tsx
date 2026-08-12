@@ -4,15 +4,17 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
+import { roomExhibitor } from '@/lib/roomPlan'
 import { useExhibitionList } from '@/lib/exhibition'
 import { walkRef } from '@/lib/controller'
 import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
 import { showToast } from '@/lib/toast'
 import { sessionFlags, setFocusIntent, track } from '@/lib/analytics'
-import { SendIcon } from '@/components/icons'
+import { SendIcon, DoorIcon } from '@/components/icons'
 import { useWalkRecorder } from './RecordButton'
 import { LocaleLink, useT } from '@/components/I18nProvider'
+import SnsLinks from '@/components/SnsLinks'
 
 export function HudTop() {
   const t = useT()
@@ -52,22 +54,33 @@ export function HudTop() {
   // here is a prospective artist, not just a browser of the demo collection.
   if (visitor) {
     const untitled = isPlaceholderTitle(visitor.title)
-    // Top-left is just the essentials — service name, exhibition, exhibitor.
-    // Everything else (report, sharing, the guestbook) lives in the bottom-right cluster.
+    const by = roomExhibitor(visitor)
+    // Top-left is just the essentials — service name, exhibition, exhibitor, and a
+    // way to follow them elsewhere. Everything else (report, sharing, the guestbook)
+    // lives in the bottom-right cluster.
     return (
       <header className="hud-top">
         <div className="hud-identity">
           <LocaleLink className="hud-identity-home" href="/">XIBIT360</LocaleLink>
           <span className="hud-identity-main">{untitled ? visitor.ownerName : visitor.title}</span>
           {!untitled && <span className="hud-identity-sub">{visitor.ownerName}</span>}
+          <SnsLinks sns={by.sns} className="hud-identity-sns" />
         </div>
-        <Link
-          className="hud-signup-cta"
-          href="/signup"
-          onClick={() => track('gallery_signup_cta', { gallery_id: visitor.galleryId, embed: false })}
-        >
-          {t('common.startFree')}
-        </Link>
+        {/* Already signed in (own room or someone else's — either way "start free" is
+            moot): a way back to their own dashboard instead of a redundant signup pitch. */}
+        {user ? (
+          <Link className="hud-signup-cta" href="/me">
+            {t('common.dashboard')}
+          </Link>
+        ) : (
+          <Link
+            className="hud-signup-cta"
+            href="/signup"
+            onClick={() => track('gallery_signup_cta', { gallery_id: visitor.galleryId, embed: false })}
+          >
+            {t('common.startFree')}
+          </Link>
+        )}
       </header>
     )
   }
@@ -141,6 +154,9 @@ export function HudActions() {
   const user = useGallery((s) => s.user)
   const tourActive = useGallery((s) => s.tourActive)
   const setTourActive = useGallery((s) => s.setTourActive)
+  const roomPickerOpen = useGallery((s) => s.roomPickerOpen)
+  const setRoomPickerOpen = useGallery((s) => s.setRoomPickerOpen)
+  const embed = useGallery((s) => s.embed)
   const hasWorks = useExhibitionList().length > 0
   const [audioOn, setAudioOn] = useState(galleryAudio.enabled)
   const [othersOpen, setOthersOpen] = useState(false)
@@ -214,6 +230,15 @@ export function HudActions() {
         <HudAction icon="♪" label={audioOn ? t('hud.bgmOn') : t('hud.bgmOff')} active={audioOn} onClick={toggleAudio} />
 
         {visitor && <HudAction icon={<SendIcon />} label={t('hud.share')} onClick={share} />}
+
+        {visitor && !embed && visitor.rooms.length >= 2 && (
+          <HudAction
+            icon={<DoorIcon />}
+            label={t('hud.roomList', { count: visitor.rooms.length })}
+            active={roomPickerOpen}
+            onClick={() => setRoomPickerOpen(!roomPickerOpen)}
+          />
+        )}
 
         {visitor ? (
           <HudAction

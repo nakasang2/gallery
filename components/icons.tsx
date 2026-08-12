@@ -72,6 +72,29 @@ export function InfoIcon({ className }: { className?: string }) {
   )
 }
 
+// Doorway glyph — the "go to another room" action in the gallery HUD menu
+// (opens the room-picker modal, RoomPickerModal.tsx).
+export function DoorIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="5" y="3" width="12" height="18" rx="1" />
+      <path d="M9 12h.01" />
+      <path d="M17 8l3-1v10l-3-1" />
+    </svg>
+  )
+}
+
 export function CopyIcon({ className }: { className?: string }) {
   return (
     <svg

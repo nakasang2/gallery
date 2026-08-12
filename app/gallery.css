@@ -255,6 +255,13 @@ body:not(.gallery-mode) {
   color: var(--muted);
   margin-top: 0.3rem;
 }
+.hud-identity-sns {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+.hud-identity-sns.sns-links { gap: 0.6em; }
+.hud-identity-sns a { color: var(--muted); opacity: 0.8; }
+.hud-identity-sns a:hover { color: var(--gold); opacity: 1; }
 .hud-signup-cta {
   pointer-events: auto;
   flex: none;
@@ -447,6 +454,24 @@ body:not(.gallery-mode) {
   transition: border-color 0.2s, color 0.2s;
 }
 .artpreview-close:hover { border-color: var(--gold); color: var(--gold); }
+.artpreview-info {
+  position: absolute;
+  top: max(1.2rem, env(safe-area-inset-top, 0px));
+  left: 1.4rem;
+  right: 5rem;
+  pointer-events: none;
+}
+.artpreview-title {
+  font-family: var(--serif);
+  font-size: 1rem;
+  color: var(--ink);
+}
+.artpreview-meta {
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
 .artpreview-hint {
   position: absolute;
   bottom: max(1.4rem, env(safe-area-inset-bottom, 0px));
@@ -491,6 +516,13 @@ body:not(.gallery-mode) {
   color: #cdc7bd;
   margin-bottom: 1.6rem;
 }
+.panel-sns {
+  font-size: 1rem;
+  margin-top: -0.6rem;
+  margin-bottom: 1.6rem;
+}
+.panel-sns a { color: var(--muted); }
+.panel-sns a:hover { color: var(--gold); }
 .panel-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .panel-tags span {
   font-size: 0.68rem;
@@ -1827,33 +1859,35 @@ body:not(.gallery-mode) {
 }
 .roomswitch-prompt:hover { border-color: var(--gold); background: rgba(212, 162, 78, 0.16); }
 .roomswitch-prompt-icon { font-size: 0.9em; }
-.roomswitch-list { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; }
-.roomswitch-toggle {
-  padding: 0.45em 0.8em;
+/* Full chooser (ユーザー指示 2026-08-12) — a modal raised from the HUD menu's door
+   icon, reusing .purchase-backdrop for the dimmed overlay (HelpModal/PurchaseModal). */
+.roompicker-modal {
+  position: relative;
+  width: min(360px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: rgba(20, 18, 16, 0.98);
   border: 1px solid var(--hairline);
-  border-radius: 999px;
-  background: rgba(11, 10, 9, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  font-family: var(--sans);
-  font-size: 0.72rem;
-  color: var(--muted);
-  cursor: pointer;
+  border-radius: 16px;
+  padding: 1.8rem 1.6rem 1.6rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  animation: purchase-modal-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.roomswitch-toggle:hover { color: var(--ink); border-color: rgba(236, 231, 222, 0.34); }
-.roomswitch-list.open .roomswitch-toggle { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .roompicker-modal { animation: none; } }
+.roompicker-title {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  color: var(--ink);
+  text-align: center;
+  margin: 0 0 1.1rem;
+}
 .roomswitch-items {
   list-style: none;
   margin: 0;
-  padding: 0.35rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.12rem;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: rgba(11, 10, 9, 0.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  gap: 0.2rem;
   max-width: 100%;
 }
 .roomswitch-item {
@@ -1861,17 +1895,17 @@ body:not(.gallery-mode) {
   display: flex;
   align-items: baseline;
   gap: 0.5em;
-  padding: 0.4em 0.6em;
-  border: none;
-  border-radius: 6px;
+  padding: 0.6em 0.7em;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
   background: none;
   font-family: var(--sans);
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   color: var(--muted);
   cursor: pointer;
   text-align: left;
 }
-.roomswitch-item:hover:not(:disabled) { color: var(--ink); background: rgba(236, 231, 222, 0.08); }
+.roomswitch-item:hover:not(:disabled) { color: var(--ink); background: rgba(236, 231, 222, 0.08); border-color: rgba(236, 231, 222, 0.34); }
 .roomswitch-item.current { color: var(--ink); cursor: default; }
 .roomswitch-here { margin-left: auto; font-size: 0.66rem; color: var(--gold); white-space: nowrap; }
 @media (max-width: 640px) {

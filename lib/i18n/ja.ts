@@ -937,7 +937,7 @@ export const ja: Dictionary = {
     endedBanner: 'この展示の会期は終わりました。',
     roomModeNormal: '通常展示',
     roomModeJoint: '合同展示: {title}',
-    roomSwitchAddHeading: 'この部屋を合同展示に入れる',
+    roomSwitchAddHeading: '合同展示は「合同展示」タブから新しく作成できます。',
     roomSwitchNoExpo: 'まだ合同展示がありません。',
     roomSwitchCurrentHeading: '「{title}」の一部',
     roomSwitchToNormal: '通常展示に戻す',

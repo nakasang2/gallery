@@ -1,17 +1,13 @@
 'use client'
 // The 2D half of moving between rooms (ユーザー決定 2026-08-09).
 //
-// There is ONE doorway per room, and the destination is chosen here rather than by
-// walking to a particular opening. Three states, all above the canvas:
-//   1. the PROMPT — standing at the doorway (RoomPortals writes `atDoorway`), offer to
-//      go through. With one other room it says where; with several it opens the chooser.
-//   2. the CHOOSER — every other room, pick one. Raised by the doorway (in 3D) or by the
-//      prompt, and also reachable any time from the toggle below, so a big show never
-//      needs a walk to reach room five.
-//   3. the TOGGLE — the resting state: how many rooms this show has.
-//
-// Room names live here rather than as text in the 3D scene: they are already loaded, they
-// stay legible at any distance, and they need no font texture.
+// There is ONE doorway per room, and the destination is chosen at the doorway or from
+// the room-picker icon in the HUD's bottom-right cluster (ユーザー指示 2026-08-12: the
+// full chooser moved from an always-on toggle above the minimap into that menu, opening
+// as a modal — `RoomPickerModal`, mounted below). This file keeps only the contextual
+// piece: the PROMPT that appears while actually standing at the doorway (RoomPortals
+// writes `atDoorway`). With one other room it says where and goes straight there; with
+// several it raises the same modal.
 //
 // Renders nothing for a single-room show: `rooms` always contains the current room, so
 // one entry means there is nowhere else to go.
@@ -19,6 +15,7 @@ import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
 import { useT } from '@/components/I18nProvider'
 import { enterRoom } from './RoomPortals'
+import RoomPickerModal from './RoomPickerModal'
 
 export default function RoomSwitch() {
   const t = useT()
@@ -38,59 +35,29 @@ export default function RoomSwitch() {
   // than hijacking the frame), but this chrome is not part of the trimmed HUD.
   if (!visitor || rooms.length < 2 || embed) return null
 
-  // Any open drawer already owns the bottom of the screen.
-  if (focusedIndex >= 0 || settingsOpen || guestbookOpen || infoOpen) return null
-
   const label = (title: string, slug: string) => (isPlaceholderTitle(title) ? slug : title)
   const others = rooms.filter((r) => r.slug !== visitor.slug)
   const only = others.length === 1 ? others[0] : null
+  // The modal can be open regardless of any drawer state (raised from the HUD menu,
+  // which already tucks itself away while a drawer is open) — only the doorway prompt
+  // defers to an open drawer, since that already owns the bottom of the screen.
+  const showPrompt = atDoorway && !pickerOpen && focusedIndex < 0 && !settingsOpen && !guestbookOpen && !infoOpen
 
   return (
-    <div className="roomswitch">
-      {/* The doorway prompt. Only while the visitor is actually at the doorway, so it is
-          allowed to be the loud one. With exactly one other room there is nothing to
-          choose, so it names the destination and goes straight there. */}
-      {atDoorway && !pickerOpen && (
-        <button
-          type="button"
-          className="roomswitch-prompt"
-          onClick={() => (only ? enterRoom(visitor, only) : setPickerOpen(true))}
-        >
-          <span className="roomswitch-prompt-icon" aria-hidden="true">→</span>
-          {only ? t('hud.roomWalkThrough', { name: label(only.title, only.slug) }) : t('hud.roomChoose')}
-        </button>
+    <>
+      {showPrompt && (
+        <div className="roomswitch">
+          <button
+            type="button"
+            className="roomswitch-prompt"
+            onClick={() => (only ? enterRoom(visitor, only) : setPickerOpen(true))}
+          >
+            <span className="roomswitch-prompt-icon" aria-hidden="true">→</span>
+            {only ? t('hud.roomWalkThrough', { name: label(only.title, only.slug) }) : t('hud.roomChoose')}
+          </button>
+        </div>
       )}
-      <div className={`roomswitch-list${pickerOpen ? ' open' : ''}`}>
-        <button
-          type="button"
-          className="roomswitch-toggle"
-          aria-expanded={pickerOpen}
-          onClick={() => setPickerOpen(!pickerOpen)}
-        >
-          {t('hud.roomList', { count: rooms.length })}
-        </button>
-        {pickerOpen && (
-          <ul className="roomswitch-items">
-            {rooms.map((room) => {
-              const here = room.slug === visitor.slug
-              return (
-                <li key={room.slug}>
-                  <button
-                    type="button"
-                    className={`roomswitch-item${here ? ' current' : ''}`}
-                    aria-current={here ? 'page' : undefined}
-                    disabled={here}
-                    onClick={() => enterRoom(visitor, room)}
-                  >
-                    {label(room.title, room.slug)}
-                    {here && <span className="roomswitch-here">{t('hud.roomHere')}</span>}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
-    </div>
+      {pickerOpen && <RoomPickerModal visitor={visitor} onClose={() => setPickerOpen(false)} />}
+    </>
   )
 }

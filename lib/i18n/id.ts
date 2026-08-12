@@ -661,7 +661,7 @@ export const id: PartialDictionary = {
     endedBanner: 'Masa pameran ini telah berakhir.',
     roomModeNormal: 'Ruang biasa',
     roomModeJoint: 'Bersama: {title}',
-    roomSwitchAddHeading: 'Tambahkan ruang ini ke pameran bersama',
+    roomSwitchAddHeading: 'Mulai pameran bersama dari tab “Pameran bersama”.',
     roomSwitchNoExpo: 'Anda belum memiliki pameran bersama.',
     roomSwitchCurrentHeading: 'Bagian dari “{title}”',
     roomSwitchToNormal: 'Jadikan ruang biasa lagi',

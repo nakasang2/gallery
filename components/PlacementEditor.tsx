@@ -367,6 +367,14 @@ export default function PlacementEditor({
         {trayWorks.map((art) => {
           const src = thumb(art)
           const pos = placedPos.get(art.id)
+          // Which slot this work already hangs on, if any — a tray-initiated drag/tap
+          // must carry this like a map-initiated one does. Passing `null` here (as if the
+          // work were unplaced) skipped the "swap the two" branch in `drop()`, so dragging
+          // an already-hung work from the tray onto an occupied slot silently dropped
+          // whatever was there instead of swapping it into this work's old spot (bug
+          // report 2026-08-12: 「できる作品とできない作品がある」— it depended on
+          // whether the piece being dragged happened to already be on the wall).
+          const fromSlot = pos ? current.indexOf(art.id) : null
           const isPicked = picked?.workId === art.id
           const guest = guestIds.has(art.id)
           const elsewhere = placedElsewhere?.has(art.id) ?? false
@@ -382,7 +390,7 @@ export default function PlacementEditor({
               onPointerDown={(e) => {
                 if (disabled || (e.button != null && e.button > 0)) return
                 e.preventDefault()
-                press(e.currentTarget, e.pointerId, art.id, null, e.clientX, e.clientY)
+                press(e.currentTarget, e.pointerId, art.id, fromSlot, e.clientX, e.clientY)
               }}
               onPointerMove={moveDrag}
               onPointerUp={onUp}
@@ -410,7 +418,7 @@ export default function PlacementEditor({
                     // the badge/✕ corner of a placed tile could not start a drag).
                     if (disabled || (e.button != null && e.button > 0)) return
                     e.stopPropagation()
-                    press(e.currentTarget, e.pointerId, art.id, null, e.clientX, e.clientY)
+                    press(e.currentTarget, e.pointerId, art.id, fromSlot, e.clientX, e.clientY)
                   }}
                   onClick={(e) => {
                     e.stopPropagation()

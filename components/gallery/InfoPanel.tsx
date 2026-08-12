@@ -2,10 +2,11 @@
 // Exhibition-info panel — the "detail UI" for the title wall (opened by clicking it),
 // the board's counterpart to the per-work ArtworkPanel. Reuses the .panel drawer.
 import { useGallery } from '@/lib/store'
-import { isPlaceholderTitle } from '@/lib/publish'
+import { isPlaceholderTitle, EMPTY_SNS, type SnsLinks as SnsLinksData } from '@/lib/publish'
 import { roomExhibitor } from '@/lib/roomPlan'
 import { DEFAULT_TITLE_TEXT } from './textures'
 import { useT } from '@/components/I18nProvider'
+import SnsLinks from '@/components/SnsLinks'
 
 export default function InfoPanel() {
   const t = useT()
@@ -23,6 +24,7 @@ export default function InfoPanel() {
   let exhibitor = ''
   let statement = DEFAULT_TITLE_TEXT.statement ?? ''
   let artistBio = ''
+  let sns: SnsLinksData = EMPTY_SNS
 
   if (visitor) {
     // Same derivation as the board it belongs to (lib/roomPlan.roomExhibitor): the
@@ -32,6 +34,7 @@ export default function InfoPanel() {
     exhibitor = by.name
     statement = visitor.statement
     artistBio = by.bio
+    sns = by.sns
   } else if (user && myGallery) {
     title = isPlaceholderTitle(myGallery.title) ? displayName || 'Your exhibition' : myGallery.title
     exhibitor = displayName || ''
@@ -56,6 +59,7 @@ export default function InfoPanel() {
           <p className="panel-desc">{artistBio}</p>
         </>
       )}
+      <SnsLinks sns={sns} className="panel-sns" />
     </aside>
   )
 }

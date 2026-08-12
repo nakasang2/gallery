@@ -211,8 +211,14 @@ export default function ArtworkPreview3D({
   }, [onClose])
 
   const initialPos = intro ? start : end
+  const dims = art.widthCm && art.heightCm ? `${art.widthCm} × ${art.heightCm} cm` : ''
+  const meta = [dims, art.medium].filter(Boolean).join(' · ')
   return (
     <div className="artpreview" role="dialog" aria-modal="true" aria-label={t('artwork.preview3dAria', { title: art.title })}>
+      <div className="artpreview-info">
+        <div className="artpreview-title">{art.title}</div>
+        {meta && <div className="artpreview-meta">{meta}</div>}
+      </div>
       <Canvas
         camera={{ position: [initialPos.x, initialPos.y, initialPos.z], fov: 40 }}
         dpr={[1, 2]}

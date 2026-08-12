@@ -726,7 +726,7 @@ export const ko: PartialDictionary = {
     endedBanner: '이 전시의 회기가 끝났습니다.',
     roomModeNormal: '일반 전시실',
     roomModeJoint: '합동 전시: {title}',
-    roomSwitchAddHeading: '이 전시실을 합동 전시에 추가',
+    roomSwitchAddHeading: '합동 전시는 "합동 전시" 탭에서 새로 만들 수 있습니다.',
     roomSwitchNoExpo: '아직 합동 전시가 없습니다.',
     roomSwitchCurrentHeading: '「{title}」의 일부',
     roomSwitchToNormal: '일반 전시실로 되돌리기',

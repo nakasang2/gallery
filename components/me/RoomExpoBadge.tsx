@@ -6,6 +6,13 @@
 // 一番のねらい。切替は**空の部屋にしか効かない**（DB側 `switch_room_expo` が拒否する。
 // 何を弾いたかは `roomExpoSwitchErrorKey` で読み分けて文言を出す）ので、ここでは
 // クリックできない理由を先読みしようとしない。
+//
+// 合同展示の**作成**は常にExpoManagerからの新規作成（展示＋最初の部屋を自動生成）に
+// 一本化した（DECISIONS 2026-08-12）。以前はここに「既存の空部屋を、選んだ展示に
+// 参加させる」変換リストもあり、ExpoManagerでの新規作成と2つの入口が並んでいたのが
+// ユーザーには分かりにくかった（「合同展示を作ったら、そこで0から設定できる方が
+// いいのでは」という指摘）。**通常展示に戻す**（合同展示の部屋を抜ける）方向だけは
+// 残す — これは「作成」ではなく「離脱」で、入口が2つになる話ではない。
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useT } from '@/components/I18nProvider'
 import type { GalleryRow } from '@/lib/galleries'
@@ -70,12 +77,14 @@ export default function RoomExpoBadge({
     ? t('expo.roomModeJoint', { title: currentExpo?.title || t('common.untitled') })
     : t('expo.roomModeNormal')
 
-  async function doSwitch(expoId: string | null) {
+  // 合同展示への**参加**はもうここでは行わない（ExpoManagerからの新規作成に一本化 —
+  // DECISIONS 2026-08-12）。残るのは**離脱**（通常展示に戻す）だけなので、引数は要らない。
+  async function revertToNormal() {
     setBusy(true)
     setErr('')
     try {
-      await switchRoomExpo(room.id, expoId)
-      track('room_expo_switch', { to: expoId ? 'joint' : 'normal' })
+      await switchRoomExpo(room.id, null)
+      track('room_expo_switch', { to: 'normal' })
       setOpen(false)
       onChanged()
     } catch (e) {
@@ -111,29 +120,14 @@ export default function RoomExpoBadge({
               <p className="room-expo-panel-title">
                 {t('expo.roomSwitchCurrentHeading', { title: currentExpo?.title || t('common.untitled') })}
               </p>
-              <button type="button" className="btn-line" disabled={busy} onClick={() => void doSwitch(null)}>
+              <button type="button" className="btn-line" disabled={busy} onClick={() => void revertToNormal()}>
                 {t('expo.roomSwitchToNormal')}
               </button>
             </>
           ) : (
-            <>
-              <p className="room-expo-panel-title">{t('expo.roomSwitchAddHeading')}</p>
-              {expos === null ? (
-                <p className="me-note">{t('expo.loading')}</p>
-              ) : expos.length === 0 ? (
-                <p className="me-note">{t('expo.roomSwitchNoExpo')}</p>
-              ) : (
-                <ul className="room-expo-list">
-                  {expos.map((x) => (
-                    <li key={x.id}>
-                      <button type="button" className="btn-line" disabled={busy} onClick={() => void doSwitch(x.id)}>
-                        {x.title || t('common.untitled')}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
+            // 合同展示への参加は常にExpoManagerの新規作成から（DECISIONS 2026-08-12）。
+            // ここでは案内だけ出し、下の「展示管理へ」に導く。
+            <p className="room-expo-panel-title">{t('expo.roomSwitchAddHeading')}</p>
           )}
           <button
             type="button"

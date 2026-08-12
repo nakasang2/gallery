@@ -9,11 +9,18 @@
 //
 // lib/exhibition.ts re-exports all of it, so the client keeps its single import site.
 import { ARTWORKS, type ArtworkData } from './artworks'
-import { resolveLayout } from './presets'
+import { resolveLayout, type LayoutDef } from './presets'
 import { effectiveSlotCount } from './limits'
 import { placeWorks, toPlacement, balancedFillOrder, type Placement } from './arrangement'
 import type { PublicArtist, PublicExhibition } from './publish'
 import type { Settings } from './store'
+
+/** Width of the title board mounted on the room's west wall (TitleWall.tsx). Shared
+ *  with RoomPortals.tsx, which stands the connecting doorway clear of it on the same
+ *  wall — duplicating this formula in both places would let them drift out of sync. */
+export function titleWallWidth(layout: LayoutDef): number {
+  return Math.min(9.6, layout.hd * 2 - 1.4)
+}
 
 /** True when this scene is the guest sample show (no own works, demo collection on):
  *  a marketing showcase, so the plan's works-per-gallery cap doesn't apply — the
