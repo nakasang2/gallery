@@ -261,6 +261,11 @@ export default async function LandingPage() {
           <Link href="/privacy">{t('footer.privacy')}</Link>
           <Link href="/terms">{t('footer.terms')}</Link>
           <LegalLink />
+          {/* 通報の入口は作品ページ・作家ページ・規約・プライバシーからは辿れるが、
+              サイト共通のフッタからは辿れなかった。ホスティング事業者の通報手段は
+              「容易に見つけられる」ことが要る（EU DSA 16条）ので、玄関にも置く。
+              ラベルは作家ページと同じキーを使い回す（新しい訳を増やさない） */}
+          <Link href="/report">{t('artist.reportProblem')}</Link>
           <span>© 2026 XIBIT360</span>
         </div>
       </footer>
