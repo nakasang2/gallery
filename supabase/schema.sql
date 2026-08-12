@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0057 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0058 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -5053,3 +5053,54 @@ drop trigger if exists expo_submissions_unsubmit_notify on public.expo_submissio
 create trigger expo_submissions_unsubmit_notify
   after delete on public.expo_submissions
   for each row execute function public.notify_expo_unsubmit();
+
+-- # 0058_replace_placements.sql — 配置の書き換えを1トランザクションにする(ユーザー決定 2026-08-12・B案の前提工事)
+-- 振る舞いは変えない。次の工程(枠の上限をDB側で強制する)の土台。
+-- 旧経路は upsert と trim が別リクエストで、あいだの状態(枠を移す瞬間に上限+1行)が
+-- コミットされていた。件数を数えるトリガはそこで正常な操作を拒否してしまう。
+-- **security definer にしない** — placements の RLS(0037 placements_owner_all)を
+-- そのまま効かせて、権限と同意の判定をこの関数に写さない。
+create or replace function public.replace_placements(p_gallery uuid, p_rows jsonb)
+returns int
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_count int := 0;
+begin
+  if not exists (
+    select 1 from public.galleries g
+     where g.id = p_gallery and g.owner_id = (select auth.uid())
+  ) then
+    raise exception 'replace_placements: not the owner of room %', p_gallery
+      using errcode = '42501';
+  end if;
+
+  delete from public.placements where gallery_id = p_gallery;
+
+  if p_rows is not null and jsonb_typeof(p_rows) = 'array' then
+    insert into public.placements (
+      gallery_id, artwork_id, slot_index,
+      frame_override, mat_override, hanging_override, caption_override, light_override
+    )
+    select p_gallery,
+           (r->>'artwork_id')::uuid,
+           (r->>'slot_index')::int,
+           r->>'frame_override',
+           r->>'mat_override',
+           r->>'hanging_override',
+           r->>'caption_override',
+           r->>'light_override'
+      from jsonb_array_elements(p_rows) as r;
+  end if;
+
+  select count(*) into v_count from public.placements where gallery_id = p_gallery;
+  return v_count;
+end;
+$$;
+
+-- **service_role には渡さない** — この関数は auth.uid() が部屋の所有者であることを
+-- 要求するので、service_role(claim 無し=null)ではどう呼んでも落ちる。渡しておくと
+-- 「サーバ側から書ける」と読めてしまう(別視点レビュー指摘)。
+revoke all on function public.replace_placements(uuid, jsonb) from public, anon, service_role;
+grant execute on function public.replace_placements(uuid, jsonb) to authenticated;
