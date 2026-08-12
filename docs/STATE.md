@@ -2,7 +2,7 @@
 
 > Claude向け運用ルール: セッション開始時にこのファイルを読んでから作業に入る。作業の節目・中断時・ship後に更新する。終わった項目は「完了ログ」へ移し、完了ログは直近5件だけ残す。
 
-- **最終更新**: 2026-08-12（**ユーザー指示10件（3D View 5件＋ダッシュボード5件）に対応。事前にAskUserQuestionで3点を確認：①合同展示の作成UIは新規作成（ExpoManager）に一本化②公開タイミングは現状維持＋参加者提出状況の可視化③着手順は3D Viewから。DECISIONS 2026-08-12に記録。**
+- **最終更新**: 2026-08-12（**ユーザー指示10件（3D View 5件＋ダッシュボード5件）に対応・`48ec819`を push・本番反映確認済み（10:07、www.xibit360.artのエイリアスが新デプロイを指すことを確認）。/code-reviewで別視点レビュー実施・確定バグなし。事前にAskUserQuestionで3点を確認：①合同展示の作成UIは新規作成（ExpoManager）に一本化②公開タイミングは現状維持＋参加者提出状況の可視化③着手順は3D Viewから。DECISIONS 2026-08-12に記録。**
   - **3D View①SNSアイコン**: `components/SnsLinks.tsx`は既に用意されていたのに3D側で未配線だった。`Hud.tsx`の`HudTop`（来場者ヘッダ左上）と`InfoPanel.tsx`（展示情報パネル）に`roomExhibitor(visitor).sns`を配線。合同展示は`roomExhibitor`が単独作家/団体を判定するので板の作家名と一致する。
   - **②作品の技法・サイズ**: 壁のパネル(`ArtworkPanel.tsx`)には既にあったが、全画面表示`ArtworkPreview3D.tsx`（こちらが手前に被さる）には無かった。タイトル・`widthCm/heightCm/medium`を左上に追加。
   - **③複数部屋の扉の位置**: `RoomPortals.tsx`の`doorPlacement()`は入場スポーン地点からの距離だけで決めており、タイトルウォール（奥の壁）の位置を見ていなかった。`lib/roomPlan.titleWallWidth()`を新設（TitleWall.tsx側の幅計算式を共有化）し、タイトルボードの端（奥の壁の同じ壁・端）に扉を寄せる`titleWallDoorPlacement()`を追加。**部屋が浅くて収まらない場合は旧来のentry基準の配置にフォールバック**（hall/portrait/広いcustomは新配置、corridor/island/狭いcustomはフォールバック——スクリプトで全パターンを数値検証、幾何的な非干渉を確認）。
