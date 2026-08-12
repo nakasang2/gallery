@@ -77,6 +77,78 @@ function CorridorFloor({ depth, sideways }: { depth: number; sideways: boolean }
   )
 }
 
+/** 廊下の突き当たりに立つ**閉じた扉**（ユーザー指摘 2026-08-13「奥が行き止まりなので
+ *  見えちゃいますね ── ここはドアか何かを奥に配置しましょうか」）。廊下だけだと突き当たりの
+ *  壁が見えて「行き止まり」に読めるが、扉が1枚立っていれば**先へ続く**に読める。
+ *
+ *  **明るさは光に任せない。** 廊下の奥まで光が回っているかは私が実描画で確かめられず、
+ *  実際 0.4m の凹みは真っ黒に見えていた。そこで「暗くても見える下限」を弱い `emissive` で
+ *  作る ── ただし `emissive` は**リニア値**で、0.12 は sRGB では中間グレーになる（前日それで
+ *  枠を灰色にした）。ここは扉の面 0.045・枠 0.02・金物 0.10 ＝ **リニアで計算した結果**が
+ *  sRGB で順に 約41/255・28/255・72/255（`emissive` の色をリニアに直して強さを掛け、
+ *  `sRGB ≈ linear^(1/2.2)` で戻した値）。暗がりの中で「扉の面がぼんやり見え、枠がその奥に
+ *  沈み、金物だけが光を返す」並びになる。前日の失敗値 0.12 は同じ計算で 102/255＝中間グレー。 */
+function CorridorDoor({ z0 }: { z0: number }) {
+  const SLAB_W = 0.92
+  const SLAB_H = 2.05
+  const SLAB_T = 0.05
+  /** 枠は扉の面より 1cm 内側に噛ませる ── 端をぴったり合わせると側面が**同一平面**になって
+   *  ちらつく（この扉で3回踏んだ型）。噛ませれば戸当たりに見えて、重なる面も作らない。 */
+  const CASE_W = 0.08
+  /** 縦枠の高さ。床（y = 0）から、まぐさの上端まで。 */
+  const CASE_H = SLAB_H + CASE_W
+  const zSlab = z0 + 0.005 + SLAB_T / 2
+  const zCase = z0 + 0.045
+  return (
+    <group>
+      {/* 扉の面 */}
+      <mesh position={[0, SLAB_H / 2, zSlab]}>
+        <boxGeometry args={[SLAB_W, SLAB_H, SLAB_T]} />
+        <meshStandardMaterial
+          color={0x2a241c}
+          roughness={0.75}
+          emissive={0xb9a48a}
+          emissiveIntensity={0.045}
+        />
+      </mesh>
+      {/* 枠（左右＋まぐさ） */}
+      {/* 縦枠は**床から立つ**。高さと中心を別々に書くと床下へ潜る ── 実際 `SLAB_H + 0.14` を
+          `SLAB_H / 2` に置いて 7cm 潜っていた（別視点レビューで検出。今は床に隠れて見えないが、
+          床を外した瞬間・自立配置・床下からの反射で出てくる「隠れているだけ」の誤り）。 */}
+      {[
+        { pos: [-(SLAB_W / 2 + CASE_W / 2 - 0.01), CASE_H / 2, zCase] as const, size: [CASE_W, CASE_H, 0.07] as const },
+        { pos: [SLAB_W / 2 + CASE_W / 2 - 0.01, CASE_H / 2, zCase] as const, size: [CASE_W, CASE_H, 0.07] as const },
+        { pos: [0, SLAB_H + CASE_W / 2 - 0.01, zCase] as const, size: [SLAB_W + CASE_W * 2, CASE_W, 0.07] as const },
+      ].map((c, i) => (
+        <mesh key={`cd${i}`} position={[...c.pos]}>
+          <boxGeometry args={[...c.size]} />
+          <meshStandardMaterial color={TRIM_COLOR} roughness={0.7} emissive={0xb9a48a} emissiveIntensity={0.02} />
+        </mesh>
+      ))}
+      {/* レバーハンドルと座。**唯一の金物**で、暗がりの中でここだけ光を返す ── 「扉だ」と
+          分かるのは形より金物の輝きなので、ここだけ強めにする。 */}
+      {[
+        { pos: [SLAB_W / 2 - 0.09, 1.02, zSlab + SLAB_T / 2 + 0.012] as const, size: [0.07, 0.07, 0.024] as const },
+        // レバーは座の面にくっつける（座の厚み 0.024 ＋ レバーの半分 0.013）。ここを
+        // 適当な 0.045 にしていたので 8mm 浮いていた（別視点レビューで検出。暗がりで
+        // 一番明るいのが金物なので、浮きがそのまま目に付く）。
+        { pos: [SLAB_W / 2 - 0.14, 1.02, zSlab + SLAB_T / 2 + 0.024 + 0.013] as const, size: [0.13, 0.026, 0.026] as const },
+      ].map((m, i) => (
+        <mesh key={`cm${i}`} position={[...m.pos]}>
+          <boxGeometry args={[...m.size]} />
+          <meshStandardMaterial
+            color={0xb99f6a}
+            metalness={0.85}
+            roughness={0.32}
+            emissive={0xd8c08a}
+            emissiveIntensity={0.1}
+          />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 /** 扉の見た目は**テーマにも近接状態にも依存しない**。造作の色（`TRIM_COLOR`）と
  *  開口の奥の暗がりだけで出来ていて、「この扉は使える」は HUD（`RoomSwitch`）が言葉で
  *  伝える。テーマ色を借りると、明るいテーマで枠や敷居が灰色の板に見える（2026-08-12/13
@@ -122,11 +194,14 @@ function Doorway({
           側壁と天井は `DoubleSide` の1マテリアルで兼用する: 内側から見れば廊下の内壁、
           外側から見れば枠と同じ暗色の箱。面を2組持たない。 */}
       {/* 奥の面。ここだけ `meshBasicMaterial` で照明に依存させない ── テーマの明るさで
-          奥が明るくなると「穴」に見えなくなる。勾配は中心が最も暗い（getDoorwayDepth）。 */}
+          奥が明るくなると「穴」に見えなくなる。勾配は中心が最も暗い（getDoorwayDepth）。
+          この面は**閉じた扉の背後の壁**になり、扉の周りにだけ見える。 */}
       <mesh position={[0, DOOR_H / 2, -tunnelD]}>
         <planeGeometry args={[DOOR_W, DOOR_H]} />
         <meshBasicMaterial map={getDoorwayDepth()} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
+      {/* 突き当たりの扉。これが無いと廊下が「行き止まり」に読める（ユーザー指摘 2026-08-13）。 */}
+      <CorridorDoor z0={-tunnelD} />
       {/* 側壁（左右） */}
       {[-1, 1].map((sx) => (
         <mesh key={`tw${sx}`} position={[(sx * DOOR_W) / 2, DOOR_H / 2, innerZ]} rotation-y={Math.PI / 2}>
