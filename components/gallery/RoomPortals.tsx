@@ -53,8 +53,16 @@ const JAMB = 0.12
  * （最も浅い間取りでも半奥行き 4m あるので、通路を塞がない）。
  */
 const TUNNEL_D = 0.4
-/** 敷居の帯の高さ。床から零れる光に見える程度に抑える（開口の1/8ほど）。 */
-const THRESHOLD_H = DOOR_H / 8
+/** 枠（jamb / lintel）の箱の奥行き。枠は `z = 0` を中心に置くので、**半分だけトンネル側へ
+ *  食い込む**。 */
+const JAMB_D = JAMB * 1.6
+/** トンネルの内壁（側壁・天井）は `z = 0` からではなく**枠の箱が終わる位置から**始める。
+ *  同じ平面に枠の内側の面（左右の枠なら `|x| = DOOR_W/2`、まぐさなら `y = DOOR_H`）が既に
+ *  居るので、`z = 0` から張ると重なった区間が**完全な同一平面になり Zファイティングで
+ *  ちらつく**（別視点レビューで検出。ユーザー報告の床のちらつきと同型の不具合）。
+ *  枠の面とは端で接するので隙間はできない。 */
+const TUNNEL_INNER_D = TUNNEL_D - JAMB_D / 2
+const TUNNEL_INNER_Z = -(JAMB_D / 2 + TUNNEL_D) / 2
 /** How close the camera has to be for the doorway to offer itself. Generous, because
  *  the prompt is a suggestion — the visitor still has to press it. */
 const NEAR_DIST = 2.8
@@ -237,24 +245,32 @@ function Doorway({
   return (
     <group position={at} rotation-y={rotY}>
       {/* Jambs and lintel — plain trim, the same near-black as the room's baseboards */}
-      <mesh position={[-(DOOR_W / 2 + JAMB / 2), DOOR_H / 2, 0]}>
-        <boxGeometry args={[JAMB, DOOR_H, JAMB * 1.6]} />
-        <meshStandardMaterial color={0x0e0c0a} roughness={0.7} />
-      </mesh>
-      <mesh position={[DOOR_W / 2 + JAMB / 2, DOOR_H / 2, 0]}>
-        <boxGeometry args={[JAMB, DOOR_H, JAMB * 1.6]} />
-        <meshStandardMaterial color={0x0e0c0a} roughness={0.7} />
-      </mesh>
-      <mesh position={[0, DOOR_H + JAMB / 2, 0]}>
-        <boxGeometry args={[DOOR_W + JAMB * 2, JAMB, JAMB * 1.6]} />
-        <meshStandardMaterial color={0x0e0c0a} roughness={0.7} />
-      </mesh>
+      {/* 近づくと枠が仄かに光る＝「この扉は使える」の合図。**面を足さずに既にある枠で
+          伝える** ── 開口に半透明の板や帯を重ねる方式は、テーマ次第で明るい板に見えたり
+          （whitecube の `stripColor` は純白）奥行きを霞ませたりした。`emissive` なら
+          照明にも奥行きにも触らない。 */}
+      {[
+        { pos: [-(DOOR_W / 2 + JAMB / 2), DOOR_H / 2, 0] as const, size: [JAMB, DOOR_H, JAMB * 1.6] as const },
+        { pos: [DOOR_W / 2 + JAMB / 2, DOOR_H / 2, 0] as const, size: [JAMB, DOOR_H, JAMB * 1.6] as const },
+        { pos: [0, DOOR_H + JAMB / 2, 0] as const, size: [DOOR_W + JAMB * 2, JAMB, JAMB * 1.6] as const },
+      ].map((j, i) => (
+        <mesh key={`j${i}`} position={[...j.pos]}>
+          <boxGeometry args={[...j.size]} />
+          <meshStandardMaterial
+            color={0x0e0c0a}
+            roughness={0.7}
+            emissive={theme.stripColor}
+            emissiveIntensity={active ? 0.5 : 0.12}
+          />
+        </mesh>
+      ))}
       {/* 開口の奥のトンネル（ユーザー決定 2026-08-12・C案）。**実際に奥行きがある**ので、
           側壁が開口の近くだけ光を拾って奥へ落ちていく ── 平らな板に勾配を描く方式（B案）
           との違いはそこ。ローカル -z が壁の側、+z が部屋の側（`rotY` が開口を部屋へ向ける）。
 
-          側壁・天井・床は `DoubleSide` の1マテリアルで兼用する: 内側から見ればトンネルの
-          内壁、外側から見れば枠と同じ暗色の箱＝「厚い壁」に見える。面を2組持たない。 */}
+          側壁と天井は `DoubleSide` の1マテリアルで兼用する: 内側から見ればトンネルの
+          内壁、外側から見れば枠と同じ暗色の箱＝「厚い壁」に見える。面を2組持たない。
+          床は敢えて置かない（下の「天井だけ」のコメント参照）。 */}
       {/* 奥の面。ここだけ `meshBasicMaterial` で照明に依存させない ── テーマの明るさで
           奥が明るくなると「穴」に見えなくなる。勾配は中心が最も暗い（getDoorwayDepth）。 */}
       <mesh position={[0, DOOR_H / 2, -TUNNEL_D]} renderOrder={0}>
@@ -265,37 +281,25 @@ function Doorway({
       {[-1, 1].map((sx) => (
         <mesh
           key={`tw${sx}`}
-          position={[(sx * DOOR_W) / 2, DOOR_H / 2, -TUNNEL_D / 2]}
+          position={[(sx * DOOR_W) / 2, DOOR_H / 2, TUNNEL_INNER_Z]}
           rotation-y={Math.PI / 2}
         >
-          <planeGeometry args={[TUNNEL_D, DOOR_H]} />
+          <planeGeometry args={[TUNNEL_INNER_D, DOOR_H]} />
           <meshStandardMaterial color={0x0e0c0a} roughness={0.8} side={THREE.DoubleSide} />
         </mesh>
       ))}
-      {/* 天井と床 */}
-      {[
-        { y: DOOR_H, rx: Math.PI / 2 },
-        { y: 0, rx: -Math.PI / 2 },
-      ].map((f) => (
-        <mesh key={`tf${f.y}`} position={[0, f.y, -TUNNEL_D / 2]} rotation-x={f.rx}>
-          <planeGeometry args={[DOOR_W, TUNNEL_D]} />
-          <meshStandardMaterial color={0x0e0c0a} roughness={0.8} side={THREE.DoubleSide} />
-        </mesh>
-      ))}
-      {/* 敷居の帯（ユーザー決定 2026-08-12・C案の付随変更）。**開口いっぱいの半透明の板は
-          やめた** ── トンネルの手前に膜が張ると、せっかくの奥行きが霞んで「膜の向こうの
-          暗がり」に見える。光は開口の**下端**から床へ零れる形にする（実際の明るい部屋から
-          暗い部屋を見たときと同じ）。近づくと明るくなるのは以前のまま。 */}
-      <mesh position={[0, THRESHOLD_H / 2, -TUNNEL_D * 0.5]} renderOrder={1}>
-        <planeGeometry args={[DOOR_W, THRESHOLD_H]} />
-        <meshBasicMaterial
-          color={theme.stripColor}
-          transparent
-          opacity={active ? 0.34 : 0.12}
-          side={THREE.DoubleSide}
-          depthWrite={false}
-        />
+      {/* 天井だけ。**床は置かない**（ユーザー報告 2026-08-12「下部がちらついてる」）。
+          部屋の床は `hw*2 × hd*2` のプレーンで y=0、扉の下も通っている ── そこへ
+          トンネルの床を y=0 で重ねたので**完全な同一平面になり Zファイティングで
+          ちらついていた**。部屋の床がそのまま recess の床になるのが実際の戸口でもある。 */}
+      <mesh position={[0, DOOR_H, TUNNEL_INNER_Z]} rotation-x={Math.PI / 2}>
+        <planeGeometry args={[DOOR_W, TUNNEL_INNER_D]} />
+        <meshStandardMaterial color={0x0e0c0a} roughness={0.8} side={THREE.DoubleSide} />
       </mesh>
+      {/* 「生きている扉」の合図は**枠そのものを光らせる**（上の jamb/lintel の emissive）。
+          以前ここに置いていた敷居の帯は、テーマの `stripColor` が純白の間取り
+          （whitecube）で**明るい灰色の板**に見えてしまった（ユーザー報告のスクショで確認）。
+          面を足さずに既にある枠で伝えれば、重なる面が増えず Zファイティングの種も増えない。 */}
       {/* クリックの的は開口いっぱい（見えないまま）。帯だけを的にすると狙いにくく、
           扉は主要な移動手段なので的は大きく保つ。`opacity: 0` でもレイキャストは通る
           （three は `visible` を見るが不透明度は見ない）。 */}
