@@ -317,7 +317,9 @@ a { color: inherit; }
   font-style: italic;
   font-size: 2.6rem;
   line-height: 1;
-  color: rgba(236, 236, 234, 0.24);
+  /* 0.24 だと本文背景に対して 1.92:1 で、大きい文字の下限 3:1（WCAG 1.4.3）を
+     割っていた。0.38 で 3.14:1 — 装飾的な薄さは保ったまま最小限だけ上げる */
+  color: rgba(236, 236, 234, 0.38);
 }
 .cfeat h3 { font-size: 1.15rem; font-weight: 500; margin-bottom: 0.7rem; }
 .cfeat p { font-size: 0.86rem; color: var(--muted); }
@@ -689,7 +691,8 @@ a { color: inherit; }
   font-family: var(--serif);
   font-style: italic;
   font-size: 3rem;
-  color: rgba(236, 236, 234, 0.22);
+  /* 0.22 だと 1.82:1 で 3:1（WCAG 1.4.3、大きい文字）を割っていた。0.38 で 3.17:1 */
+  color: rgba(236, 236, 234, 0.38);
   display: block;
   line-height: 1;
   transition: color 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
