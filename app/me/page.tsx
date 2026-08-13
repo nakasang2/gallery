@@ -92,6 +92,7 @@ import type { ArtworkData, CropAlign, PurchaseLink } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
 import { LegalLink, LocaleLink, useT } from '@/components/I18nProvider'
 import { renderMarkdown, hasMarkdown, ARTIST_TEXT_MD } from '@/lib/markdown'
+import { usePending, useHasPending, usePendingKind } from '@/lib/pendingSave'
 
 // The works preview is the REAL renderer (three.js), loaded only when needed;
 // until the chunk arrives the flat CSS preview holds the same footprint
@@ -215,8 +216,9 @@ function FieldLabel({ children, hint }: { children: string; hint: string }) {
   )
 }
 
-// Dashboard-wide "Saved" toast. Everything autosaves, so a single transient toast is
-// the shared confirmation: any save success calls toast(). Provided by MePage.
+// Dashboard-wide "Saved" toast. 自動保存をやめた（2026-08-13）ので、これが出るのは
+// **保存ボタンを押して成功したとき**と、即時に反映する操作（アップロード・部屋の作成/
+// 公開切替/削除）のとき。Provided by MePage.
 const ToastContext = createContext<(msg?: string) => void>(() => {})
 function useToast() {
   return useContext(ToastContext)
@@ -577,6 +579,13 @@ function GalleryCard({
 }) {
   const roomOffer = useRoomOffer()
   const t = useT()
+  // 自動保存をやめたので、編集は**保留の台帳**へ積む（`lib/pendingSave`）。
+  // 保存するのは上帯の `SaveAllButton` を押したときだけ（ユーザー指示 2026-08-13）。
+  const mark = usePending((s) => s.mark)
+  const detailsPending = usePendingKind('details')
+  // 選んでいる作品の分だけ見る（`usePendingKind('work')` だと**別の作品**の未保存でも
+  // この作品に「未保存」と出て、目印の意味が壊れる。別視点レビューで検出）
+  const workPendingKey = usePending((s) => (selectedId ? s.tasks.has(`work:${selectedId}`) : false))
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
@@ -589,8 +598,6 @@ function GalleryCard({
   const [nameInput, setNameInput] = useState(row.title)
   const [slugInput, setSlugInput] = useState(row.slug)
   const [statementInput, setStatementInput] = useState(row.statement)
-  const [detailsState, setDetailsState] = useState<'idle' | 'saving' | 'saved'>('idle')
-  const detailsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [copied, setCopied] = useState(false)
   const [embedCopied, setEmbedCopied] = useState(false)
   const [showEmbed, setShowEmbed] = useState(false)
@@ -646,8 +653,6 @@ function GalleryCard({
   const [sizeCustom, setSizeCustom] = useState(false)
   const [mediumInput, setMediumInput] = useState('')
   // Per-work text autosaves (like the exhibition title/statement) — no Save button.
-  const [workState, setWorkState] = useState<'idle' | 'saving' | 'saved'>('idle')
-  const workTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [purchaseItem, setPurchaseItem] = useState<
     // `qty` is only read in capacity mode: tapping a locked spot on the placement
     // map knows how many slots it takes to reach that spot, so the stepper opens
@@ -675,12 +680,10 @@ function GalleryCard({
   // Ambient BGM (§P3-12): the gallery row's bgm_url is the source of truth; mirror it locally
   const [bgmUrl, setBgmUrl] = useState<string | null>(row.bgm_url ?? null)
   const [bgmBusy, setBgmBusy] = useState(false)
-  const designTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Manual slot placement (§11.13): local state seeded from the row (the source of
   // truth the dashboard reads), debounce-saved through the same path as theme/layout
   // so a placement edit and a layout change never race over one gallery row.
   const [placement, setPlacement] = useState<(string | null)[]>(() => normalizeArrangement(row.arrangement))
-  const placeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // 合同展示（migration 0047）。`guests` はこの部屋が属する展示に他の作家が出した作品で、
   // 掛けられるが自動では並ばない。
   // ここの `guests` は**表示だけ**に使う（配置トレイ）。保存時は
@@ -712,7 +715,22 @@ function GalleryCard({
   // edits onto room 1 — the same class of bug as reading `row` from the store would be.
   // Same work can be framed differently in two rooms, which is the point of a second room.
   const [overrides, setOverrides] = useState<PlacementOverrides>(EMPTY_OVERRIDES)
-  const overrideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** テーマ・間取り・既定の額装の**保存待ちの下書き**（`view` で `row` に重ねる）。 */
+  const [spaceDraft, setSpaceDraft] = useState<Partial<GalleryRow>>({})
+  /** **保存待ちを含めた「いまの部屋の設定」。** `row` は保存済みの値なので、テーマや間取りを
+   *  押した瞬間の見た目・3Dプレビューはこちらを見る（ユーザー決定 2026-08-13・A案:
+   *  プレビューは即時・公開ページは保存後）。保存ボタンを押すと `row` が追いつく。
+   *
+   *  **宣言はこの位置**（`spaceDraft` の直後）でなければならない ── 下の `useState` の
+   *  初期値がこれを読むので、後ろで宣言すると初回レンダリングで TDZ の
+   *  `ReferenceError` になりダッシュボードが真っ白になる（別視点レビューで検出。
+   *  tsc とビルドは両方通る）。 */
+  const view = { ...row, ...spaceDraft }
+  /** 保存の処理は非同期に走るので、**走る瞬間の下書き**を読めるようにしておく。
+   *  ここを `row` のままにすると、テーマの保存と配置の保存が同時に待っているとき、
+   *  後から走る側が**古いテーマで行を上書きして変更が消える**。 */
+  const viewRef = useRef(view)
+  viewRef.current = view
   useEffect(() => {
     let alive = true
     fetchPlacementOverrides(row.id)
@@ -732,17 +750,16 @@ function GalleryCard({
   const editGen = useRef(0)
   const savedGen = useRef(0)
   // Custom-layout knobs (width/depth/centre wall), editable right here in the dashboard.
-  const [custom, setCustom] = useState<CustomLayoutParams>(() => normalizeLayoutParams(row.layout_params))
-  const customTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [custom, setCustom] = useState<CustomLayoutParams>(() => normalizeLayoutParams(view.layout_params))
 
   const selected = selectedId ? cloudArtworks.find((a) => a.id === selectedId) : undefined
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
 
   // Effective per-work design: the override when set, else the gallery default
-  const frame = (selected && overrides.frames[selected.id]) || row.frame_default
-  const mat = (selected && overrides.mats[selected.id]) || row.mat_default
-  const hanging = (selected && overrides.hangings[selected.id]) || row.hanging_default
-  const captionKey = (selected && overrides.captions[selected.id]) || row.caption_default
+  const frame = (selected && overrides.frames[selected.id]) || view.frame_default
+  const mat = (selected && overrides.mats[selected.id]) || view.mat_default
+  const hanging = (selected && overrides.hangings[selected.id]) || view.hanging_default
+  const captionKey = (selected && overrides.captions[selected.id]) || view.caption_default
   // Effective lighting for the selected work: 'follow' means the room's default.
   const lightKey = (() => {
     const k = selected ? overrides.lights[selected.id] : undefined
@@ -812,36 +829,23 @@ function GalleryCard({
     // (a non-standard size, or none yet) open the custom fields so they're ready to type.
     setSizeCustom(matchPreset(selected?.widthCm, selected?.heightCm) === null)
     setMediumInput(selected?.medium ?? '')
-    setWorkState('idle')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
 
-  // Title + statement are ALWAYS editable — typing autosaves after a short pause
-  // (no "Edit details" mode). Debounce lives in a ref so re-renders don't reset it.
+  // 題名と展示情報。**自動保存はしない**（ユーザー指示 2026-08-13）── 打った内容は
+  // すぐ画面に出るが、DBへ書くのは上帯の保存ボタンを押したときだけ。書きかけが
+  // 公開中の部屋にそのまま出てしまうのを止めるため。以下6経路すべて同じ形。
   function editDetails(next: { title?: string; statement?: string }) {
     if (next.title !== undefined) setNameInput(next.title)
     if (next.statement !== undefined) setStatementInput(next.statement)
-    setDetailsState('saving')
-    if (detailsTimer.current) clearTimeout(detailsTimer.current)
     const title = next.title ?? nameInput
     const statement = next.statement ?? statementInput
-    detailsTimer.current = setTimeout(() => {
-      updateGalleryDetails(row.id, { title, statement })
-        .then(async () => {
-          await refreshMyGallery()
-          onChanged()
-          setDetailsState('idle')
-          toast()
-        })
-        .catch((e) => {
-          alert(t('me.saveDetailsFailed', { msg: String(e instanceof Error ? e.message : e) }))
-          setDetailsState('idle')
-        })
-    }, 900)
+    mark('details', null, async () => {
+      await updateGalleryDetails(row.id, { title, statement })
+      await refreshMyGallery()
+      onChanged()
+    })
   }
-  useEffect(() => () => {
-    if (detailsTimer.current) clearTimeout(detailsTimer.current)
-  }, [])
 
   // Visitor engagement counts (needs migration 0008; hide quietly if unapplied)
   useEffect(() => {
@@ -923,23 +927,48 @@ function GalleryCard({
     }
     const going = !row.is_public
     await run(row.is_public ? 'Making private' : 'Publishing', async () =>
-      setGalleryPublic(row, going, rowToSettings(row, await mergedOverrides()), cloudArtworks)
+      // 公開の切替は即時（ユーザー決定 2026-08-13）。ただし**未保存の下書きを含めて**公開
+      // する ── `row`（保存済み）だけを見ると、テーマを変えてから公開した人が「変える前の
+      // 部屋」を公開することになる。
+      setGalleryPublic(row, going, await pendingSettings(), cloudArtworks)
     )
     track(going ? 'me_publish_on' : 'me_publish_off', {
       works: cloudArtworks.length,
-      theme: row.theme,
-      layout: row.layout,
+      theme: view.theme,
+      layout: view.layout,
     })
   }
 
-  // Quick space change without opening the editor. Theme changes are cosmetic;
-  // layout changes re-cap the placements, so public rooms are rebuilt too
-  async function setSpace(partial: Partial<Pick<ReturnType<typeof rowToSettings>, 'theme' | 'layout' | 'frame' | 'mat' | 'hanging' | 'caption'>>) {
-    await run('Space change', async () => {
-      const s = { ...rowToSettings(row, await mergedOverrides()), ...partial }
+  // テーマ・間取り・既定の額装。**押した瞬間は下書きに入るだけ**で、DBへ書くのは保存
+  // ボタンを押したとき（ユーザー指示 2026-08-13）。画面と3Dプレビューは `view` を見るので
+  // 見た目はすぐ変わる。
+  function setSpace(partial: Partial<Pick<ReturnType<typeof rowToSettings>, 'theme' | 'layout' | 'frame' | 'mat' | 'hanging' | 'caption'>>) {
+    // 設定のキー（`frame`）と行の列名（`frame_default`）は別物なので、ここで移し替える
+    const toRow: Partial<GalleryRow> = {}
+    if (partial.theme !== undefined) toRow.theme = partial.theme
+    if (partial.layout !== undefined) toRow.layout = partial.layout
+    if (partial.frame !== undefined) toRow.frame_default = partial.frame
+    if (partial.mat !== undefined) toRow.mat_default = partial.mat
+    if (partial.hanging !== undefined) toRow.hanging_default = partial.hanging
+    if (partial.caption !== undefined) toRow.caption_default = partial.caption
+    setSpaceDraft((d) => ({ ...d, ...toRow }))
+    mark('space', null, async () => {
+      const s = await pendingSettings()
       await saveGallerySpace(row.id, s)
       if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+      await refreshMyGallery()
+      // **下書きは畳まない**（別視点レビューで検出）。`refreshMyGallery()` の後は行が同じ
+      // 値を持つので下書きは同じものを重ねているだけ。逆に空にすると、**保存している最中に
+      // 入った変更（新しい間取り等）を消してしまう** ── その変更の保存タスクは残るのに、
+      // 読む下書きが空なので古い値を書き戻すことになる。
+      onChanged()
     })
+  }
+
+  /** 行に書き込む保存が共通で使う「いま保存すべき設定」。**走る瞬間の下書きを読む**ので、
+   *  テーマ・配置・間取りの保存が同時に待っていても、どれが最後に走っても同じ設定になる。 */
+  async function pendingSettings(extra?: Partial<ReturnType<typeof rowToSettings>>) {
+    return { ...rowToSettings(viewRef.current, await mergedOverrides()), ...extra }
   }
 
   // Design Tools (§11.5/§11.8) — purely cosmetic, so this skips setSpace's
@@ -948,19 +977,13 @@ function GalleryCard({
   function editDesign(partial: Partial<DesignOverrides>) {
     const next = { ...design, ...partial }
     setDesign(next)
-    if (designTimer.current) clearTimeout(designTimer.current)
-    designTimer.current = setTimeout(() => {
-      saveDesignOverrides(row.id, next)
-        .then(() => {
-          void refreshMyGallery()
-          toast()
-        })
-        .catch((e) => alert(t('me.saveDesignFailed', { msg: String(e instanceof Error ? e.message : e) })))
-    }, 500)
+    // **`space` とは別の枠**（別視点レビューで検出）。同じ枠にすると、テーマを変えた
+    // あとに色を触るだけでテーマの保存が置き換えられて消える。
+    mark('design', null, async () => {
+      await saveDesignOverrides(row.id, next)
+      await refreshMyGallery()
+    })
   }
-  useEffect(() => () => {
-    if (designTimer.current) clearTimeout(designTimer.current)
-  }, [])
 
   // Re-seed placement when the row's saved arrangement changes (another device edits it,
   // or our own save round-trips), but never clobber an unsaved/in-flight local edit — a
@@ -986,81 +1009,47 @@ function GalleryCard({
   function editOverrides(partial: Partial<PlacementOverrides>) {
     const next = { ...overrides, ...partial }
     setOverrides(next)
-    if (overrideTimer.current) clearTimeout(overrideTimer.current)
-    overrideTimer.current = setTimeout(() => {
-      void (async () => {
-        try {
-          if (row.is_public) await rebuildPlacements(row.id, rowToSettings(row, next), cloudArtworks)
-          toast()
-        } catch (e) {
-          alert(t('me.actionFailed', { label: t('me.theme'), msg: String(e instanceof Error ? e.message : e) }))
-        }
-      })()
-    }, 700)
+    mark('override', null, async () => {
+      if (row.is_public) await rebuildPlacements(row.id, rowToSettings(viewRef.current, next), cloudArtworks)
+    })
   }
-  useEffect(() => () => {
-    if (overrideTimer.current) clearTimeout(overrideTimer.current)
-  }, [])
 
   // Manual placement autosave (§11.13): optimistic local update, then persist through
   // the same rowToSettings → saveGallerySpace(+rebuildPlacements) path as theme/layout.
   function editPlacement(next: (string | null)[]) {
     const gen = ++editGen.current
     setPlacement(next)
-    if (placeTimer.current) clearTimeout(placeTimer.current)
-    placeTimer.current = setTimeout(() => {
-      void (async () => {
-        try {
-          const s = { ...rowToSettings(row, await mergedOverrides()), arrangement: next }
-          await saveGallerySpace(row.id, s)
-          if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
-          // Stamp BEFORE the row refresh: this gen is now the persisted truth, so if no
-          // newer edit arrived the re-seed may adopt the refreshed row.
-          savedGen.current = gen
-          await refreshMyGallery()
-          onChanged()
-          toast()
-        } catch (e) {
-          alert(t('me.savePlacementFailed', { msg: String(e instanceof Error ? e.message : e) }))
-        }
-      })()
-    }, 700)
+    mark('place', null, async () => {
+      const s = await pendingSettings({ arrangement: next })
+      await saveGallerySpace(row.id, s)
+      if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+      // Stamp BEFORE the row refresh: this gen is now the persisted truth, so if no
+      // newer edit arrived the re-seed may adopt the refreshed row.
+      savedGen.current = gen
+      await refreshMyGallery()
+      onChanged()
+    })
   }
-  useEffect(() => () => {
-    if (placeTimer.current) clearTimeout(placeTimer.current)
-  }, [])
 
   // Custom layout size autosave: optimistic local update, then persist the layout_params
   // through the same saveGallerySpace(+rebuildPlacements) path. Debounced because the
   // sliders fire on every drag frame. Resizing changes the slot count, so public rooms
   // rebuild their placements.
   useEffect(() => {
-    setCustom(normalizeLayoutParams(row.layout_params))
+    setCustom(normalizeLayoutParams(view.layout_params))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(row.layout_params)])
+  }, [JSON.stringify(view.layout_params)])
   function editCustom(partial: Partial<CustomLayoutParams>) {
     const next = normalizeLayoutParams({ ...custom, ...partial })
     setCustom(next)
-    if (customTimer.current) clearTimeout(customTimer.current)
-    customTimer.current = setTimeout(() => {
-      void (async () => {
-        try {
-          const s = { ...rowToSettings(row, await mergedOverrides()), layout: 'custom', layoutParams: next }
-          await saveGallerySpace(row.id, s)
-          if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
-          await refreshMyGallery()
-          onChanged()
-          toast()
-        } catch (e) {
-          alert(t('me.saveLayoutFailed', { msg: String(e instanceof Error ? e.message : e) }))
-        }
-      })()
-    }, 500)
+    mark('custom', null, async () => {
+      const s = await pendingSettings({ layout: 'custom', layoutParams: next })
+      await saveGallerySpace(row.id, s)
+      if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+      await refreshMyGallery()
+      onChanged()
+    })
   }
-  useEffect(() => () => {
-    if (customTimer.current) clearTimeout(customTimer.current)
-  }, [])
-
   async function onLogoFile(file: File | undefined) {
     if (!file) return
     setLogoUploading(true)
@@ -1222,24 +1211,13 @@ function GalleryCard({
       medium: next.medium ?? mediumInput,
       cropAlign: next.cropAlign ?? cropAlignInput,
     }
-    setWorkState('saving')
-    if (workTimer.current) clearTimeout(workTimer.current)
-    workTimer.current = setTimeout(() => {
-      updateArtworkDetails(id, payload)
-        .then(async () => {
-          await refreshCloud()
-          setWorkState('idle')
-          toast()
-        })
-        .catch((e) => {
-          alert(t('me.workSaveFailed', { msg: String(e instanceof Error ? e.message : e) }))
-          setWorkState('idle')
-        })
-    }, 900)
+    // **作品ごとに別枠**（`work:<id>`）。ひとつの枠にすると、2点続けて直したときに
+    // 先の作品の変更が消える。
+    mark('work', id, async () => {
+      await updateArtworkDetails(id, payload)
+      await refreshCloud()
+    })
   }
-  useEffect(() => () => {
-    if (workTimer.current) clearTimeout(workTimer.current)
-  }, [])
 
   // The shared work editor: opens from the works row and from the placement map
   // (DECISIONS 2026-07-30 — hanging and describing a work used to live in different
@@ -1254,8 +1232,10 @@ function GalleryCard({
         <span className="me-sheet-title">{selected.title || t('common.untitled')}</span>
         {/* Delete moved to the × on each thumbnail (ユーザー指示 2026-07-30); the head
             keeps only the autosave state. */}
-        {workState !== 'idle' && (
-          <span className="hako-save-state">{workState === 'saving' ? t('common.saving') : t('common.saved')}</span>
+        {/* 「保存中…」ではなく**未保存の目印**（2026-08-13 に自動保存をやめた）。
+            どのカードに未保存が残っているかが分かる。保存は上帯のボタン。 */}
+        {workPendingKey && (
+          <span className="hako-save-state">{t('me.unsavedMark')}</span>
         )}
       </div>
       {/* The name plate's text: title + caption, straight onto the plate above. */}
@@ -1477,10 +1457,10 @@ function GalleryCard({
           else delete next[selected.id]
           editOverrides({ lights: next })
         }}
-        onFrame={(k) => editOverrides({ frames: setOverride(overrides.frames, selected.id, k, row.frame_default) })}
-        onMat={(k) => editOverrides({ mats: setOverride(overrides.mats, selected.id, k, row.mat_default) })}
-        onHanging={(k) => editOverrides({ hangings: setOverride(overrides.hangings, selected.id, k, row.hanging_default) })}
-        onCaption={(k) => editOverrides({ captions: setOverride(overrides.captions, selected.id, k, row.caption_default) })}
+        onFrame={(k) => editOverrides({ frames: setOverride(overrides.frames, selected.id, k, view.frame_default) })}
+        onMat={(k) => editOverrides({ mats: setOverride(overrides.mats, selected.id, k, view.mat_default) })}
+        onHanging={(k) => editOverrides({ hangings: setOverride(overrides.hangings, selected.id, k, view.hanging_default) })}
+        onCaption={(k) => editOverrides({ captions: setOverride(overrides.captions, selected.id, k, view.caption_default) })}
       />
     </div>
   ) : null
@@ -1593,11 +1573,11 @@ function GalleryCard({
           art={roomArt}
           src={roomSrc}
           index={Math.max(0, cloudArtworks.indexOf(roomArt))}
-          themeKey={row.theme}
-          frameKey={row.frame_default}
-          matKey={row.mat_default}
-          hangingKey={row.hanging_default}
-          captionKey={row.caption_default}
+          themeKey={view.theme}
+          frameKey={view.frame_default}
+          matKey={view.mat_default}
+          hangingKey={view.hanging_default}
+          captionKey={view.caption_default}
           designOverrides={design}
           emptyNote={t('me.emptyRoomNote')}
           mode="room"
@@ -1620,11 +1600,11 @@ function GalleryCard({
                   return (
                     <button
                       key={key}
-                      className={`chip chip-visual${key === row.theme ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      className={`chip chip-visual${key === view.theme ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                       disabled={busy}
                       onClick={() => {
                         if (!unlocked) { setPurchaseItem({ kind: 'theme', key, label: def.label }); return }
-                        void setSpace({ theme: key, ...def.recommends, mat: 'auto' })
+                        setSpace({ theme: key, ...def.recommends, mat: 'auto' })
                       }}
                     >
                       <ThemeSwatch themeKey={key} />
@@ -1711,7 +1691,7 @@ function GalleryCard({
                   <div className="design-controls">
                     <input
                       type="color"
-                      value={design.wall ?? hex((THEMES[row.theme] ?? THEMES.chic).wall)}
+                      value={design.wall ?? hex((THEMES[view.theme] ?? THEMES.chic).wall)}
                       onChange={(e) => editDesign({ wall: e.target.value })}
                     />
                     {design.wall && (
@@ -1724,7 +1704,7 @@ function GalleryCard({
                   <div className="design-controls">
                     <input
                       type="color"
-                      value={design.floor ?? hex((THEMES[row.theme] ?? THEMES.chic).floorTint)}
+                      value={design.floor ?? hex((THEMES[view.theme] ?? THEMES.chic).floorTint)}
                       onChange={(e) => editDesign({ floor: e.target.value })}
                     />
                     {design.floor && (
@@ -1737,7 +1717,7 @@ function GalleryCard({
                   <div className="design-controls">
                     <input
                       type="color"
-                      value={design.lightColor ?? hex((THEMES[row.theme] ?? THEMES.chic).spotColor)}
+                      value={design.lightColor ?? hex((THEMES[view.theme] ?? THEMES.chic).spotColor)}
                       onChange={(e) => editDesign({ lightColor: e.target.value })}
                     />
                     {design.lightColor && (
@@ -1804,11 +1784,11 @@ function GalleryCard({
             art={selected ? previewArt : roomArt}
             src={selected ? previewSrc : roomSrc}
             index={selected ? selectedIndex : Math.max(0, cloudArtworks.indexOf(roomArt))}
-            themeKey={row.theme}
-            frameKey={selected ? frame : row.frame_default}
-            matKey={selected ? mat : row.mat_default}
-            hangingKey={selected ? hanging : row.hanging_default}
-            captionKey={selected ? captionKey : row.caption_default}
+            themeKey={view.theme}
+            frameKey={selected ? frame : view.frame_default}
+            matKey={selected ? mat : view.mat_default}
+            hangingKey={selected ? hanging : view.hanging_default}
+            captionKey={selected ? captionKey : view.caption_default}
             designOverrides={selected ? selectedDesign : design}
             emptyNote={t('me.emptyRoomNote')}
             mode={selected ? 'work' : 'room'}
@@ -1961,11 +1941,11 @@ function GalleryCard({
                   return (
                     <button
                       key={key}
-                      className={`chip chip-visual${key === row.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      className={`chip chip-visual${key === view.layout ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                       disabled={busy}
                       onClick={() => {
                         if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: t(`presets.layout.${key}`) }); return }
-                        void setSpace({ layout: key })
+                        setSpace({ layout: key })
                       }}
                     >
                       <LayoutPlan layoutKey={key} className="chip-plan" />
@@ -1980,18 +1960,18 @@ function GalleryCard({
                     own shape. Once released, the chip goes through the same lock/purchase
                     path as the presets: free access was the bug, not the feature.
                     layout_params survive preset switches (saveGallerySpace preserves them). */}
-                {(CUSTOM_LAYOUT_RELEASED || row.layout === 'custom') && (() => {
-                  const unlocked = row.layout === 'custom' || isLayoutUnlocked('custom', entitlements)
+                {(CUSTOM_LAYOUT_RELEASED || view.layout === 'custom') && (() => {
+                  const unlocked = view.layout === 'custom' || isLayoutUnlocked('custom', entitlements)
                   return (
                     <button
-                      className={`chip chip-visual${row.layout === 'custom' ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      className={`chip chip-visual${view.layout === 'custom' ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                       disabled={busy}
                       onClick={() => {
                         if (!unlocked) { setPurchaseItem({ kind: 'layout', key: 'custom', label: t('me.custom') }); return }
-                        void setSpace({ layout: 'custom' })
+                        setSpace({ layout: 'custom' })
                       }}
                     >
-                      <LayoutPlan layoutKey="custom" params={row.layout_params} className="chip-plan" />
+                      <LayoutPlan layoutKey="custom" params={view.layout_params} className="chip-plan" />
                       {t('me.custom')}
                       {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
                     </button>
@@ -1999,7 +1979,7 @@ function GalleryCard({
                 })()}
               </div>
             </div>
-            {row.layout === 'custom' && (
+            {view.layout === 'custom' && (
               <div className="wd-row wd-row-block">
                 <span className="wd-label">{t('me.customSize')}</span>
                 <div className="wd-block-body custom-size">
@@ -2035,8 +2015,8 @@ function GalleryCard({
                 <p className="me-note" style={{ marginTop: '0.3rem' }}>{t('me.placementDragHint')}</p>
               </div>
               <PlacementEditor
-                layoutKey={row.layout}
-                layoutParams={normalizeLayoutParams(row.layout_params)}
+                layoutKey={view.layout}
+                layoutParams={normalizeLayoutParams(view.layout_params)}
                 // 部屋ごとに固定ではなく、口座全体の枠を自由配分する（ユーザー決定
                 // 2026-08-12: 「合計20枠あるのに、デフォルトの部屋では5枠しか置けない」
                 // という指摘に対し、部屋ごとの固定割りを撤廃。この部屋が使える枠は
@@ -2076,11 +2056,11 @@ function GalleryCard({
             art={roomArt}
             src={roomSrc}
             index={Math.max(0, cloudArtworks.indexOf(roomArt))}
-            themeKey={row.theme}
-            frameKey={row.frame_default}
-            matKey={row.mat_default}
-            hangingKey={row.hanging_default}
-            captionKey={row.caption_default}
+            themeKey={view.theme}
+            frameKey={view.frame_default}
+            matKey={view.mat_default}
+            hangingKey={view.hanging_default}
+            captionKey={view.caption_default}
             designOverrides={design}
             emptyNote={t('me.emptyRoomNote')}
             mode="room"
@@ -2325,8 +2305,8 @@ function GalleryCard({
             <div className="wd-group">
               <div className="wd-title">
                 <span>{t('me.exhibitionTitle')}</span>
-                {detailsState !== 'idle' && (
-                  <span className="hako-save-state">{detailsState === 'saving' ? t('common.saving') : t('common.saved')}</span>
+                {detailsPending && (
+                  <span className="hako-save-state">{t('me.unsavedMark')}</span>
                 )}
               </div>
               <input
@@ -2689,8 +2669,75 @@ function MarkdownPreview({ value }: { value: string }) {
   )
 }
 
+/**
+ * ダッシュボードから**出ていく**リンクの門番。未保存があるときだけ確認する。
+ *
+ * `beforeunload` はブラウザを閉じる/リロードするときしか鳴らず、**アプリ内の遷移
+ * （ロゴ・探す・管理）では鳴らない** ── そこを素通しにすると、長い展示情報を書いた直後に
+ * ロゴを押しただけで消える。ユーザーの決定（2026-08-13）は「タブの移動では保持、離れる
+ * ときだけ確認」なので、**ページから出る操作はここで聞く**。
+ */
+function useLeaveGuard() {
+  const t = useT()
+  const dirty = useHasPending()
+  return (e: { preventDefault: () => void }) => {
+    if (!dirty) return
+    if (!window.confirm(t('me.unsavedLeave'))) e.preventDefault()
+  }
+}
+
+/**
+ * 上帯の**保存ボタン**（ユーザー指示 2026-08-13「オートセーブはやめて全てのタブ内の情報を、
+ * 1ボタンで保存できるようにしよう」）。
+ *
+ * **`TopActions` の `before` に置く＝ハンバーガーに畳まれない場所。** 640px以下ではメニューの
+ * 中身が畳まれるので、そこに入れると**未保存の目印がメニューを開くまで見えない**
+ * （通知ベルで同じ失敗を一度している。LESSONS 2026-08-09）。
+ *
+ * 未保存が無いときも**出したままにする**（押せない状態で）── 現れたり消えたりするボタンは、
+ * 押そうとした瞬間に位置が変わる。
+ */
+function SaveAllButton() {
+  const t = useT()
+  const dirty = useHasPending()
+  const saving = usePending((s) => s.saving)
+  const savedAt = usePending((s) => s.savedAt)
+  const saveAll = usePending((s) => s.saveAll)
+  const toast = useToast()
+  // 「保存しました」は数秒だけ出す。ずっと出しているとボタンの意味が読めなくなる。
+  const [justSaved, setJustSaved] = useState(false)
+  useEffect(() => {
+    if (!savedAt) return
+    setJustSaved(true)
+    const id = setTimeout(() => setJustSaved(false), 2600)
+    return () => clearTimeout(id)
+  }, [savedAt])
+
+  const label = saving ? t('common.saving') : justSaved && !dirty ? t('common.saved') : t('me.saveAll')
+  return (
+    <button
+      type="button"
+      className={`me-save-all${dirty ? ' is-dirty' : ''}`}
+      disabled={!dirty || saving}
+      aria-label={dirty ? `${t('me.saveAll')}（${t('me.unsavedMark')}）` : t('me.saveAll')}
+      onClick={() => {
+        void (async () => {
+          const r = await saveAll()
+          if (r.ok) toast()
+          else alert(t('me.saveAllFailed', { msg: r.failed ?? '' }))
+        })()
+      }}
+    >
+      {label}
+      {dirty && <span className="me-save-dot" aria-hidden="true" />}
+    </button>
+  )
+}
+
 function ProfileCard() {
   const t = useT()
+  const mark = usePending((s) => s.mark)
+  const profilePending = usePendingKind('profile')
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
@@ -2715,8 +2762,6 @@ function ProfileCard() {
   const [snsFocus, setSnsFocus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // Profile text (display name / bio / SNS) autosaves like everything else.
-  const [profileState, setProfileState] = useState<'idle' | 'saving'>('idle')
-  const profileTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -2784,33 +2829,19 @@ function ProfileCard() {
       cv: next.cv ?? cv,
       sns: { links: next.links ?? snsLinks, custom: next.custom ?? snsCustom },
     }
-    setProfileState('saving')
-    if (profileTimer.current) clearTimeout(profileTimer.current)
-    profileTimer.current = setTimeout(() => {
-      saveProfile(user.id, payload)
-        .then(async () => {
-          await refreshCloud()
-          setProfileState('idle')
-          toast()
-        })
-        .catch((e) => {
-          alert(t('me.profileSaveFailed', { msg: String(e instanceof Error ? e.message : e) }))
-          setProfileState('idle')
-        })
-    }, 900)
+    mark('profile', null, async () => {
+      await saveProfile(user.id, payload)
+      await refreshCloud()
+    })
   }
-  useEffect(() => () => {
-    if (profileTimer.current) clearTimeout(profileTimer.current)
-  }, [])
-
   return (
     <>
     {/* No "プロフィール" heading here — the stage tab directly above already reads
         "プロフィール" and is highlighted active, so a repeat heading was pure noise
-        (ユーザー指示 2026-08-11). The saving indicator still needs somewhere to sit. */}
-    {profileState === 'saving' && (
+        (ユーザー指示 2026-08-11). 未保存の目印だけがここに座る。 */}
+    {profilePending && (
       <div className="me-section-head">
-        <span className="hako-save-state">{t('common.saving')}</span>
+        <span className="hako-save-state">{t('me.unsavedMark')}</span>
       </div>
     )}
     <div className="me-card">
@@ -2992,10 +3023,27 @@ type MeTab = 'gallery' | 'account'
 
 export default function MePage() {
   const t = useT()
+  // 未保存があるか（保存ボタンと、閉じるときの確認に使う）
+  const dirty = useHasPending()
+  const guardLeave = useLeaveGuard()
   const user = useGallery((s) => s.user)
   const initAuth = useGallery((s) => s.initAuth)
   const hydrate = useGallery((s) => s.hydrate)
   const signOut = useGallery((s) => s.signOut)
+
+  // 未保存のままブラウザを閉じる/リロードしようとしたときだけ確認を出す
+  // （ユーザー選択 2026-08-13・A案。タブの移動では内容を保持するので邪魔しない）。
+  // 文言はブラウザが決めるので `preventDefault` だけで足りる。**早期 return より前に
+  // 置くこと** ── フックを条件の後ろに置くと React の規則を破る。
+  useEffect(() => {
+    if (!dirty) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = '' // 古いブラウザはこちらを見る
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [dirty])
 
   const isAdmin = useIsAdmin(user?.id ?? null)
   const [tab, setTab] = useState<MeTab>('gallery')
@@ -3192,12 +3240,12 @@ export default function MePage() {
       )}
       <div className="me-inner">
         <div className="me-top">
-          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
-          <TopActions before={<NotificationBell />}>
-            <LocaleLink className="btn-line" href="/explore">{t('me.explore')}</LocaleLink>
+          <LocaleLink href="/" className="auth-logo" onClick={guardLeave}>XIBIT360</LocaleLink>
+          <TopActions before={<><SaveAllButton /><NotificationBell /></>}>
+            <LocaleLink className="btn-line" href="/explore" onClick={guardLeave}>{t('me.explore')}</LocaleLink>
             <button className="btn-line" onClick={() => setHelpOpen(true)}>{t('help.title')}</button>
             {isAdmin && (
-              <Link className="btn-line btn-gold" href="/admin">{t('me.admin')}</Link>
+              <Link className="btn-line btn-gold" href="/admin" onClick={guardLeave}>{t('me.admin')}</Link>
             )}
             {user && (
               <button className="btn-line" onClick={() => setTab('account')}>{t('me.tabAccount')}</button>

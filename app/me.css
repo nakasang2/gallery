@@ -42,6 +42,45 @@
 .me-top-burger:hover,
 .me-top-burger[aria-expanded='true'] { border-color: var(--gold); color: var(--gold); }
 .me-top-burger:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* 上帯の**保存ボタン**（ユーザー指示 2026-08-13「1ボタンで保存」）。ハンバーガーの
+   左に常時出す ── 畳まれる中身に入れると、未保存の目印がメニューを開くまで見えない
+   （通知ベルで同じ失敗を一度している）。未保存が無いときも**消さずに**押せない状態で
+   置く: 現れたり消えたりするボタンは、押そうとした瞬間に位置が変わる。 */
+.me-save-all {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  margin-right: 0.4rem;
+  font: inherit;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.me-save-all:disabled { cursor: default; opacity: 0.55; }
+.me-save-all.is-dirty {
+  color: #1a1611;
+  background: var(--gold);
+  border-color: var(--gold);
+  font-weight: 600;
+}
+.me-save-all.is-dirty:hover { filter: brightness(1.08); }
+.me-save-all:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* 未保存の点。文字だけだと「保存」と「保存済み」の区別が一瞬で読めない */
+.me-save-dot {
+  width: 6px;
+  height: 6px;
+  margin-left: 0.45rem;
+  border-radius: 50%;
+  background: #1a1611;
+}
 /* 畳んだ中身。ロゴの行を押し広げないよう、行の外（絶対配置）に出す */
 .me-top-actions {
   position: absolute;
