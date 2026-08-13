@@ -583,9 +583,6 @@ function GalleryCard({
   // 保存するのは上帯の `SaveAllButton` を押したときだけ（ユーザー指示 2026-08-13）。
   const mark = usePending((s) => s.mark)
   const detailsPending = usePendingKind('details')
-  // 選んでいる作品の分だけ見る（`usePendingKind('work')` だと**別の作品**の未保存でも
-  // この作品に「未保存」と出て、目印の意味が壊れる。別視点レビューで検出）
-  const workPendingKey = usePending((s) => (selectedId ? s.tasks.has(`work:${selectedId}`) : false))
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
@@ -754,6 +751,11 @@ function GalleryCard({
 
   const selected = selectedId ? cloudArtworks.find((a) => a.id === selectedId) : undefined
   const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
+  /** いま開いている作品に未保存があるか。**`selectedId` の宣言より後で呼ぶこと** ──
+   *  zustand のセレクタは描画中にその場で実行されるので、上の方に置くと
+   *  `Cannot access 'selectedId' before initialization` でダッシュボードが全滅する
+   *  （2026-08-13 に実際に本番へ出してしまった。`tsc` はクロージャの中を見ないので通る）。 */
+  const workPendingKey = usePending((s) => (selectedId ? s.tasks.has(`work:${selectedId}`) : false))
 
   // Effective per-work design: the override when set, else the gallery default
   const frame = (selected && overrides.frames[selected.id]) || view.frame_default
