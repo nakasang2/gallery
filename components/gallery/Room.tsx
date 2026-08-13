@@ -415,23 +415,44 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
         </mesh>
       ))}
 
-      {/* Skylight (white cube): a soft natural-light area light */}
-      {theme.skylight && (
-        <group position={[0, h - 0.012, 0]}>
-          <mesh rotation-x={Math.PI / 2}>
-            <planeGeometry args={[Math.min(7, hw), Math.min(3.4, hd * 0.8)]} />
-            <meshStandardMaterial color={0x000000} emissive={0xf3f6ff} emissiveIntensity={1.5} />
-          </mesh>
-          <mesh position={[0, 0.005, 0]}>
-            <boxGeometry args={[Math.min(7, hw) + 0.16, 0.06, Math.min(3.4, hd * 0.8) + 0.16]} />
-            <meshStandardMaterial color={0xdcd8d0} roughness={0.9} />
-          </mesh>
-          <rectAreaLight
-            args={[0xf3f6ff, 3.2, Math.min(7, hw), Math.min(3.4, hd * 0.8)]}
-            rotation-x={-Math.PI / 2}
-          />
-        </group>
-      )}
+      {/* Skylight (white cube): a soft natural-light area light.
+          **枠は「4本の桟」で組む。一枚板にしない。**（ユーザー報告 2026-08-13
+          「天井に不自然なメッシュがあるんだけど」）── それまで枠は
+          `boxGeometry(w+0.16, 0.06, d+0.16)` を `y = +0.005` に置いた**中身の詰まった箱**で、
+          ガラス（`y = 0` の発光面）より **25mm 下に底面がある上に footprint も一回り大きい**
+          ので、下から見ると**ガラスを完全に覆っていた**。天窓が光らず、天井の真ん中に
+          「灰色の板が貼ってある」ようにしか見えなかったのがこれ。 */}
+      {theme.skylight && (() => {
+        const sw = Math.min(7, hw)
+        const sd = Math.min(3.4, hd * 0.8)
+        /** 桟の見付（幅）と厚み。厚みはガラスより下に出さない ── 出すと天井から
+         *  出っ張った箱に見えるので、ガラスと同じ面から上へ伸ばす。 */
+        const bar = 0.09
+        const barH = 0.06
+        return (
+          <group position={[0, h - 0.012, 0]}>
+            <mesh rotation-x={Math.PI / 2}>
+              <planeGeometry args={[sw, sd]} />
+              <meshStandardMaterial color={0x000000} emissive={0xf3f6ff} emissiveIntensity={1.5} />
+            </mesh>
+            {/* 4本の桟。ガラスの外側に置き、上へ伸ばす（下から見えるのは桟の底面だけ） */}
+            {(
+              [
+                [sw + bar * 2, bar, 0, (sd + bar) / 2],
+                [sw + bar * 2, bar, 0, -(sd + bar) / 2],
+                [bar, sd, (sw + bar) / 2, 0],
+                [bar, sd, -(sw + bar) / 2, 0],
+              ] as [number, number, number, number][]
+            ).map(([bx, bz, x, z]) => (
+              <mesh key={`sf${x},${z}`} position={[x, barH / 2, z]}>
+                <boxGeometry args={[bx, barH, bz]} />
+                <meshStandardMaterial color={0xdcd8d0} roughness={0.9} />
+              </mesh>
+            ))}
+            <rectAreaLight args={[0xf3f6ff, 3.2, sw, sd]} rotation-x={-Math.PI / 2} />
+          </group>
+        )
+      })()}
 
       {/* Benches */}
       {layout.benches.map((b) => (
