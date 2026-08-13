@@ -181,6 +181,25 @@ function nowForDatetimeLocal(): string {
   return local.toISOString().slice(0, 16)
 }
 
+/** `datetime-local` の入力欄はタイムゾーンを持たない文字列を読み書きするので、
+ *  それが「どのタイムゾーンの時刻か」を添えないと世界中から来る利用者には基準が
+ *  分からない（ユーザー指摘 2026-08-13）。ブラウザの現地タイムゾーンをラベルにする
+ *  （例: "Asia/Tokyo (GMT+09:00)"）。 */
+function localTimeZoneLabel(): string {
+  const offsetMin = -new Date().getTimezoneOffset()
+  const sign = offsetMin >= 0 ? '+' : '-'
+  const abs = Math.abs(offsetMin)
+  const hh = String(Math.floor(abs / 60)).padStart(2, '0')
+  const mm = String(abs % 60).padStart(2, '0')
+  const gmt = `GMT${sign}${hh}:${mm}`
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    return tz ? `${tz} (${gmt})` : gmt
+  } catch {
+    return gmt
+  }
+}
+
 const IMPORT_DISMISS_KEY = 'xibit360.importDismissed.v1'
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
@@ -237,7 +256,17 @@ function useRoomOffer() {
 // The first thing a signed-in artist sees: their own face and name, not a form
 // `topRight` は合同展示への導線（ユーザー指示 2026-08-10: `.me-top` の文字ボタン列に
 // 埋もれていたのを、この行の右側の空き領域へ引き上げる）。
-function Hero({ topRight }: { topRight?: React.ReactNode }) {
+function Hero({
+  topRight,
+  expo,
+}: {
+  topRight?: React.ReactNode
+  /** いま選んでいる部屋が合同展示の部屋なら、その展示。**通常展示の部屋・未取得なら
+   *  null**（ユーザー指摘 2026-08-13: 合同展示の部屋を見ているのに個人の `/@username`
+   *  が出ていた ── サブ行は「いま見ている部屋がどこで開いているか」を言う場所なので、
+   *  合同展示のときはその展示のURLに差し替える）。 */
+  expo?: Expo | null
+}) {
   const t = useT()
   const user = useGallery((s) => s.user)!
   const displayName = useGallery((s) => s.profileDisplayName)
@@ -247,6 +276,7 @@ function Hero({ topRight }: { topRight?: React.ReactNode }) {
   const h = new Date().getHours()
   const greet =
     h < 5 ? t('me.greetLate') : h < 11 ? t('me.greetMorning') : h < 18 ? t('me.greetAfternoon') : t('me.greetEvening')
+  const expoUrl = expo ? expoPath(expo.slug) : null
   return (
     <div className="me-hero">
       {avatarUrl ? (
@@ -258,7 +288,12 @@ function Hero({ topRight }: { topRight?: React.ReactNode }) {
       <div className="me-hero-text">
         <div className="me-hero-greet">{greet}, {name}.</div>
         <p className="me-hero-sub">
-          {username ? (
+          {expoUrl ? (
+            <>
+              {t('me.livesAtExpo')}{' '}
+              <a href={expoUrl} target="_blank" rel="noreferrer">{expoUrl}</a>
+            </>
+          ) : username ? (
             <>
               {t('me.livesAt')}{' '}
               <a href={`/@${username}`} target="_blank" rel="noreferrer">/@{username}</a>
@@ -2193,6 +2228,9 @@ function GalleryCard({
                         min={nowForDatetimeLocal()}
                         onChange={(e) => setScheduleInput(e.target.value)}
                       />
+                      <small className="me-field-hint">
+                        {t('expo.scheduleTzHint', { tz: localTimeZoneLabel() })}
+                      </small>
                     </label>
                     <div className="hako-actions">
                       {expoRunOptions().map((o) => (
@@ -3247,6 +3285,27 @@ export default function MePage() {
   /** An unused room grant — bought a room but hasn't built it yet. */
   const canBuildRoom = rooms.length > 0 && waiting > 0
 
+  // Hero の「あなたの展示のURL」の差し替え用（ユーザー指摘 2026-08-13）。`GalleryCard`
+  // も同じ形で自分の展示を取っているが、Hero はそれより上に描かれる兄弟コンポーネントで
+  // 状態を共有していないので、ここで同じだけ取る（`current.expo_id` が変わるたびに1回、
+  // 軽いクエリ）。
+  const [heroExpo, setHeroExpo] = useState<Expo | null>(null)
+  useEffect(() => {
+    if (!current?.expo_id) {
+      setHeroExpo(null)
+      return
+    }
+    let alive = true
+    void getExpoById(current.expo_id).then((x) => {
+      if (alive) setHeroExpo(x)
+    }).catch(() => {
+      if (alive) setHeroExpo(null)
+    })
+    return () => {
+      alive = false
+    }
+  }, [current?.expo_id])
+
   // Stable across renders so the context value doesn't invalidate every consumer.
   const openRoomOffer = useCallback(() => setRoomOfferOpen(true), [])
 
@@ -3351,18 +3410,21 @@ export default function MePage() {
 
         {user && (
           <>
-            <Hero topRight={
-              tab === 'gallery' && current ? (
-                <RoomExpoBadge
-                  room={current}
-                  userId={user.id}
-                  onOpenExpoManager={() => setExpoManagerOpen(true)}
-                  onChanged={() => void reload()}
-                />
-              ) : (
-                <button className="btn-line" onClick={() => setExpoManagerOpen(true)}>{t('expo.tab')}</button>
-              )
-            } />
+            <Hero
+              expo={tab === 'gallery' ? heroExpo : null}
+              topRight={
+                tab === 'gallery' && current ? (
+                  <RoomExpoBadge
+                    room={current}
+                    userId={user.id}
+                    onOpenExpoManager={() => setExpoManagerOpen(true)}
+                    onChanged={() => void reload()}
+                  />
+                ) : (
+                  <button className="btn-line" onClick={() => setExpoManagerOpen(true)}>{t('expo.tab')}</button>
+                )
+              }
+            />
             {purchaseReturn && (
               <div className={`me-card purchase-return${purchaseReturn === 'success' ? ' ok' : ''}`} role="status">
                 <p className="me-note" style={{ margin: 0 }}>

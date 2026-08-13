@@ -521,6 +521,15 @@
 }
 .me-field input:focus, .me-field textarea:focus, .spotlight-row input:focus,
 .sns-field input:focus, .sns-custom-row input:focus { border-color: var(--gold); }
+/* `<input type="datetime-local">` のカレンダー/時計アイコンはブラウザ既定で黒く描かれ、
+   このダーク背景では見えなかった（ユーザー指摘 2026-08-13）。`color-scheme: dark` は
+   ブラウザにネイティブUIをダーク配色で描かせる標準プロパティで、ピッカーのポップアップ
+   自体もダークになる。 */
+.me-field input[type='date'],
+.me-field input[type='time'],
+.me-field input[type='datetime-local'] {
+  color-scheme: dark;
+}
 
 /* Size row W×H number inputs — match the dashboard's other fields (were browser-default) */
 .size-num {

@@ -412,6 +412,10 @@ export function ParticipantsPanel({
             ))}
           </ul>
         )}
+        {/* 「もう1本つくる」ボタンのすぐ下に出す念押し。1本だけのときに限る ──
+            複数本ある状態でこの文言はちぐはぐ（ユーザー指摘 2026-08-13: 1人につき
+            1本作る運用に見えていた）。 */}
+        {liveLinks.length === 1 && <p className="me-note">{t('invite.linkReusable')}</p>}
       </div>
 
       <div className="participants-add">
