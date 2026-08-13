@@ -1,6 +1,6 @@
 'use client'
 // 3D gallery core: R3F Canvas + HUD/panels + guided tour
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { PerformanceMonitor, useProgress } from '@react-three/drei'
@@ -136,6 +136,52 @@ function useTour() {
   }, [tourActive, count])
 }
 
+/**
+ * シェーダの事前コンパイル。**ロード画面の裏で**シーン中の全マテリアルの GPU プログラムを
+ * 作ってしまう。
+ *
+ * WebGL はマテリアルが**初めて画面に映る瞬間**にシェーダをコンパイルする。だから
+ * 「入室直後だけ重い」が起きる ── 扉が開いたあと振り向くたび、新しい額縁や壁が視界に
+ * 入るたびに数十msの停止が挟まる（ユーザー報告 2026-08-13「ロード直後重い」）。
+ * `compileAsync` は `KHR_parallel_shader_compile` があればGPU側で並列に作るので、
+ * 同期版よりメインスレッドを止めない。無い環境では同期版に落ちる。
+ *
+ * **失敗しても止めない**: コンパイルは「先にやっておく」だけの最適化で、やらなくても
+ * 描画時に作られる。ここで例外を投げてロード画面に閉じ込めるほうがずっと悪い。
+ */
+function Warmup({ armed, onDone }: { armed: boolean; onDone: () => void }) {
+  const gl = useThree((s) => s.gl)
+  const scene = useThree((s) => s.scene)
+  const camera = useThree((s) => s.camera)
+  const started = useRef(false)
+  /** 打ち消すのは**アンマウントのときだけ**。別視点レビューで検出: `armed` は
+   *  `assetsIdle` を含むので、コンパイル中に次の波（銘板のcanvas・動画のポスター・
+   *  ゴーストのGLB）が1件登録されるだけで false へ落ちる。それを「やめる合図」に
+   *  していたため、**完了の通知が捨てられ、扉が12秒のタイムアウトまで開かなかった**
+   *  （しかも `gallery_loading_timeout` が誤って飛ぶので、記録の上では壊れて見える）。 */
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  useEffect(() => {
+    if (!armed || started.current) return
+    started.current = true
+    const finish = () => {
+      if (mounted.current) onDone()
+    }
+    try {
+      // カメラの向きは関係なく、シーンに居るもの全部（視界の外も）を対象にする。
+      gl.compileAsync(scene, camera).then(finish, finish)
+    } catch {
+      finish()
+    }
+  }, [armed, gl, scene, camera, onDone])
+  return null
+}
+
 export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { onShellReady?: () => void; demoTheme?: string | null; demo?: boolean }) {
   const t = useT()
   const ready = useGallery((s) => s.ready)
@@ -157,6 +203,13 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   const [canvasKey, setCanvasKey] = useState(0)
   const [contextLost, setContextLost] = useState(false)
 
+  // 事前コンパイルが終わったか。**「ロード直後だけ重い」の正体**（ユーザー報告
+  // 2026-08-13）── WebGL はマテリアルが**初めて描かれる瞬間**にシェーダを作るので、
+  // 扉が開いたあと歩いて新しい物が視界に入るたびに数十msの停止が起きる。
+  // `Warmup` がロード画面の裏でまとめて作ってしまう。
+  const [warm, setWarm] = useState(false)
+  const onWarm = useCallback(() => setWarm(true), [])
+
   // Settings hydrated + canvas fonts ready. Used to be the whole story, which is
   // why the door opened on a timer while the room was still empty.
   const [hydrated, setHydrated] = useState(false)
@@ -167,7 +220,30 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   // measure of "is the room actually there yet".
   const { active: assetsLoading, loaded: assetsLoaded, total: assetsTotal } = useProgress()
   const assetsIdle = !assetsLoading && assetsLoaded >= assetsTotal
-  const loadPct = assetsTotal > 0 ? Math.round((Math.min(assetsLoaded, assetsTotal) / assetsTotal) * 100) : 0
+  // 進捗は**戻さない**（ユーザー報告 2026-08-13「ロードが二回される」の正体）。
+  // three の `LoadingManager` は `itemsTotal` / `itemsLoaded` を**セッション通しで数え、
+  // 一度も0に戻さない**（`node_modules/three/src/loaders/LoadingManager.js` を実際に読んで
+  // 確認した ── 最初は「波ごとに数え直す」と思い込んで積み上げる実装を書いたが、
+  // その条件は永久に成立しない死んだコードだった）。実際に起きるのは**割合の後退**で、
+  // 20/20（100%）のあとに新しい波が12件登録されると 20/32（62%）へ落ちる。バーが伸び切って
+  // から戻ってまた伸びるので、待っている人からは「2回ロードしている」に見える。
+  // 表示は**最大値で止める** ── 遅れている波があっても、進捗は前に進むだけにする。
+  //
+  // ただし**単調増加だけでは足りない**: 最初に登録された1件がほかより先に終わると
+  // 1/1 = 100% になり、そこで止まったまま残りを読み続ける（バーが役に立たなくなる）。
+  // そこで **92% で足止めし、本当に空になったときだけ 100%** にする。伸びるだけ・
+  // 嘘の完了を出さない、の両方を満たす。
+  const pctSeen = useRef(0)
+  const rawPct = assetsTotal > 0 ? Math.round((Math.min(assetsLoaded, assetsTotal) / assetsTotal) * 100) : 0
+  // 「今の狙い」は、**扉が開く直前なら 100**、まだ読んでいるなら生の割合（92止め）。
+  // それを過去の最大と比べて大きい方にするので、後から波が増えても戻らない。
+  // ※ 100 を「空になった瞬間」で出すと嘘になる: 最初の1件がほかより先に終わると
+  //   1/1 = 100% でそこから動かなくなる（キャッシュが温かいと実際に起きる）。
+  //   **本当に開ける条件（`hydrated` かつ事前コンパイル済みかつ空）**に揃える。
+  const nearlyOpen = hydrated && warm && assetsIdle && assetsTotal > 0
+  const target = nearlyOpen ? 100 : Math.min(rawPct, 92)
+  const loadPct = Math.max(pctSeen.current, target)
+  pctSeen.current = loadPct
   // null = still detecting; false = no WebGL → 2D list fallback
   const [webgl, setWebgl] = useState<boolean | null>(null)
   // Render resolution per quality tier. The high tier starts at native retina and
@@ -297,9 +373,14 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   useEffect(() => {
     if (loadingDone || !hydrated) return
     if (!assetsIdle && !waitedOut) return
+    // **シェーダを作り終えるまで開けない**（`Warmup`）。ここで待たないと、扉が開いた
+    // あとに歩くたびコンパイルの停止が起きる ── 待つと分かっている場所へ costs を移す。
+    // WebGL が無い環境（`FlatGallery`）に Canvas は無く `warm` が永久に false なので、
+    // その経路では待たない。12秒の保険（`waitedOut`）も効く。
+    if (webgl && !warm && !waitedOut) return
     const t = setTimeout(() => setLoadingDone(true), 400)
     return () => clearTimeout(t)
-  }, [loadingDone, hydrated, assetsIdle, waitedOut])
+  }, [loadingDone, hydrated, assetsIdle, waitedOut, webgl, warm])
 
   // Recover from the browser taking the GPU away — iOS Safari does this on app
   // switch or memory pressure, and there was no handler at all, so the room just
@@ -430,6 +511,8 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
             />
           )}
           <AdaptiveFov />
+          {/* アセットが揃ったら、扉を開ける前にシェーダを全部作る（下の `Warmup`） */}
+          <Warmup armed={hydrated && (assetsIdle || waitedOut)} onDone={onWarm} />
           <GalleryScene />
         </Canvas>
       )}
