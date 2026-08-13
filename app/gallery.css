@@ -1946,15 +1946,16 @@ body:not(.gallery-mode) {
    展示では RoomSwitch が何も描かないので、この一式は出番が無い。 */
 .roomswitch {
   position: fixed;
-  left: 1.2rem;
-  /* Above the minimap (118px wide, ~1.2rem inset) rather than beside it: the
-     room names are as long as the artist wants, and a row next to the map would
-     push into the artwork on a narrow window. */
+  left: 50%;
+  transform: translateX(-50%);
+  /* bottom はミニマップ回避のため元々高めに積んであった値をそのまま流用
+     （ユーザー指示 2026-08-13: 左下→中央寄せ）。結果としてページャー(1.2rem)・
+     ヒント(4.9rem)・トースト(6.4rem)のどの帯とも重ならない高さになっている。 */
   bottom: calc(1.2rem + 118px + 0.6rem + env(safe-area-inset-bottom, 0px));
   z-index: 16;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.45rem;
   max-width: min(15rem, calc(100vw - 2.4rem));
 }
@@ -2028,9 +2029,9 @@ body:not(.gallery-mode) {
 .roomswitch-item.current { color: var(--ink); cursor: default; }
 .roomswitch-here { margin-left: auto; font-size: 0.66rem; color: var(--gold); white-space: nowrap; }
 @media (max-width: 640px) {
-  /* The phone stacks the minimap higher to clear the pager — follow it up. */
+  /* The phone stacks the minimap higher to clear the pager — follow it up.
+     left/transform stay inherited from the base rule (centered). */
   .roomswitch {
-    left: 1rem;
     bottom: calc(4.4rem + 92px + 0.6rem + env(safe-area-inset-bottom, 0px));
     max-width: calc(100vw - 2rem);
   }

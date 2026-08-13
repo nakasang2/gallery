@@ -18,6 +18,7 @@ import { useT } from '@/components/I18nProvider'
 import type { GalleryRow } from '@/lib/galleries'
 import { listMyExpos, roomExpoSwitchErrorKey, switchRoomExpo, type Expo } from '@/lib/expos'
 import { track } from '@/lib/analytics'
+import { SwitchIcon } from '@/components/icons'
 
 export default function RoomExpoBadge({
   room,
@@ -110,7 +111,12 @@ export default function RoomExpoBadge({
         aria-controls="room-expo-panel"
         onClick={() => setOpen((v) => !v)}
       >
-        {label}
+        {/* 左端のアイコン（ユーザー指示 2026-08-13）: このボタンがモード切替を開く
+            ものだと一目で分かるように、通常展示⇄合同展示を表す矢印を label の前に置く。 */}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4em' }}>
+          <SwitchIcon />
+          {label}
+        </span>
       </button>
       {open && (
         <div id="room-expo-panel" className="room-expo-panel" role="dialog" aria-label={label}>

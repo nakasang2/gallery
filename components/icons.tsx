@@ -154,6 +154,30 @@ export function CheckIcon({ className }: { className?: string }) {
   )
 }
 
+// Two opposing arrows — the "this room can switch mode" cue next to RoomExpoBadge's
+// label (通常展示 ⇄ 合同展示).
+export function SwitchIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 8h13" />
+      <path d="M13 4l4 4-4 4" />
+      <path d="M20 16H7" />
+      <path d="M11 20l-4-4 4-4" />
+    </svg>
+  )
+}
+
 export function BellIcon({ className }: { className?: string }) {
   return (
     <svg

@@ -52,7 +52,13 @@
   border-bottom: 1px solid var(--hairline);
   margin-top: 1.3rem;
 }
-.me-stages-row .me-stages { margin-top: 0; border-bottom: 0; flex: 1 1 auto; min-width: 0; }
+/* align-items: flex-end (行の既定値 stretch を上書き): `.me-stages` は自身も
+   display:flex なので、既定の stretch のままだと行の高さ（保存ボタン側の
+   padding-bottom ぶん含む）まで `.me-stage` タブ自身が引き伸ばされ、結果的に
+   保存ボタンより高くなっていた（Playwright で実測・ユーザー指摘 2026-08-13）。
+   タブは元々下線（border-bottom）で行の下端に揃う作りなので、flex-end の方が
+   意図にも合う。 */
+.me-stages-row .me-stages { margin-top: 0; border-bottom: 0; flex: 1 1 auto; min-width: 0; align-items: flex-end; }
 .me-save-slot {
   flex: 0 0 auto;
   display: flex;
@@ -79,9 +85,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
-  padding: 0 0.9rem;
+  /* padding だけで高さを決める（min-height 44px だと .me-stage タブより高く見えた。
+     ユーザー指摘 2026-08-13）── 0.6em の縦パディングは .me-stage と同じ式なので、
+     同じ font-size (0.78rem) の下で自然に高さが揃う……はずが、`font: inherit` が
+     line-height まで継いでいた。<button> は UA既定で line-height: normal だが、
+     `.btn-line` のコメントにある通り本文の行間 1.8 が乗ると <a>/<label> 同様に
+     背が高くなる（実測で `.me-stage` 比 +6.6px、Playwright で `.me-save-all` に
+     `font: inherit` を外すか line-height を明示するかを比較して確認）。
+     タッチ領域44pxは電話の固定バー（下の @media (max-width: 640px) 内）でだけ確保する。 */
+  padding: 0.6em 0.9rem;
   font: inherit;
+  line-height: normal;
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -2188,7 +2202,9 @@
     backdrop-filter: blur(10px);
     border-top: 1px solid var(--hairline);
   }
-  .me-save-slot .me-save-all { flex: 1 1 auto; }
+  /* 電話の固定バーは唯一の常設アクションなので、タッチ領域44pxをここで確保する
+     （PC側の padding: 0.6em はタブとの見た目揃え優先で44pxを保証しないため）。 */
+  .me-save-slot .me-save-all { flex: 1 1 auto; min-height: 44px; }
   .me-save-note { flex: 0 0 auto; }
   /* 固定した帯のぶん、本文の一番下が隠れないように空ける */
   .me-page { padding-bottom: calc(4.6rem + env(safe-area-inset-bottom)); }
