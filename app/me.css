@@ -42,10 +42,38 @@
 .me-top-burger:hover,
 .me-top-burger[aria-expanded='true'] { border-color: var(--gold); color: var(--gold); }
 .me-top-burger:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-/* 上帯の**保存ボタン**（ユーザー指示 2026-08-13「1ボタンで保存」）。ハンバーガーの
-   左に常時出す ── 畳まれる中身に入れると、未保存の目印がメニューを開くまで見えない
-   （通知ベルで同じ失敗を一度している）。未保存が無いときも**消さずに**押せない状態で
-   置く: 現れたり消えたりするボタンは、押そうとした瞬間に位置が変わる。 */
+/* タブの行＋保存ボタンの行（ユーザー指示 2026-08-13: PCはタブの右端／電話は画面下に固定）。
+   タブは横スクロールするので、保存ボタンは**その外**に置く（一緒に流れると押せなくなる）。 */
+.me-stages-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
+  /* タブ側の下線をこの行が引き継ぐ（`.me-stages` の border は下で外す） */
+  border-bottom: 1px solid var(--hairline);
+  margin-top: 1.3rem;
+}
+.me-stages-row .me-stages { margin-top: 0; border-bottom: 0; flex: 1 1 auto; min-width: 0; }
+.me-save-slot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-bottom: 0.35rem;
+}
+/* アカウントタブ用（タブの行が無い画面）。カードの上に単独で置くので、行の見た目に寄せる */
+.me-save-slot--card {
+  justify-content: flex-end;
+  padding: 0 0 0.8rem;
+}
+/* 「変更があります」。金色のボタンだけでは、タブを移動したあとに何が残っているか読めない */
+.me-save-note {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+  white-space: nowrap;
+}
+/* 未保存が無いときも**消さずに**押せない状態で置く: 現れたり消えたりするボタンは、
+   押そうとした瞬間に位置が変わる。 */
 .me-save-all {
   position: relative;
   display: inline-flex;
@@ -53,7 +81,6 @@
   justify-content: center;
   min-height: 44px;
   padding: 0 0.9rem;
-  margin-right: 0.4rem;
   font: inherit;
   font-size: 0.78rem;
   letter-spacing: 0.08em;
@@ -1320,6 +1347,16 @@
 .place-map {
   display: block;
   width: 100%;
+  /* **高さを抑える**（ユーザー指摘 2026-08-13「配置タブ内の見え方が縦長の間だけ、サイズ
+     大きいんだよね」）。地図は `viewBox` が部屋の実寸なので、高さは間取りの縦横比で決まる:
+     回廊 34×9m は低いが、**縦長の間 9×22m は幅の2.4倍の高さ**になり、860px 幅なら
+     2000px を超える。SVG は `viewBox` があるので、高さを縛れば中身が縮んで収まる
+     （`preserveAspectRatio` の既定で中央に置かれる）。
+     **`vh` を混ぜない**（別視点レビューで検出）── 横向きの電話（画面の高さ375px）だと
+     `70vh` が 262px になり、掴む枠が 1.9室内単位 × 10.7px = **20px** まで縮んで指で
+     押せなくなる。px だけなら、はみ出す分はページが縦にスクロールするだけで、
+     枠は 43.6px を保つ。 */
+  max-height: 560px;
   /* The map hit-tests presses to drag works between spots — a press-drag must move a
      piece, not scroll the page. */
   touch-action: none;
@@ -2105,3 +2142,27 @@
   color: var(--gold);
 }
 .invite-approve:hover { border-color: var(--gold); background: rgba(212, 162, 78, 0.14); }
+
+/* ---- 電話: 保存ボタンは画面下に固定（ユーザー指示 2026-08-13「SPの場合は、画面下部に
+   固定で表示」）。要素は1つだけで、ここで置き場所を変える。
+   **段（z-index）はモーダル 100・シート 60 より下の 55** ── 上に乗せるとモーダルの
+   ボタンを覆う（同じ失敗を2026-07-30にシートで一度している）。
+   `env(safe-area-inset-bottom)` はホームバーの分（`viewport-fit=cover` は layout で設定済み）。 */
+@media (max-width: 640px) {
+  .me-save-slot {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 55;
+    padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
+    gap: 0.7rem;
+    background: rgba(11, 10, 9, 0.94);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--hairline);
+  }
+  .me-save-slot .me-save-all { flex: 1 1 auto; }
+  .me-save-note { flex: 0 0 auto; }
+  /* 固定した帯のぶん、本文の一番下が隠れないように空ける */
+  .me-page { padding-bottom: calc(4.6rem + env(safe-area-inset-bottom)); }
+}

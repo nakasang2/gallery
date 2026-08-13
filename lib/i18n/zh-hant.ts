@@ -604,7 +604,7 @@ export const zhHant: PartialDictionary = {
     deleteEntry: '刪除留言', deleteEntryConfirm: '刪除這則留言？',
 
     profileName: '顯示名稱（作者名）', profileBio: '簡介 / 創作自述', profileCv: '履歷（展覽與獲獎）', profileCvNote: '每行一條：展覽、獲獎、報導等。觀眾會在與自我介紹並列的獨立分頁中看到。',
-    markdownOk: '支援 Markdown：**粗體** · *斜體* · - 列表 · [連結](URL) · # 標題', mdPreview: '預覽', saveAll: '儲存', unsavedMark: '未儲存', unsavedLeave: '有未儲存的變更。不儲存就離開嗎？', saveAllFailed: '無法儲存：{msg}',
+    markdownOk: '支援 Markdown：**粗體** · *斜體* · - 列表 · [連結](URL) · # 標題', mdPreview: '預覽', saveAll: '儲存', unsavedNote: '有變更', unsavedMark: '未儲存', unsavedLeave: '有未儲存的變更。不儲存就離開嗎？', saveAllFailed: '無法儲存：{msg}',
     profileSnsNote: '把社群帳號連上，會顯示在公開頁面和展場裡，觀眾就能在別處繼續追蹤你。每一欄請直接貼上位址欄的完整連結。',
     snsWrongPlatform: '這看起來是 {found} 的連結（這一欄是 {expected}）。',
     snsNotPlatform: '這看起來不是 {expected} 的連結。',

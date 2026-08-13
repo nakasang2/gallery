@@ -605,7 +605,7 @@ export const de: PartialDictionary = {
     deleteEntry: 'Eintrag löschen', deleteEntryConfirm: 'Diesen Gästebucheintrag löschen?',
 
     profileName: 'Angezeigter Name (Künstlername)', profileBio: 'Kurzbio / Statement', profileCv: 'Werdegang (Ausstellungen & Preise)', profileCvNote: 'Ein Eintrag pro Zeile — Ausstellungen, Preise, Presse. Besucher sehen ihn in einem eigenen Tab neben der Kurzbio.',
-    markdownOk: 'Markdown funktioniert hier: **fett** · *kursiv* · - Liste · [Link](URL) · # Überschrift', mdPreview: 'Vorschau', saveAll: 'Speichern', unsavedMark: 'Nicht gespeichert', unsavedLeave: 'Es gibt nicht gespeicherte Änderungen. Ohne Speichern verlassen?', saveAllFailed: 'Konnte nicht speichern: {msg}',
+    markdownOk: 'Markdown funktioniert hier: **fett** · *kursiv* · - Liste · [Link](URL) · # Überschrift', mdPreview: 'Vorschau', saveAll: 'Speichern', unsavedNote: 'Es gibt Änderungen', unsavedMark: 'Nicht gespeichert', unsavedLeave: 'Es gibt nicht gespeicherte Änderungen. Ohne Speichern verlassen?', saveAllFailed: 'Konnte nicht speichern: {msg}',
     profileSnsNote: 'Verlinke deine Profile — sie erscheinen auf deiner öffentlichen Seite und während des Besuchs, damit man dir auch woanders folgen kann. Füge in jede Zeile die ganze Adresse aus der Adressleiste ein.',
     snsWrongPlatform: 'Das sieht nach einem {found}-Link aus — diese Zeile ist für {expected}.',
     snsNotPlatform: 'Das sieht nicht nach einem {expected}-Link aus.',

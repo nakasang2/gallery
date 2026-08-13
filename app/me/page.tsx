@@ -508,7 +508,11 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
 //
 // **モジュール直下に置く**（GalleryCardの中ではない）: `stage` はMePage側に持たせて
 // いる（下記GalleryCardのpropsコメント参照）ので、その型もページ側から使える必要がある。
-type Stage = 'works' | 'room' | 'placement' | 'participants' | 'publish' | 'profile'
+const STAGES = ['works', 'room', 'placement', 'participants', 'publish', 'profile'] as const
+type Stage = (typeof STAGES)[number]
+/** 選んでいたタブの保存先。**部屋をまたいで同じ**にする（部屋を切り替えても見ている
+ *  面は同じままにしたい）。値が壊れていたら黙って既定へ落ちる（`STAGES` で検査する）。 */
+const STAGE_KEY = 'xibit360.me.stage'
 // `allOwnedRooms`が未取得のときの安定した空集合（`EMPTY_OVERRIDES`と同じ作法。
 // レンダーごとに`new Set()`すると子コンポーネントの参照比較を毎回変えてしまう）。
 const EMPTY_ELSEWHERE: ReadonlySet<string> = new Set()
@@ -583,6 +587,7 @@ function GalleryCard({
   // 保存するのは上帯の `SaveAllButton` を押したときだけ（ユーザー指示 2026-08-13）。
   const mark = usePending((s) => s.mark)
   const detailsPending = usePendingKind('details')
+  const dirty = useHasPending()
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
@@ -1499,6 +1504,11 @@ function GalleryCard({
         gone — ユーザー指示 2026-07-30). Profile leads (who you are), then the publish
         flow; the guestbook lives INSIDE the publish stage. (Per-stage "done" check
         marks were dropped — ユーザー指示 2026-07-31.) */}
+    {/* タブの行と保存ボタンを1つの行にする（ユーザー指示 2026-08-13: 「PCの場合は、
+        作品などの並びのタブの右端に保存ボタンを表示 / SPの場合は、画面下部に固定で表示」）。
+        **要素は1つだけ置いて、電話では CSS で画面下へ固定する** ── 同じボタンを2つ置くと
+        読み上げに2回出るし、片方だけ状態が古くなる余地が生まれる。 */}
+    <div className="me-stages-row">
     <nav className="me-stages" aria-label={t('me.navSections')}>
       {(
         [
@@ -1531,6 +1541,13 @@ function GalleryCard({
         </button>
       ))}
     </nav>
+    {/* 「変更があります」を**言葉で**出す（ユーザー指示 2026-08-13）。タブを移動しても
+        内容は保たれる作りなので、金色のボタンだけでは「何か残っている」と気づけない。 */}
+    <div className="me-save-slot">
+      {dirty && <span className="me-save-note">{t('me.unsavedNote')}</span>}
+      <SaveAllButton />
+    </div>
+    </div>
     {/* 部屋の切替タブ＋部屋の追加は「部屋」「配置」「公開」ステージの枠の外・タブの
         直下に出す（ユーザー指示 2026-08-11: 以前は箱の中にあった／公開タブにも
         出してほしいと追加指示）。追加ボタンも同じ3ステージすべてに出す（ユーザー指摘
@@ -3052,7 +3069,24 @@ export default function MePage() {
   // GalleryCardの中ではなくここに持つ（ユーザー指摘 2026-08-11: 部屋を切り替えると
   // 「作品」タブに戻ってしまう）。`GalleryCard`は`key={current.id}`で部屋ごとに
   // 再マウントされるので、ここに置かないと切替のたびに初期値'works'に戻る。
+  // **リロードしても選んでいたタブに戻す**（ユーザー指示 2026-08-13: 「リロードしたときに
+  // 毎回作品タブになるんですが、これは選択されているタブにして欲しい」）。
+  // 初期値は `'works'` のままにして、**復元は mount 後の effect で行う** ── 初期値で
+  // `localStorage` を読むと、サーバが描いた HTML と食い違って hydration が壊れる。
   const [stage, setStage] = useState<Stage>('works')
+  /** 復元が済んだか。**済むまで書き込まない** ── mount 時は「復元 → 保存」の順に effect が
+   *  走るので、保存側が初期値 `'works'` を書いてから復元が反映される。その一瞬に
+   *  タブを閉じられると、選んでいたタブが `'works'` に潰れる（別視点レビューで検出）。 */
+  const stageRestored = useRef(false)
+  useEffect(() => {
+    const saved = localStorage.getItem(STAGE_KEY)
+    if (saved && (STAGES as readonly string[]).includes(saved)) setStage(saved as Stage)
+    stageRestored.current = true
+  }, [])
+  useEffect(() => {
+    if (!stageRestored.current) return
+    localStorage.setItem(STAGE_KEY, stage)
+  }, [stage])
   const [checked, setChecked] = useState(false)
   // null = still loading (prevents flashing the create card at returning users)
   const [galleries, setGalleries] = useState<GalleryRow[] | null>(null)
@@ -3243,7 +3277,7 @@ export default function MePage() {
       <div className="me-inner">
         <div className="me-top">
           <LocaleLink href="/" className="auth-logo" onClick={guardLeave}>XIBIT360</LocaleLink>
-          <TopActions before={<><SaveAllButton /><NotificationBell /></>}>
+          <TopActions before={<NotificationBell />}>
             <LocaleLink className="btn-line" href="/explore" onClick={guardLeave}>{t('me.explore')}</LocaleLink>
             <button className="btn-line" onClick={() => setHelpOpen(true)}>{t('help.title')}</button>
             {isAdmin && (
@@ -3386,6 +3420,16 @@ export default function MePage() {
                   <h2>{t('me.tabAccount')}</h2>
                   <button className="btn-line" onClick={() => setTab('gallery')}>← {t('me.myGallery')}</button>
                 </div>
+                {/* アカウントタブには `GalleryCard`（＝タブの行と保存ボタン）が無いので、
+                    未保存のまま来た人が保存できなくなる（別視点レビューで検出）。
+                    **同時に2つは出ない**（このタブでは上の行が存在しない）ので、
+                    読み上げが二重になる心配もない。 */}
+                {dirty && (
+                  <div className="me-save-slot me-save-slot--card">
+                    <span className="me-save-note">{t('me.unsavedNote')}</span>
+                    <SaveAllButton />
+                  </div>
+                )}
                 <AccountCard />
               </section>
             )}
