@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0059 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0060 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -37,6 +37,7 @@ create table if not exists public.profiles (
   username text unique check (username ~ '^[a-z0-9_]{3,20}$'),
   display_name text,
   bio text default '',
+  cv text not null default '', -- 0060: 来歴（展示歴・受賞歴）。自己紹介とは別欄
   avatar_url text,
   sns jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
@@ -5347,3 +5348,12 @@ $$;
 
 revoke all on function public.replace_placements(uuid, jsonb) from public, anon, service_role;
 grant execute on function public.replace_placements(uuid, jsonb) to authenticated;
+
+-- # 0060_profile_cv.sql — プロフィールに「来歴」を足す(ユーザー要望 2026-08-13)
+-- 来歴（展示歴・受賞歴）は箇条書きで積み上がる記録で、読み物である自己紹介(bio)とは
+-- 書き方も読まれ方も違う。別列にすれば 3D の情報パネルでタブに分けて出せる。
+-- ※ 上の profiles の create table にも同じ列が入っている（新規環境はそこで作られる）。
+alter table public.profiles add column if not exists cv text not null default '';
+
+comment on column public.profiles.cv is
+  '来歴（展示歴・受賞歴）。自己紹介(bio)とは別欄。公開ページと3Dの情報パネルで、自己紹介と並ぶタブとして出す。';

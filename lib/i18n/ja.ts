@@ -124,6 +124,8 @@ export const ja: Dictionary = {
     previewHint: 'ドラッグで回転 · スクロールまたはピンチで拡大',
     designThisWork: '見せ方 — この作品',
     aboutArtist: '作家について',
+    tabExhibition: '展示情報',
+    tabCv: '来歴',
     recordUnsupported: 'このブラウザは録画に対応していません。Chrome か Edge をお試しください。',
     recordEmpty: '録画が空になりました。もう一度お試しください。',
     noWebgl: 'このブラウザでは3Dの部屋を表示できません（WebGLが使えません）。作品を一覧で表示しています。',
@@ -556,6 +558,8 @@ export const ja: Dictionary = {
 
     profileName: '表示名（作家名）',
     profileBio: 'プロフィール・ステートメント',
+    profileCv: '来歴（展示歴・受賞歴）',
+    profileCvNote: '1行に1件。展示・受賞・掲載などを書けます。来場者には自己紹介と並ぶ別タブとして表示されます。',
     profileSnsNote: 'SNSを登録すると、公開ページと部屋の中に表示され、来場者が他の場所でもあなたを追えるようになります。各欄には、アドレス欄のURLをそのまま貼り付けてください。',
     snsWrongPlatform: '{found} のリンクのようです（この欄は {expected} です）。',
     snsNotPlatform: '{expected} のリンクではないようです。',

@@ -111,7 +111,7 @@ export const ko: PartialDictionary = {
     closePreview: '미리보기 닫기',
     previewHint: '드래그로 회전 · 스크롤이나 핀치로 확대',
     designThisWork: '연출 — 이 작품',
-    aboutArtist: '작가 소개',
+    aboutArtist: '작가 소개', tabExhibition: '전시 정보', tabCv: '이력',
     recordUnsupported: '이 브라우저에서는 녹화를 지원하지 않습니다 — Chrome이나 Edge를 사용해 보세요.',
     recordEmpty: '녹화된 내용이 비어 있습니다 — 다시 시도해 주세요.',
     noWebgl: '이 브라우저에서는 3D 전시장을 표시할 수 없습니다(WebGL 사용 불가). 아래에 작품을 나열합니다.',
@@ -666,7 +666,7 @@ export const ko: PartialDictionary = {
     deleteEntryConfirm: '이 방명록 글을 삭제할까요?',
 
     profileName: '표시 이름(작가명)',
-    profileBio: '소개 / 작가의 말',
+    profileBio: '소개 / 작가의 말', profileCv: '이력 (전시·수상)', profileCvNote: '한 줄에 한 항목. 전시, 수상, 보도 등을 적을 수 있습니다. 관람객에게는 작가 소개와 나란한 별도 탭으로 보입니다.',
     profileSnsNote: 'SNS를 연결해 두면 공개 페이지와 전시장 안에서 보입니다. 관람객이 다른 곳에서도 이어서 볼 수 있습니다. 각 칸에는 주소창의 URL을 그대로 붙여 넣으세요.',
     snsWrongPlatform: '{found} 링크로 보입니다 (이 칸은 {expected}).',
     snsNotPlatform: '{expected} 링크가 아닌 것 같습니다.',

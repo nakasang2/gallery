@@ -148,6 +148,8 @@ export const en = {
     previewHint: 'Drag to rotate · scroll or pinch to zoom',
     designThisWork: 'Design — this work',
     aboutArtist: 'About the artist',
+    tabExhibition: 'Exhibition',
+    tabCv: 'CV',
     recordUnsupported: 'Recording isn’t supported in this browser — try Chrome or Edge.',
     recordEmpty: 'The recording came out empty — please try again.',
     noWebgl: 'This browser cannot show the 3D room (WebGL unavailable), so the works are listed below.',
@@ -590,6 +592,8 @@ export const en = {
 
     profileName: 'Display name (artist name)',
     profileBio: 'Bio / statement',
+    profileCv: 'CV (exhibitions & awards)',
+    profileCvNote: 'One entry per line — exhibitions, awards, press. Shown to visitors on its own tab, next to your bio.',
     profileSnsNote: 'Link your SNS — shown on your public page and while visitors walk your room, so they can follow you elsewhere. Paste the whole link (the one in the address bar) into each row.',
     snsWrongPlatform: 'That looks like a {found} link — this row is for {expected}.',
     snsNotPlatform: 'That does not look like a {expected} link.',

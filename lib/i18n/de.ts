@@ -110,7 +110,7 @@ export const de: PartialDictionary = {
     closePreview: 'Vorschau schließen',
     previewHint: 'Ziehen zum Drehen · Scrollen oder Zwei-Finger-Zoom',
     designThisWork: 'Darstellung — dieses Werk',
-    aboutArtist: 'Über die Künstlerin',
+    aboutArtist: 'Über die Künstlerin', tabExhibition: 'Ausstellung', tabCv: 'Werdegang',
     recordUnsupported: 'Dieser Browser kann nicht aufnehmen — versuche Chrome oder Edge.',
     recordEmpty: 'Die Aufnahme ist leer geblieben — bitte noch einmal versuchen.',
     noWebgl: 'Dieser Browser kann den 3D-Raum nicht zeigen (WebGL nicht verfügbar), deshalb stehen die Werke unten als Liste.',
@@ -604,7 +604,7 @@ export const de: PartialDictionary = {
     guestbookNeedGallery: 'Lege zuerst deine Galerie an — das Gästebuch sammelt, was Besucher in deinem Raum schreiben.',
     deleteEntry: 'Eintrag löschen', deleteEntryConfirm: 'Diesen Gästebucheintrag löschen?',
 
-    profileName: 'Angezeigter Name (Künstlername)', profileBio: 'Kurzbio / Statement',
+    profileName: 'Angezeigter Name (Künstlername)', profileBio: 'Kurzbio / Statement', profileCv: 'Werdegang (Ausstellungen & Preise)', profileCvNote: 'Ein Eintrag pro Zeile — Ausstellungen, Preise, Presse. Besucher sehen ihn in einem eigenen Tab neben der Kurzbio.',
     profileSnsNote: 'Verlinke deine Profile — sie erscheinen auf deiner öffentlichen Seite und während des Besuchs, damit man dir auch woanders folgen kann. Füge in jede Zeile die ganze Adresse aus der Adressleiste ein.',
     snsWrongPlatform: 'Das sieht nach einem {found}-Link aus — diese Zeile ist für {expected}.',
     snsNotPlatform: 'Das sieht nicht nach einem {expected}-Link aus.',

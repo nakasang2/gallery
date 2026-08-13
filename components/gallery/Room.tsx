@@ -2,12 +2,13 @@
 // Room (floor, ceiling, walls, baseboards, crown molding, central walls, light strips, benches, overall lighting)
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import type { ThreeEvent } from '@react-three/fiber'
+import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { walkRef, LOW_POWER, QUALITY } from '@/lib/controller'
 import { getFloorTextures, getPlasterBump, getPlasterNormal, getConcreteMaps, getBlobShadowTexture, disposeAll } from './textures'
 import { useDoorway, DOOR_W, DOOR_H, type WallId } from './doorway'
+import { openExhibitionInfo } from './TitleWall'
 import SpotWithTarget from './SpotWithTarget'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 
@@ -62,6 +63,7 @@ function WallPiece({
   wallWidth,
   color,
   finish,
+  onSelect,
 }: {
   w: number
   h: number
@@ -70,10 +72,18 @@ function WallPiece({
   wallWidth: number
   color: number
   finish: WallFinish
+  onSelect?: (e: ThreeEvent<MouseEvent>) => void
 }) {
+  const gl = useThree((s) => s.gl)
   const { map, normalMap, roughnessMap, normalScale } = useWallMaps(w, h, offU, offV, finish)
   return (
-    <mesh position={[offU + w / 2 - wallWidth / 2, offV + h / 2 - CEIL_H / 2, 0]} receiveShadow>
+    <mesh
+      position={[offU + w / 2 - wallWidth / 2, offV + h / 2 - CEIL_H / 2, 0]}
+      receiveShadow
+      onClick={onSelect}
+      onPointerOver={onSelect ? () => (gl.domElement.style.cursor = 'pointer') : undefined}
+      onPointerOut={onSelect ? () => (gl.domElement.style.cursor = '') : undefined}
+    >
       <planeGeometry args={[w, h]} />
       {/* The normal map catches grazing light and the roughness map gives uneven sheen */}
       <meshStandardMaterial
@@ -100,6 +110,7 @@ function Wall({
   position,
   rotationY,
   holeU,
+  onSelect,
 }: {
   width: number
   color: number
@@ -107,6 +118,8 @@ function Wall({
   position: [number, number, number]
   rotationY: number
   holeU?: number
+  /** 渡した壁は押せるようになる（西壁＝タイトルウォールだけ。展示情報を開く） */
+  onSelect?: (e: ThreeEvent<MouseEvent>) => void
 }) {
   const pieces = useMemo(() => {
     if (holeU === undefined) return [{ w: width, h: CEIL_H, offU: 0, offV: 0 }]
@@ -121,7 +134,7 @@ function Wall({
   return (
     <group position={position} rotation-y={rotationY}>
       {pieces.map((p) => (
-        <WallPiece key={`${p.offU},${p.offV}`} {...p} wallWidth={width} color={color} finish={finish} />
+        <WallPiece key={`${p.offU},${p.offV}`} {...p} wallWidth={width} color={color} finish={finish} onSelect={onSelect} />
       ))}
     </group>
   )
@@ -301,7 +314,19 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
       <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, -hd]} rotationY={0} holeU={holeU('north')} />
       <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, hd]} rotationY={Math.PI} holeU={holeU('south')} />
       <Wall width={hd * 2} color={theme.wall} finish={finish} position={[hw, h / 2, 0]} rotationY={-Math.PI / 2} holeU={holeU('east')} />
-      <Wall width={hd * 2} color={theme.accentWall} finish={finish} position={[-hw, h / 2, 0]} rotationY={Math.PI / 2} holeU={holeU('west')} />
+      {/* 西壁＝タイトルウォール。**壁のどこを押しても展示情報が開く**（ユーザー要望
+          2026-08-13「奥の壁を押下したときに表示したい」）。板（`TitleWall`）だけが
+          押せた頃は、板の外＝壁の端を押しても何も起きなかった。振る舞いは
+          `openExhibitionInfo` の1か所が決めている。 */}
+      <Wall
+        width={hd * 2}
+        color={theme.accentWall}
+        finish={finish}
+        position={[-hw, h / 2, 0]}
+        rotationY={Math.PI / 2}
+        holeU={holeU('west')}
+        onSelect={openExhibitionInfo}
+      />
 
       {/* Baseboards and crown molding.
           **幅木は開口で切る**（ユーザー選択 2026-08-13・A案の付随。実際の戸口も幅木は

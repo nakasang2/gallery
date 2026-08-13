@@ -2665,6 +2665,8 @@ function ProfileCard() {
   const [nameInput, setNameInput] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
+  // 来歴（展示歴・受賞歴）。自己紹介とは別欄で、3Dの情報パネルでは別タブに出る（migration 0060）
+  const [cv, setCv] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   // Known-platform links keyed by id, plus free-form "other" links
   const [snsLinks, setSnsLinks] = useState<Record<string, string>>({})
@@ -2690,6 +2692,7 @@ function ProfileCard() {
         if (!alive) return
         setDisplayName(p.displayName)
         setBio(p.bio)
+        setCv(p.cv)
         setAvatarUrl(p.avatarUrl)
         setSnsLinks(p.sns.links)
         setSnsCustom(p.sns.custom)
@@ -2735,15 +2738,17 @@ function ProfileCard() {
   // Display name / bio / SNS autosave after a short pause (payload captured at call
   // time, like the gallery's editWork). Username + avatar stay explicit above.
   function editProfile(next: Partial<{
-    displayName: string; bio: string; links: Record<string, string>; custom: CustomLink[]
+    displayName: string; bio: string; cv: string; links: Record<string, string>; custom: CustomLink[]
   }>) {
     if (next.displayName !== undefined) setDisplayName(next.displayName)
     if (next.bio !== undefined) setBio(next.bio)
+    if (next.cv !== undefined) setCv(next.cv)
     if (next.links !== undefined) setSnsLinks(next.links)
     if (next.custom !== undefined) setSnsCustom(next.custom)
     const payload = {
       displayName: next.displayName ?? displayName,
       bio: next.bio ?? bio,
+      cv: next.cv ?? cv,
       sns: { links: next.links ?? snsLinks, custom: next.custom ?? snsCustom },
     }
     setProfileState('saving')
@@ -2818,6 +2823,18 @@ function ProfileCard() {
       <label className="me-field">
         <span>{t('me.profileBio')}</span>
         <textarea rows={3} value={bio} onChange={(e) => editProfile({ bio: e.target.value })} />
+      </label>
+      {/* 来歴（ユーザー要望 2026-08-13）。自己紹介と別の列（migration 0060）で、
+          3Dの情報パネルでは「来歴」タブとして出る。空なら来場者にはタブが出ない。 */}
+      <label className="me-field">
+        <span>{t('me.profileCv')}</span>
+        <textarea
+          rows={5}
+          maxLength={2000}
+          value={cv}
+          onChange={(e) => editProfile({ cv: e.target.value })}
+        />
+        <small className="me-field-hint">{t('me.profileCvNote')}</small>
       </label>
       <p className="me-field-group-label">
         {t('me.profileSnsNote')}

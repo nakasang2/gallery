@@ -109,7 +109,7 @@ export const it: PartialDictionary = {
     closePreview: 'Chiudi l’anteprima',
     previewHint: 'Trascina per ruotare · rotella o pizzico per ingrandire',
     designThisWork: 'Allestimento — questa opera',
-    aboutArtist: 'Sull’artista',
+    aboutArtist: 'Sull’artista', tabExhibition: 'Mostra', tabCv: 'Percorso',
     recordUnsupported: 'Questo browser non sa registrare — prova con Chrome o Edge.',
     recordEmpty: 'La registrazione è risultata vuota — riprova.',
     noWebgl: 'Questo browser non può mostrare la sala in 3D (WebGL non disponibile), quindi le opere sono elencate qui sotto.',
@@ -603,7 +603,7 @@ export const it: PartialDictionary = {
     guestbookNeedGallery: 'Crea prima la tua galleria — il libro dei visitatori raccoglie ciò che si scrive nella tua sala.',
     deleteEntry: 'Cancella il messaggio', deleteEntryConfirm: 'Cancellare questo messaggio dal libro dei visitatori?',
 
-    profileName: 'Nome visualizzato (nome d’arte)', profileBio: 'Bio / testo d’artista',
+    profileName: 'Nome visualizzato (nome d’arte)', profileBio: 'Bio / testo d’artista', profileCv: 'Percorso (mostre e premi)', profileCvNote: 'Una voce per riga: mostre, premi, stampa. I visitatori la vedono in una scheda a parte, accanto alla biografia.',
     profileSnsNote: 'Collega i tuoi social — compaiono sulla pagina pubblica e durante la visita, così puoi essere seguito anche altrove. Incolla in ogni riga il link completo, quello della barra degli indirizzi.',
     snsWrongPlatform: 'Sembra un link di {found}: questa riga è per {expected}.',
     snsNotPlatform: 'Questo non sembra un link di {expected}.',

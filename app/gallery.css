@@ -532,6 +532,41 @@ body:not(.gallery-mode) {
   color: #cdc7bd;
   margin-bottom: 1.6rem;
 }
+/* 情報パネルのタブ（展示情報／自己紹介／来歴。ユーザー要望 2026-08-13）。
+   中身のあるタブが2つ以上あるときだけ出る（`InfoPanel`）。当たり判定は 44px を確保
+   ── パネルは電話でも開くので、ここが小さいと押し分けられない。 */
+.panel-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1.2rem;
+  margin: 0 0 1.5rem;
+  border-bottom: 1px solid var(--hairline);
+}
+.panel-tab {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0 0 0.7rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: flex-end;
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  /* 下線は選択中の印。`border-bottom` だと非選択のときも1px分の高さを取り、
+     押すたびに文字が揺れるので、常に引いて色だけ透明にする。 */
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.panel-tab:hover { color: var(--ink); }
+.panel-tab.is-on { color: var(--ink); border-bottom-color: var(--gold); }
+.panel-tab:focus-visible { outline: 1px solid var(--gold); outline-offset: 3px; }
+/* 来歴は1行1件で書かれるので改行を残す（`InfoPanel` の説明を参照） */
+.panel-desc-lines { white-space: pre-line; }
 .panel-sns {
   font-size: 1rem;
   margin: 0 0 1.6rem;

@@ -42,7 +42,6 @@ function boardText(opts: {
 export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: LayoutDef }) {
   const gl = useThree((s) => s.gl)
   const settings = useSettings()
-  const setInfoOpen = useGallery((s) => s.setInfoOpen)
   const visitor = useGallery((s) => s.visitor)
   const user = useGallery((s) => s.user)
   const myGallery = useGallery((s) => s.myGallery)
@@ -123,14 +122,7 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
 
   const w = titleWallWidth(layout)
 
-  // The board is clickable — like an artwork, it opens a detail panel (the exhibition
-  // info). Tap-guard (e.delta) matches WalkControls so a drag never triggers it.
-  const onClick = (e: ThreeEvent<MouseEvent>) => {
-    e.stopPropagation()
-    if (e.delta > 10) return
-    walkRef.current?.focusWall() // glide to face the board, like focusing a work
-    setInfoOpen(true)
-  }
+  const onClick = openExhibitionInfo
   const onOver = () => (gl.domElement.style.cursor = 'pointer')
   const onOut = () => (gl.domElement.style.cursor = '')
 
@@ -175,4 +167,16 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
       />
     </>
   )
+}
+
+/** タイトルウォールを押したときの動作。**この1か所だけが「展示情報を開く」を決める。**
+ *  板（このファイル）と**壁そのもの**（`Room` の西壁。ユーザー要望 2026-08-13「奥の壁を
+ *  押下したときに表示したい」）の両方から呼ばれるので、当たり判定が2つでも振る舞いは1つ。
+ *  タップの判定（`e.delta`）は `WalkControls` と同じ閾値 ── ドラッグで視点を回した指を
+ *  離した瞬間にパネルが開かないように。 */
+export function openExhibitionInfo(e: ThreeEvent<MouseEvent>): void {
+  e.stopPropagation()
+  if (e.delta > 10) return
+  walkRef.current?.focusWall() // glide to face the board, like focusing a work
+  useGallery.getState().setInfoOpen(true)
 }

@@ -212,6 +212,8 @@ interface GalleryStore extends Settings {
   profileAvatarUrl: string | null
   /** Profile bio (the biography line at the foot of the title wall) */
   profileBio: string | null
+  /** Profile CV — exhibitions/awards (migration 0060). Its own tab in the info panel */
+  profileCv: string | null
   /** The signed-in user's gallery row (null = none created yet). DB is the source of truth */
   myGallery: GalleryRow | null
   /** Visitor mode: overridden with read-only exhibition data on public pages */
@@ -267,6 +269,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   profileDisplayName: null,
   profileAvatarUrl: null,
   profileBio: null,
+  profileCv: null,
   myGallery: null,
   visitor: null,
   embed: false,
@@ -295,6 +298,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
           profileDisplayName: null,
           profileAvatarUrl: null,
           profileBio: null,
+          profileCv: null,
           ...loadSettings(),
         })
         return
@@ -312,11 +316,22 @@ export const useGallery = create<GalleryStore>((set, get) => ({
     if (!supabase || !user) return
     try {
       // Use the profile's display name as the artist name on name plates
-      const { data: profile } = await supabase
+      // `cv` は migration 0060。**未適用の環境では select が丸ごと落ちて `profile` が
+      // null になり、名札の作家名まで消える**ので、落ちたら列を外して引き直す
+      // （別視点レビューで検出。`lib/publish` の `withoutCv` と同じ考え方）。
+      let pf = await supabase
         .from('profiles')
-        .select('display_name, username, avatar_url, bio')
+        .select('display_name, username, avatar_url, bio, cv')
         .eq('id', user.id)
         .maybeSingle()
+      if (pf.error) {
+        pf = (await supabase
+          .from('profiles')
+          .select('display_name, username, avatar_url, bio')
+          .eq('id', user.id)
+          .maybeSingle()) as unknown as typeof pf
+      }
+      const profile = pf.data as { display_name?: string | null; username?: string | null; avatar_url?: string | null; bio?: string | null; cv?: string | null } | null
       const artist = profile?.display_name || user.displayName
       set({
         cloudArtworks: await listMyArtworks(user.id, artist),
@@ -324,6 +339,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
         profileDisplayName: artist,
         profileAvatarUrl: profile?.avatar_url ?? null,
         profileBio: profile?.bio ?? null,
+        profileCv: profile?.cv ?? null,
       })
       // Works changed (upload/delete) — keep a public gallery's placements in step
       if (get().myGallery) scheduleGallerySync(get)

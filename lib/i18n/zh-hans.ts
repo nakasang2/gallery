@@ -111,7 +111,7 @@ export const zhHans: PartialDictionary = {
     closePreview: '关闭预览',
     previewHint: '拖动旋转 · 滚动或双指缩放',
     designThisWork: '呈现方式 — 这件作品',
-    aboutArtist: '关于作者',
+    aboutArtist: '关于作者', tabExhibition: '展览信息', tabCv: '履历',
     recordUnsupported: '这个浏览器不支持录制 — 请试试 Chrome 或 Edge。',
     recordEmpty: '录制出来是空的 — 请再试一次。',
     noWebgl: '这个浏览器无法显示 3D 展厅（WebGL 不可用），下面以列表呈现作品。',
@@ -605,7 +605,7 @@ export const zhHans: PartialDictionary = {
     guestbookNeedGallery: '请先创建展览 — 留言簿收集观众在你展厅里写下的话。',
     deleteEntry: '删除留言', deleteEntryConfirm: '删除这条留言？',
 
-    profileName: '显示名称（作者名）', profileBio: '简介 / 创作自述',
+    profileName: '显示名称（作者名）', profileBio: '简介 / 创作自述', profileCv: '履历（展览与获奖）', profileCvNote: '每行一条：展览、获奖、报道等。观众会在与个人简介并列的独立标签中看到。',
     profileSnsNote: '把社交账号连上，会显示在公开页面和展厅里，观众就能在别处继续关注你。每一栏请直接粘贴地址栏里的完整链接。',
     snsWrongPlatform: '这看起来是 {found} 的链接（这一栏是 {expected}）。',
     snsNotPlatform: '这看起来不是 {expected} 的链接。',

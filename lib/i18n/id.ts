@@ -110,7 +110,7 @@ export const id: PartialDictionary = {
     closePreview: 'Tutup pratinjau',
     previewHint: 'Geser untuk memutar · gulir atau jepit untuk memperbesar',
     designThisWork: 'Penyajian — karya ini',
-    aboutArtist: 'Tentang perupanya',
+    aboutArtist: 'Tentang perupanya', tabExhibition: 'Pameran', tabCv: 'Riwayat',
     recordUnsupported: 'Peramban ini tidak bisa merekam — coba Chrome atau Edge.',
     recordEmpty: 'Hasil rekamannya kosong — coba lagi.',
     noWebgl: 'Peramban ini tidak bisa menampilkan ruang 3D (WebGL tidak tersedia), jadi karyanya ditampilkan sebagai daftar di bawah.',
@@ -604,7 +604,7 @@ export const id: PartialDictionary = {
     guestbookNeedGallery: 'Buat galerimu dulu — buku tamu mengumpulkan apa yang pengunjung tulis di ruangmu.',
     deleteEntry: 'Hapus pesan', deleteEntryConfirm: 'Hapus pesan buku tamu ini?',
 
-    profileName: 'Nama tampilan (nama perupa)', profileBio: 'Bio / catatan perupa',
+    profileName: 'Nama tampilan (nama perupa)', profileBio: 'Bio / catatan perupa', profileCv: 'Riwayat (pameran & penghargaan)', profileCvNote: 'Satu entri per baris — pameran, penghargaan, liputan. Ditampilkan ke pengunjung di tab tersendiri, di samping bio Anda.',
     profileSnsNote: 'Tautkan media sosialmu — tampil di halaman publikmu dan saat pengunjung menjelajahi ruangmu, jadi mereka bisa mengikutimu di tempat lain. Tempel tautan lengkap dari bilah alamat ke setiap baris.',
     snsWrongPlatform: 'Ini sepertinya tautan {found} — baris ini untuk {expected}.',
     snsNotPlatform: 'Ini sepertinya bukan tautan {expected}.',

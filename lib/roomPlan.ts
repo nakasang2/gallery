@@ -123,6 +123,7 @@ export function roomExhibitor(ex: PublicExhibition): PublicArtist {
     username: ex.username,
     name: ex.ownerName,
     bio: ex.ownerBio,
+    cv: ex.ownerCv,
     avatarUrl: ex.ownerAvatar,
     sns: ex.ownerSns,
   }

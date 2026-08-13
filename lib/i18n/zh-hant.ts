@@ -109,7 +109,7 @@ export const zhHant: PartialDictionary = {
     closePreview: '關閉預覽',
     previewHint: '拖曳旋轉 · 捲動或雙指縮放',
     designThisWork: '呈現方式 — 這件作品',
-    aboutArtist: '關於作者',
+    aboutArtist: '關於作者', tabExhibition: '展覽資訊', tabCv: '履歷',
     recordUnsupported: '這個瀏覽器不支援錄製 — 請試試 Chrome 或 Edge。',
     recordEmpty: '錄製出來是空的 — 請再試一次。',
     noWebgl: '這個瀏覽器無法顯示 3D 展場（WebGL 不可用），以下改以清單呈現作品。',
@@ -603,7 +603,7 @@ export const zhHant: PartialDictionary = {
     guestbookNeedGallery: '請先建立展覽 — 留言簿會收集觀眾在你展場裡寫下的話。',
     deleteEntry: '刪除留言', deleteEntryConfirm: '刪除這則留言？',
 
-    profileName: '顯示名稱（作者名）', profileBio: '簡介 / 創作自述',
+    profileName: '顯示名稱（作者名）', profileBio: '簡介 / 創作自述', profileCv: '履歷（展覽與獲獎）', profileCvNote: '每行一條：展覽、獲獎、報導等。觀眾會在與自我介紹並列的獨立分頁中看到。',
     profileSnsNote: '把社群帳號連上，會顯示在公開頁面和展場裡，觀眾就能在別處繼續追蹤你。每一欄請直接貼上位址欄的完整連結。',
     snsWrongPlatform: '這看起來是 {found} 的連結（這一欄是 {expected}）。',
     snsNotPlatform: '這看起來不是 {expected} 的連結。',

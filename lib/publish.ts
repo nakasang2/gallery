@@ -26,16 +26,30 @@ function missingLightColumn(e: { code?: string; message?: string } | null): bool
   return !!e && (e.code === 'PGRST204' || e.code === '42703' || /light_override/.test(e.message ?? ''))
 }
 
+/** その列がまだ無い（未適用の migration）ときのエラー。PostgREST のスキーマキャッシュ
+ *  （PGRST204）と Postgres の undefined_column（42703）の両方。 */
+function missingColumn(e: { code?: string; message?: string } | null): boolean {
+  return !!e && (e.code === 'PGRST204' || e.code === '42703')
+}
+
+/** `cv` は migration 0060 で足した列。**まだ当てていない環境では select が丸ごと落ちる**
+ *  ので、落ちたらこれで列を外して引き直す。素通しにすると、移行のあいだ
+ *  ①公開ページが 404 になり ②ダッシュボードがプロフィールを空で読み込んで、次の
+ *  自動保存で**本物の名前と自己紹介を空で上書きする**（別視点レビューで検出）。
+ *  `light_override`（0035）と同じ二段構えで、列が行き渡ったら消してよい。 */
+const withoutCv = (cols: string) => cols.replace(/,\s*cv\b/, '')
+
 /** The `placements → artworks → profiles` embed. Named once because the fallback query
  *  below has to be the same minus the profile join, and a typo between the two would
  *  silently credit the wrong person. */
-const ARTWORK_WITH_ARTIST = 'artworks (*, profiles (username, display_name, bio, avatar_url, sns))'
+const ARTWORK_WITH_ARTIST = 'artworks (*, profiles (username, display_name, bio, cv, avatar_url, sns))'
 
 /** The shape the embed above adds to each artwork row. */
 interface ArtistEmbed {
   username: string | null
   display_name: string | null
   bio: string | null
+  cv: string | null
   avatar_url: string | null
   sns: unknown
 }
@@ -47,6 +61,8 @@ export interface PublicArtist {
   username: string | null
   name: string
   bio: string
+  /** 来歴（展示歴・受賞歴）。自己紹介とは別欄で、情報パネルでは別タブに出す（migration 0060） */
+  cv: string
   avatarUrl: string | null
   sns: SnsLinks
 }
@@ -101,6 +117,8 @@ export interface PublicExhibition {
   ownerName: string
   ownerAvatar: string | null
   ownerBio: string
+  /** 主催者の来歴（migration 0060）。情報パネルの「来歴」タブ */
+  ownerCv: string
   ownerSns: SnsLinks
   username: string
   slug: string
@@ -187,20 +205,28 @@ export async function setUsername(userId: string, username: string): Promise<voi
 export interface ProfileFields {
   displayName: string
   bio: string
+  cv: string
   avatarUrl: string | null
   sns: SnsLinks
 }
 
 export async function getProfile(userId: string): Promise<ProfileFields> {
-  const { data, error } = await supabase!
-    .from('profiles')
-    .select('display_name, bio, avatar_url, sns')
-    .eq('id', userId)
-    .maybeSingle()
+  const cols = 'display_name, bio, cv, avatar_url, sns'
+  let res = await supabase!.from('profiles').select(cols).eq('id', userId).maybeSingle()
+  if (missingColumn(res.error)) {
+    res = (await supabase!
+      .from('profiles')
+      .select(withoutCv(cols))
+      .eq('id', userId)
+      .maybeSingle()) as unknown as typeof res
+  }
+  const { error } = res
+  const data = res.data as { display_name?: string | null; bio?: string | null; cv?: string | null; avatar_url?: string | null; sns?: unknown } | null
   if (error) throw error
   return {
     displayName: data?.display_name ?? '',
     bio: data?.bio ?? '',
+    cv: data?.cv ?? '',
     avatarUrl: data?.avatar_url ?? null,
     sns: readSns(data?.sns),
   }
@@ -210,16 +236,26 @@ export async function saveProfile(
   userId: string,
   // sns is optional so the lightweight in-canvas editor (name + bio only) doesn't
   // have to round-trip it — omitting the key leaves the column untouched
-  fields: Pick<ProfileFields, 'displayName' | 'bio'> & { sns?: SnsLinks }
+  fields: Pick<ProfileFields, 'displayName' | 'bio'> & { sns?: SnsLinks; cv?: string }
 ): Promise<void> {
   const update: Record<string, unknown> = {
     display_name: fields.displayName.trim() || null,
     bio: fields.bio.trim(),
   }
+  // 来歴も sns と同じ扱いで**任意**。キーを省いた呼び出し（キャンバス内の軽い
+  // 名前＋自己紹介エディタ）が、書いていない列を空で塗り潰さないようにする。
+  if (fields.cv !== undefined) {
+    update.cv = fields.cv.trim()
+  }
   if (fields.sns) {
     update.sns = sanitizeSns(fields.sns)
   }
-  const { error } = await supabase!.from('profiles').update(update).eq('id', userId)
+  let { error } = await supabase!.from('profiles').update(update).eq('id', userId)
+  if (missingColumn(error) && 'cv' in update) {
+    // 0060 未適用。来歴だけ落として、名前と自己紹介の保存は成立させる
+    delete update.cv
+    ;({ error } = await supabase!.from('profiles').update(update).eq('id', userId))
+  }
   if (error) throw error
 }
 
@@ -368,6 +404,7 @@ interface ExhibitionProfileRow {
   display_name: string | null
   avatar_url: string | null
   bio: string | null
+  cv: string | null
   sns: unknown
   expo_slug?: string | null
 }
@@ -495,6 +532,7 @@ async function buildExhibition(
         username: embed.username ?? null,
         name: artistName,
         bio: embed.bio ?? '',
+        cv: embed.cv ?? '',
         avatarUrl: embed.avatar_url ?? null,
         sns: readSns(embed.sns),
       }
@@ -569,6 +607,7 @@ async function buildExhibition(
     ownerName,
     ownerAvatar: profile.avatar_url ?? null,
     ownerBio: profile.bio ?? '',
+    ownerCv: profile.cv ?? '',
     ownerSns: readSns(profile.sns),
     // `/@ハンドル` 経由なら必ず入っている（それで引いたから）。合同展示は主催者の id で
     // 引くので、ハンドルを決めていない主催者だと空になりうる ── その場合 `/@` へのリンクは
@@ -633,18 +672,19 @@ async function fetchPublicExhibitionInner(
   // `/@username` — exactly the behaviour before exhibition URLs existed.
   let pfRes = await supabase!
     .from('profiles')
-    .select('id, username, display_name, avatar_url, bio, sns, expo_slug')
+    .select('id, username, display_name, avatar_url, bio, cv, sns, expo_slug')
     .eq('username', username)
     .maybeSingle()
   if (pfRes.error) {
     pfRes = (await supabase!
       .from('profiles')
+      // `expo_slug`（0040）と `cv`（0060）の両方を外した最小の形
       .select('id, username, display_name, avatar_url, bio, sns')
       .eq('username', username)
       .maybeSingle()) as unknown as typeof pfRes
   }
   const profile = pfRes.data as
-    | { id: string; username: string | null; display_name: string | null; avatar_url: string | null; bio: string | null; sns: unknown; expo_slug?: string | null }
+    | { id: string; username: string | null; display_name: string | null; avatar_url: string | null; bio: string | null; cv: string | null; sns: unknown; expo_slug?: string | null }
     | null
   if (!profile) return null
 
@@ -782,11 +822,16 @@ async function fetchExpoExhibitionInner(
   const target = room ? rows.find((r) => r.slug === room) : rows[0]
   if (!target) return null
 
-  const { data: pfRow, error: pfErr } = await supabase!
-    .from('profiles')
-    .select('id, username, display_name, avatar_url, bio, sns')
-    .eq('id', expo.owner_id)
-    .maybeSingle()
+  const pfCols = 'id, username, display_name, avatar_url, bio, cv, sns'
+  let pfRes = await supabase!.from('profiles').select(pfCols).eq('id', expo.owner_id).maybeSingle()
+  if (missingColumn(pfRes.error)) {
+    pfRes = (await supabase!
+      .from('profiles')
+      .select(withoutCv(pfCols))
+      .eq('id', expo.owner_id)
+      .maybeSingle()) as unknown as typeof pfRes
+  }
+  const { data: pfRow, error: pfErr } = pfRes
   if (pfErr) throw pfErr
   if (!pfRow) return null
 
@@ -820,11 +865,16 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
     const uid = auth.user?.id
     if (!uid) return null
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id, username, display_name, avatar_url, bio, sns')
-      .eq('id', uid)
-      .maybeSingle()
+    const ownCols = 'id, username, display_name, avatar_url, bio, cv, sns'
+    let ownRes = await supabase.from('profiles').select(ownCols).eq('id', uid).maybeSingle()
+    if (missingColumn(ownRes.error)) {
+      ownRes = (await supabase
+        .from('profiles')
+        .select(withoutCv(ownCols))
+        .eq('id', uid)
+        .maybeSingle()) as unknown as typeof ownRes
+    }
+    const profile = ownRes.data
     // Only ever surface the viewer's OWN handle — never someone else's private room
     if (!profile || profile.username !== expectedUsername) return null
 
@@ -897,6 +947,7 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       ownerName,
       ownerAvatar: profile.avatar_url ?? null,
       ownerBio: profile.bio ?? '',
+      ownerCv: profile.cv ?? '',
       ownerSns: readSns(profile.sns),
       username: profile.username!,
       slug: gallery.slug,

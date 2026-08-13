@@ -71,78 +71,102 @@ function CorridorFloor({ depth, sideways }: { depth: number; sideways: boolean }
         roughness={0.92}
         emissive={0xffffff}
         emissiveMap={tex.map}
-        emissiveIntensity={0.18}
+        emissiveIntensity={0.1}
       />
     </mesh>
   )
 }
 
-/** 廊下の突き当たりに立つ**閉じた扉**（ユーザー指摘 2026-08-13「奥が行き止まりなので
- *  見えちゃいますね ── ここはドアか何かを奥に配置しましょうか」）。廊下だけだと突き当たりの
+/** 廊下の突き当たりに立つ**閉じた扉**（ユーザー指摘 2026-08-13）。廊下だけだと突き当たりの
  *  壁が見えて「行き止まり」に読めるが、扉が1枚立っていれば**先へ続く**に読める。
  *
- *  **明るさは光に任せない。** 廊下の奥まで光が回っているかは私が実描画で確かめられず、
- *  実際 0.4m の凹みは真っ黒に見えていた。そこで「暗くても見える下限」を弱い `emissive` で
- *  作る ── ただし `emissive` は**リニア値**で、0.12 は sRGB では中間グレーになる（前日それで
- *  枠を灰色にした）。ここは扉の面 0.045・枠 0.02・金物 0.10 ＝ **リニアで計算した結果**が
- *  sRGB で順に 約41/255・28/255・72/255（`emissive` の色をリニアに直して強さを掛け、
- *  `sRGB ≈ linear^(1/2.2)` で戻した値）。暗がりの中で「扉の面がぼんやり見え、枠がその奥に
- *  沈み、金物だけが光を返す」並びになる。前日の失敗値 0.12 は同じ計算で 102/255＝中間グレー。 */
+ *  **開口いっぱいの寸法**（ユーザー指摘「廊下のサイズと扉のサイズが異なるので一緒にして
+ *  ください」）。四周に 6mm だけ隙間を残す ── 実際の建具のクリアランスと同じで、
+ *  ぴったり同寸にすると扉の側面と廊下の側壁が**同一平面**になってちらつく。
+ *
+ *  **質感は `emissive` では出ない**（ユーザー指摘「扉の質感(光っている)などは見えないです」）。
+ *  `emissive` は法線を見ないので、上げるほど**陰影の無い塗り面**になる ── 最初の版は
+ *  それで「茶色い板」に見えていた。だから**廊下の中に本物の光を1つ置く**（`pointLight`・
+ *  影は落とさないのでシャドウマップの枠を食わない）。光があれば框の凹凸に陰が付き、
+ *  板目が読め、金物が**ハイライトを返す**。`emissive` は「光が届かなくても真っ黒には
+ *  ならない」下限としてごく弱く残すだけにする。 */
 function CorridorDoor({ z0 }: { z0: number }) {
-  const SLAB_W = 0.92
-  const SLAB_H = 2.05
+  /** 開口いっぱい − 四周 6mm */
+  const SLAB_W = DOOR_W - 0.012
+  const SLAB_H = DOOR_H - 0.012
   const SLAB_T = 0.05
-  /** 枠は扉の面より 1cm 内側に噛ませる ── 端をぴったり合わせると側面が**同一平面**になって
-   *  ちらつく（この扉で3回踏んだ型）。噛ませれば戸当たりに見えて、重なる面も作らない。 */
-  const CASE_W = 0.08
-  /** 縦枠の高さ。床（y = 0）から、まぐさの上端まで。 */
-  const CASE_H = SLAB_H + CASE_W
+  /** 框（かまち）の見付。框は扉の面から 18mm 出て、**四周 12mm 内側**に置く ──
+   *  端をぴったり合わせると扉の側面と框の側面が同一平面になる。 */
+  const BAR = 0.14
+  const BAR_T = 0.018
+  const IN = 0.012
   const zSlab = z0 + 0.005 + SLAB_T / 2
-  const zCase = z0 + 0.045
+  const zFace = zSlab + SLAB_T / 2
+  /** 框は 1mm だけ扉に食い込ませる（背面が扉の面と同一平面にならないように） */
+  const zBar = zFace + BAR_T / 2 - 0.001
+  const stileX = SLAB_W / 2 - IN - BAR / 2
+  /** 横框は縦框の**間**に納める。突き付けなので、接する面は互いに逆向き＝
+   *  どちらか一方しか描かれない（同一平面でも取り合いにならない）。 */
+  const railW = SLAB_W - 2 * IN - 2 * BAR
+  const tex = useMemo(() => {
+    const base = getFloorTextures()
+    const map = base.map.clone()
+    const bumpMap = base.bumpMap.clone()
+    // 板目は縦に流す（建具の框戸と同じ）。1タイル 5.3m × 2.66m を縦横入れ替えて使う。
+    for (const t of [map, bumpMap]) t.repeat.set(SLAB_W / 2.66, SLAB_H / 5.3)
+    return { map, bumpMap }
+  }, [SLAB_W, SLAB_H])
+  useEffect(() => () => disposeAll([tex.map, tex.bumpMap]), [tex])
   return (
     <group>
-      {/* 扉の面 */}
+      {/* 廊下の中の光。扉の少し手前・上寄りに置いて、扉の面と框、板目、金物に陰影を付ける。
+          `castShadow` は付けない ── 焼き込みの器（`WallShadowBaker`）が使うシャドウマップの
+          枠は 16 テクスチャユニットの天井と隣り合っているので、飾りの光では消費しない。 */}
+      <pointLight position={[0, SLAB_H * 0.86, z0 + 0.62]} color={0xffe2b8} intensity={1.7} distance={3.4} decay={2} />
+      {/* 扉の面（板目つき） */}
       <mesh position={[0, SLAB_H / 2, zSlab]}>
         <boxGeometry args={[SLAB_W, SLAB_H, SLAB_T]} />
         <meshStandardMaterial
-          color={0x2a241c}
-          roughness={0.75}
+          map={tex.map}
+          bumpMap={tex.bumpMap}
+          bumpScale={0.4}
+          color={0x4a3a29}
+          roughness={0.68}
           emissive={0xb9a48a}
-          emissiveIntensity={0.045}
+          emissiveIntensity={0.012}
         />
       </mesh>
-      {/* 枠（左右＋まぐさ） */}
-      {/* 縦枠は**床から立つ**。高さと中心を別々に書くと床下へ潜る ── 実際 `SLAB_H + 0.14` を
-          `SLAB_H / 2` に置いて 7cm 潜っていた（別視点レビューで検出。今は床に隠れて見えないが、
-          床を外した瞬間・自立配置・床下からの反射で出てくる「隠れているだけ」の誤り）。 */}
+      {/* 框（縦2本＋横3本）。出ているのが框で、間に見える扉の面が鏡板（パネル）になる。 */}
       {[
-        { pos: [-(SLAB_W / 2 + CASE_W / 2 - 0.01), CASE_H / 2, zCase] as const, size: [CASE_W, CASE_H, 0.07] as const },
-        { pos: [SLAB_W / 2 + CASE_W / 2 - 0.01, CASE_H / 2, zCase] as const, size: [CASE_W, CASE_H, 0.07] as const },
-        { pos: [0, SLAB_H + CASE_W / 2 - 0.01, zCase] as const, size: [SLAB_W + CASE_W * 2, CASE_W, 0.07] as const },
-      ].map((c, i) => (
-        <mesh key={`cd${i}`} position={[...c.pos]}>
-          <boxGeometry args={[...c.size]} />
-          <meshStandardMaterial color={TRIM_COLOR} roughness={0.7} emissive={0xb9a48a} emissiveIntensity={0.02} />
+        { pos: [-stileX, SLAB_H / 2, zBar] as const, size: [BAR, SLAB_H - 2 * IN, BAR_T] as const },
+        { pos: [stileX, SLAB_H / 2, zBar] as const, size: [BAR, SLAB_H - 2 * IN, BAR_T] as const },
+        { pos: [0, IN + BAR / 2, zBar] as const, size: [railW, BAR, BAR_T] as const },
+        { pos: [0, SLAB_H - IN - BAR / 2, zBar] as const, size: [railW, BAR, BAR_T] as const },
+        { pos: [0, 1.5, zBar] as const, size: [railW, BAR, BAR_T] as const },
+      ].map((b, i) => (
+        <mesh key={`cb${i}`} position={[...b.pos]}>
+          <boxGeometry args={[...b.size]} />
+          <meshStandardMaterial
+            map={tex.map}
+            bumpMap={tex.bumpMap}
+            bumpScale={0.4}
+            color={0x3a2c1e}
+            roughness={0.6}
+            emissive={0xb9a48a}
+            emissiveIntensity={0.012}
+          />
         </mesh>
       ))}
-      {/* レバーハンドルと座。**唯一の金物**で、暗がりの中でここだけ光を返す ── 「扉だ」と
-          分かるのは形より金物の輝きなので、ここだけ強めにする。 */}
+      {/* レバーハンドルと座。縦框の上に載せる（座の背は框に 1mm 食い込ませる）。
+          `metalness` を持つのは扉の中でここだけなので、廊下の光と環境マップを拾って
+          **ここだけがハイライトを返す** ── 「扉だ」と分かるのは形より金物の光り方。 */}
       {[
-        { pos: [SLAB_W / 2 - 0.09, 1.02, zSlab + SLAB_T / 2 + 0.012] as const, size: [0.07, 0.07, 0.024] as const },
-        // レバーは座の面にくっつける（座の厚み 0.024 ＋ レバーの半分 0.013）。ここを
-        // 適当な 0.045 にしていたので 8mm 浮いていた（別視点レビューで検出。暗がりで
-        // 一番明るいのが金物なので、浮きがそのまま目に付く）。
-        { pos: [SLAB_W / 2 - 0.14, 1.02, zSlab + SLAB_T / 2 + 0.024 + 0.013] as const, size: [0.13, 0.026, 0.026] as const },
+        { pos: [stileX, 1.02, zBar + BAR_T / 2 + 0.011] as const, size: [0.075, 0.075, 0.024] as const },
+        { pos: [stileX - 0.05, 1.02, zBar + BAR_T / 2 + 0.023 + 0.013] as const, size: [0.13, 0.028, 0.028] as const },
       ].map((m, i) => (
         <mesh key={`cm${i}`} position={[...m.pos]}>
           <boxGeometry args={[...m.size]} />
-          <meshStandardMaterial
-            color={0xb99f6a}
-            metalness={0.85}
-            roughness={0.32}
-            emissive={0xd8c08a}
-            emissiveIntensity={0.1}
-          />
+          <meshStandardMaterial color={0xc9ae76} metalness={0.9} roughness={0.24} envMapIntensity={1.4} />
         </mesh>
       ))}
     </group>

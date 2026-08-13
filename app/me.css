@@ -554,6 +554,15 @@
 .spotlight-row-slug { max-width: 110px; }
 .spotlight-row .btn-line { padding: 0.45em 0.7em; }
 
+/* 欄のすぐ下に置く一行の説明。`.me-field` は `display:block` の label なので、
+   `<small>` はそのまま入力欄の次の行に落ちる（2026-08-13・来歴の欄で追加）。 */
+.me-field-hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.74rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
 .me-field-group-label {
   font-size: 0.76rem;
   line-height: 1.7;
