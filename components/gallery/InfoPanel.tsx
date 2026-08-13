@@ -13,6 +13,13 @@ import { roomExhibitor } from '@/lib/roomPlan'
 import { DEFAULT_TITLE_TEXT } from './textures'
 import { useT } from '@/components/I18nProvider'
 import SnsLinks from '@/components/SnsLinks'
+import { renderMarkdown } from '@/lib/markdown'
+
+/** 作家が書いた文はマークダウンで描く（ユーザー要望 2026-08-13）。
+ *  - **画像は不可**: 任意のURLの画像を埋められると来場者のIPが第三者へ渡る（`lib/markdown`）。
+ *  - **改行はそのまま改行**: 欄はテキストエリアで、書いた人は改行したところで改まると思う。
+ *    特に来歴は1行1件で書かれる。 */
+const MD = { images: false, breaks: true } as const
 
 type TabId = 'exhibition' | 'about' | 'cv'
 
@@ -112,19 +119,17 @@ export default function InfoPanel() {
       )}
       {shown === 'exhibition' && (
         <div role="tabpanel" id="info-pane-exhibition" aria-labelledby="info-tab-exhibition">
-          {statement && <p className="panel-desc">{statement}</p>}
+          {statement && <div className="panel-desc panel-md">{renderMarkdown(statement, MD)}</div>}
         </div>
       )}
       {shown === 'about' && (
         <div role="tabpanel" id="info-pane-about" aria-labelledby="info-tab-about">
-          <p className="panel-desc">{artistBio}</p>
+          <div className="panel-desc panel-md">{renderMarkdown(artistBio, MD)}</div>
         </div>
       )}
       {shown === 'cv' && (
         <div role="tabpanel" id="info-pane-cv" aria-labelledby="info-tab-cv">
-          {/* 来歴は1行1件で書かれる（ダッシュボードの説明文がそう案内している）ので、
-              改行をそのまま残す。段落として流すと年号が繋がって読めない。 */}
-          <p className="panel-desc panel-desc-lines">{artistCv}</p>
+          <div className="panel-desc panel-md">{renderMarkdown(artistCv, MD)}</div>
         </div>
       )}
     </aside>

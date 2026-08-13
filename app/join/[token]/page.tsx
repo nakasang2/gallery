@@ -13,6 +13,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { renderMarkdown } from '@/lib/markdown'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useT } from '@/components/I18nProvider'
@@ -99,7 +100,9 @@ export default function JoinPage() {
       <p className="join-kicker">{t('join.kicker')}</p>
       <h1 className="join-title">{name}</h1>
       <p className="join-by">{t('join.by', { name: target.organizerName })}</p>
-      {target.statement && <p className="join-statement">{target.statement}</p>}
+      {target.statement && (
+        <div className="join-statement panel-md">{renderMarkdown(target.statement, { images: false, breaks: true })}</div>
+      )}
 
       {/* 会期。まだ始まっていない展示のほうが普通なので、**日付が無いことを異常として
           見せない**。どちらの文を出すかは `startsAt`/`endsAt`（＝支払いで入る値）から

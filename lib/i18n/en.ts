@@ -594,6 +594,7 @@ export const en = {
     profileBio: 'Bio / statement',
     profileCv: 'CV (exhibitions & awards)',
     profileCvNote: 'One entry per line — exhibitions, awards, press. Shown to visitors on its own tab, next to your bio.',
+    markdownOk: 'Markdown works here: **bold** · *italic* · - list · [link](URL)',
     profileSnsNote: 'Link your SNS — shown on your public page and while visitors walk your room, so they can follow you elsewhere. Paste the whole link (the one in the address bar) into each row.',
     snsWrongPlatform: 'That looks like a {found} link — this row is for {expected}.',
     snsNotPlatform: 'That does not look like a {expected} link.',

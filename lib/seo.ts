@@ -21,6 +21,7 @@
 // existing page titles already made; localising it needs locale-prefixed URLs for
 // public galleries (the C option, deliberately not taken).
 import { cache } from 'react'
+import { stripMarkdown } from '@/lib/markdown'
 import {
   fetchExpoExhibition,
   fetchPublicExhibition,
@@ -129,8 +130,28 @@ export function exhibitionTitle(ex: PublicExhibition): string {
  *  class of bug the dictionary was fixed for on 2026-07-29, still living here
  *  because these single-URL pages are English by decision and never went through
  *  `translate()`. */
+/** 説明文の上限（文字）。検索結果は 160 前後で切られるので、それより少し長い程度。 */
+const META_MAX = 200
+
+/** マークダウンを落とし、長さを詰める。**`<meta>` と構造化データに入る文は必ずこれを通す。**
+ *
+ *  ①記号を落とす: `<meta>` はマークダウンを解釈しないので、`**強調**` や `- 箇条書き` が
+ *  記号ごと検索結果とSNSのカードに出る（ユーザー要望 2026-08-13 でこの3欄がマークダウンに
+ *  なった）。②長さを詰める: **文字数制限を外した**（ユーザー指示 2026-08-13）ので、
+ *  6000字の展示情報が meta・og・twitter・JSON-LD に丸ごと4回入り、1ページ 24KB の重複した
+ *  文章が全ページに乗る（別視点レビューで検出）。検索側は 160 字前後で切るので何の役にも
+ *  立たない。**全文を見せる場所（情報パネル・作家ページ・カタログ）は詰めない。** */
+function metaText(md: string): string {
+  const plain = stripMarkdown(md)
+  if (plain.length <= META_MAX) return plain
+  // できれば語の区切りで切る（日本語は空白が無いので、無ければそのまま切る）
+  const cut = plain.slice(0, META_MAX)
+  const sp = cut.lastIndexOf(' ')
+  return (sp > META_MAX * 0.6 ? cut.slice(0, sp) : cut).trimEnd() + '…'
+}
+
 export function exhibitionDescription(ex: PublicExhibition): string {
-  if (ex.statement) return ex.statement
+  if (ex.statement.trim()) return metaText(ex.statement)
   const n = ex.artworks.length
   const walk =
     n === 0
@@ -157,7 +178,7 @@ function personNode(p: {
     '@id': `${abs(artistPath(p.username))}#person`,
     name: p.displayName,
     url: abs(artistPath(p.username)),
-    ...(p.bio ? { description: p.bio } : {}),
+    ...(p.bio.trim() ? { description: metaText(p.bio) } : {}),
     ...(image ? { image } : {}),
     ...(sameAs.length ? { sameAs } : {}),
   }
@@ -458,7 +479,7 @@ export function artistJsonLd(p: PublicProfile): Node {
   const person = personNode({
     username: p.username,
     displayName: p.displayName,
-    bio: p.bio,
+    bio: metaText(p.bio),
     avatarUrl: p.avatarUrl,
     sns: p.sns,
   })
@@ -470,7 +491,7 @@ export function artistJsonLd(p: PublicProfile): Node {
         '@id': `${pageUrl}#page`,
         url: pageUrl,
         name: `${p.displayName} — Xibit360`,
-        ...(p.bio ? { description: p.bio } : {}),
+        ...(p.bio.trim() ? { description: metaText(p.bio) } : {}),
         // See the note on the exhibition graph: the bio is the artist's own words.
         isPartOf: { '@id': website()['@id'] },
         mainEntity: { '@id': person['@id'] },
@@ -481,7 +502,7 @@ export function artistJsonLd(p: PublicProfile): Node {
             '@id': `${abs(`/@${p.username}/${g.slug}`)}#page`,
             url: abs(`/@${p.username}/${g.slug}`),
             name: isPlaceholderTitle(g.title) ? p.displayName : g.title,
-            ...(g.statement ? { description: g.statement } : {}),
+            ...(g.statement.trim() ? { description: metaText(g.statement) } : {}),
             // A full ImageObject, not the URL — see the note in exhibitionJsonLd.
             // This page has no per-work nodes to point at, so it carries its own,
             // credited the same way the works on the exhibition page are.

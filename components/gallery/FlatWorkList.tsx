@@ -11,6 +11,7 @@
 // Deliberately hook-free and free of any store access so a SERVER component can
 // render it. Strings arrive already translated; the works arrive already ordered.
 import type { ArtworkData } from '@/lib/artworks'
+import { renderMarkdown } from '@/lib/markdown'
 import { artworkSrcSet } from '@/lib/cloud'
 
 // `.flat-work` is max-width 640px inside `.flat-gallery`'s 1.4rem side padding,
@@ -44,7 +45,9 @@ export default function FlatWorkList({
         <p>{subhead}</p>
         {note && <p className="flat-note">{note}</p>}
       </header>
-      {statement && <p className="flat-statement">{statement}</p>}
+      {/* 作家が書いた文はマークダウンで描く（ユーザー要望 2026-08-13）。ここは
+          クローラが読む素のHTMLでもあるので、記号のまま出すと検索結果にも記号が出る。 */}
+      {statement && <div className="flat-statement panel-md">{renderMarkdown(statement, { images: false, breaks: true })}</div>}
       {works.map((art, i) => (
         <article className="flat-work" key={art.id}>
           {/* eslint-disable-next-line @next/next/no-img-element */}

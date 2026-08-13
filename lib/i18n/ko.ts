@@ -667,6 +667,7 @@ export const ko: PartialDictionary = {
 
     profileName: '표시 이름(작가명)',
     profileBio: '소개 / 작가의 말', profileCv: '이력 (전시·수상)', profileCvNote: '한 줄에 한 항목. 전시, 수상, 보도 등을 적을 수 있습니다. 관람객에게는 작가 소개와 나란한 별도 탭으로 보입니다.',
+    markdownOk: '마크다운을 쓸 수 있습니다: **굵게** · *기울임* · - 목록 · [링크](URL)',
     profileSnsNote: 'SNS를 연결해 두면 공개 페이지와 전시장 안에서 보입니다. 관람객이 다른 곳에서도 이어서 볼 수 있습니다. 각 칸에는 주소창의 URL을 그대로 붙여 넣으세요.',
     snsWrongPlatform: '{found} 링크로 보입니다 (이 칸은 {expected}).',
     snsNotPlatform: '{expected} 링크가 아닌 것 같습니다.',

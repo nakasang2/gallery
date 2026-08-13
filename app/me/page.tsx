@@ -472,13 +472,17 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
       </label>
       <label className="me-field">
         <span>{t('me.statementOptional')}</span>
+        {/* **文字数制限を付けない**（ユーザー指示 2026-08-13「この入力欄に文字数制限は
+            不要です」）。以前は 200 字で、書ける量が理由も見えないまま切られていた。
+            3Dの板には焼かれない（板はタイトルと作家名だけ・`makeTitleTexture`）ので、
+            長くても壁からはみ出すことはない。 */}
         <textarea
           rows={3}
-          maxLength={200}
           placeholder={t('me.statementPlaceholder')}
           value={statement}
           onChange={(e) => setStatement(e.target.value)}
         />
+        <small className="me-field-hint">{t('me.markdownOk')}</small>
       </label>
       <div className="hako-actions">
         <button className="btn-line" disabled={busy} onClick={() => setStep(1)}>← {t('me.createBack')}</button>
@@ -2332,15 +2336,16 @@ function GalleryCard({
                 aria-label={t('me.exhibitionTitle')}
                 onChange={(e) => editDetails({ title: e.target.value })}
               />
+              {/* 文字数制限なし（ユーザー指示 2026-08-13）。上と同じ理由。 */}
               <textarea
                 className="hako-statement-input"
                 rows={2}
-                maxLength={200}
                 placeholder={t('me.statementBoardPlaceholder')}
                 aria-label={t('me.exhibitionStatement')}
                 value={statementInput}
                 onChange={(e) => editDetails({ statement: e.target.value })}
               />
+              <small className="me-field-hint">{t('me.markdownOk')}</small>
             </div>
             {cloudArtworks.length > 0 && (
               <div className="wd-group">
@@ -2823,6 +2828,7 @@ function ProfileCard() {
       <label className="me-field">
         <span>{t('me.profileBio')}</span>
         <textarea rows={3} value={bio} onChange={(e) => editProfile({ bio: e.target.value })} />
+        <small className="me-field-hint">{t('me.markdownOk')}</small>
       </label>
       {/* 来歴（ユーザー要望 2026-08-13）。自己紹介と別の列（migration 0060）で、
           3Dの情報パネルでは「来歴」タブとして出る。空なら来場者にはタブが出ない。 */}
@@ -2830,11 +2836,14 @@ function ProfileCard() {
         <span>{t('me.profileCv')}</span>
         <textarea
           rows={5}
-          maxLength={2000}
           value={cv}
           onChange={(e) => editProfile({ cv: e.target.value })}
         />
-        <small className="me-field-hint">{t('me.profileCvNote')}</small>
+        <small className="me-field-hint">
+          {t('me.profileCvNote')}
+          <br />
+          {t('me.markdownOk')}
+        </small>
       </label>
       <p className="me-field-group-label">
         {t('me.profileSnsNote')}

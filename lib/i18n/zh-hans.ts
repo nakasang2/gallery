@@ -606,6 +606,7 @@ export const zhHans: PartialDictionary = {
     deleteEntry: '删除留言', deleteEntryConfirm: '删除这条留言？',
 
     profileName: '显示名称（作者名）', profileBio: '简介 / 创作自述', profileCv: '履历（展览与获奖）', profileCvNote: '每行一条：展览、获奖、报道等。观众会在与个人简介并列的独立标签中看到。',
+    markdownOk: '支持 Markdown：**加粗** · *斜体* · - 列表 · [链接](URL)',
     profileSnsNote: '把社交账号连上，会显示在公开页面和展厅里，观众就能在别处继续关注你。每一栏请直接粘贴地址栏里的完整链接。',
     snsWrongPlatform: '这看起来是 {found} 的链接（这一栏是 {expected}）。',
     snsNotPlatform: '这看起来不是 {expected} 的链接。',

@@ -3,6 +3,7 @@
 // directly (the shared URL is just /@name); with several public galleries
 // it becomes the listing page. /@name/[slug] keeps working either way.
 import type { Metadata } from 'next'
+import { renderMarkdown, stripMarkdown } from '@/lib/markdown'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { isPlaceholderTitle } from '@/lib/publish'
@@ -69,7 +70,8 @@ export async function generateMetadata({
   }
 
   const title = `${p.displayName} — Xibit360`
-  const description = p.bio || `3D galleries by ${p.displayName}.`
+  // `<meta>` はマークダウンを解釈しないので記号を落とす（`**強調**` が検索結果に出る）
+  const description = stripMarkdown(p.bio) || `3D galleries by ${p.displayName}.`
   const cover = p.galleries.find((g) => g.cover)?.cover
   return {
     title,
@@ -145,7 +147,12 @@ export default async function ArtistPage({
             <SnsLinks sns={p.sns} />
           </div>
         </div>
-        {p.bio && <p className="artist-bio">{p.bio}</p>}
+        {/* 作家が書いた文はマークダウンで描く（画像は不可 ── `lib/markdown` の説明）。
+            指定は**情報パネルと同じ** ── 同じ自己紹介が、公開ページでは1段落に潰れ、3Dの
+            パネルでは改行されて出る、という食い違いを作らない（別視点レビューで検出）。 */}
+        {p.bio && (
+          <div className="artist-bio panel-md">{renderMarkdown(p.bio, { images: false, breaks: true })}</div>
+        )}
 
         <section className="me-section" style={{ marginTop: '2.4rem' }}>
           <h2>{t('artist.exhibitions')}</h2>
