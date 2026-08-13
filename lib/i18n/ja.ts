@@ -338,6 +338,21 @@ export const ja: Dictionary = {
     errEmpty: '先に作家のハンドルを入れてください。',
     errNotYours: 'その展示にあなたが招待を出すことはできません。',
     errGeneric: 'うまくいきませんでした。もう一度お試しください。',
+    // 参加作家に自分の部屋ができるモデル（migration 0062、ユーザー決定 2026-08-13）。
+    // 受信箱では「作品を選ぶ」トレイの代わりに、自分の部屋を開くボタンを出す。
+    roomAcceptedExplain: 'この展示の中の、あなた自身の部屋です。通常の部屋と同じように、作品を足し・テーマを決め・並べられます。',
+    openRoom: '自分の部屋を開く',
+    readyToggleLabel: '準備できた',
+    readyToggleHint: '部屋が思いどおりになったらオンにしてください。主催者に通知が届きます ── それまではいつでもオフに戻せます。',
+    readyOn: '準備完了',
+    // state-ok: 呼び手が `expo_ready_at`（DB列）の有無からトグルの状態を選んで
+    // readyOn/readyOffのどちらかを出す。ここは固定の対の片方でしかない。
+    readyOff: '準備中',
+    readyMarkedAt: '{date} に準備完了にしました',
+    participantRoomReady: '準備完了',
+    // state-ok: 同上。呼び手が各参加者の`roomReadyAt`から選ぶ。
+    participantRoomNotReady: '準備中',
+    openParticipantRoom: '部屋を開く',
   },
 
   me: {
@@ -1004,6 +1019,8 @@ export const ja: Dictionary = {
     roomSwitchFailedEmpty: '作品が置かれているため、切り替えられません。',
     roomSwitchFailedAllowance: '空いている部屋枠がありません。先に部屋を購入してください。',
     roomSwitchFailedOther: '切り替えに失敗しました。',
+    participatingTitle: '参加している合同展示',
+    participatingOrganizer: '主催: {name}',
   },
 
   notif: {
@@ -1024,6 +1041,7 @@ export const ja: Dictionary = {
     declined: '{who} さんが「{room}」への招待を辞退しました',
     submission: '{who} さんが「{room}」に {n} 点を出しました',
     unsubmit: '{who} さんが「{room}」から {n} 点を引っ込めました（壁から下りています）',
+    roomReady: '{who} さんの「{room}」の部屋が準備完了になりました',
     like: '「{work}」がいいねされました',
     likes: '「{work}」が {n} 件いいねされました',
     guestbook: '「{room}」の芳名帳に {who} さんが記帳しました',

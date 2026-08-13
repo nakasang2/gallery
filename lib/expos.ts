@@ -25,6 +25,10 @@ export interface Expo {
   slug: string
   title: string
   statement: string
+  /** 主催者のid。**参加作家の部屋を編集しているとき、自分が主催者かどうかを見分ける**
+   *  ために使う（migration 0062・ユーザー決定 2026-08-13: 参加者にも自分の部屋が
+   *  あるので、「参加者」タブ・会期の決済は主催者だけに絞る必要がある）。 */
+  ownerId: string
   /** 選んでいる会期の長さ。公開後は動かせない。 */
   durationDays: number
   /** 会期の開始。null = 下書き。 */
@@ -39,13 +43,14 @@ interface ExpoRow {
   slug: string
   title: string | null
   statement: string | null
+  owner_id: string
   duration_days: number | null
   starts_at: string | null
   ends_at: string | null
   created_at: string
 }
 
-const COLS = 'id, slug, title, statement, duration_days, starts_at, ends_at, created_at'
+const COLS = 'id, slug, title, statement, owner_id, duration_days, starts_at, ends_at, created_at'
 
 function rowToExpo(r: ExpoRow): Expo {
   return {
@@ -53,6 +58,7 @@ function rowToExpo(r: ExpoRow): Expo {
     slug: r.slug,
     title: r.title ?? '',
     statement: r.statement ?? '',
+    ownerId: r.owner_id,
     durationDays: r.duration_days ?? 14,
     startsAt: r.starts_at,
     endsAt: r.ends_at,
@@ -257,4 +263,14 @@ export function roomExpoSwitchErrorKey(e: unknown): RoomExpoSwitchError {
   if (msg.includes('no unused room purchase')) return 'no_allowance'
   if (msg.includes('not your room') || msg.includes('does not belong to this user')) return 'not_owner'
   return 'other'
+}
+
+/**
+ * 参加作家の「準備できた」トグル（migration 0062、ユーザー決定 2026-08-13）。
+ * 自分の合同展示の部屋でオンにすると、主催者に `room_ready` 通知が届く。
+ * オフに戻すこともできる（`expo_ready_at` を null に戻すだけ）。
+ */
+export async function setExpoRoomReady(galleryId: string, ready: boolean): Promise<void> {
+  const { error } = await supabase!.rpc('set_expo_room_ready', { p_gallery: galleryId, p_ready: ready })
+  if (error) throw error
 }

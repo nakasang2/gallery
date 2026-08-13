@@ -32,7 +32,9 @@ export interface InviteArtist {
   avatarUrl: string | null
 }
 
-/** 主催者が見る1件。`submittedCount` は「その作家がこの展示に出した点数」。 */
+/** 主催者が見る1件。`submittedCount` は「その作家がこの展示に出した点数」
+ *  （旧・提出モデルの名残）。`roomId`/`roomReadyAt` は新モデル（migration 0062）
+ *  ── 承諾した瞬間に自動で作られる、その作家自身の部屋。 */
 export interface ExpoInvite {
   id: string
   expoId: string
@@ -41,6 +43,10 @@ export interface ExpoInvite {
   respondedAt: string | null
   artist: InviteArtist
   submittedCount: number
+  /** 承諾済みなら自動生成の部屋のid（0062未適用、または未承諾なら null）。 */
+  roomId: string | null
+  /** その部屋で「準備できた」を押した日時。null = まだ。 */
+  roomReadyAt: string | null
 }
 
 /** 作家が見る1件（自分宛の招待）。 */
@@ -51,8 +57,11 @@ export interface MyInvite {
   createdAt: string
   /** 招いてきた展示。0047 の `expos_select_invited` があるので**会期前でも読める**。 */
   expo: { slug: string; title: string; organizer: InviteArtist | null }
-  /** この展示に出している自分の作品の id。 */
+  /** この展示に出している自分の作品の id（旧・提出モデルの名残）。 */
   submittedIds: string[]
+  /** 承諾した瞬間に自動で作られる自分の部屋のid（migration 0062）。null = まだ承諾
+   *  していない、辞退した、または0062未適用（旧来の提出モデルのまま）。 */
+  roomId: string | null
 }
 
 type ProfileEmbed = {
@@ -110,6 +119,19 @@ export async function listExpoInvites(expoId: string): Promise<ExpoInvite[]> {
     if (owner) byArtist.set(owner, (byArtist.get(owner) ?? 0) + 1)
   }
 
+  // 各作家の自動生成の部屋（migration 0062）。`galleries_select_expo_owner`（0062）が
+  // 主催者にこの展示の全部屋を読ませる。0062未適用なら列/ポリシーが無いので空扱い
+  // （旧来の提出モデルの表示に留まる）。
+  const byArtistRoom = new Map<string, { id: string; readyAt: string | null }>()
+  const { data: expoRooms, error: roomsErr } = await supabase!
+    .from('galleries')
+    .select('id, owner_id, expo_ready_at')
+    .eq('expo_id', expoId)
+  if (roomsErr && !missingSubmissionsTable(roomsErr) && roomsErr.code !== '42703') throw roomsErr
+  for (const g of (expoRooms ?? []) as { id: string; owner_id: string; expo_ready_at: string | null }[]) {
+    byArtistRoom.set(g.owner_id, { id: g.id, readyAt: g.expo_ready_at })
+  }
+
   return ((data ?? []) as unknown as {
     id: string
     expo_id: string
@@ -126,6 +148,8 @@ export async function listExpoInvites(expoId: string): Promise<ExpoInvite[]> {
     respondedAt: r.responded_at,
     artist: toArtist(r.profiles, r.artist_id),
     submittedCount: byArtist.get(r.artist_id) ?? 0,
+    roomId: byArtistRoom.get(r.artist_id)?.id ?? null,
+    roomReadyAt: byArtistRoom.get(r.artist_id)?.readyAt ?? null,
   }))
 }
 
@@ -257,6 +281,19 @@ export async function listMyInvites(artistId: string): Promise<MyInvite[]> {
     else byExpo.set(s.expo_id, [s.artwork_id])
   }
 
+  // 承諾済みの展示に、自分の自動生成の部屋があるか（migration 0062）。0062未適用の
+  // DBでは `expo_id` 列自体は読めても対象0件になるだけ（旧来の提出モデルに留まる）。
+  const byExpoRoom = new Map<string, string>()
+  const { data: myRooms, error: roomsErr } = await supabase!
+    .from('galleries')
+    .select('id, expo_id')
+    .eq('owner_id', artistId)
+    .in('expo_id', rows.map((r) => r.expo_id))
+  if (roomsErr && roomsErr.code !== '42703' && roomsErr.code !== 'PGRST204' && roomsErr.code !== 'PGRST205') throw roomsErr
+  for (const g of (myRooms ?? []) as { id: string; expo_id: string | null }[]) {
+    if (g.expo_id) byExpoRoom.set(g.expo_id, g.id)
+  }
+
   return rows.map((r) => ({
     id: r.id,
     expoId: r.expo_id,
@@ -268,6 +305,7 @@ export async function listMyInvites(artistId: string): Promise<MyInvite[]> {
       organizer: r.expos ? toArtist(r.expos.profiles, r.expos.owner_id) : null,
     },
     submittedIds: byExpo.get(r.expo_id) ?? [],
+    roomId: byExpoRoom.get(r.expo_id) ?? null,
   }))
 }
 

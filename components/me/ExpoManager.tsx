@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useT } from '@/components/I18nProvider'
 import { useGallery } from '@/lib/store'
-import { listExpoRooms, type GalleryRow } from '@/lib/galleries'
+import { listExpoRoomsWithOwners, type ExpoRoomInfo } from '@/lib/galleries'
 import {
   EXPO_SLUG_RE,
   addExpoRoom,
@@ -32,6 +32,7 @@ import {
   listMyExpos,
   type Expo,
 } from '@/lib/expos'
+import { listMyInvites, type MyInvite } from '@/lib/invites'
 import { track } from '@/lib/analytics'
 
 /** 日付だけ（時刻は会期の話では意味がないので出さない）。 */
@@ -54,7 +55,9 @@ export default function ExpoManager({
   const user = useGallery((s) => s.user)
   const day = useDay()
   const [expos, setExpos] = useState<Expo[] | null>(null)
-  const [rooms, setRooms] = useState<Record<string, GalleryRow[]>>({})
+  const [rooms, setRooms] = useState<Record<string, ExpoRoomInfo[]>>({})
+  /** 招かれて参加している展示（自分は主催者ではない。migration 0062）。 */
+  const [participating, setParticipating] = useState<MyInvite[] | null>(null)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   /** 新規作成のフォーム。開いているときだけ出す（一覧を主役にする）。 */
@@ -67,11 +70,15 @@ export default function ExpoManager({
     try {
       const list = await listMyExpos(user.id)
       setExpos(list)
-      // 部屋は展示ごとに引く（数が少ないので一括にしない）。
-      const byExpo: Record<string, GalleryRow[]> = {}
+      // 部屋は展示ごとに引く（数が少ないので一括にしない）。**主催者の視点**なので
+      // `listExpoRoomsWithOwners`（migration 0062の`galleries_select_expo_owner`）で
+      // 参加作家の部屋も見える。持ち主が分かるように名前つきで持つ ── 参加作家の
+      // 自動生成の部屋は展示名をそのままタイトルに持つので、名前が無いと全部同じ
+      // ラベルに見えて誰の部屋か分からない。
+      const byExpo: Record<string, ExpoRoomInfo[]> = {}
       for (const x of list) {
         try {
-          byExpo[x.id] = await listExpoRooms(x.id)
+          byExpo[x.id] = await listExpoRoomsWithOwners(x.id)
         } catch {
           byExpo[x.id] = []
         }
@@ -85,6 +92,13 @@ export default function ExpoManager({
       }
       setErr(t('expo.loadFailed'))
       setExpos([])
+    }
+    try {
+      const invites = await listMyInvites(user.id)
+      setParticipating(invites.filter((i) => i.status === 'accepted' && i.roomId))
+    } catch {
+      // 0047/0062 未適用、または読み込み失敗。この節を空にするだけ（主催者一覧は生かす）。
+      setParticipating([])
     }
     // `user` を deps に入れる（`[]` だとサインイン直後に一覧が出ない）。
   }, [user, t])
@@ -157,6 +171,7 @@ export default function ExpoManager({
           {expos.map((x) => {
             const phase = expoPhase(x)
             const xr = rooms[x.id] ?? []
+            const myOwnRoom = xr.find((info) => info.room.owner_id === user.id)
             const purge = expoPurgeAt(x)
             // クラス名は**そのまま書く**。`expo-${phase}` のように組むと
             // `npm run check:css` から見えず、綴りを間違えても誰も気づかない
@@ -205,7 +220,10 @@ export default function ExpoManager({
                 </p>
                 {xr.length > 0 && (
                   <ul className="expo-rooms">
-                    {xr.map((r) => (
+                    {/* 1展示・1作家1部屋（migration 0062）なので、複数の部屋があるのは
+                        参加作家がそれぞれ自分の部屋を持っている状態 ── 誰の部屋か
+                        分からないと開く前に選べないので、名前を添える。 */}
+                    {xr.map(({ room: r, ownerName }) => (
                       <li key={r.id}>
                         <button
                           type="button"
@@ -214,6 +232,7 @@ export default function ExpoManager({
                           disabled={!onOpenRoom}
                         >
                           {r.title || r.slug}
+                          {r.owner_id !== user.id && ownerName ? ` — ${ownerName}` : ''}
                         </button>
                       </li>
                     ))}
@@ -222,18 +241,22 @@ export default function ExpoManager({
 
                 {/* 壁が空のまま公開させない（来場者が空の部屋に着く）ヒントだけここに残す。
                     招待・会期を選んで公開は、部屋を開いた先（部屋編集画面の「参加者」
-                    「公開」タブ）でする（ユーザー指示 2026-08-10）。 */}
-                {phase === 'draft' && xr.length === 0 && (
+                    「公開」タブ）でする（ユーザー指示 2026-08-10）。**主催者自身の部屋**が
+                    あるかどうかで判定する ── 参加作家の部屋しか無くても、主催者はまだ
+                    部屋を用意していない。 */}
+                {phase === 'draft' && !myOwnRoom && (
                   <p className="me-note">{t('expo.needRoomFirst')}</p>
                 )}
 
                 <div className="hako-actions expo-actions">
-                  {/* 1展示1部屋（migration 0061・ユーザー決定 2026-08-13）。以前はここに
-                      「もう1室」を作る導線があったが、合同展示の部屋を複数持てると、
-                      切り替えたときに前の部屋の設定が残っているように見えて混乱すると
-                      指摘され撤回した。部屋が既にあるときはこのボタンごと隠す
-                      （DB側の`enforce_room_allowance`/`switch_room_expo`も2本目を拒否する）。 */}
-                  {xr.length === 0 && (
+                  {/* 1展示・1作家1部屋（migration 0062・ユーザー決定 2026-08-13。0061の
+                      「1展示1部屋」を訂正）。「もう1室」を作る導線は無い ── 合同展示の
+                      部屋を複数持てると、切り替えたときに前の部屋の設定が残っているように
+                      見えて混乱すると指摘され撤回した。**主催者自身の部屋**が既にあるときは
+                      このボタンごと隠す（DB側の`enforce_room_allowance`/`switch_room_expo`も
+                      2本目を拒否する）。参加作家の部屋は承諾した瞬間に自動で作られるので、
+                      ここから作る対象ではない。 */}
+                  {!myOwnRoom && (
                     <button
                       type="button"
                       className="btn-line"
@@ -269,6 +292,41 @@ export default function ExpoManager({
             )
           })}
         </ul>
+      )}
+
+      {/* 招かれて参加している展示（自分は主催者ではない。migration 0062）。承諾した
+          瞬間に自動でできた自分の部屋を、同じ「部屋を開く」入口で開ける ──
+          主催者一覧と統一した形にする（ユーザー指示 2026-08-13）。 */}
+      {!creating && participating !== null && participating.length > 0 && (
+        <>
+          <p className="invite-inbox-title">{t('expo.participatingTitle')}</p>
+          <ul className="expo-list">
+            {participating.map((inv) => (
+              <li key={inv.id} className="expo-item">
+                <div className="expo-head">
+                  <span className="expo-name">{inv.expo.title || inv.expo.slug}</span>
+                </div>
+                {inv.expo.organizer && (
+                  <p className="me-note">
+                    {t('expo.participatingOrganizer', {
+                      name: inv.expo.organizer.displayName || `@${inv.expo.organizer.username ?? ''}`,
+                    })}
+                  </p>
+                )}
+                <div className="hako-actions expo-actions">
+                  <button
+                    type="button"
+                    className="btn-line"
+                    onClick={() => onOpenRoom?.(inv.roomId!)}
+                    disabled={!onOpenRoom}
+                  >
+                    {t('invite.openRoom')}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       {!creating && (

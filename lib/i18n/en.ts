@@ -372,6 +372,20 @@ export const en = {
     errEmpty: 'Enter the artist\'s handle first.',
     errNotYours: 'That exhibition is not yours to invite into.',
     errGeneric: 'That did not work. Please try again.',
+    // 参加作家に自分の部屋ができるモデル（migration 0062、ユーザー決定 2026-08-13）。
+    // 受信箱では「作品を選ぶ」トレイの代わりに、自分の部屋を開くボタンを出す。
+    roomAcceptedExplain: 'This is your own room in the exhibition. Add your works, set its theme, and arrange them — just like a regular room.',
+    openRoom: 'Open your room',
+    // 「準備できた」トグル（部屋編集画面の「公開」タブに出る、作家側の中身）。
+    readyToggleLabel: 'Ready for the show',
+    readyToggleHint: 'Turn this on once your room looks the way you want. The organiser is notified — you can turn it off again any time before then.',
+    readyOn: 'Ready',
+    readyOff: 'Not ready yet',
+    readyMarkedAt: 'Marked ready on {date}',
+    // 主催者側の参加者一覧に出す、各作家の部屋の状態。
+    participantRoomReady: 'Ready',
+    participantRoomNotReady: 'Not ready yet',
+    openParticipantRoom: 'Open room',
   },
 
   me: {
@@ -1046,6 +1060,10 @@ export const en = {
     roomSwitchFailedEmpty: 'This room already has work on its walls, so it can’t be switched.',
     roomSwitchFailedAllowance: 'No free room slot is available — buy a room first.',
     roomSwitchFailedOther: 'Could not switch this room.',
+    // 招待されて参加している展示（自分は主催者ではない）。migration 0062: 承諾すると
+    // 自分の部屋が自動でできるので、一覧はそこを開く入口になる。
+    participatingTitle: 'Exhibitions you’re taking part in',
+    participatingOrganizer: 'organised by {name}',
   },
 
   notif: {
@@ -1066,6 +1084,7 @@ export const en = {
     declined: '{who} declined the invitation to “{room}”',
     submission: '{who} offered {n} works for “{room}”',
     unsubmit: '{who} withdrew {n} works from “{room}” — they are off the wall now',
+    roomReady: '{who}’s room in “{room}” is ready',
     like: 'Someone liked “{work}”',
     likes: '“{work}” was liked {n} times',
     guestbook: '{who} signed the guestbook of “{room}”',

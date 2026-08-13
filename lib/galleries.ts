@@ -19,6 +19,11 @@ import type { ArtworkData } from './artworks'
 
 export interface GalleryRow {
   id: string
+  /** 部屋の所有者。**合同展示の部屋一覧（`listExpoRoomsWithOwners`）で「誰の部屋か」を
+   *  見分けるために使う**（migration 0062）。他のすべての読み出しは自分の行しか
+   *  返らないので今まで不要だったが、主催者は`galleries_select_expo_owner`（0062）で
+   *  他の作家の部屋も読めるようになった。 */
+  owner_id: string
   slug: string
   title: string
   statement: string
@@ -55,12 +60,17 @@ export interface GalleryRow {
   slots_included?: boolean | null
   /** 合同展示（migration 0044）の部屋なら、その展示のid。作家自身の部屋は null。 */
   expo_id?: string | null
+  /** 参加作家が「準備できた」を押した日時（migration 0062）。合同展示の部屋以外は
+   *  常に null。null/absent = まだ押していない、または0062未適用。 */
+  expo_ready_at?: string | null
 }
 
 const COLS =
-  'id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url, guestbook_enabled, is_main, slots_included, expo_id'
+  'id, owner_id, slug, title, statement, theme, layout, layout_params, frame_default, mat_default, hanging_default, caption_default, cover_artwork_id, is_public, updated_at, work_cap, design_overrides, arrangement, bgm_url, guestbook_enabled, is_main, slots_included, expo_id, expo_ready_at'
+// Pre-0062 shape (no expo_ready_at column yet)
+const COLS_NO_READY = COLS.replace(', expo_ready_at', '')
 // Pre-0044 shape (no expo_id column yet) — every room reads as the artist's own
-const COLS_NO_EXPO = COLS.replace(', expo_id', '')
+const COLS_NO_EXPO = COLS_NO_READY.replace(', expo_id', '')
 // Newest column first when degrading against a DB that hasn't applied 0038.
 const COLS_NO_GRADE = COLS_NO_EXPO.replace(', slots_included', '')
 // Post-0036/pre-0038 shape (no slots_included column yet)
@@ -88,6 +98,14 @@ async function fetchOwnedRooms(userId: string): Promise<GalleryRow[]> {
     .select(COLS)
     .eq('owner_id', userId)
     .order('created_at', { ascending: true })
+  if (res.error && missingOverrideColumns(res.error)) {
+    // 0062 (expo_ready_at) not applied yet
+    res = (await supabase!
+      .from('galleries')
+      .select(COLS_NO_READY)
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: true })) as unknown as typeof res
+  }
   if (res.error && missingOverrideColumns(res.error)) {
     // 0044 (expo_id) not applied — there are no joint exhibitions yet, so every
     // room is the artist's own
@@ -241,6 +259,44 @@ export async function listExpoRooms(expoId: string): Promise<GalleryRow[]> {
     design_overrides: (r as { design_overrides?: unknown }).design_overrides ?? null,
     arrangement: (r as { arrangement?: unknown }).arrangement ?? null,
   })) as GalleryRow[]
+}
+
+/** `listExpoRooms` の1件に、部屋の持ち主の表示名を添えたもの（`ExpoManager`の
+ *  統合一覧が使う）。 */
+export interface ExpoRoomInfo {
+  room: GalleryRow
+  ownerName: string
+  ownerUsername: string | null
+}
+
+/**
+ * 展示に属する全部屋を、持ち主の表示名つきで引く（migration 0062）。
+ * **主催者が呼ぶことを想定** ── `galleries_select_expo_owner`（0062）が、その展示の
+ * 主催者になら他の作家の部屋も読めるようにしているので、`listExpoRooms` と違って
+ * 「1人一部屋」の合同展示で誰の部屋が準備できているかを一覧できる。
+ */
+export async function listExpoRoomsWithOwners(expoId: string): Promise<ExpoRoomInfo[]> {
+  const { data, error } = await supabase!
+    .from('galleries')
+    .select(`${COLS}, profiles (username, display_name)`)
+    .eq('expo_id', expoId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((rec) => {
+    const { profiles, ...rest } = rec
+    const p = profiles as { username: string | null; display_name: string | null } | null
+    return {
+      room: {
+        ...rest,
+        mat_default: (rest as { mat_default?: string }).mat_default ?? 'auto',
+        work_cap: (rest as { work_cap?: number }).work_cap ?? PLAN.worksPerGallery,
+        design_overrides: (rest as { design_overrides?: unknown }).design_overrides ?? null,
+        arrangement: (rest as { arrangement?: unknown }).arrangement ?? null,
+      } as GalleryRow,
+      ownerName: p?.display_name || p?.username || '',
+      ownerUsername: p?.username ?? null,
+    }
+  })
 }
 
 /**

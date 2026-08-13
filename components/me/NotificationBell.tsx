@@ -71,6 +71,9 @@ function useLine() {
         // 会期中の展示から作品が下りた（0057）。**主催者への通知**。作品ごと削除された
         // 場合は作家名が引けないので `who` は既定（notif.someone）に落ちる。
         return { text: t('notif.unsubmit', { who, n: n.count, room }), sub: '' }
+      case 'room_ready':
+        // 参加作家が自分の部屋の準備完了トグルをオンにした（0062）。**主催者への通知**。
+        return { text: t('notif.roomReady', { who, room }), sub: '' }
       case 'like':
         // 1件と複数で別の文（数えられる名詞の複数形は言語ごとに違うので、
         // 「1」を差し込んだ文を作らせない）。

@@ -32,6 +32,7 @@ import {
   expoPath,
   updateExpo,
   startExpoCheckout,
+  setExpoRoomReady,
   EXPO_GRACE_DAYS,
   type Expo,
 } from '@/lib/expos'
@@ -570,6 +571,7 @@ function GalleryCard({
   placedElsewhereCount,
   stage,
   onStageChange,
+  onOpenRoom,
 }: {
   row: GalleryRow
   onChanged: () => void
@@ -593,6 +595,10 @@ function GalleryCard({
   frontDoorId?: string | null
   /** タブを押したときの切替。トラッキングと `roomId` の更新は呼び手（ページ側）が持つ。 */
   onSwitchRoom?: (id: string) => void
+  /** 「参加者」タブから、承諾済みの作家の自動生成の部屋を直接開く（migration 0062）。
+   *  `onSwitchRoom` と分けたのは意味が違うから ── こちらは自分の通常展示の部屋の
+   *  あいだの切替ではなく、同じ展示の**他の作家**の部屋へ飛ぶ。 */
+  onOpenRoom?: (id: string) => void
   /** 作品スロットの合計（口座内の全部屋の`work_cap`の合計、合同展示の部屋も含む）。
    *  ユーザー指摘 2026-08-11: 部屋ごとに別々の数字を考えず「共通」で扱いたい ──
    *  部屋間で手動で「移動」する案（migration 0052）は撤回し、代わりに全部屋の
@@ -692,10 +698,18 @@ function GalleryCard({
       alive = false
     }
   }, [row.expo_id])
-  // 通常展示に戻した直後、タブが「参加者」に居座って中身の無い画面にならないように。
+  // 自分がこの展示の主催者かどうか（migration 0062）。参加作家にも自分の部屋がある
+  // ので、「参加者」タブ・会期を選んでの決済は主催者だけに絞る ── 参加者側の
+  // 「公開」タブは決済ではなく「準備できた」トグルに変わる。`expo`未取得のうちは
+  // 判断がつかないので、いったん主催者扱い（決済UIの一瞬のちらつきより、参加者の
+  // 誤操作＝他人の会期の決済に進んでしまう方を避ける必要はない ── ボタンは
+  // `expo`が要るので押しても何も起きない）。
+  const isOrganizer = !expo || expo.ownerId === user.id
+  // 通常展示に戻した直後、または自分が主催者でない展示で、タブが「参加者」に
+  // 居座って中身の無い画面にならないように。
   useEffect(() => {
-    if (stage === 'participants' && !row.expo_id) setStage('works')
-  }, [stage, row.expo_id])
+    if (stage === 'participants' && (!row.expo_id || !isOrganizer)) setStage('works')
+  }, [stage, row.expo_id, isOrganizer])
   // 合同展示の公開日時の予約（`<input type="datetime-local">` の値。空欄=今すぐ。
   // ユーザー指示 2026-08-10、上限なし）。
   const [scheduleInput, setScheduleInput] = useState('')
@@ -1014,6 +1028,14 @@ function GalleryCard({
       theme: view.theme,
       layout: view.layout,
     })
+  }
+
+  /** 参加作家の「準備できた」トグル（migration 0062）。オンで主催者に通知が届く。
+   *  `row.expo_id` の部屋でしか呼ばれない（呼び手のボタンがそこでしか出ない）。 */
+  async function toggleReady() {
+    const next = !row.expo_ready_at
+    await run(t('invite.readyToggleLabel'), () => setExpoRoomReady(row.id, next))
+    track(next ? 'expo_room_ready_on' : 'expo_room_ready_off', {})
   }
 
   // テーマ・間取り・既定の額装。**押した瞬間は下書きに入るだけ**で、DBへ書くのは保存
@@ -1597,10 +1619,12 @@ function GalleryCard({
           ['works', t('me.stageWorks'), works.length || null],
           ['room', t('me.navRoom'), null],
           ['placement', t('me.placement'), null],
-          // **合同展示の部屋にだけ出す**（ユーザー指示 2026-08-10）。招待の管理は
-          // `ExpoManager` からここへ移した ── 通常展示と合同展示の部屋編集画面を
+          // **合同展示の部屋の、主催者にだけ出す**（ユーザー指示 2026-08-10、
+          // migration 0062 で主催者限定に訂正 ── 参加作家にも自分の部屋があるように
+          // なったので、招待・会期の決済はその展示を開いた主催者だけの操作）。招待の
+          // 管理は `ExpoManager` からここへ移した ── 通常展示と合同展示の部屋編集画面を
           // 「タブの数が違うだけ」の同じ形にする。
-          row.expo_id ? ['participants', t('me.stageParticipants'), null] : null,
+          row.expo_id && isOrganizer ? ['participants', t('me.stageParticipants'), null] : null,
           ['publish', t('me.stagePublish'), null],
         ].filter((x): x is [Stage, string, number | null] => x !== null)
       ).map(([key, label, count]) => (
@@ -2190,11 +2214,12 @@ function GalleryCard({
           )}
         </div>
         </>
-      ) : stage === 'participants' && row.expo_id ? (
-        /* 合同展示の部屋だけに出るタブ（ユーザー指示 2026-08-10）。中身は
+      ) : stage === 'participants' && row.expo_id && isOrganizer ? (
+        /* 合同展示の部屋の、主催者だけに出るタブ（ユーザー指示 2026-08-10）。中身は
            `ExpoManager` の各展示カードにあった参加者パネルそのもの ── 招く・承認する・
-           招待リンクを配る、のすべてがここに移った。 */
-        <ParticipantsPanel expoId={row.expo_id} onChanged={onChanged} />
+           招待リンクを配る、のすべてがここに移った。`onOpenRoom` で各参加者の
+           自動生成の部屋も直接開ける（migration 0062）。 */
+        <ParticipantsPanel expoId={row.expo_id} onChanged={onChanged} onOpenRoom={onOpenRoom} />
       ) : (
         /* Publish: everything about going public in one place — the URL name gate,
            the statement, the share cover, the switch, and the numbers */
@@ -2256,7 +2281,10 @@ function GalleryCard({
                     </span>
                   </div>
                 </div>
-                {expo && expoPhase(expo) === 'draft' && (
+                {/* 会期を選んで公開＝決済は主催者だけの操作（migration 0062・ユーザー決定
+                    2026-08-13）。参加作家の部屋は主催者の決済に相乗りしているので、
+                    ここで別に何かを選ぶ必要が無い ── 代わりに下の「準備できた」を出す。 */}
+                {isOrganizer && expo && expoPhase(expo) === 'draft' && (
                   <div className="expo-pay">
                     {/* 開始日時を入れたら「支払った瞬間に公開」ではなくなる。状態を
                         決めている `scheduleInput` から文を導出する（AGENTS.md 5.3）—
@@ -2298,6 +2326,32 @@ function GalleryCard({
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+                {/* 参加作家（主催者ではない）の「公開」タブの中身: 決済ではなく
+                    「準備できた」トグル（migration 0062）。オンにすると主催者に通知が
+                    届く。会期の状態に関わらずいつでも出す ── 下書きのうちに準備を
+                    終えておける方が、開幕ぎりぎりより自然。 */}
+                {!isOrganizer && (
+                  <div className="expo-pay">
+                    <p className="me-note" style={{ marginTop: 0 }}>{t('invite.readyToggleHint')}</p>
+                    <div className="hako-state-line">
+                      <label className="switch" title={row.expo_ready_at ? t('invite.readyOn') : t('invite.readyOff')}>
+                        <input
+                          type="checkbox"
+                          checked={!!row.expo_ready_at}
+                          disabled={busy}
+                          onChange={() => void toggleReady()}
+                        />
+                        <span className="knob" aria-hidden="true" />
+                      </label>
+                      <span className={`hako-state${row.expo_ready_at ? ' open' : ''}`}>
+                        {row.expo_ready_at ? t('invite.readyOn') : t('invite.readyOff')}
+                      </span>
+                    </div>
+                    {row.expo_ready_at && (
+                      <p className="me-note">{t('invite.readyMarkedAt', { date: fmtDate(row.expo_ready_at) })}</p>
+                    )}
                   </div>
                 )}
                 {expo && expoPhase(expo) === 'ended' && expoPurgeAt(expo) && (
@@ -3490,7 +3544,7 @@ export default function MePage() {
                 {/* 招待の受信箱。招待が無ければ何も描かない（GuestImportCard と同じ作法）。
                     ここに置いたのは、**招かれたことに気づく場所が他に無い**から
                     （通知の仕組みは無く、主催者は「送った」と思っている）。 */}
-                <InviteInbox />
+                <InviteInbox onOpenRoom={(id) => setRoomId(id)} />
                 <section className="me-section">
                   {/* A bare heading only while there's no gallery card yet (loading / empty).
                       The card itself carries the stage bar and needs no separate header. */}
@@ -3519,6 +3573,13 @@ export default function MePage() {
                       onSwitchRoom={(id) => {
                         const g = rooms.find((r) => r.id === id)
                         track('room_switch', { to: g?.slug, main: id === frontDoor?.id })
+                        setRoomId(id)
+                      }}
+                      /* 「参加者」タブから、承諾済みの作家の自動生成の部屋へ飛ぶ
+                         （migration 0062）。`rooms` には合同展示の部屋は乗らないので
+                         `track` の部屋名は素直に引けない ── id だけ渡す。 */
+                      onOpenRoom={(id) => {
+                        track('expo_room_open', { room: id })
                         setRoomId(id)
                       }}
                       /* 未使用の部屋枠、または購入の誘い。**「部屋」ステージの中**に置く

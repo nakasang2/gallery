@@ -20,6 +20,9 @@ export type NotificationKind =
    *  `submission` と逆向きの出来事なので別の種別にしてある — 同じ種別に畳むと
    *  まとめ機能で「出した」と「引っ込めた」が1件に混ざって意味が反転する。 */
   | 'unsubmit'
+  /** 参加作家が自分の部屋の「準備できた」トグルをオンにした（migration 0062）。
+   *  **宛先は主催者**。 */
+  | 'room_ready'
   | 'like'
   | 'guestbook'
   | 'announce'
@@ -59,6 +62,7 @@ const KINDS: readonly string[] = [
   'invite_approved',
   'submission',
   'unsubmit',
+  'room_ready',
   'like',
   'guestbook',
   'announce',

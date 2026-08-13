@@ -33,7 +33,7 @@ import { track } from '@/lib/analytics'
 
 /* ============================ 作家側: 受信箱 ============================ */
 
-export function InviteInbox() {
+export function InviteInbox({ onOpenRoom }: { onOpenRoom?: (id: string) => void }) {
   const t = useT()
   const user = useGallery((s) => s.user)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
@@ -140,7 +140,36 @@ export function InviteInbox() {
                   </button>
                 </div>
               </>
+            ) : inv.roomId ? (
+              /* migration 0062（ユーザー決定 2026-08-13）: 承諾した瞬間に自分の部屋が
+                 自動でできるので、ここは「開く」だけでいい。作品を選ぶ・掛けるのは
+                 通常の部屋編集画面（タブUI）でする。 */
+              <>
+                <p className="me-note invite-explain">{t('invite.roomAcceptedExplain')}</p>
+                <div className="hako-actions">
+                  <button
+                    type="button"
+                    className="btn-line"
+                    disabled={!onOpenRoom}
+                    onClick={() => onOpenRoom?.(inv.roomId!)}
+                  >
+                    {t('invite.openRoom')}
+                  </button>
+                  <button
+                    className="btn-line"
+                    disabled={busyId === inv.id}
+                    onClick={() => {
+                      if (confirm(t('invite.leaveConfirm'))) void respond(inv, false)
+                    }}
+                  >
+                    {t('invite.leave')}
+                  </button>
+                </div>
+              </>
             ) : (
+              /* **後方互換の経路**（0062が無い、またはこの招待が0062以前に承諾済みで
+                 自動生成の部屋がまだ無い場合）。旧来の提出モデルをそのまま残す ──
+                 既存の合同展示（主催者の1部屋に他作家の提出作品を掛ける形）を壊さない。 */
               <>
                 <p className="me-note invite-explain">
                   {inv.submittedIds.length === 0
@@ -234,10 +263,15 @@ export function InviteInbox() {
 export function ParticipantsPanel({
   expoId,
   onChanged,
+  onOpenRoom,
 }: {
   expoId: string
   /** 招待の増減で配置トレイの中身が変わるので、親に読み直させる。 */
   onChanged?: () => void
+  /** 承諾済みの作家の自動生成の部屋を開く（migration 0062）。渡さなければボタンを
+   *  出さない ── 今編集している部屋を離れて別の部屋へ移る操作なので、呼び手
+   *  （`GalleryCard`）が持つ画面遷移の作法に委ねる。 */
+  onOpenRoom?: (id: string) => void
 }) {
   const t = useT()
   const [invites, setInvites] = useState<ExpoInvite[] | null>(null)
@@ -478,7 +512,13 @@ export function ParticipantsPanel({
                   : inv.status === 'requested'
                     ? t('invite.statusRequested')
                     : inv.status === 'accepted'
-                      ? t('invite.statusSubmitted', { count: inv.submittedCount })
+                      ? inv.roomId
+                        // migration 0062: 自動生成の部屋の「準備できた」トグルの状態。
+                        ? inv.roomReadyAt
+                          ? t('invite.participantRoomReady')
+                          : t('invite.participantRoomNotReady')
+                        // 後方互換（0062以前に承諾済みで部屋がまだ無い）: 旧・提出モデルの点数。
+                        : t('invite.statusSubmitted', { count: inv.submittedCount })
                       : t('invite.statusDeclined')}
               </span>
               {/* 参加希望は主催者が承認するまで何の権限も持たない（0048）。断るときは
@@ -491,6 +531,18 @@ export function ParticipantsPanel({
                   onClick={() => void approve(inv)}
                 >
                   {t('invite.approve')}
+                </button>
+              )}
+              {/* 自動生成の部屋を開く（migration 0062）。主催者がその作家の部屋を見て
+                  回れる ── `galleries_select_expo_owner` で読めるようになった分の入口。 */}
+              {inv.status === 'accepted' && inv.roomId && onOpenRoom && (
+                <button
+                  type="button"
+                  className="btn-line"
+                  disabled={busy}
+                  onClick={() => onOpenRoom(inv.roomId!)}
+                >
+                  {t('invite.openParticipantRoom')}
                 </button>
               )}
               <button
