@@ -563,6 +563,25 @@
   line-height: 1.6;
   color: var(--muted);
 }
+/* 入力欄の下のマークダウンのプレビュー（ユーザー質問 2026-08-13）。記法を使ったときだけ
+   出る（`MarkdownPreview`）。入力欄と地続きに見えないよう、少し引っ込めて枠で囲む。 */
+.me-md-preview {
+  margin-top: 0.55rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px dashed var(--hairline);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 0.88rem;
+  line-height: 1.9;
+  color: #cdc7bd;
+}
+.me-md-preview-label {
+  margin: 0 0 0.45rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 .me-field-group-label {
   font-size: 0.76rem;
   line-height: 1.7;

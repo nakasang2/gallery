@@ -605,7 +605,7 @@ export const es: PartialDictionary = {
     deleteEntry: 'Borrar el mensaje', deleteEntryConfirm: '¿Borrar este mensaje del libro de visitas?',
 
     profileName: 'Nombre visible (nombre artístico)', profileBio: 'Biografía / texto de artista', profileCv: 'Trayectoria (exposiciones y premios)', profileCvNote: 'Una entrada por línea: exposiciones, premios, prensa. Se muestra a las visitas en una pestaña propia, junto a tu biografía.',
-    markdownOk: 'Aquí funciona Markdown: **negrita** · *cursiva* · - lista · [enlace](URL) · # título',
+    markdownOk: 'Aquí funciona Markdown: **negrita** · *cursiva* · - lista · [enlace](URL) · # título', mdPreview: 'Vista previa',
     profileSnsNote: 'Enlaza tus redes — se muestran en tu página pública y mientras recorren tu sala, para que puedan seguirte en otro lado. Pega en cada fila el enlace completo, el de la barra de direcciones.',
     snsWrongPlatform: 'Parece un enlace de {found}: esta fila es para {expected}.',
     snsNotPlatform: 'Esto no parece un enlace de {expected}.',

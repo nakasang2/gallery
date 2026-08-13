@@ -1,7 +1,7 @@
 // Presentational catalog body (no data-fetch, no hooks) so both the real route
 // and QA can render it. Screen + print faces are driven entirely by catalog.css.
 import { isPlaceholderTitle } from '@/lib/publish'
-import { renderMarkdown } from '@/lib/markdown'
+import { renderMarkdown, ARTIST_TEXT_MD } from '@/lib/markdown'
 import type { PublicExhibition } from '@/lib/publish'
 import { useT } from '@/components/I18nProvider'
 
@@ -16,7 +16,7 @@ export default function CatalogDoc({ exhibition: ex }: { exhibition: PublicExhib
         <h1 className="catalog-title">{showTitle}</h1>
         <p className="catalog-artist">{ex.ownerName}</p>
         {ex.statement && (
-          <div className="catalog-statement panel-md">{renderMarkdown(ex.statement, { images: false, breaks: true })}</div>
+          <div className="catalog-statement panel-md">{renderMarkdown(ex.statement, ARTIST_TEXT_MD)}</div>
         )}
         <p className="catalog-meta">
           {t('catalog.workCount', { count: ex.artworks.length })} · {year} · XIBIT360

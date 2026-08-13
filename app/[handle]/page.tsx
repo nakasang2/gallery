@@ -3,7 +3,7 @@
 // directly (the shared URL is just /@name); with several public galleries
 // it becomes the listing page. /@name/[slug] keeps working either way.
 import type { Metadata } from 'next'
-import { renderMarkdown, stripMarkdown } from '@/lib/markdown'
+import { renderMarkdown, stripMarkdown, ARTIST_TEXT_MD } from '@/lib/markdown'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { isPlaceholderTitle } from '@/lib/publish'
@@ -151,7 +151,7 @@ export default async function ArtistPage({
             指定は**情報パネルと同じ** ── 同じ自己紹介が、公開ページでは1段落に潰れ、3Dの
             パネルでは改行されて出る、という食い違いを作らない（別視点レビューで検出）。 */}
         {p.bio && (
-          <div className="artist-bio panel-md">{renderMarkdown(p.bio, { images: false, breaks: true })}</div>
+          <div className="artist-bio panel-md">{renderMarkdown(p.bio, ARTIST_TEXT_MD)}</div>
         )}
 
         <section className="me-section" style={{ marginTop: '2.4rem' }}>

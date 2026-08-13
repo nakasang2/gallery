@@ -24,7 +24,7 @@ function safeUrl(raw: string): string | null {
 
 type Inline = { re: RegExp; make: (m: RegExpExecArray, key: string) => ReactNode }
 
-/** 描画の選択肢。既定は記事と同じ（画像あり）。 */
+/** 描画の選択肢。既定は記事と同じ（画像あり・改行は連結）。 */
 export interface MarkdownOptions {
   /** `false` で画像を描かず代替テキストだけにする。**来場者に見える、作家が書いた文**は
    *  必ずこちら（追跡ピクセルを埋められないように）。 */
@@ -36,6 +36,18 @@ export interface MarkdownOptions {
    *  読めなくなる（実測して直した）。 */
   breaks?: boolean
 }
+
+/**
+ * **作家が書いた文（展示情報・自己紹介・来歴）の描画指定。この定数を使う。**
+ *
+ * 面ごとに `{ images: false, breaks: true }` と書くと必ず食い違う ── 実際に作家ページだけ
+ * `breaks` を落としていて、**同じ自己紹介が公開ページでは1段落に潰れ、3Dのパネルでは
+ * 改行される**状態を出荷前レビューで見つけた（LESSONS 2026-08-13）。
+ *
+ * ・`images: false` — 任意のURLの画像は**来場者のIPを第三者へ渡す**（追跡ピクセル）
+ * ・`breaks: true` — 欄はテキストエリア。書いた人は改行したところで改まると思う
+ */
+export const ARTIST_TEXT_MD: MarkdownOptions = { images: false, breaks: true }
 
 // Order matters: code first (its content is literal), then images/links, then emphasis.
 /** 画像。`images: false` のときはこの規則だけを外す（名前で参照するためだけに切り出す）。 */
@@ -311,4 +323,15 @@ export function stripMarkdown(md: string): string {
     .replace(/`([^`]+)`/g, '$1') // インラインコード
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+/** その文に**マークダウンの記法が入っているか**。ダッシュボードで「プレビューを出すか」を
+ *  決めるのに使う ── 記法を使っていない人にプレビューを見せても、入力欄と同じものが
+ *  2つ並ぶだけで、ダッシュボードが縦に伸びる分だけ損。
+ *
+ *  判定は**記法の一覧を書き写さない**: `stripMarkdown` が何かを落としたかどうかで見る。
+ *  記法が無ければ「空白を詰めただけ」の文と一致する。こうしておけば、対応する記法が
+ *  増えても判定が置いていかれない（同じ表を2か所に持たない）。 */
+export function hasMarkdown(md: string): boolean {
+  return stripMarkdown(md) !== md.replace(/\s+/g, ' ').trim()
 }

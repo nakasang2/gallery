@@ -4,7 +4,7 @@
 // grants another (lib/limits → gradeForNewRoom). The RoomBar below picks which room the
 // rest of this screen is editing; one room means it renders as a single static label,
 // so nothing about the single-room screen changes until a second room exists.
-import { createContext, useCallback, useContext, useEffect, useRef, useState , type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useDeferredValue, useEffect, useRef, useState , type ReactNode } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
@@ -91,6 +91,7 @@ import { loadImage } from '@/lib/upload'
 import type { ArtworkData, CropAlign, PurchaseLink } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
 import { LegalLink, LocaleLink, useT } from '@/components/I18nProvider'
+import { renderMarkdown, hasMarkdown, ARTIST_TEXT_MD } from '@/lib/markdown'
 
 // The works preview is the REAL renderer (three.js), loaded only when needed;
 // until the chunk arrives the flat CSS preview holds the same footprint
@@ -484,6 +485,7 @@ function CreateCard({ onCreated }: { onCreated: () => void }) {
         />
         <small className="me-field-hint">{t('me.markdownOk')}</small>
       </label>
+      <MarkdownPreview value={statement} />
       <div className="hako-actions">
         <button className="btn-line" disabled={busy} onClick={() => setStep(1)}>← {t('me.createBack')}</button>
         <button className="btn-line" disabled={busy} onClick={() => void create()}>
@@ -2346,6 +2348,7 @@ function GalleryCard({
                 onChange={(e) => editDetails({ statement: e.target.value })}
               />
               <small className="me-field-hint">{t('me.markdownOk')}</small>
+              <MarkdownPreview value={statementInput} />
             </div>
             {cloudArtworks.length > 0 && (
               <div className="wd-group">
@@ -2661,6 +2664,31 @@ function AccountCard() {
   )
 }
 
+/** 入力欄の下に出す**マークダウンのプレビュー**（ユーザー質問 2026-08-13「フォーム内でも
+ *  マークダウンって反映できますか？」）。`<textarea>` は仕組み上ただの文字しか描けないので、
+ *  **入力欄の中で太字にすることはできない** ── 代わりに、書いたものが公開面でどう出るかを
+ *  すぐ下に見せる（管理者の記事エディタと同じ作り）。
+ *
+ *  **記法を使っていないときは何も出さない。** 入力欄と同じものが2つ並ぶだけで、
+ *  ダッシュボードが縦に伸びる分だけ損になる（判定は `hasMarkdown`）。
+ *  描画の指定は公開面と同じ `ARTIST_TEXT_MD` を使う ── ここだけ違うと
+ *  「プレビューでは改行されたのに公開面では潰れる」が起きる。 */
+function MarkdownPreview({ value }: { value: string }) {
+  const t = useT()
+  // **打鍵を止めない**（別視点レビューで検出）。この欄は文字数制限を外したので、
+  // 長文を貼られると「1文字打つ → 全文を12回の正規表現で走査 → 全文を解析 → 差分」が
+  // 同じ同期レンダリングに乗る。`useDeferredValue` で低い優先度に落とすと、
+  // 入力欄の反応が先に返り、プレビューは一拍遅れて追いつく。
+  const shown = useDeferredValue(value)
+  if (!hasMarkdown(shown)) return null
+  return (
+    <div className="me-md-preview">
+      <p className="me-md-preview-label">{t('me.mdPreview')}</p>
+      <div className="panel-md">{renderMarkdown(shown, ARTIST_TEXT_MD)}</div>
+    </div>
+  )
+}
+
 function ProfileCard() {
   const t = useT()
   const user = useGallery((s) => s.user)!
@@ -2830,6 +2858,7 @@ function ProfileCard() {
         <textarea rows={3} value={bio} onChange={(e) => editProfile({ bio: e.target.value })} />
         <small className="me-field-hint">{t('me.markdownOk')}</small>
       </label>
+      <MarkdownPreview value={bio} />
       {/* 来歴（ユーザー要望 2026-08-13）。自己紹介と別の列（migration 0060）で、
           3Dの情報パネルでは「来歴」タブとして出る。空なら来場者にはタブが出ない。 */}
       <label className="me-field">
@@ -2845,6 +2874,7 @@ function ProfileCard() {
           {t('me.markdownOk')}
         </small>
       </label>
+      <MarkdownPreview value={cv} />
       <p className="me-field-group-label">
         {t('me.profileSnsNote')}
       </p>

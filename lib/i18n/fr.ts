@@ -605,7 +605,7 @@ export const fr: PartialDictionary = {
     deleteEntry: 'Supprimer le message', deleteEntryConfirm: 'Supprimer ce message du livre d’or ?',
 
     profileName: 'Nom affiché (nom d’artiste)', profileBio: 'Bio / texte d’artiste', profileCv: 'Parcours (expositions et prix)', profileCvNote: 'Une entrée par ligne : expositions, prix, presse. Affiché aux visiteurs dans un onglet à part, à côté de votre bio.',
-    markdownOk: 'Le Markdown fonctionne ici : **gras** · *italique* · - liste · [lien](URL) · # titre',
+    markdownOk: 'Le Markdown fonctionne ici : **gras** · *italique* · - liste · [lien](URL) · # titre', mdPreview: 'Aperçu',
     profileSnsNote: 'Liez vos réseaux — ils apparaissent sur votre page publique et pendant la visite, pour qu’on puisse vous suivre ailleurs. Collez dans chaque ligne le lien complet, celui de la barre d’adresse.',
     snsWrongPlatform: 'Cela ressemble à un lien {found} — cette ligne est pour {expected}.',
     snsNotPlatform: 'Cela ne ressemble pas à un lien {expected}.',

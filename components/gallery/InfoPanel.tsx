@@ -13,13 +13,7 @@ import { roomExhibitor } from '@/lib/roomPlan'
 import { DEFAULT_TITLE_TEXT } from './textures'
 import { useT } from '@/components/I18nProvider'
 import SnsLinks from '@/components/SnsLinks'
-import { renderMarkdown } from '@/lib/markdown'
-
-/** 作家が書いた文はマークダウンで描く（ユーザー要望 2026-08-13）。
- *  - **画像は不可**: 任意のURLの画像を埋められると来場者のIPが第三者へ渡る（`lib/markdown`）。
- *  - **改行はそのまま改行**: 欄はテキストエリアで、書いた人は改行したところで改まると思う。
- *    特に来歴は1行1件で書かれる。 */
-const MD = { images: false, breaks: true } as const
+import { renderMarkdown, ARTIST_TEXT_MD as MD } from '@/lib/markdown'
 
 type TabId = 'exhibition' | 'about' | 'cv'
 

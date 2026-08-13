@@ -13,7 +13,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { renderMarkdown } from '@/lib/markdown'
+import { renderMarkdown, ARTIST_TEXT_MD } from '@/lib/markdown'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useT } from '@/components/I18nProvider'
@@ -101,7 +101,7 @@ export default function JoinPage() {
       <h1 className="join-title">{name}</h1>
       <p className="join-by">{t('join.by', { name: target.organizerName })}</p>
       {target.statement && (
-        <div className="join-statement panel-md">{renderMarkdown(target.statement, { images: false, breaks: true })}</div>
+        <div className="join-statement panel-md">{renderMarkdown(target.statement, ARTIST_TEXT_MD)}</div>
       )}
 
       {/* 会期。まだ始まっていない展示のほうが普通なので、**日付が無いことを異常として
