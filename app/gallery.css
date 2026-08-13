@@ -572,14 +572,32 @@ body:not(.gallery-mode) {
 .panel-md > :first-child { margin-top: 0; }
 .panel-md > :last-child { margin-bottom: 0; }
 .panel-md p { margin: 0 0 0.9em; }
-.panel-md h1, .panel-md h2, .panel-md h3, .panel-md h4, .panel-md h5, .panel-md h6 {
-  font-size: 1.05em;
+/* 見出しは**段ごとに大きさを変える**（ユーザー質問 2026-08-13「#見出しやインデントは
+   使える？」で気づいた ── 全段を同じ大きさにしていたので `#` と `##` が見分けられず、
+   段組みにする意味が消えていた）。`renderMarkdown` は `#` を `<h2>` に落とすので、
+   ここで見えるのは h2〜h6。 */
+.panel-md h1, .panel-md h2 {
+  font-size: 1.24em;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  margin: 1.5em 0 0.5em;
+  color: var(--ink);
+}
+.panel-md h3 { font-size: 1.1em; font-weight: 600; margin: 1.3em 0 0.4em; color: var(--ink); }
+.panel-md h4, .panel-md h5, .panel-md h6 {
+  font-size: 1em;
   font-weight: 600;
-  margin: 1.4em 0 0.5em;
+  letter-spacing: 0.04em;
+  margin: 1.2em 0 0.3em;
   color: var(--ink);
 }
 .panel-md ul, .panel-md ol { margin: 0 0 0.9em; padding-left: 1.3em; }
 .panel-md li { margin: 0.2em 0; }
+/* 入れ子の箇条書き（`- ` を字下げして書ける）。親の下に詰めて置き、印を変えて段が分かる
+   ようにする ── 同じ丸が並ぶと入れ子に見えない。 */
+.panel-md li > ul, .panel-md li > ol { margin: 0.2em 0 0.3em; }
+.panel-md li > ul { list-style-type: circle; }
+.panel-md li > ul li > ul { list-style-type: square; }
 .panel-md a { color: var(--gold); text-underline-offset: 2px; }
 .panel-md strong { color: var(--ink); font-weight: 600; }
 .panel-md blockquote {

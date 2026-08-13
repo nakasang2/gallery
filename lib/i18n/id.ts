@@ -605,7 +605,7 @@ export const id: PartialDictionary = {
     deleteEntry: 'Hapus pesan', deleteEntryConfirm: 'Hapus pesan buku tamu ini?',
 
     profileName: 'Nama tampilan (nama perupa)', profileBio: 'Bio / catatan perupa', profileCv: 'Riwayat (pameran & penghargaan)', profileCvNote: 'Satu entri per baris — pameran, penghargaan, liputan. Ditampilkan ke pengunjung di tab tersendiri, di samping bio Anda.',
-    markdownOk: 'Markdown bisa dipakai: **tebal** · *miring* · - daftar · [tautan](URL)',
+    markdownOk: 'Markdown bisa dipakai: **tebal** · *miring* · - daftar · [tautan](URL) · # judul',
     profileSnsNote: 'Tautkan media sosialmu — tampil di halaman publikmu dan saat pengunjung menjelajahi ruangmu, jadi mereka bisa mengikutimu di tempat lain. Tempel tautan lengkap dari bilah alamat ke setiap baris.',
     snsWrongPlatform: 'Ini sepertinya tautan {found} — baris ini untuk {expected}.',
     snsNotPlatform: 'Ini sepertinya bukan tautan {expected}.',

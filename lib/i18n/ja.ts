@@ -560,7 +560,7 @@ export const ja: Dictionary = {
     profileBio: 'プロフィール・ステートメント',
     profileCv: '来歴（展示歴・受賞歴）',
     profileCvNote: '1行に1件。展示・受賞・掲載などを書けます。来場者には自己紹介と並ぶ別タブとして表示されます。',
-    markdownOk: 'マークダウンが使えます: **太字** · *斜体* · - 箇条書き · [リンク](URL)',
+    markdownOk: 'マークダウンが使えます: **太字** · *斜体* · - 箇条書き · [リンク](URL) · # 見出し',
     profileSnsNote: 'SNSを登録すると、公開ページと部屋の中に表示され、来場者が他の場所でもあなたを追えるようになります。各欄には、アドレス欄のURLをそのまま貼り付けてください。',
     snsWrongPlatform: '{found} のリンクのようです（この欄は {expected} です）。',
     snsNotPlatform: '{expected} のリンクではないようです。',

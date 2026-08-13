@@ -114,8 +114,71 @@ function renderInline(text: string, keyPrefix: string, opts?: MarkdownOptions): 
   return out
 }
 
-const BLOCK_START = /^(#{1,4}\s|```|>|[-*]\s|\d+\.\s)/
-const RULE = /^(\*\*\*|---|___)\s*$/
+// 字下げがあっても「ここからブロックが始まる」と判定する。以前は行頭だけを見ていたので、
+// 字下げした箇条書きが**直前の段落に飲み込まれていた**。
+const BLOCK_START = /^\s*(#{1,4}\s|```|>|[-*+]\s|\d{1,2}\.\s)/
+const RULE = /^\s*(\*\*\*|---|___)\s*$/
+
+/** 箇条書きの1行。`(字下げ)(記号)(本文)`
+ *
+ *  **番号は2桁まで**（別視点レビューで検出）。桁数を制限しないと、来歴に普通に書く
+ *  `2024. 個展（東京）` の「2024.」が**番号の記号として食われ**、本文からも
+ *  `<meta>` からも年が消える（画面には代わりに「1.」が出る）。来歴の欄は
+ *  「1行1件」と案内しているので、この形は必ず書かれる。99番までの箇条書きは今までどおり。 */
+const LIST_ITEM = /^(\s*)([-*+]|\d{1,2}\.)\s+(.*)$/
+
+/** 字下げの深さ（タブは空白4つ扱い）。 */
+function indentOf(line: string): number {
+  const m = /^[\t ]*/.exec(line)![0]
+  return m.replace(/\t/g, '    ').length
+}
+
+type ListItem = { text: string; child: ListNode | null }
+type ListNode = { ordered: boolean; items: ListItem[] }
+
+/**
+ * `at` 行から始まる箇条書きを、字下げの深さで**入れ子として**読む。
+ * 返すのは [木, 次に読む行番号]。
+ *
+ * 深さの判定は「**最初の項目より深ければ子**」。2スペースでも4スペースでも同じに扱う
+ * （書く人が空白の数を数えなくて済む）。浅い行に出会ったら呼び出し元へ戻す。
+ */
+function parseList(lines: string[], at: number, base: number): [ListNode, number] {
+  const first = LIST_ITEM.exec(lines[at])!
+  const node: ListNode = { ordered: /\d/.test(first[2]), items: [] }
+  let i = at
+  while (i < lines.length) {
+    const m = LIST_ITEM.exec(lines[i])
+    if (!m) break
+    const ind = indentOf(lines[i])
+    if (ind < base) break // 親のレベルへ戻った
+    if (ind > base) {
+      // 子の箇条書き。直前の項目にぶら下げる（項目が無ければ作る）
+      if (!node.items.length) node.items.push({ text: '', child: null })
+      const [child, next] = parseList(lines, i, ind)
+      node.items[node.items.length - 1].child = child
+      i = next
+      continue
+    }
+    node.items.push({ text: m[3], child: null })
+    i++
+  }
+  return [node, i]
+}
+
+function renderList(node: ListNode, keyPrefix: string, key: number, opts?: MarkdownOptions): ReactNode {
+  const Tag = node.ordered ? 'ol' : 'ul'
+  return (
+    <Tag key={key}>
+      {node.items.map((it, j) => (
+        <li key={j}>
+          {renderInline(it.text, `${keyPrefix}-${j}`, opts)}
+          {it.child && renderList(it.child, `${keyPrefix}-${j}c`, 0, opts)}
+        </li>
+      ))}
+    </Tag>
+  )
+}
 
 /** Render a Markdown string to a list of block-level React elements. */
 export function renderMarkdown(md: string, opts?: MarkdownOptions): ReactNode {
@@ -176,37 +239,13 @@ export function renderMarkdown(md: string, opts?: MarkdownOptions): ReactNode {
       continue
     }
 
-    // Unordered list
-    if (/^[-*]\s+/.test(line)) {
-      const items: string[] = []
-      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^[-*]\s+/, ''))
-        i++
-      }
-      blocks.push(
-        <ul key={key++}>
-          {items.map((it, j) => (
-            <li key={j}>{renderInline(it, `ul${key}-${j}`, opts)}</li>
-          ))}
-        </ul>
-      )
-      continue
-    }
-
-    // Ordered list
-    if (/^\d+\.\s+/.test(line)) {
-      const items: string[] = []
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\d+\.\s+/, ''))
-        i++
-      }
-      blocks.push(
-        <ol key={key++}>
-          {items.map((it, j) => (
-            <li key={j}>{renderInline(it, `ol${key}-${j}`, opts)}</li>
-          ))}
-        </ol>
-      )
+    // 箇条書き・番号つき（**入れ子に対応**。ユーザー質問 2026-08-13「インデントは使える？」）。
+    // 以前は行頭の `- ` だけを見ていたので、字下げした行は箇条書きにならず段落へ落ち、
+    // 先頭の空白は CSS で詰められて**字下げが消えていた**。
+    if (LIST_ITEM.test(line)) {
+      const [node, next] = parseList(lines, i, indentOf(line))
+      blocks.push(renderList(node, `l${key}`, key++, opts))
+      i = next
       continue
     }
 
@@ -261,10 +300,10 @@ export function stripMarkdown(md: string): string {
   return md
     .replace(/\r\n/g, '\n')
     .replace(/```[\s\S]*?```/g, ' ') // コードブロックは丸ごと落とす
-    .replace(/^\s{0,3}#{1,6}\s+/gm, '') // 見出しの #
-    .replace(/^\s{0,3}>\s?/gm, '') // 引用の >
-    .replace(/^\s{0,3}(?:[-*+]|\d+\.)\s+/gm, '') // 箇条書き・番号
-    .replace(/^\s{0,3}(?:\*\*\*|---|___)\s*$/gm, '') // 水平線
+    .replace(/^\s*#{1,6}\s+/gm, '') // 見出しの #
+    .replace(/^\s*>\s?/gm, '') // 引用の >
+    .replace(/^\s*(?:[-*+]|\d{1,2}\.)\s+/gm, '') // 箇条書き・番号（字下げした入れ子も。桁数は LIST_ITEM と同じ）
+    .replace(/^\s*(?:\*\*\*|---|___)\s*$/gm, '') // 水平線
     .replace(/!\[([^\]]*)\]\([^)\s]*\)/g, '$1') // 画像 → 代替テキスト
     .replace(/\[([^\]]+)\]\([^)\s]*\)/g, '$1') // リンク → 文字だけ
     .replace(/(\*\*|__)([^*_]+)\1/g, '$2') // 太字
