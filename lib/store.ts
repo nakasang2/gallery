@@ -230,6 +230,13 @@ interface GalleryStore extends Settings {
    *  destination is picked here (ユーザー決定 2026-08-09), so the door in the 3D scene
    *  and the prompt in the HUD both just raise this. */
   roomPickerOpen: boolean
+  /** 扉を抜けて次の部屋へ向かっている最中（`enterRoom` が立てる）。実体は
+   *  `window.location.assign` によるフルページ遷移なので、新しいドキュメントの
+   *  取得中は何も描かれない「無反応に見える」区間ができる（ユーザー指摘
+   *  2026-08-13）。ここを立てると `LoadingScreen` が即座に（今のページのまま）
+   *  再表示され、遷移が終わって新しいページが起動すると、新しいページ自身の
+   *  `loadingDone` がそのまま引き継ぐので見た目は連続する。 */
+  roomTransition: boolean
 
   hydrate(): void
   initAuth(): void
@@ -246,6 +253,7 @@ interface GalleryStore extends Settings {
   setInfoOpen(open: boolean): void
   setAtDoorway(at: boolean): void
   setRoomPickerOpen(open: boolean): void
+  setRoomTransition(on: boolean): void
   setTourActive(active: boolean, recording?: boolean): void
   setDemoMode(on: boolean): void
   /** Re-run a failed cloud sync immediately */
@@ -275,6 +283,7 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   embed: false,
   atDoorway: false,
   roomPickerOpen: false,
+  roomTransition: false,
 
   hydrate() {
     set({ ...loadSettings(), ready: true })
@@ -446,6 +455,9 @@ export const useGallery = create<GalleryStore>((set, get) => ({
   },
   setRoomPickerOpen(open) {
     set({ roomPickerOpen: open })
+  },
+  setRoomTransition(on) {
+    set({ roomTransition: on })
   },
   setTourActive(active, recording = false) {
     // recording only applies while active; ending the tour always clears it

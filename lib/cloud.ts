@@ -31,6 +31,9 @@ export interface ArtworkRow {
   medium?: string | null
   has_card?: boolean | null
   crop_align?: CropAlign | null
+  /** 合同展示の部屋専用プールに属する作品なら、その部屋のid（migration 0061）。
+   *  通常展示の共有プールの作品は null。 */
+  gallery_id?: string | null
 }
 
 /** Upload purposes the server will sign for (app/api/upload-url/route.ts owns the
@@ -194,13 +197,53 @@ export function rowToArtwork(row: ArtworkRow, artistName: string): ArtworkData {
  *  Works OTHER artists offer to a joint exhibition arrive by their own route
  *  (`lib/invites.ts`), where they keep their own artist's name. */
 export async function listMyArtworks(ownerId: string, artistName: string): Promise<ArtworkData[]> {
+  let q = supabase!
+    .from('artworks')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .is('gallery_id', null)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+  let { data, error } = await q
+  // `gallery_id`（migration 0061）が未適用のDBでは列が無く、`.is()` の絞り込みごと
+  // 落ちる。すべての既存ユーザーが使う経路なので、**列が無ければ絞らずに読む**
+  // （落ちたのが「未適用」だと確実に分かるコードのときだけ）。
+  if (error && (error.code === '42703' || error.code === 'PGRST204' || error.code === 'PGRST205')) {
+    ;({ data, error } = await supabase!
+      .from('artworks')
+      .select('*')
+      .eq('owner_id', ownerId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }))
+  }
+  if (error) throw error
+  return (data as ArtworkRow[]).map((r) => rowToArtwork(r, artistName))
+}
+
+/**
+ * 合同展示の部屋専用の作品プール（migration 0061・ユーザー決定 2026-08-13）。
+ *
+ * 通常展示の共有プール（`listMyArtworks`、`gallery_id is null`）とは完全に別物 —
+ * 部屋を合同展示に切り替えたときに口座全体のライブラリがそのまま出ると「今まで
+ * 使っている設定が反映されている」ように見えて混乱するという指摘を受け、その
+ * 部屋だけ0から積む専用プールにした。DB側（`enforce_artwork_pool`）が
+ * `gallery_id` は「自分の合同展示の部屋」しか名乗れないことを強制する。
+ *
+ * `.eq('gallery_id', ...)` 未適用のDB（0061前）では列が無くクエリが丸ごと落ちるので、
+ * その場合は「まだ1点も無い」と同じ扱いにする（合同展示タブ全体を落とさない）。
+ */
+export async function listRoomArtworks(ownerId: string, galleryId: string, artistName: string): Promise<ArtworkData[]> {
   const { data, error } = await supabase!
     .from('artworks')
     .select('*')
     .eq('owner_id', ownerId)
+    .eq('gallery_id', galleryId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
-  if (error) throw error
+  if (error) {
+    if (error.code === '42703' || error.code === 'PGRST204' || error.code === 'PGRST205') return []
+    throw error
+  }
   return (data as ArtworkRow[]).map((r) => rowToArtwork(r, artistName))
 }
 
@@ -234,16 +277,22 @@ export async function getStorageUsage(_ownerId: string): Promise<number> {
 // `bytes` is INFORMATIONAL since migration 0030 — the quota is measured in R2, not
 // summed from this column. It is still written because it is a cheap per-work size
 // hint, but nothing enforces it and nothing should start trusting it again.
+// `gallery_id`（migration 0061）が未適用のDBに向けてコードだけ先に出ると、
+// **通常の（合同展示ではない）アップロードまで巻き込んで全滅する** ── `row` には
+// 常に `gallery_id: null` が入っているため。`bytes` と同じ「列が無ければ落として
+// 入れ直す」作法をこの列にも適用する（列名はエラーごとに1つずつ特定して落とす —
+// 一度に決め打ちで両方落とすと、本当に別の理由で失敗したときの原因が消える）。
+const INSERT_OPTIONAL = ['bytes', 'gallery_id']
 async function insertArtworkRow(row: Record<string, unknown>): Promise<void> {
-  const { error } = await supabase!.from('artworks').insert(row)
-  if (!error) return
-  if (/bytes/i.test(error.message)) {
-    const { bytes: _bytes, ...rest } = row
-    const retry = await supabase!.from('artworks').insert(rest)
-    if (!retry.error) return
-    throw retry.error
+  let current = row
+  for (let attempt = 0; attempt <= INSERT_OPTIONAL.length; attempt++) {
+    const { error } = await supabase!.from('artworks').insert(current)
+    if (!error) return
+    const missing = INSERT_OPTIONAL.find((c) => c in current && new RegExp(c).test(error.message))
+    if (!missing) throw error
+    const { [missing]: _dropped, ...rest } = current
+    current = rest
   }
-  throw error
 }
 
 // Every upload used to run fileToDataUrl (JPEG q0.85) and then re-encode that data
@@ -358,6 +407,9 @@ export async function uploadArtwork(params: {
   /** Stored as the work's aspect ratio; defaults to the encoded display size. */
   w?: number
   h?: number
+  /** 合同展示の部屋専用プールへ入れるとき、その部屋のid（migration 0061）。
+   *  省略時は通常展示の共有プール（`gallery_id` は null のまま）。 */
+  galleryId?: string
 }): Promise<void> {
   const source = params.file ?? params.dataUrl
   if (!source) throw new Error('Nothing to upload.')
@@ -387,6 +439,7 @@ export async function uploadArtwork(params: {
       title: params.title,
       bytes: display.blob.size + card.blob.size + thumb.blob.size,
       has_card: true,
+      gallery_id: params.galleryId ?? null,
     })
   } catch (error) {
     // If metadata insertion fails, don't leave the images behind
@@ -403,6 +456,8 @@ export async function uploadVideoArtwork(params: {
   title: string
   w: number
   h: number
+  /** 合同展示の部屋専用プールへ入れるとき、その部屋のid（migration 0061）。 */
+  galleryId?: string
 }): Promise<void> {
   const id = crypto.randomUUID()
   const basePath = `${params.ownerId}/${id}`
@@ -425,6 +480,7 @@ export async function uploadVideoArtwork(params: {
       title: params.title,
       kind: 'video',
       bytes: params.file.size + thumb.blob.size,
+      gallery_id: params.galleryId ?? null,
     })
   } catch (error) {
     await deleteArtworkFiles(id)

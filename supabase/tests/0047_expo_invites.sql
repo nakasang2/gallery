@@ -21,13 +21,14 @@ insert into public.artworks (id, owner_id, title, width, height, storage_path) v
   ('bc000000-0000-0000-0000-000000000043', 'b2000000-0000-0000-0000-0000000000b2', 'Guest keeps', 1000, 800, 'g47/2'),
   ('bc000000-0000-0000-0000-000000000044', 'b3000000-0000-0000-0000-0000000000b3', 'Other work', 1000, 800, 'o47/1');
 
--- 合同展示（下書き）と、その部屋2室（**部屋が複数あっても招待は1回**が要点）
+-- 合同展示（下書き）とその部屋。**1展示1部屋**（0061・ユーザー決定 2026-08-13。
+-- 以前はここに部屋を2室置いて「部屋が複数あっても招待は1回」を見ていたが、
+-- 2室目の insert は今は enforce_room_allowance に拒否される（想定どおり）ので、
+-- その観点のテストは撤去した。
 insert into public.expos (id, owner_id, slug, title, duration_days) values
   ('be000000-0000-0000-0000-000000000047', 'b1000000-0000-0000-0000-0000000000b1', 'joint-47', 'Joint 47', 14);
 insert into public.galleries (id, owner_id, slug, title, expo_id, slots_included, work_cap) values
   ('ba000000-0000-0000-0000-000000000048', 'b1000000-0000-0000-0000-0000000000b1', 'jr47-a', 'Room A',
-   'be000000-0000-0000-0000-000000000047', true, 15),
-  ('ba000000-0000-0000-0000-000000000049', 'b1000000-0000-0000-0000-0000000000b1', 'jr47-b', 'Room B',
    'be000000-0000-0000-0000-000000000047', true, 15);
 
 do $$ begin
@@ -142,11 +143,7 @@ insert into public.placements (gallery_id, artwork_id, slot_index) values
   ('ba000000-0000-0000-0000-000000000048', 'bc000000-0000-0000-0000-000000000042', 0);
 select count(*)=1 from public.placements
   where gallery_id='ba000000-0000-0000-0000-000000000048';
-\echo -n '21 **同じ招待で B 室にも掛けられる**（部屋ごとに招き直さない）: '
-insert into public.placements (gallery_id, artwork_id, slot_index) values
-  ('ba000000-0000-0000-0000-000000000049', 'bc000000-0000-0000-0000-000000000042', 0);
-select count(*)=1 from public.placements
-  where gallery_id='ba000000-0000-0000-0000-000000000049';
+-- 21は欠番（旧: 「同じ招待でB室にも掛けられる」。1展示1部屋になったのでB室が無い）。
 savepoint e;
 \echo -n '22 出していない作品は掛けられない → '
 insert into public.placements (gallery_id, artwork_id, slot_index) values
@@ -208,7 +205,7 @@ select coalesce(bool_and(count=2), false) from public.notifications
 rollback to s; release s;
 
 \echo '--- 取り下げたら壁から下りる ---'
--- 土台: 受諾 → 2点出す → 2室に掛ける（**savepoint の外**）。
+-- 土台: 受諾 → 2点出す → 1室に掛ける（**savepoint の外**）。
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'b2000000-0000-0000-0000-0000000000b2';
 update public.expo_invites set status='accepted', responded_at=now()
@@ -222,7 +219,6 @@ set local role authenticated;
 set local "request.jwt.claim.sub" = 'b1000000-0000-0000-0000-0000000000b1';
 insert into public.placements (gallery_id, artwork_id, slot_index) values
   ('ba000000-0000-0000-0000-000000000048', 'bc000000-0000-0000-0000-000000000042', 0),
-  ('ba000000-0000-0000-0000-000000000049', 'bc000000-0000-0000-0000-000000000042', 0),
   ('ba000000-0000-0000-0000-000000000048', 'bc000000-0000-0000-0000-000000000043', 1),
   ('ba000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000041', 0);
 reset role;
@@ -234,7 +230,7 @@ delete from public.expo_submissions
   where expo_id='be000000-0000-0000-0000-000000000047'
     and artwork_id='bc000000-0000-0000-0000-000000000042';
 reset role;
-\echo -n '29 1点引っ込めたら**その展示の全部屋**から下りる: '
+\echo -n '29 1点引っ込めたら壁から下りる: '
 select count(*)=0 from public.placements
   where artwork_id='bc000000-0000-0000-0000-000000000042';
 \echo -n '30 引っ込めていない作品は掛かったまま: '
@@ -249,7 +245,7 @@ update public.expo_invites set status='declined', responded_at=now()
   where expo_id='be000000-0000-0000-0000-000000000047'
     and artist_id='b2000000-0000-0000-0000-0000000000b2';
 reset role;
-\echo -n '31 辞退したら**その作家の作品が全部屋から下りる**: '
+\echo -n '31 辞退したら**その作家の作品が壁から下りる**: '
 select count(*)=0 from public.placements
   where artwork_id in ('bc000000-0000-0000-0000-000000000042','bc000000-0000-0000-0000-000000000043');
 \echo -n '32 提出も引き上がる（辞退したのに主催者から見えたままにしない）: '
@@ -292,7 +288,7 @@ select coalesce(bool_and(status='accepted'), false) from public.expo_invites
   where expo_id='be000000-0000-0000-0000-000000000047'
     and artist_id='b2000000-0000-0000-0000-0000000000b2';
 \echo -n '37 掛かっている作品も残っている: '
-select count(*)=3 from public.placements
+select count(*)=2 from public.placements
   where artwork_id in ('bc000000-0000-0000-0000-000000000042','bc000000-0000-0000-0000-000000000043');
 rollback to s; release s;
 

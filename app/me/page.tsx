@@ -78,6 +78,7 @@ import {
   updateArtworkDetails,
   artworkPlacementCount,
   deleteMyAccount,
+  listRoomArtworks,
 } from '@/lib/cloud'
 import {
   engagementSummary,
@@ -625,11 +626,41 @@ function GalleryCard({
   const dirty = useHasPending()
   const user = useGallery((s) => s.user)!
   const username = useGallery((s) => s.profileUsername)
+  const profileDisplayName = useGallery((s) => s.profileDisplayName)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
   const updateSettings = useGallery((s) => s.updateSettings)
   const refreshMyGallery = useGallery((s) => s.refreshMyGallery)
   const refreshCloud = useGallery((s) => s.refreshCloudArtworks)
   const toast = useToast()
+
+  // 合同展示の部屋は専用の作品プール（migration 0061・ユーザー決定 2026-08-13）。
+  // 口座全体の共有ライブラリ（`works`）とは別物 ── 部屋を合同展示に切り替えると
+  // それがそのまま「作品」タブに出て「今まで使っている設定が反映されている」ように
+  // 見えて混乱するという指摘を受け、その部屋だけ0から積む形にした。`works` が以下の
+  // 全ての参照先（作品タブ・配置トレイ・rebuildPlacements）を差し替える1点。
+  const artistName = profileDisplayName || user.displayName
+  const [roomArtworks, setRoomArtworks] = useState<ArtworkData[] | null>(null)
+  const refreshRoomArtworks = useCallback(async () => {
+    if (!row.expo_id) return
+    try {
+      setRoomArtworks(await listRoomArtworks(user.id, row.id, artistName))
+    } catch {
+      setRoomArtworks([])
+    }
+  }, [row.expo_id, row.id, user.id, artistName])
+  useEffect(() => {
+    if (row.expo_id) void refreshRoomArtworks()
+    else setRoomArtworks(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.expo_id, row.id])
+  const works: ArtworkData[] = row.expo_id ? (roomArtworks ?? []) : cloudArtworks
+  const refreshWorks = row.expo_id ? refreshRoomArtworks : refreshCloud
+  // 合同展示の部屋は専用プールなので、口座の共有プールの計算（`poolCapacity`・
+  // `placedElsewhere`・`placedElsewhereCount` — いずれも呼び手が通常展示の部屋の
+  // あいだで計算した値）はここでは無視し、その部屋自身の`work_cap`だけで完結させる。
+  const effectivePoolCapacity = row.expo_id ? row.work_cap : poolCapacity
+  const effectivePlacedElsewhere: ReadonlySet<string> = row.expo_id ? EMPTY_ELSEWHERE : placedElsewhere
+  const effectivePlacedElsewhereCount = row.expo_id ? 0 : placedElsewhereCount
   const [usernameInput, setUsernameInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [nameInput, setNameInput] = useState(row.title)
@@ -793,8 +824,8 @@ function GalleryCard({
   // Custom-layout knobs (width/depth/centre wall), editable right here in the dashboard.
   const [custom, setCustom] = useState<CustomLayoutParams>(() => normalizeLayoutParams(view.layout_params))
 
-  const selected = selectedId ? cloudArtworks.find((a) => a.id === selectedId) : undefined
-  const selectedIndex = selected ? cloudArtworks.indexOf(selected) : 0
+  const selected = selectedId ? works.find((a) => a.id === selectedId) : undefined
+  const selectedIndex = selected ? works.indexOf(selected) : 0
   /** いま開いている作品に未保存があるか。**`selectedId` の宣言より後で呼ぶこと** ──
    *  zustand のセレクタは描画中にその場で実行されるので、上の方に置くと
    *  `Cannot access 'selectedId' before initialization` でダッシュボードが全滅する
@@ -841,7 +872,7 @@ function GalleryCard({
   // The Theme section's preview shows the room itself, so it uses a stable subject — the
   // cover work (or the first) — rather than whichever work you're editing in the section
   // below, and the room's default framing rather than a per-work override.
-  const roomArt = cloudArtworks.find((a) => a.id === row.cover_artwork_id) ?? cloudArtworks[0]
+  const roomArt = works.find((a) => a.id === row.cover_artwork_id) ?? works[0]
   const roomSrc = roomArt
     ? roomArt.kind === 'video'
       ? roomArt.poster
@@ -850,17 +881,17 @@ function GalleryCard({
 
   // If the edited work is deleted (here or on another device), close the sheet
   useEffect(() => {
-    if (selectedId && !cloudArtworks.some((a) => a.id === selectedId)) setSelectedId(null)
-  }, [selectedId, cloudArtworks])
+    if (selectedId && !works.some((a) => a.id === selectedId)) setSelectedId(null)
+  }, [selectedId, works])
 
   // The works stage always has one work under the editor, so its fields are visible
   // without hunting for what to tap first (ユーザー指示 2026-07-30). The placement
   // stage does NOT pre-select: there you pick a spot on the map.
   useEffect(() => {
     if (stage !== 'works') return
-    if (selectedId && cloudArtworks.some((a) => a.id === selectedId)) return
-    setSelectedId(cloudArtworks[0]?.id ?? null)
-  }, [stage, cloudArtworks, selectedId])
+    if (selectedId && works.some((a) => a.id === selectedId)) return
+    setSelectedId(works[0]?.id ?? null)
+  }, [stage, works, selectedId])
 
   // The plate fields follow whichever work is selected
   useEffect(() => {
@@ -965,7 +996,7 @@ function GalleryCard({
   }
 
   async function togglePublic() {
-    if (!row.is_public && cloudArtworks.length === 0) {
+    if (!row.is_public && works.length === 0) {
       // The single most common reason a finished-looking room never goes live.
       track('me_publish_blocked', { reason: 'no_works' })
       alert(t('me.needWorkAlert'))
@@ -976,10 +1007,10 @@ function GalleryCard({
       // 公開の切替は即時（ユーザー決定 2026-08-13）。ただし**未保存の下書きを含めて**公開
       // する ── `row`（保存済み）だけを見ると、テーマを変えてから公開した人が「変える前の
       // 部屋」を公開することになる。
-      setGalleryPublic(row, going, await pendingSettings(), cloudArtworks)
+      setGalleryPublic(row, going, await pendingSettings(), works)
     )
     track(going ? 'me_publish_on' : 'me_publish_off', {
-      works: cloudArtworks.length,
+      works: works.length,
       theme: view.theme,
       layout: view.layout,
     })
@@ -1001,7 +1032,7 @@ function GalleryCard({
     mark('space', null, async () => {
       const s = await pendingSettings()
       await saveGallerySpace(row.id, s)
-      if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+      if (row.is_public) await rebuildPlacements(row.id, s, works)
       await refreshMyGallery()
       // **下書きは畳まない**（別視点レビューで検出）。`refreshMyGallery()` の後は行が同じ
       // 値を持つので下書きは同じものを重ねているだけ。逆に空にすると、**保存している最中に
@@ -1056,7 +1087,7 @@ function GalleryCard({
     const next = { ...overrides, ...partial }
     setOverrides(next)
     mark('override', null, async () => {
-      if (row.is_public) await rebuildPlacements(row.id, rowToSettings(viewRef.current, next), cloudArtworks)
+      if (row.is_public) await rebuildPlacements(row.id, rowToSettings(viewRef.current, next), works)
     })
   }
 
@@ -1068,7 +1099,7 @@ function GalleryCard({
     mark('place', null, async () => {
       const s = await pendingSettings({ arrangement: next })
       await saveGallerySpace(row.id, s)
-      if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+      if (row.is_public) await rebuildPlacements(row.id, s, works)
       // Stamp BEFORE the row refresh: this gen is now the persisted truth, so if no
       // newer edit arrived the re-seed may adopt the refreshed row.
       savedGen.current = gen
@@ -1091,7 +1122,7 @@ function GalleryCard({
     mark('custom', null, async () => {
       const s = await pendingSettings({ layout: 'custom', layoutParams: next })
       await saveGallerySpace(row.id, s)
-      if (row.is_public) await rebuildPlacements(row.id, s, cloudArtworks)
+      if (row.is_public) await rebuildPlacements(row.id, s, works)
       await refreshMyGallery()
       onChanged()
     })
@@ -1149,7 +1180,7 @@ function GalleryCard({
     setBusy(true)
     try {
       await setUsername(user.id, name)
-      await refreshCloud()
+      await refreshWorks()
       toast()
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e))
@@ -1175,8 +1206,10 @@ function GalleryCard({
       // このロジックだけ`row.work_cap`単独を見ていたため15枚超のアップロードで
       // 「上限に達しました」誤爆が出ていた）。表示側（me-works-head等）と同じ
       // `poolCapacity ?? row.work_cap`に揃える。
-      const cap = poolCapacity ?? row.work_cap
-      let room = Math.max(0, cap - cloudArtworks.length)
+      // **合同展示の部屋は専用プール**（migration 0061）なので、口座の共有プール
+      // （`poolCapacity`）ではなくその部屋自身の`work_cap`だけで頭打ちにする。
+      const cap = row.expo_id ? row.work_cap : (poolCapacity ?? row.work_cap)
+      let room = Math.max(0, cap - works.length)
       let skipped = 0
       for (const f of Array.from(files)) {
         if (f.type.startsWith('video/')) {
@@ -1189,7 +1222,7 @@ function GalleryCard({
         }
         const title = f.name.replace(/\.[^.]+$/, '') || 'Untitled'
         // Straight from the original file — no data-URL round-trip to re-encode
-        await uploadArtwork({ ownerId: user.id, file: f, title })
+        await uploadArtwork({ ownerId: user.id, file: f, title, galleryId: row.expo_id ? row.id : undefined })
         room--
       }
       if (skipped > 0) {
@@ -1198,7 +1231,7 @@ function GalleryCard({
         alert(t('me.capReachedSkipped', { cap }))
       }
       track('me_work_upload_done', { count: files.length - skipped, bytes, ms: Date.now() - startedAt })
-      await refreshCloud()
+      await refreshWorks()
     } catch (e) {
       const msg = String(e instanceof Error ? e.message : e)
       // Upload failure is the most damaging silent exit in the whole product.
@@ -1221,7 +1254,7 @@ function GalleryCard({
     if (!confirm(msg)) return
     try {
       await deleteArtwork(user.id, art.id)
-      await refreshCloud()
+      await refreshWorks()
     } catch (e) {
       alert(t('me.workRemoveFailed', { msg: String(e instanceof Error ? e.message : e) }))
     }
@@ -1261,7 +1294,7 @@ function GalleryCard({
     // 先の作品の変更が消える。
     mark('work', id, async () => {
       await updateArtworkDetails(id, payload)
-      await refreshCloud()
+      await refreshWorks()
     })
   }
 
@@ -1515,7 +1548,13 @@ function GalleryCard({
   // 2026-08-10）。以前は全ステージの上に一律で出していたが、部屋によって中身が
   // 変わるのはこの2ステージだけ（作品は口座全体の作品庫・公開は「いま開いている
   // 部屋」の話で、どちらも切替の意味が薄い）。ロジックは変えず、置き場所だけ動かした。
-  const roomSwitcher = rooms && rooms.length > 1 && (
+  //
+  // `!row.expo_id`（ユーザー指摘 2026-08-13）: `rooms` prop は呼び手（`MePage`）が
+  // **常に自分の通常展示の部屋一覧**を渡しているので、合同展示の部屋を開いているときに
+  // ここへ来ると「いまの部屋がリストに無いのにタブだけ並ぶ」宙に浮いた状態になっていた。
+  // 合同展示の部屋は1展示につき1部屋（`ExpoManager`から開く専用の入口）で、通常展示の
+  // 部屋どうしを行き来する切替とは別の話なので、丸ごと隠す。
+  const roomSwitcher = !row.expo_id && rooms && rooms.length > 1 && (
     <nav className="me-rooms" aria-label={t('me.roomsNav')}>
       {rooms.map((g) => {
         const label = isPlaceholderTitle(g.title) ? g.slug : g.title
@@ -1555,7 +1594,7 @@ function GalleryCard({
           // 作品 → 部屋 の順（ユーザー指示 2026-08-11で元に戻した。0809時点では
           // 「空間を決めてから中身を入れる」で部屋→作品にしていたが、ユーザーが
           // 使ってみて並びを戻したいと判断した）。
-          ['works', t('me.stageWorks'), cloudArtworks.length || null],
+          ['works', t('me.stageWorks'), works.length || null],
           ['room', t('me.navRoom'), null],
           ['placement', t('me.placement'), null],
           // **合同展示の部屋にだけ出す**（ユーザー指示 2026-08-10）。招待の管理は
@@ -1601,7 +1640,7 @@ function GalleryCard({
     {/* One next step at a time toward publishing — not shown on the housekeeping stages */}
     {(() => {
       if (stage === 'profile') return null
-      const hint = cloudArtworks.length === 0
+      const hint = works.length === 0
         ? { key: 'me.hintAddWork', to: 'works' as const }
         : !username
           ? { key: 'me.hintUsername', to: 'publish' as const }
@@ -1630,7 +1669,7 @@ function GalleryCard({
         <GalleryPreview
           art={roomArt}
           src={roomSrc}
-          index={Math.max(0, cloudArtworks.indexOf(roomArt))}
+          index={Math.max(0, works.indexOf(roomArt))}
           themeKey={view.theme}
           frameKey={view.frame_default}
           matKey={view.mat_default}
@@ -1841,7 +1880,7 @@ function GalleryCard({
           <GalleryPreview
             art={selected ? previewArt : roomArt}
             src={selected ? previewSrc : roomSrc}
-            index={selected ? selectedIndex : Math.max(0, cloudArtworks.indexOf(roomArt))}
+            index={selected ? selectedIndex : Math.max(0, works.indexOf(roomArt))}
             themeKey={view.theme}
             frameKey={selected ? frame : view.frame_default}
             matKey={selected ? mat : view.mat_default}
@@ -1856,7 +1895,7 @@ function GalleryCard({
               {/* count/capは口座全体の合計（migration 0052の「移動」は撤回。ユーザー指摘
                   2026-08-11: 部屋ごとの数字を分けて考えず「共通」で扱いたい）。部屋ごとの
                   `work_cap`は購入・等級の記帳として残るが、合計だけを見せる。 */}
-              <span className="me-works-count">{t('me.navWorksCount', { count: cloudArtworks.length, cap: poolCapacity ?? row.work_cap })}</span>
+              <span className="me-works-count">{t('me.navWorksCount', { count: works.length, cap: effectivePoolCapacity ?? row.work_cap })}</span>
               <button
                 type="button"
                 className="btn-line"
@@ -1880,11 +1919,11 @@ function GalleryCard({
                 Gated on `poolCapacity !== null` — not `poolCapacity ?? row.work_cap`
                 (ユーザー指摘 2026-08-11: 「この部屋はいっぱいです」が読み込み時に一瞬
                 出る)。`allOwnedRooms`（口座全体の作品プールを合算する材料）は
-                `cloudArtworks` と別のfetchで、後から届く。届く前に `row.work_cap`
+                `works` と別のfetchで、後から届く。届く前に `row.work_cap`
                 （この部屋"だけ"の枠、共通プール化以降は口座合計よりずっと小さいこと
                 が多い）へフォールバックすると、口座全体では余裕があるのに一瞬だけ
                 満室の文言が出る。真の合計が分かるまでは出さない。 */}
-            {poolCapacity !== null && cloudArtworks.length >= poolCapacity && roomOffer && (
+            {effectivePoolCapacity !== null && works.length >= effectivePoolCapacity && roomOffer && !row.expo_id && (
               <div className="me-capacity-offer">
                 <p className="me-note" style={{ marginTop: 0 }}>{t('me.capacityChoice')}</p>
                 <div className="me-capacity-choices">
@@ -1915,10 +1954,10 @@ function GalleryCard({
                 there are a few works — the same trap the old rail fell into
                 (ユーザー指摘 2026-07-28). */}
             <div className="me-works-row">
-              {cloudArtworks.length < (poolCapacity ?? row.work_cap) && (
+              {works.length < (effectivePoolCapacity ?? row.work_cap) && (
                 <label className={`me-work-tile me-add-tile${uploading ? ' busy' : ''}`} aria-disabled={uploading}>
                   <span className="me-add-tile-plus" aria-hidden="true">{uploading ? '…' : '+'}</span>
-                  <small>{uploading ? t('me.uploading') : cloudArtworks.length === 0 ? t('me.addFirstWork') : t('me.addWork')}</small>
+                  <small>{uploading ? t('me.uploading') : works.length === 0 ? t('me.addFirstWork') : t('me.addWork')}</small>
                   <input
                     type="file"
                     accept="image/*"
@@ -1932,7 +1971,7 @@ function GalleryCard({
                   />
                 </label>
               )}
-              {cloudArtworks.map((art) => (
+              {works.map((art) => (
                 /* The delete × is a SIBLING of the tile button, not nested (a button
                    inside a button is invalid) — hence the wrapper (ユーザー指示
                    2026-07-30, delete moved here from the editor sheet). */
@@ -2107,7 +2146,7 @@ function GalleryCard({
             )}
             </div>
           </div>
-          {cloudArtworks.length > 0 ? (
+          {works.length > 0 ? (
             <>
               {/* 2つ目の節なので、他のタブの2つ目以降と同じ `.wd-group`（上に罫が入る）。
                   見出しも同じ `.wd-title`。 */}
@@ -2124,13 +2163,20 @@ function GalleryCard({
                 // 「口座の合計 − 他の部屋に今置かれている点数」— 他の部屋を空ければ
                 // この部屋はその分まで増やせる。`row.work_cap`はpoolCapacity未取得時
                 // （＝旧来の1部屋だけの口座）のフォールバックとして残す。
-                workCap={poolCapacity != null ? Math.max(0, poolCapacity - placedElsewhereCount) : row.work_cap}
-                poolTotal={poolCapacity ?? row.work_cap}
-                works={cloudArtworks}
+                // **合同展示の部屋は専用プール**（migration 0061）なので、口座の共有
+                // プールとは無関係にその部屋自身の`work_cap`だけで完結させる
+                // （`effectivePoolCapacity`/`effectivePlacedElsewhere*` が差し替える）。
+                workCap={
+                  effectivePoolCapacity != null
+                    ? Math.max(0, effectivePoolCapacity - effectivePlacedElsewhereCount)
+                    : row.work_cap
+                }
+                poolTotal={effectivePoolCapacity ?? row.work_cap}
+                works={works}
                 guests={guests}
                 arrangement={placement}
                 onChange={editPlacement}
-                placedElsewhere={placedElsewhere}
+                placedElsewhere={effectivePlacedElsewhere}
                 disabled={busy}
               />
             </>
@@ -2156,7 +2202,7 @@ function GalleryCard({
           <GalleryPreview
             art={roomArt}
             src={roomSrc}
-            index={Math.max(0, cloudArtworks.indexOf(roomArt))}
+            index={Math.max(0, works.indexOf(roomArt))}
             themeKey={view.theme}
             frameKey={view.frame_default}
             matKey={view.mat_default}
@@ -2294,7 +2340,7 @@ function GalleryCard({
                     title={
                       row.is_public
                         ? t('me.openHint')
-                        : cloudArtworks.length
+                        : works.length
                           ? t('me.privateHint')
                           : t('me.needWorkHint')
                     }
@@ -2434,11 +2480,11 @@ function GalleryCard({
               <small className="me-field-hint">{t('me.markdownOk')}</small>
               <MarkdownPreview value={statementInput} />
             </div>
-            {cloudArtworks.length > 0 && (
+            {works.length > 0 && (
               <div className="wd-group">
                 <div className="wd-title"><span>{t('me.coverPick')}</span></div>
                 <div className="me-cover-row">
-                  {cloudArtworks.map((art) => (
+                  {works.map((art) => (
                     <button
                       type="button"
                       key={art.id}
@@ -2457,7 +2503,7 @@ function GalleryCard({
             )}
             {/* How the exhibition is doing, at a glance */}
             <div className="stat-row">
-              <div className="stat"><b>{cloudArtworks.length}</b><span>{t('me.statWorks')}</span></div>
+              <div className="stat"><b>{works.length}</b><span>{t('me.statWorks')}</span></div>
               <div className="stat"><b>{stats ? stats.visits : '–'}</b><span>{t('me.statVisits')}</span></div>
               <div className="stat"><b>{stats ? stats.likes : '–'}</b><span>{t('me.statLikes')}</span></div>
               <div className="stat"><b>{stats ? stats.guestbook : '–'}</b><span>{t('me.statGuestNotes')}</span></div>

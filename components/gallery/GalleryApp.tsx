@@ -195,6 +195,10 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
     return () => useGallery.getState().setDemoMode(false)
   }, [demo])
   const [loadingDone, setLoadingDone] = useState(false)
+  // 扉を抜けて次の部屋へ向かっている最中（`enterRoom` が立てる）。フルページ遷移の
+  // 「新しいドキュメントの取得中は何も描かれない」区間を、いまのページのまま
+  // ロード画面で埋める（ユーザー指摘 2026-08-13）。
+  const roomTransition = useGallery((s) => s.roomTransition)
   // iOS Safari drops the WebGL context aggressively — switch apps, take a call,
   // open a few tabs, and the room comes back black. There was no handler at all,
   // and the initial `webgl` probe already succeeded, so it never fell through to
@@ -554,8 +558,14 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
         </div>
       )}
 
-      {/* Personalised for a public gallery (visitor mode), house-branded on /demo */}
-      <LoadingScreen exhibition={visitor} done={loadingDone} progress={assetsTotal > 0 ? loadPct : undefined} />
+      {/* Personalised for a public gallery (visitor mode), house-branded on /demo.
+          `roomTransition` forces it back open the instant a doorway is used, even
+          though this page's own loading already finished. */}
+      <LoadingScreen
+        exhibition={visitor}
+        done={loadingDone && !roomTransition}
+        progress={assetsTotal > 0 ? loadPct : undefined}
+      />
     </>
   )
 }

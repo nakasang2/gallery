@@ -185,14 +185,20 @@ export async function listAllOwnedRooms(userId: string): Promise<GalleryRow[]> {
   return fetchOwnedRooms(userId)
 }
 
-/** `excludeRoomId`以外の部屋すべての`arrangement`（保存済みの手動配置）に載っている
- *  作品idの集合。配置タブで「この作品は別の部屋にも掛かっている」を示すために使う
- *  （ユーザー指示 2026-08-11）。公開用の`placements`テーブルではなく各部屋の
- *  `arrangement`を見る ── 非公開の部屋でもオーナーが実際に組んだ配置だから。 */
+/** `excludeRoomId`以外の**通常展示の**部屋すべての`arrangement`（保存済みの手動配置）に
+ *  載っている作品idの集合。配置タブで「この作品は別の部屋にも掛かっている」を示すために
+ *  使う（ユーザー指示 2026-08-11）。公開用の`placements`テーブルではなく各部屋の
+ *  `arrangement`を見る ── 非公開の部屋でもオーナーが実際に組んだ配置だから。
+ *
+ *  **合同展示の部屋は除く**（migration 0061・ユーザー決定 2026-08-13）。合同展示の
+ *  部屋は専用プール（作品自体が別の`gallery_id`の行）なので、通常展示の作品idと
+ *  物理的に重ならない ── 除かないと `poolCapacityOf` が引いた共有プールに対して
+ *  「他の部屋で使用中」の点数だけ合同展示の分を過剰に数え、通常展示側の残り枠を
+ *  不当に狭める。 */
 export function elsewherePlacedWorkIds(rooms: GalleryRow[], excludeRoomId: string): Set<string> {
   const ids = new Set<string>()
   for (const r of rooms) {
-    if (r.id === excludeRoomId) continue
+    if (r.id === excludeRoomId || r.expo_id) continue
     for (const id of normalizeArrangement(r.arrangement)) {
       if (id) ids.add(id)
     }
@@ -205,11 +211,14 @@ export function elsewherePlacedWorkIds(rooms: GalleryRow[], excludeRoomId: strin
  *  **Not** `elsewherePlacedWorkIds(...).size` — that de-dupes by work id, so hanging
  *  the same work in two other rooms would only count once and let this room's derived
  *  cap creep past the account's real total (別視点レビュー指摘 2026-08-12). Counting
- *  filled slots rather than distinct works matches what actually consumes the pool. */
+ *  filled slots rather than distinct works matches what actually consumes the pool.
+ *
+ *  **合同展示の部屋は除く**（migration 0061・ユーザー決定 2026-08-13。理由は
+ *  `elsewherePlacedWorkIds` と同じ）。 */
 export function elsewherePlacedCount(rooms: GalleryRow[], excludeRoomId: string): number {
   let n = 0
   for (const r of rooms) {
-    if (r.id === excludeRoomId) continue
+    if (r.id === excludeRoomId || r.expo_id) continue
     for (const id of normalizeArrangement(r.arrangement)) {
       if (id) n++
     }

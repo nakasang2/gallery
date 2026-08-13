@@ -322,6 +322,20 @@ export function enterRoom(from: { username: string; expo: { slug: string } | nul
   // Embedded, this gallery is a frame on somebody else's page: navigating it would
   // silently replace their embed with a different room. Same rule the rest of the HUD
   // follows for outbound links in an embed — open it, don't hijack the frame.
-  if (embed) window.open(path, '_blank', 'noopener')
-  else window.location.assign(path)
+  if (embed) {
+    window.open(path, '_blank', 'noopener')
+    return
+  }
+  // フルページ遷移（`assign`）は新しいドキュメントの取得中、何も描かれない
+  // 「無反応に見える」区間ができる（ユーザー指摘 2026-08-13: 「ボタン押下しても
+  // ロードが裏側で走っていってユーザーからは動いてないように見える」）。押した
+  // 瞬間に（今のページのまま）ロード画面を出してから遷移する。2連続の
+  // requestAnimationFrame は「次のペイントが確実に済んでから」の定石 ── 1回だけだと
+  // ブラウザが遷移を先に処理してペイントされないことがある。
+  useGallery.getState().setRoomTransition(true)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.location.assign(path)
+    })
+  })
 }

@@ -19,6 +19,7 @@ import type { GalleryRow } from '@/lib/galleries'
 import { listMyExpos, roomExpoSwitchErrorKey, switchRoomExpo, type Expo } from '@/lib/expos'
 import { track } from '@/lib/analytics'
 import { SwitchIcon } from '@/components/icons'
+import { useGallery } from '@/lib/store'
 
 export default function RoomExpoBadge({
   room,
@@ -32,6 +33,7 @@ export default function RoomExpoBadge({
   onChanged: () => void
 }) {
   const t = useT()
+  const refreshCloudArtworks = useGallery((s) => s.refreshCloudArtworks)
   const [open, setOpen] = useState(false)
   // null = 未取得。合同展示の部屋なら展示名を出すため常時（開いていなくても）取りに行く。
   const [expos, setExpos] = useState<Expo[] | null>(null)
@@ -87,6 +89,11 @@ export default function RoomExpoBadge({
       await switchRoomExpo(room.id, null)
       track('room_expo_switch', { to: 'normal' })
       setOpen(false)
+      // 専用プールに未配置のまま残っていた作品は、DB側（switch_room_expo・0061）が
+      // 共有プールへ解放している。**共有ライブラリのキャッシュ（cloudArtworks）は
+      // 認証時に一度読むだけ**なので、明示的に読み直さないと解放された作品が
+      // 「作品」タブに現れない（ページ再読み込みまで見えない、という食い違いを防ぐ）。
+      void refreshCloudArtworks()
       onChanged()
     } catch (e) {
       const key = roomExpoSwitchErrorKey(e)

@@ -228,26 +228,31 @@ export default function ExpoManager({
                 )}
 
                 <div className="hako-actions expo-actions">
-                  <button
-                    type="button"
-                    className="btn-line"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        const roomId = await addExpoRoom(user.id, x.id, {
-                          // 主催者の他の部屋とぶつからない名前にする（一意制約は
-                          // (owner_id, slug)）。既に部屋があれば連番で。
-                          slug: `expo-${x.slug}-${xr.length + 1}`.slice(0, 40),
-                          title: x.title || x.slug,
+                  {/* 1展示1部屋（migration 0061・ユーザー決定 2026-08-13）。以前はここに
+                      「もう1室」を作る導線があったが、合同展示の部屋を複数持てると、
+                      切り替えたときに前の部屋の設定が残っているように見えて混乱すると
+                      指摘され撤回した。部屋が既にあるときはこのボタンごと隠す
+                      （DB側の`enforce_room_allowance`/`switch_room_expo`も2本目を拒否する）。 */}
+                  {xr.length === 0 && (
+                    <button
+                      type="button"
+                      className="btn-line"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(async () => {
+                          const roomId = await addExpoRoom(user.id, x.id, {
+                            slug: `expo-${x.slug}-1`.slice(0, 40),
+                            title: x.title || x.slug,
+                          })
+                          track('expo_room_add', { expo: x.slug })
+                          // 作った部屋をすぐ開く（そこで招待・作品掛け・会期選びをする）。
+                          onOpenRoom?.(roomId)
                         })
-                        track('expo_room_add', { expo: x.slug })
-                        // 作った部屋をすぐ開く（そこで招待・作品掛け・会期選びをする）。
-                        onOpenRoom?.(roomId)
-                      })
-                    }
-                  >
-                    {t('expo.addRoom')}
-                  </button>
+                      }
+                    >
+                      {t('expo.addRoom')}
+                    </button>
+                  )}
 
                   {phase === 'draft' && (
                     <button

@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0060 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0061 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -5357,3 +5357,241 @@ alter table public.profiles add column if not exists cv text not null default ''
 
 comment on column public.profiles.cv is
   '来歴（展示歴・受賞歴）。自己紹介(bio)とは別欄。公開ページと3Dの情報パネルで、自己紹介と並ぶタブとして出す。';
+
+-- # 0061_expo_room_scope.sql — 合同展示を1展示1部屋にし、作品を専用プールへ分離する(ユーザー決定 2026-08-13)
+-- 部屋を合同展示に切り替えると、口座全体の作品ライブラリ（他の通常展示の部屋とも共有）が
+-- そのまま「作品」タブに並び、参加作家には「今まで使っている設定が反映されている」ように
+-- 見えて混乱するという指摘があった。①合同展示は1展示につき1部屋までに制限する
+-- ②合同展示の部屋は、口座の共有プールとは独立した作品プールにする（0から積む）。
+
+alter table public.artworks
+  add column if not exists gallery_id uuid references public.galleries (id) on delete cascade;
+
+create index if not exists artworks_gallery_idx on public.artworks (gallery_id) where gallery_id is not null;
+
+create or replace function public.enforce_room_allowance()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_free int;
+  v_paid int;
+  v_purchased int;
+  v_expo_owner uuid;
+begin
+  if new.expo_id is not null then
+    select owner_id into v_expo_owner from public.expos where id = new.expo_id;
+    if v_expo_owner is distinct from new.owner_id then
+      raise exception 'expo does not belong to this user' using errcode = 'check_violation';
+    end if;
+    if new.work_cap is not null and new.work_cap > 15 then
+      raise exception 'work_cap % not allowed', new.work_cap using errcode = 'check_violation';
+    end if;
+    if exists (
+      select 1 from public.galleries where expo_id = new.expo_id and id <> new.id
+    ) then
+      raise exception 'this exhibition already has a room' using errcode = 'check_violation';
+    end if;
+    return new;
+  end if;
+
+  select count(*) filter (where not slots_included),
+         count(*) filter (where slots_included)
+    into v_free, v_paid
+    from public.galleries
+   where owner_id = new.owner_id
+     and expo_id is null;
+
+  select count(*) into v_purchased
+    from public.purchases
+   where user_id = new.owner_id and kind = 'room';
+
+  if new.slots_included then
+    if v_paid >= v_purchased then
+      raise exception 'no unused room purchase: % paid rooms, % purchased', v_paid, v_purchased
+        using errcode = 'check_violation';
+    end if;
+    if new.work_cap is not null and new.work_cap > 15 then
+      raise exception 'work_cap % not allowed', new.work_cap using errcode = 'check_violation';
+    end if;
+  else
+    if v_free >= 1 then
+      raise exception 'the free room already exists' using errcode = 'check_violation';
+    end if;
+    if new.work_cap is not null and new.work_cap > 5 then
+      raise exception 'work_cap % not allowed for the free room', new.work_cap
+        using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.switch_room_expo(p_gallery uuid, p_expo uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_room_owner uuid;
+  v_room_expo uuid;
+  v_expo_owner uuid;
+  v_placements int;
+  v_free int;
+  v_paid int;
+  v_purchased int;
+begin
+  if v_me is null then
+    raise exception 'sign in first';
+  end if;
+
+  select owner_id, expo_id into v_room_owner, v_room_expo
+    from public.galleries where id = p_gallery;
+  if v_room_owner is null then
+    raise exception 'no such room';
+  end if;
+  if v_room_owner <> v_me then
+    raise exception 'not your room';
+  end if;
+
+  if v_room_expo is not distinct from p_expo then
+    return;
+  end if;
+
+  select count(*) into v_placements from public.placements where gallery_id = p_gallery;
+  if v_placements > 0 then
+    raise exception 'room is not empty' using errcode = 'check_violation';
+  end if;
+
+  if p_expo is not null then
+    select owner_id into v_expo_owner from public.expos where id = p_expo;
+    if v_expo_owner is distinct from v_me then
+      raise exception 'expo does not belong to this user' using errcode = 'check_violation';
+    end if;
+    if not exists (
+      select 1 from public.galleries
+       where owner_id = v_me and expo_id is null and id <> p_gallery
+    ) then
+      raise exception 'cannot move your only room into a joint exhibition' using errcode = 'check_violation';
+    end if;
+    -- 1展示1部屋（ユーザー決定 2026-08-13）。
+    if exists (
+      select 1 from public.galleries where expo_id = p_expo and id <> p_gallery
+    ) then
+      raise exception 'this exhibition already has a room' using errcode = 'check_violation';
+    end if;
+    update public.galleries
+       set expo_id = p_expo, slots_included = true, work_cap = 15
+     where id = p_gallery;
+    return;
+  end if;
+
+  select count(*) filter (where not slots_included),
+         count(*) filter (where slots_included)
+    into v_free, v_paid
+    from public.galleries
+   where owner_id = v_me and expo_id is null and id <> p_gallery;
+  select count(*) into v_purchased from public.purchases
+   where user_id = v_me and kind = 'room';
+
+  if v_free = 0 then
+    update public.galleries set expo_id = null, slots_included = false, work_cap = 5
+     where id = p_gallery;
+  elsif v_paid < v_purchased then
+    update public.galleries set expo_id = null, slots_included = true, work_cap = 15
+     where id = p_gallery;
+  else
+    raise exception 'no unused room purchase: buy a room first' using errcode = 'check_violation';
+  end if;
+
+  -- この部屋はもう合同展示の部屋ではないので、専用プールに積んであった作品
+  -- （`gallery_id = p_gallery`）は行き場を失う。空にする条件は「placementsが0件」
+  -- だけ（上のチェック）で、**アップロード済みだが未配置の作品**は残っている
+  -- ── そのまま `gallery_id` を残すとダッシュボードのどこからも見えなくなる
+  -- （通常展示の共有プールは `gallery_id is null` だけを見るため）。共有プールへ
+  -- 解放する（ユーザー決定 2026-08-13の専用プール化に伴う後始末）。
+  update public.artworks set gallery_id = null where gallery_id = p_gallery;
+end;
+$$;
+
+create or replace function public.work_slot_pool(p_owner uuid)
+returns int
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select greatest(coalesce(sum(g.work_cap), 0), 5)::int
+    from public.galleries g
+   where g.owner_id = p_owner
+     and g.expo_id is null;
+$$;
+
+create or replace function public.placement_pool_used(p_owner uuid)
+returns int
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select count(*)::int
+    from public.placements p
+    join public.galleries g on g.id = p.gallery_id
+   where g.owner_id = p_owner
+     and g.expo_id is null;
+$$;
+
+create or replace function public.enforce_artwork_pool()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  r record;
+  v_used int;
+  v_pool int;
+  g record;
+  v_room_used int;
+  v_room_cap int;
+begin
+  -- gallery_id を名乗った行は、その部屋が①呼び手自身の部屋で ②合同展示の部屋
+  -- （expo_id が not null）であることを確認する。通常展示の部屋のidを付けて
+  -- 共有プールの上限を回避する経路を防ぐ。
+  for g in select distinct n.gallery_id, n.owner_id from new_rows n where n.gallery_id is not null loop
+    if not exists (
+      select 1 from public.galleries x
+       where x.id = g.gallery_id and x.owner_id = g.owner_id and x.expo_id is not null
+    ) then
+      raise exception 'artworks.gallery_id must be one of your own joint-exhibition rooms';
+    end if;
+  end loop;
+
+  -- ①通常展示の共有プール。
+  for r in select distinct n.owner_id from new_rows n where n.gallery_id is null loop
+    select count(*)::int into v_used
+      from public.artworks a where a.owner_id = r.owner_id and a.gallery_id is null;
+    v_pool := public.work_slot_pool(r.owner_id);
+    if v_used > v_pool then
+      raise exception 'work slot pool exceeded: % works for a pool of %', v_used, v_pool;
+    end if;
+  end loop;
+
+  -- ②合同展示の部屋専用プール。口座の共有プールへは足さない・引かない ── その部屋
+  -- 自身の work_cap（15）だけで完結させる。
+  for g in select distinct n.gallery_id from new_rows n where n.gallery_id is not null loop
+    select count(*)::int into v_room_used from public.artworks a where a.gallery_id = g.gallery_id;
+    select work_cap into v_room_cap from public.galleries where id = g.gallery_id;
+    if v_room_used > coalesce(v_room_cap, 0) then
+      raise exception 'room work slot pool exceeded: % works for a room pool of %', v_room_used, v_room_cap;
+    end if;
+  end loop;
+  return null;
+end;
+$$;
+
+revoke all on function public.enforce_artwork_pool() from public, anon, authenticated, service_role;

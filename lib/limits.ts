@@ -110,13 +110,18 @@ export function unbuiltRooms(tally: RoomTally, roomsPurchased: number): number {
  * Advisory only — the DB enforces the same rule in `enforce_room_allowance` (0038),
  * because `galleries` is inserted into directly through RLS.
  */
-/** 口座内の全部屋（合同展示の部屋も含む）の`work_cap`を合算した、作品スロットの
- *  合計。移動の代わり（ユーザー指摘 2026-08-11、DECISIONS 2026-08-11）: 部屋ごとに
- *  別々の数字を見せず、口座全体で1つの残り枠数だけを扱う。部屋ごとの`work_cap`は
- *  購入・等級の記帳としてはそのまま残る（DBスキーマは無変更）ので、集計はここで
- *  行うだけでよい。 */
-export function poolCapacityOf(rooms: { work_cap?: number | null }[]): number {
-  return rooms.reduce((sum, r) => sum + (r.work_cap ?? 0), 0)
+/** 口座内の**通常展示の**部屋の`work_cap`を合算した、作品スロットの合計。移動の代わり
+ *  （ユーザー指摘 2026-08-11、DECISIONS 2026-08-11）: 部屋ごとに別々の数字を見せず、
+ *  口座全体で1つの残り枠数だけを扱う。部屋ごとの`work_cap`は購入・等級の記帳としては
+ *  そのまま残る（DBスキーマは無変更）ので、集計はここで行うだけでよい。
+ *
+ *  **合同展示の部屋は除く**（migration 0061・ユーザー決定 2026-08-13。2026-08-11の
+ *  「合同展示の部屋も含む」を一部撤回）。合同展示の部屋を切り替えると口座全体の
+ *  ライブラリがそのまま出て「今まで使っている設定が反映されている」ように見えるため、
+ *  合同展示の部屋は口座の共有プールとは独立した専用プール（その部屋自身の`work_cap`
+ *  だけ）にした。DB側は `work_slot_pool()` が同じ形で除く。 */
+export function poolCapacityOf(rooms: { work_cap?: number | null; expo_id?: string | null }[]): number {
+  return rooms.reduce((sum, r) => (r.expo_id ? sum : sum + (r.work_cap ?? 0)), 0)
 }
 
 export function gradeForNewRoom(
