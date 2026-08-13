@@ -954,6 +954,39 @@
   color: var(--muted);
   margin: 0;
 }
+/* 配置タブ: 間取りは畳んで1行にする（ユーザー選択 2026-08-13・A案）。
+   閉じているときも**いまの間取りを図と名前で**見せる ── 畳んだ結果「何が選ばれているか
+   分からない」になるのが一番まずい。 */
+.place-layout-head { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+/* **`hidden` を効かせる。** HTML の `hidden` は UA の `display: none` にすぎないので、
+   `.wd-row { display: flex }` のような作者側の宣言に**負ける** ── 実測すると閉じたはずの
+   間取りチップが 27px 分の高さを持ち、Tab でも到達できていた（畳んだつもりで畳めていない
+   のが一番まずい）。クラス＋属性なので `.wd-row` より詳細度が高く、`!important` は不要。 */
+.wd-row[hidden] { display: none; }
+.place-layout-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0 0.7rem;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.place-layout-toggle:hover { border-color: var(--gold); }
+.place-layout-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.place-layout-now { white-space: nowrap; }
+.place-layout-cta {
+  font-size: var(--label-size);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--gold);
+  white-space: nowrap;
+}
 /* ---- Publish stage: share-cover picker ---- */
 .me-cover-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .me-cover-thumb {

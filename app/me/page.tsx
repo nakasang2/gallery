@@ -719,6 +719,10 @@ function GalleryCard({
   const [overrides, setOverrides] = useState<PlacementOverrides>(EMPTY_OVERRIDES)
   /** テーマ・間取り・既定の額装の**保存待ちの下書き**（`view` で `row` に重ねる）。 */
   const [spaceDraft, setSpaceDraft] = useState<Partial<GalleryRow>>({})
+  /** 配置タブの間取り選択を開いているか（ユーザー選択 2026-08-13・A案）。**既定は閉じる** ──
+   *  間取りは一度決めたらまた変えないのに、5つの大きなチップが主役の配置図を画面の下へ
+   *  押し出していた。畳んで1行にすると、タブを開いた瞬間に配置図が見える。 */
+  const [layoutOpen, setLayoutOpen] = useState(false)
   /** **保存待ちを含めた「いまの部屋の設定」。** `row` は保存済みの値なので、テーマや間取りを
    *  押した瞬間の見た目・3Dプレビューはこちらを見る（ユーザー決定 2026-08-13・A案:
    *  プレビューは即時・公開ページは保存後）。保存ボタンを押すと `row` が追いつく。
@@ -1958,9 +1962,28 @@ function GalleryCard({
               大文字化がすべて違っていた。両方ブロック見出しに揃え、字はトークン
               （`--label-size` / `--label-track`）で1つにする。 */}
           <div className="wd-group wd-group--flush">
-            <div className="placement-head">
+            <div className="placement-head place-layout-head">
               <h3 className="placement-title">{t('me.layout')}</h3>
+              {/* 閉じているときは「いまの間取り」を図と名前で見せる ── 畳んだ結果
+                  「何が選ばれているか分からない」になるのが一番まずい。 */}
+              <button
+                type="button"
+                className="place-layout-toggle"
+                aria-expanded={layoutOpen}
+                aria-controls="place-layout-picker"
+                onClick={() => setLayoutOpen((v) => !v)}
+              >
+                <LayoutPlan layoutKey={view.layout} params={view.layout_params} className="chip-plan" />
+                <span className="place-layout-now">
+                  {view.layout === 'custom' ? t('me.custom') : t(`presets.layout.${view.layout}`)}
+                </span>
+                <span className="place-layout-cta">{layoutOpen ? t('common.close') : t('common.change')}</span>
+              </button>
             </div>
+            {/* 開閉する範囲は**1つの入れ物**にまとめる ── `aria-controls` が指す範囲と、
+                実際に開閉する範囲を一致させるため（別視点レビューで検出。カスタムの
+                サイズ調整はこの中にある）。 */}
+            <div id="place-layout-picker" hidden={!layoutOpen}>
             <div className="wd-row">
               <div className="chips">
                 {unlockedFirst(Object.entries(LAYOUTS), ([key]) => isLayoutUnlocked(key, entitlements)).map(([key, def]) => {
@@ -1973,6 +1996,10 @@ function GalleryCard({
                       onClick={() => {
                         if (!unlocked) { setPurchaseItem({ kind: 'layout', key, label: t(`presets.layout.${key}`) }); return }
                         setSpace({ layout: key })
+                        // **カスタムだけは畳まない** ── サイズ調整（幅・奥行き・中央壁）が
+                        // この中にあるので、選んだ瞬間に閉じると届かなくなる
+                        // （別視点レビューで検出）。他の間取りは選んで終わりなので畳む。
+                        if (key !== 'custom') setLayoutOpen(false)
                       }}
                     >
                       <LayoutPlan layoutKey={key} className="chip-plan" />
@@ -1996,6 +2023,7 @@ function GalleryCard({
                       onClick={() => {
                         if (!unlocked) { setPurchaseItem({ kind: 'layout', key: 'custom', label: t('me.custom') }); return }
                         setSpace({ layout: 'custom' })
+                        // カスタムは選んだあとサイズを決める。開いたままにする（上と同じ理由）
                       }}
                     >
                       <LayoutPlan layoutKey="custom" params={view.layout_params} className="chip-plan" />
@@ -2034,6 +2062,7 @@ function GalleryCard({
                 </div>
               </div>
             )}
+            </div>
           </div>
           {cloudArtworks.length > 0 ? (
             <>
