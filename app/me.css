@@ -482,8 +482,8 @@
 .me-field { display: block; margin: 0.9rem 0; }
 .me-field span {
   display: block;
-  font-size: 0.64rem;
-  letter-spacing: 0.2em;
+  font-size: var(--label-size);
+  letter-spacing: var(--label-track);
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 0.4rem;
@@ -944,10 +944,12 @@
    PlacementEditor 内の作品ピッカーが下に出る。 */
 .placement-stage { margin-top: 0.4rem; }
 .placement-head { margin-bottom: 0.9rem; }
+/* 「配置」の見出し。**`.wd-title` と同じトークン**を使う ── 隣の「間取り」と大きさも
+   字送りも違っていたのが不揃いの正体（ユーザー指摘 2026-08-13）。 */
 .placement-title {
   font-family: var(--sans);
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
+  font-size: var(--label-size);
+  letter-spacing: var(--label-track);
   text-transform: uppercase;
   color: var(--muted);
   margin: 0;

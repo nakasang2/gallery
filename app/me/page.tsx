@@ -1951,9 +1951,17 @@ function GalleryCard({
           {/* 間取り選択（＋カスタムサイズ）は部屋ステージから引っ越した（ユーザー指示
               2026-08-11: 「間取り」は配置の話なので配置タブの中に置く）。作品0件でも
               間取りは決められるので、下の「作品を先に追加」の分岐より前に置く。 */}
+          {/* 「間取り」と「配置」は同じ格の見出し（ユーザー指摘 2026-08-13
+              「間取り / 配置 というそれぞれ見出し扱いのテキストがデザインの平仄が
+              揃っていない」）。**片方が72px幅の脇ラベル（`.wd-label`）、もう片方が
+              ブロック見出し（`.placement-title`）**だったので、大きさ・字送り・
+              大文字化がすべて違っていた。両方ブロック見出しに揃え、字はトークン
+              （`--label-size` / `--label-track`）で1つにする。 */}
           <div className="wd-group wd-group--flush">
+            <div className="placement-head">
+              <h3 className="placement-title">{t('me.layout')}</h3>
+            </div>
             <div className="wd-row">
-              <span className="wd-label">{t('me.layout')}</span>
               <div className="chips">
                 {unlockedFirst(Object.entries(LAYOUTS), ([key]) => isLayoutUnlocked(key, entitlements)).map(([key, def]) => {
                   const unlocked = isLayoutUnlocked(key, entitlements)

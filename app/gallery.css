@@ -1494,12 +1494,14 @@ body:not(.gallery-mode) {
 .wd-save-cta:active:not(:disabled) { transform: translateY(0) scale(0.98); box-shadow: 0 4px 14px rgba(212, 162, 78, 0.28); }
 .wd-save-cta:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
 
+/* ブロックの見出し。**大きさと字送りはトークン**（`--label-size` / `--label-track`）。
+   同じ役割の見出しが3種類に分かれていたのを1つにした（ユーザー指摘 2026-08-13）。 */
 .wd-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.62rem;
-  letter-spacing: 0.26em;
+  font-size: var(--label-size);
+  letter-spacing: var(--label-track);
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 0.65rem;
