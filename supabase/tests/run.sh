@@ -115,7 +115,10 @@ for t in "$HERE"/[0-9]*.sql; do
   # が合成出力を流して「本当に検出するか」を試験できるように）。ここで grep を書いて
   # いたときに、ラベルと値のあいだに `INSERT 0 1` が挟まった形の `f` を取りこぼした。
   printf '%s' "$out" > "$WORK/out.txt"
-  if ! node "$ROOT/scripts/sql-verdict.mjs" "$WORK/out.txt"; then fail=1; fi
+  # テスト名を渡す。判定器は「何も検査していない項目」の基準線
+  # （`scripts/sql-vacuous-baseline.json`）を `ファイル名|番号` で引くので、
+  # ここで名前を渡さないと全部 `?` になり基準線が空振りする。
+  if ! node "$ROOT/scripts/sql-verdict.mjs" "$WORK/out.txt" "$name"; then fail=1; fi
 done
 
 echo

@@ -1069,20 +1069,89 @@ gateCase('sql-verdict — `is aborted` を検出する（土台不足で以降�
 gateCase('sql-verdict — 期待どおりの出力を誤検知しない（`ERROR` は拒否の確認で期待している）', {
   gate: 'sql-verdict.mjs',
   args: ['out.txt'],
-  // 誤検知の負の対照を全部入れる: 拒否を期待した ERROR／`f` で終わる語（`off`）／
-  // 値が `t` の行／`false` を含む文字列。
+  // 誤検知の負の対照を全部入れる: 拒否を期待した ERROR（**ただし verdict は出す** —
+  // 2026-08-13 以降、値の無い項目は「何も検査していない」として落ちる）／`f` で終わる
+  // 語（`off`）／値が `t` の行／`false` を含む文字列／ラベル自身に `: ` を含む形。
   files: psqlOut(
     [
-      '01 書けない → ERROR:  new row violates row-level security policy for table "guestbook"',
+      'ERROR:  new row violates row-level security policy for table "guestbook"',
+      "01 書けない（RLS違反=42501）: t",
       '02 読める: t',
-      '03 設定は off',
+      // `f` で終わる語の負の対照は**番号を付けずに**置く（番号を付けると、それ自体が
+      // 「値の無い項目」になって新しい検出に引っかかる ── 実際にここで一度落ちた）。
+      '設定は off',
       "04 coalesce(bool_and(...), false) の結果: t",
+      '05 用意: 部屋1室・作品3点（合計4）: t',
       'INSERT 0 1',
+      '06 あとから値が出る形: ',
       't',
       '',
     ].join('\n')
   ),
   expectFail: false,
+})
+
+// 「何も検査していない項目」の検出（/kaizen 昇格 2026-08-13・×4）。
+// 実際にやってしまった形をそのまま固定する: `\echo -n '01 …できない → '` のあとに
+// ERROR が出るだけで、`t`/`f` が1つも出ない。**拒否されれば ERROR、通ってしまっても
+// `INSERT 0 1`** なので、守りが壊れた日も「すべて期待どおり」になる。
+gateCase('sql-verdict — `t`/`f` を出さない項目を「何も検査していない」として落とす', {
+  gate: 'sql-verdict.mjs',
+  args: ['out.txt', '9999_synthetic'],
+  files: psqlOut(
+    [
+      '01 他人宛の通知を作る → ERROR:  new row violates row-level security policy',
+      '02 読める: t',
+      '',
+    ].join('\n')
+  ),
+  expectFail: true,
+  contains: ['何も検査していない'],
+})
+
+gateCase('sql-verdict — 拒否が「通ってしまった」形も落とす（ERROR ではなく INSERT が出る）', {
+  gate: 'sql-verdict.mjs',
+  args: ['out.txt', '9999_synthetic'],
+  // 守りが壊れると同じ項目の出力が ERROR から `INSERT 0 1` に変わるだけ。
+  // どちらも `f` にならないので、**壊れた側も検出できないと意味が無い**。
+  files: psqlOut('01 他人宛の通知を作る → INSERT 0 1\n02 読める: t\n'),
+  expectFail: true,
+  contains: ['何も検査していない'],
+})
+
+gateCase('sql-verdict — 基準線に載っている既知の空振りは落とさない', {
+  gate: 'sql-verdict.mjs',
+  args: ['out.txt', '9999_synthetic'],
+  files: {
+    'out.txt': '01 他人宛の通知を作る → ERROR:  denied\n02 読める: t\n',
+    'scripts/sql-vacuous-baseline.json': JSON.stringify(['9999_synthetic|01']),
+  },
+  expectFail: false,
+  contains: ['既知の「何も検査していない項目」: 1 件'],
+})
+
+gateCase('sql-verdict — 基準線にあるのに直っていたら「外せる」と言う（落とさない）', {
+  gate: 'sql-verdict.mjs',
+  args: ['out.txt', '9999_synthetic'],
+  files: {
+    'out.txt': '01 他人宛の通知を作る（RLS違反=42501）: t\n02 読める: t\n',
+    'scripts/sql-vacuous-baseline.json': JSON.stringify(['9999_synthetic|01']),
+  },
+  expectFail: false,
+  contains: ['基準線から外せるもの'],
+})
+
+gateCase('sql-verdict — 他のテストファイルの基準線を「直った」と誤報しない', {
+  gate: 'sql-verdict.mjs',
+  args: ['out.txt', '9999_synthetic'],
+  // 判定器はテストファイルごとに呼ばれる。絞らないと、いま流していないファイルの
+  // 基準線が毎回「直った＝消せ」に見え、消すとそのファイルを流した日に落ちる。
+  files: {
+    'out.txt': '01 なにか: t\n',
+    'scripts/sql-vacuous-baseline.json': JSON.stringify(['0044_expos|04']),
+  },
+  expectFail: false,
+  notReported: ['0044_expos'],
 })
 
 // ------------------------------------------------- check:price-disclosure
