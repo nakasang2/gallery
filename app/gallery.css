@@ -1500,12 +1500,20 @@ body:not(.gallery-mode) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* **太さも明示する。** これが無いと、同じクラスでも `<div>` と `<h3>` で太さが変わる
+     （UA既定で見出しは bold）。実際に配置タブの見出しだけ太く見えていた
+     ── ユーザー指摘 2026-08-13。役割が同じなら要素が違っても同じに見えなければならない。 */
+  font-weight: 400;
+  margin-top: 0;
   font-size: var(--label-size);
   letter-spacing: var(--label-track);
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 0.65rem;
 }
+/* 見出しの中身は `<span>` でも `<h3>` でもよい（見出しとして拾わせたいときは `<h3>`）。
+   **要素で見た目が変わらないように**、字は行から継がせて余白は消す。 */
+.wd-title > h3, .wd-title > span { font: inherit; letter-spacing: inherit; margin: 0; }
 .wd-row { display: flex; align-items: center; gap: 0.7rem; margin: 0.55rem 0; flex-wrap: wrap; }
 .wd-label { width: 72px; flex: none; font-size: 0.68rem; letter-spacing: 0.08em; color: var(--muted); }
 .wd-note { font-size: 0.74rem; line-height: 1.8; color: var(--muted); }

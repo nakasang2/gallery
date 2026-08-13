@@ -943,17 +943,9 @@
    ので右列（編集シート）は無く、地図が全幅で大きく描ける。地図をタップすると
    PlacementEditor 内の作品ピッカーが下に出る。 */
 .placement-stage { margin-top: 0.4rem; }
-.placement-head { margin-bottom: 0.9rem; }
-/* 「配置」の見出し。**`.wd-title` と同じトークン**を使う ── 隣の「間取り」と大きさも
-   字送りも違っていたのが不揃いの正体（ユーザー指摘 2026-08-13）。 */
-.placement-title {
-  font-family: var(--sans);
-  font-size: var(--label-size);
-  letter-spacing: var(--label-track);
-  text-transform: uppercase;
-  color: var(--muted);
-  margin: 0;
-}
+/* 見出し用の `.placement-title` / `.placement-head` は撤去した（2026-08-13）──
+   同じ役割の見出しを別クラスで持つと必ず値がずれる。配置タブも他のタブと同じ
+   `.wd-title` を着る。 */
 /* 配置タブ: 間取りは畳んで1行にする（ユーザー選択 2026-08-13・A案）。
    閉じているときも**いまの間取りを図と名前で**見せる ── 畳んだ結果「何が選ばれているか
    分からない」になるのが一番まずい。 */

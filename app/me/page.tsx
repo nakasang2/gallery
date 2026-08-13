@@ -1962,8 +1962,16 @@ function GalleryCard({
               大文字化がすべて違っていた。両方ブロック見出しに揃え、字はトークン
               （`--label-size` / `--label-track`）で1つにする。 */}
           <div className="wd-group wd-group--flush">
-            <div className="placement-head place-layout-head">
-              <h3 className="placement-title">{t('me.layout')}</h3>
+            {/* **他のタブと同じ `.wd-title`**（ユーザー指摘 2026-08-13「他のタブ配下の
+                見出しと見え方が違う」）。`.placement-title` は同じ字にしたつもりでも
+                `<h3>` のままだったので**太字（UA既定の bold）**で、`<div>` で書かれている
+                他タブの見出しより太く見えていた。`.wd-title` は `space-between` の行なので、
+                「変更」はそのまま右端に来る。 */}
+            <div className="wd-title place-layout-head">
+              {/* 見出しの**中に**ボタンを入れない ── 読み上げは見出しの名前を中身から
+                  作るので、「間取り 回廊 変更」と1つの見出しに聞こえてしまう。
+                  行（`.wd-title`）を器にして、見出しとボタンを並べる。 */}
+              <h3>{t('me.layout')}</h3>
               {/* 閉じているときは「いまの間取り」を図と名前で見せる ── 畳んだ結果
                   「何が選ばれているか分からない」になるのが一番まずい。 */}
               <button
@@ -2066,9 +2074,11 @@ function GalleryCard({
           </div>
           {cloudArtworks.length > 0 ? (
             <>
-              <div className="placement-head">
-                <h3 className="placement-title">{t('me.placement')}</h3>
-                <p className="me-note" style={{ marginTop: '0.3rem' }}>{t('me.placementDragHint')}</p>
+              {/* 2つ目の節なので、他のタブの2つ目以降と同じ `.wd-group`（上に罫が入る）。
+                  見出しも同じ `.wd-title`。 */}
+              <div className="wd-group">
+                <div className="wd-title"><h3>{t('me.placement')}</h3></div>
+                <p className="me-note" style={{ marginTop: '-0.2rem' }}>{t('me.placementDragHint')}</p>
               </div>
               <PlacementEditor
                 layoutKey={view.layout}
