@@ -1571,21 +1571,57 @@ function GalleryCard({
                 { value: 'center', labelKey: 'me.cropAlignCenter' },
                 { value: 'end', labelKey: 'me.cropAlignRight' },
               ]
+          // Cross-anchor layout: the 3 positions along the axis that actually
+          // crops sit in the middle column (vertical) or middle row (horizontal);
+          // the other 6 grid cells are dead (the other axis fits exactly, so
+          // aligning it would change nothing) and shown as disabled placeholders.
+          const labelByValue = new Map(alignOptions.map((o) => [o.value, o.labelKey] as const))
+          const activeByPos = new Map<string, CropAlign>(
+            vertical
+              ? [
+                  ['0,1', 'end'],
+                  ['1,1', 'center'],
+                  ['2,1', 'start'],
+                ]
+              : [
+                  ['1,0', 'start'],
+                  ['1,1', 'center'],
+                  ['1,2', 'end'],
+                ]
+          )
           return (
             <div style={{ margin: '0.45rem 0' }}>
               <p className="me-note me-note--warn">{t('me.cropWarn', { pct: Math.round(crop * 100) })}</p>
-              <div className="chips" role="group" aria-label={t('me.cropAlignLabel')}>
-                {alignOptions.map((o) => (
-                  <button
-                    key={o.value}
-                    type="button"
-                    className={`chip${cropAlignInput === o.value ? ' active' : ''}`}
-                    onClick={() => editWork({ cropAlign: o.value })}
-                  >
-                    {t(o.labelKey)}
-                  </button>
-                ))}
+              <div className="crop-align-grid" role="group" aria-label={t('me.cropAlignLabel')}>
+                {[0, 1, 2].flatMap((row) =>
+                  [0, 1, 2].map((col) => {
+                    const pos = `${row},${col}`
+                    const value = activeByPos.get(pos)
+                    if (!value) {
+                      return (
+                        <span
+                          key={pos}
+                          className="crop-align-cell crop-align-cell--inactive"
+                          aria-hidden="true"
+                          title={t('me.cropAlignInactive')}
+                        />
+                      )
+                    }
+                    const labelKey = labelByValue.get(value)!
+                    return (
+                      <button
+                        key={pos}
+                        type="button"
+                        className={`crop-align-cell${cropAlignInput === value ? ' active' : ''}`}
+                        aria-label={t(labelKey)}
+                        title={t(labelKey)}
+                        onClick={() => editWork({ cropAlign: value })}
+                      />
+                    )
+                  })
+                )}
               </div>
+              <p className="crop-align-current">{t(labelByValue.get(cropAlignInput) ?? 'me.cropAlignCenter')}</p>
             </div>
           )
         })()}
