@@ -1733,7 +1733,11 @@ function GalleryCard({
         部屋によって中身が変わるのはこの3つだけで、作品は口座全体の作品庫・プロフィールは
         人の話なので、そこに部屋の切替が並ぶ意味が無い。通常展示⇄合同展示の切替は
         ステージに関係なく Hero 右上のボタンから行える。 */}
-    {(stage === 'room' || stage === 'placement' || stage === 'publish') && (roomSwitcher || roomAdd) && (
+    {/* **合同展示の部屋では「部屋を追加」も出さない**（ユーザー指摘 2026-08-14）。
+        切替タブの方だけ `!row.expo_id` で隠していたので、**追加ボタン1つだけの列**が
+        残っていた。しかもそれが作るのは**通常展示の部屋**で、いま見ている合同展示とは
+        無関係（合同展示は1展示1部屋なので、ここで増やせるものは何も無い）。 */}
+    {!row.expo_id && (stage === 'room' || stage === 'placement' || stage === 'publish') && (roomSwitcher || roomAdd) && (
       <div className="me-rooms-row">
         {roomSwitcher}
         {roomAdd}
@@ -3787,7 +3791,6 @@ export default function MePage() {
                        0室は「最後の1室を自分で削除した」等で実際に起こりうる。 */
                     onOpenNormal={frontDoor ? () => setRoomId(frontDoor.id) : null}
                     onOpenExpoManager={() => setExpoManagerOpen(true)}
-                    onChanged={() => void reload()}
                   />
                 ) : (
                   <button className="btn-line" onClick={() => setExpoManagerOpen(true)}>{t('expo.tab')}</button>

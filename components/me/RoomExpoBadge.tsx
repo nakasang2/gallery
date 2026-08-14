@@ -3,9 +3,7 @@
 //
 // Hero の右上（旧: `.me-top` の文字ボタン列にあった「合同展示」ナビ）に置く。
 // いま編集している部屋がどちらの種類かを常に見せる（合同展示なら展示名も）── これが
-// 一番のねらい。切替は**空の部屋にしか効かない**（DB側 `switch_room_expo` が拒否する。
-// 何を弾いたかは `roomExpoSwitchErrorKey` で読み分けて文言を出す）ので、ここでは
-// クリックできない理由を先読みしようとしない。
+// 一番のねらい。
 //
 // 合同展示の**作成**は常にExpoManagerからの新規作成（展示＋最初の部屋を自動生成）に
 // 一本化した（DECISIONS 2026-08-12）。以前はここに「既存の空部屋を、選んだ展示に
@@ -21,25 +19,24 @@
 // ものも1つの一覧**に並ぶ（合同展示は数がいくつでもありうるので、行き先の一覧は
 // ここではなくウィンドウが持つ）。合同展示は1展示1部屋なので、選んだ先に部屋タブは無い。
 //
-// 参加作家に出していた「通常展示に戻す」は撤去した ── 名前は表示の切り替えに
-// 見えるのに実際には展示から抜ける操作で、本番で1人が押して展示から消え、
-// 招待が `accepted` のままなので復帰できなくなった（DECISIONS 2026-08-14）。
-// **守っているのはDB側**（migration 0063 が主催者以外のこの操作を拒否する）で、
-// ここで出さないのは説明のため。
+// **「この部屋を展示から外す」は完全に撤去した**（ユーザー選択 2026-08-14）。
+// 元は「通常展示に戻す」という名前で参加作家にも出ていて、押した作家が展示から消えた
+// （本番で1件発生。招待が `accepted` のままなので復帰不能）。いったん主催者だけに絞って
+// 改名したが、**主催者にとっても意味が通らない**ため消した ── 合同展示は1展示1部屋なので
+// 自分の部屋を外すと主催者の居場所が無くなり、下書きをやめたいなら `ExpoManager` の
+// 「捨てる」が正しい道で、このボタンが唯一の解決策になる場面が無い。
+// **DB側の番人（migration 0063）は残す** ── 別の入口ができても参加作家は抜けられない。
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useT } from '@/components/I18nProvider'
 import type { GalleryRow } from '@/lib/galleries'
-import { listMyExpos, roomExpoSwitchErrorKey, switchRoomExpo, type Expo } from '@/lib/expos'
-import { track } from '@/lib/analytics'
+import { listMyExpos, type Expo } from '@/lib/expos'
 import { SwitchIcon } from '@/components/icons'
-import { useGallery } from '@/lib/store'
 
 export default function RoomExpoBadge({
   room,
   userId,
   onOpenNormal,
   onOpenExpoManager,
-  onChanged,
 }: {
   room: GalleryRow
   /** サインインしている人。**この部屋の持ち主とは限らない** — 主催者が参加作家の
@@ -50,15 +47,11 @@ export default function RoomExpoBadge({
    *  合図で、そのときはボタンを押せなくして理由を出す（押せるのに何も起きない、を作らない）。 */
   onOpenNormal: (() => void) | null
   onOpenExpoManager: () => void
-  onChanged: () => void
 }) {
   const t = useT()
-  const refreshCloudArtworks = useGallery((s) => s.refreshCloudArtworks)
   const [open, setOpen] = useState(false)
   // null = 未取得。合同展示の部屋なら展示名を出すため常時（開いていなくても）取りに行く。
   const [expos, setExpos] = useState<Expo[] | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
   const wrap = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
@@ -71,7 +64,6 @@ export default function RoomExpoBadge({
   }, [userId])
 
   useEffect(() => {
-    setErr('')
     void load()
     // 部屋が変わったら開きっぱなしにしない。
     setOpen(false)
@@ -99,48 +91,9 @@ export default function RoomExpoBadge({
   // 見つかるかどうかがそのまま「自分がこの展示の主催者か」になる。参加作家として
   // 招かれている展示は返らない（＝`currentExpo` は undefined）。
   const currentExpo = room.expo_id ? expos?.find((x) => x.id === room.expo_id) : undefined
-  const isOrganizer = !!currentExpo
   const label = room.expo_id
     ? t('expo.roomModeJoint', { title: currentExpo?.title || t('common.untitled') })
     : t('expo.roomModeNormal')
-
-  /**
-   * この部屋を展示から外す。**「通常展示に戻す」という名前をやめた**
-   * （ユーザー決定 2026-08-14）── 名前は表示の切り替えに見えるのに、実際には部屋を
-   * 展示から抜く操作で、本番で参加作家が1人これを押して**展示から消えた**。
-   *
-   * **主催者にしか出さない。** 主催者は `ExpoManager` の「部屋を追加」で作り直せるが、
-   * 参加作家は招待が `accepted` のままなので 0062 のトリガが再発火せず、**復帰する
-   * 導線が1つも無い**。参加作家が降りる道は受信箱の「降りる」（＝辞退）に一本化した。
-   * DB側（migration 0063）も主催者以外からのこの操作を拒否する ── ここで隠すのは
-   * 説明のためで、守っているのはDBの方（DECISIONS【絶対ルール】2026-08-12）。
-   */
-  async function leaveExpo() {
-    setBusy(true)
-    setErr('')
-    try {
-      await switchRoomExpo(room.id, null)
-      track('room_expo_switch', { to: 'normal' })
-      setOpen(false)
-      // 専用プールに未配置のまま残っていた作品は、DB側（switch_room_expo・0061）が
-      // 共有プールへ解放している。**共有ライブラリのキャッシュ（cloudArtworks）は
-      // 認証時に一度読むだけ**なので、明示的に読み直さないと解放された作品が
-      // 「作品」タブに現れない（ページ再読み込みまで見えない、という食い違いを防ぐ）。
-      void refreshCloudArtworks()
-      onChanged()
-    } catch (e) {
-      const key = roomExpoSwitchErrorKey(e)
-      setErr(
-        key === 'not_empty'
-          ? t('expo.roomSwitchFailedEmpty')
-          : key === 'no_allowance'
-            ? t('expo.roomSwitchFailedAllowance')
-            : t('expo.roomSwitchFailedOther')
-      )
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <div className="room-expo-badge" ref={wrap}>
@@ -160,7 +113,6 @@ export default function RoomExpoBadge({
       </button>
       {open && (
         <div id="room-expo-panel" className="room-expo-panel" role="dialog" aria-label={label}>
-          {err && <p className="me-error">{err}</p>}
           {/* **ここが通常展示⇄合同展示のモード切替**（ユーザー指示 2026-08-14）。
               部屋タブは通常展示の部屋どうしの切替に戻したので、モードの行き来は
               この2つの選択肢だけがここにある。合同展示は数がいくつでもありうる
@@ -171,7 +123,7 @@ export default function RoomExpoBadge({
               type="button"
               className={`btn-line${room.expo_id ? '' : ' active'}`}
               aria-current={room.expo_id ? undefined : 'true'}
-              disabled={busy || !room.expo_id || !onOpenNormal}
+              disabled={!room.expo_id || !onOpenNormal}
               title={onOpenNormal ? undefined : t('expo.roomModeNoNormal')}
               onClick={() => {
                 setOpen(false)
@@ -184,7 +136,6 @@ export default function RoomExpoBadge({
               type="button"
               className={`btn-line${room.expo_id ? ' active' : ''}`}
               aria-current={room.expo_id ? 'true' : undefined}
-              disabled={busy}
               onClick={() => {
                 setOpen(false)
                 onOpenExpoManager()
@@ -198,17 +149,9 @@ export default function RoomExpoBadge({
             <p className="me-note" style={{ marginTop: 0 }}>{t('expo.roomModeNoNormal')}</p>
           )}
           {room.expo_id && (
-            <>
-              <p className="me-note" style={{ marginTop: '0.6rem' }}>
-                {t('expo.roomSwitchCurrentHeading', { title: currentExpo?.title || t('common.untitled') })}
-              </p>
-              {/* 主催者だけの後始末。参加作家が降りるのは部屋の「公開」タブから。 */}
-              {isOrganizer && (
-                <button type="button" className="btn-line" disabled={busy} onClick={() => void leaveExpo()}>
-                  {t('expo.roomLeaveExpo')}
-                </button>
-              )}
-            </>
+            <p className="me-note" style={{ marginTop: '0.6rem' }}>
+              {t('expo.roomSwitchCurrentHeading', { title: currentExpo?.title || t('common.untitled') })}
+            </p>
           )}
         </div>
       )}

@@ -695,9 +695,6 @@ export const de: PartialDictionary = {
     roomModeJoint: 'Gemeinschaft: {title}',
     roomSwitchNoExpo: 'Sie haben noch keine Gemeinschaftsausstellung.',
     roomSwitchCurrentHeading: 'Teil von „{title}“',
-    roomSwitchFailedEmpty: 'In diesem Raum hängen bereits Werke, daher kann er nicht umgestellt werden.',
-    roomSwitchFailedAllowance: 'Kein freier Raumplatz verfügbar — kaufen Sie zuerst einen Raum.',
-    roomSwitchFailedOther: 'Dieser Raum konnte nicht umgestellt werden.',
   },
 
   notif: {

@@ -695,9 +695,6 @@ export const id: PartialDictionary = {
     roomModeJoint: 'Bersama: {title}',
     roomSwitchNoExpo: 'Anda belum memiliki pameran bersama.',
     roomSwitchCurrentHeading: 'Bagian dari “{title}”',
-    roomSwitchFailedEmpty: 'Ruang ini sudah memiliki karya yang dipajang, jadi tidak dapat diubah.',
-    roomSwitchFailedAllowance: 'Tidak ada slot ruang kosong — beli ruang terlebih dahulu.',
-    roomSwitchFailedOther: 'Tidak dapat mengubah ruang ini.',
   },
 
   notif: {

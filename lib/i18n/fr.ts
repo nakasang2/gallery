@@ -695,9 +695,6 @@ export const fr: PartialDictionary = {
     roomModeJoint: 'Collective : {title}',
     roomSwitchNoExpo: 'Vous n’avez pas encore d’exposition collective.',
     roomSwitchCurrentHeading: 'Fait partie de « {title} »',
-    roomSwitchFailedEmpty: 'Cette salle contient déjà des œuvres, elle ne peut donc pas être changée.',
-    roomSwitchFailedAllowance: 'Aucune place de salle disponible — achetez d’abord une salle.',
-    roomSwitchFailedOther: 'Impossible de changer cette salle.',
   },
 
   notif: {

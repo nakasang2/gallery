@@ -244,26 +244,11 @@ export function expoPath(slug: string): string {
   return `/expo/${slug}`
 }
 
-/**
- * 部屋を通常展示⇄合同展示に切り替える（migration 0050、ユーザー指示 2026-08-10）。
- * `expoId` に null を渡すと通常展示に戻す。**空の部屋（何も掛かっていない）にしか
- * 効かない** — DB側が拒否するので、ここでは判定しない。
- */
-export async function switchRoomExpo(galleryId: string, expoId: string | null): Promise<void> {
-  const { error } = await supabase!.rpc('switch_room_expo', { p_gallery: galleryId, p_expo: expoId })
-  if (error) throw error
-}
-
-export type RoomExpoSwitchError = 'not_empty' | 'no_allowance' | 'not_owner' | 'other'
-
-/** 生のDBエラーを、UIが文言を選べる形に翻訳する（`expoErrorKey` と対の作法）。 */
-export function roomExpoSwitchErrorKey(e: unknown): RoomExpoSwitchError {
-  const msg = ((e as { message?: string } | null)?.message ?? '').toLowerCase()
-  if (msg.includes('room is not empty')) return 'not_empty'
-  if (msg.includes('no unused room purchase')) return 'no_allowance'
-  if (msg.includes('not your room') || msg.includes('does not belong to this user')) return 'not_owner'
-  return 'other'
-}
+/* `switchRoomExpo` / `roomExpoSwitchErrorKey` はここにあったが、**呼び手が無くなったので
+   撤去した**（ユーザー選択 2026-08-14: 画面から「この部屋を展示から外す」を消した）。
+   **DB側の RPC `switch_room_expo` は残っている** ── migration 0063 が「主催者以外は
+   展示から外せない」を強制しており、その番人はアプリの都合で消してよいものではない。
+   将来この操作を画面に戻すなら、ここに薄いラッパーを書き直す。 */
 
 /**
  * 参加作家の「準備できた」トグル（migration 0062、ユーザー決定 2026-08-13）。

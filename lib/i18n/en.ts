@@ -1059,10 +1059,6 @@ export const en = {
     roomSwitchCurrentHeading: 'Part of “{title}”',
     roomModeHeading: 'Switch view',
     roomModeNoNormal: 'You don’t have a regular room yet. Create one from the dashboard to switch back.',
-    roomLeaveExpo: 'Take this room out of the exhibition',
-    roomSwitchFailedEmpty: 'This room already has work on its walls, so it can’t be switched.',
-    roomSwitchFailedAllowance: 'No free room slot is available — buy a room first.',
-    roomSwitchFailedOther: 'Could not switch this room.',
     // 招待されて参加している展示（自分は主催者ではない）。migration 0062: 承諾すると
     // 自分の部屋が自動でできるので、一覧はそこを開く入口になる。
     participatingTitle: 'Exhibitions you’re taking part in',

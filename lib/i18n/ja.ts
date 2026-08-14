@@ -1028,10 +1028,6 @@ export const ja: Dictionary = {
     roomModeNoNormal: '通常展示の部屋がまだありません。ダッシュボードで作ってから戻れます。',
     // 「通常展示に戻す」から改名（ユーザー決定 2026-08-14）。表示の切り替えに見える
     // 名前だったが、実際には部屋を展示から抜く操作で、参加作家が押して展示から消えた。
-    roomLeaveExpo: 'この部屋を展示から外す',
-    roomSwitchFailedEmpty: '作品が置かれているため、切り替えられません。',
-    roomSwitchFailedAllowance: '空いている部屋枠がありません。先に部屋を購入してください。',
-    roomSwitchFailedOther: '切り替えに失敗しました。',
     participatingTitle: '参加している合同展示',
     participatingOrganizer: '主催: {name}',
   },

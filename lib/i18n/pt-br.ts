@@ -695,9 +695,6 @@ export const ptBr: PartialDictionary = {
     roomModeJoint: 'Coletiva: {title}',
     roomSwitchNoExpo: 'Você ainda não tem nenhuma exposição coletiva.',
     roomSwitchCurrentHeading: 'Parte de “{title}”',
-    roomSwitchFailedEmpty: 'Esta sala já tem obras expostas, então não pode ser alterada.',
-    roomSwitchFailedAllowance: 'Não há vaga de sala disponível — compre uma sala primeiro.',
-    roomSwitchFailedOther: 'Não foi possível alterar esta sala.',
   },
 
   notif: {

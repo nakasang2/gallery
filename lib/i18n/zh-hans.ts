@@ -696,9 +696,6 @@ export const zhHans: PartialDictionary = {
     roomModeJoint: '联合展览: {title}',
     roomSwitchNoExpo: '您还没有任何联合展览。',
     roomSwitchCurrentHeading: '属于「{title}」',
-    roomSwitchFailedEmpty: '此展厅已经挂有作品，无法切换。',
-    roomSwitchFailedAllowance: '没有空余的展厅名额——请先购买展厅。',
-    roomSwitchFailedOther: '无法切换此展厅。',
   },
 
   notif: {

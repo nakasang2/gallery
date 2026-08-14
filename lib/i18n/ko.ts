@@ -760,9 +760,6 @@ export const ko: PartialDictionary = {
     roomModeJoint: '합동 전시: {title}',
     roomSwitchNoExpo: '아직 합동 전시가 없습니다.',
     roomSwitchCurrentHeading: '「{title}」의 일부',
-    roomSwitchFailedEmpty: '이 전시실에는 이미 작품이 걸려 있어 전환할 수 없습니다.',
-    roomSwitchFailedAllowance: '비어 있는 전시실 자리가 없습니다. 먼저 전시실을 구매하세요.',
-    roomSwitchFailedOther: '전시실을 전환하지 못했습니다.',
   },
 
   notif: {
