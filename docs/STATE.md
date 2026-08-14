@@ -37,7 +37,7 @@
 - **【別セッション進行中】** `components/gallery/*`（3Dの扉・廊下）／`lib/i18n/*` 11言語／`app/me/*`／migration 0060（プロフィールCV）。**このセッションでは触っていない**。
 
 ## 次にやること（再開ポイント）
-- **【ユーザー作業・急がない】期限切れの合同展示を消す掃除が動いていない**。本番の `pg_cron` が無効で、`purge_expired_expos()` を呼ぶ日次ジョブが登録されていない（`cron.job` が存在しないことを2026-08-14に実測）。**来場者からの見え方は正しい**（猶予明けの404はRLSが日付で判定）。影響は「展示名がずっと予約されたままで同じ名前を使い回せない」だけ。直すなら ①Database → Extensions で `pg_cron` を有効化 ②`select cron.schedule('purge-expired-expos', '17 3 * * *', 'select public.purge_expired_expos()');`。
+- **【完了 2026-08-14】期限切れの合同展示を消す掃除**: 本番の `pg_cron` が無効でジョブ未登録だったのを、ユーザーが拡張を有効化して `cron.schedule('purge-expired-expos', '17 3 * * *', …)` で登録済み（jobid 1・毎日3:17）。走ったかは `select start_time, status, return_message from cron.job_run_details where jobid = 1 order by start_time desc limit 5;` で見られる。
 - **【ユーザー作業・最優先】`supabase/migrations/0063_expo_leave_guard.sql` → `0064_expo_ready_room_visible.sql` の順に本番DBへ適用する**。未適用のあいだは①参加作家が「展示から外す」をDB側で止められない（画面からは押せないが、守っているのはDB）②主催者が「準備できた」参加作家の部屋の中身を見られない、の2点が効かない。どちらも再実行安全。
 - **【ユーザー確認・優先】本番で `combination` の `test` さんを復旧する**。参加者タブで `×` して招待し直し、承諾してもらえば新しい部屋ができる（0063適用後なら再発しない）。
 - **【完了 2026-08-14】`0061_expo_room_scope.sql` と `0062_expo_participant_rooms.sql` は本番適用済み**（トリガと列の存在を本番DBで確認）。①1展示・1作家1部屋②作品プール分離③招待承諾での部屋自動生成④「準備できた」トグル、はいずれもDB側では効いている。**ただし③で作られた部屋を作家が自分で消せてしまう不具合がある**（上の「進行中」を読むこと）。
