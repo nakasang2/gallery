@@ -1020,15 +1020,15 @@ export const ja: Dictionary = {
     endedBanner: 'この展示の会期は終わりました。',
     roomModeNormal: '通常展示',
     roomModeJoint: '合同展示: {title}',
-    roomSwitchAddHeading: '合同展示は「合同展示」タブから新しく作成できます。',
     roomSwitchNoExpo: 'まだ合同展示がありません。',
     roomSwitchCurrentHeading: '「{title}」の一部',
     // 部屋タブの中で「これは合同展示の部屋」だと名乗る添え字。短く（タブの幅を食わない）。
-    roomModeJointShort: '合同',
+    // バッジのパネルの見出し。ここは「どの部屋か」ではなく「どのモードか」を選ぶ場所。
+    roomModeHeading: '表示を切り替える',
+    roomModeNoNormal: '通常展示の部屋がまだありません。ダッシュボードで作ってから戻れます。',
     // 「通常展示に戻す」から改名（ユーザー決定 2026-08-14）。表示の切り替えに見える
     // 名前だったが、実際には部屋を展示から抜く操作で、参加作家が押して展示から消えた。
     roomLeaveExpo: 'この部屋を展示から外す',
-    roomLeaveHint: 'この展示から降りるときは、ダッシュボード上部の招待の欄から「降りる」を押してください。',
     roomSwitchFailedEmpty: '作品が置かれているため、切り替えられません。',
     roomSwitchFailedAllowance: '空いている部屋枠がありません。先に部屋を購入してください。',
     roomSwitchFailedOther: '切り替えに失敗しました。',

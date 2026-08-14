@@ -13,9 +13,14 @@
 // ユーザーには分かりにくかった（「合同展示を作ったら、そこで0から設定できる方が
 // いいのでは」という指摘）。
 //
-// **部屋の行き来はここではしない**（ユーザー選択A 2026-08-14）。通常展示の部屋と
-// 合同展示の部屋は**部屋タブの列**（`.me-rooms`）で切り替える。ここに残るのは
-// 「いまどの部屋に居るか」の表示と、**主催者だけ**の「この部屋を展示から外す」。
+// **ここが通常展示⇄合同展示のモード切替**（ユーザー指示 2026-08-14）。同日に一度
+// 「部屋タブに合同展示の部屋も並べて行き来する」形にしたが、**合同展示は「もう1つの
+// 部屋」ではなく別のモード**なので同列に並ぶと違和感が出る、という指摘で撤回した。
+// 部屋タブは通常展示の部屋どうしの切替に戻し、モードの行き来はここが担う。
+// 「合同展示」を押すと `ExpoManager` のウィンドウが開き、**主催しているものも招かれた
+// ものも1つの一覧**に並ぶ（合同展示は数がいくつでもありうるので、行き先の一覧は
+// ここではなくウィンドウが持つ）。合同展示は1展示1部屋なので、選んだ先に部屋タブは無い。
+//
 // 参加作家に出していた「通常展示に戻す」は撤去した ── 名前は表示の切り替えに
 // 見えるのに実際には展示から抜ける操作で、本番で1人が押して展示から消え、
 // 招待が `accepted` のままなので復帰できなくなった（DECISIONS 2026-08-14）。
@@ -32,6 +37,7 @@ import { useGallery } from '@/lib/store'
 export default function RoomExpoBadge({
   room,
   userId,
+  onOpenNormal,
   onOpenExpoManager,
   onChanged,
 }: {
@@ -39,6 +45,10 @@ export default function RoomExpoBadge({
   /** サインインしている人。**この部屋の持ち主とは限らない** — 主催者が参加作家の
    *  部屋を開いていることがある（migration 0062 の `galleries_select_expo_owner`）。 */
   userId: string
+  /** 通常展示へ戻る（玄関の部屋を開く）。合同展示の部屋に居るときだけ押せる。
+   *  **通常展示の部屋が1室も無ければ `null`** ── 呼び手が「戻る先が無い」と判断した
+   *  合図で、そのときはボタンを押せなくして理由を出す（押せるのに何も起きない、を作らない）。 */
+  onOpenNormal: (() => void) | null
   onOpenExpoManager: () => void
   onChanged: () => void
 }) {
@@ -151,36 +161,55 @@ export default function RoomExpoBadge({
       {open && (
         <div id="room-expo-panel" className="room-expo-panel" role="dialog" aria-label={label}>
           {err && <p className="me-error">{err}</p>}
-          {room.expo_id ? (
+          {/* **ここが通常展示⇄合同展示のモード切替**（ユーザー指示 2026-08-14）。
+              部屋タブは通常展示の部屋どうしの切替に戻したので、モードの行き来は
+              この2つの選択肢だけがここにある。合同展示は数がいくつでもありうる
+              （主催しているもの＋招かれたもの）ので、行き先の一覧は下のウィンドウが持つ。 */}
+          <p className="room-expo-panel-title">{t('expo.roomModeHeading')}</p>
+          <div className="room-expo-modes">
+            <button
+              type="button"
+              className={`btn-line${room.expo_id ? '' : ' active'}`}
+              aria-current={room.expo_id ? undefined : 'true'}
+              disabled={busy || !room.expo_id || !onOpenNormal}
+              title={onOpenNormal ? undefined : t('expo.roomModeNoNormal')}
+              onClick={() => {
+                setOpen(false)
+                onOpenNormal?.()
+              }}
+            >
+              {t('expo.roomModeNormal')}
+            </button>
+            <button
+              type="button"
+              className={`btn-line${room.expo_id ? ' active' : ''}`}
+              aria-current={room.expo_id ? 'true' : undefined}
+              disabled={busy}
+              onClick={() => {
+                setOpen(false)
+                onOpenExpoManager()
+              }}
+            >
+              {t('expo.tab')} →
+            </button>
+          </div>
+          {/* 戻る先が無いときは、押せない理由を言葉で出す（薄いだけでは伝わらない）。 */}
+          {room.expo_id && !onOpenNormal && (
+            <p className="me-note" style={{ marginTop: 0 }}>{t('expo.roomModeNoNormal')}</p>
+          )}
+          {room.expo_id && (
             <>
-              <p className="room-expo-panel-title">
+              <p className="me-note" style={{ marginTop: '0.6rem' }}>
                 {t('expo.roomSwitchCurrentHeading', { title: currentExpo?.title || t('common.untitled') })}
               </p>
-              {/* 部屋の行き来は**部屋タブ**でする（ユーザー選択A 2026-08-14）ので、
-                  ここには行き先を並べない。残るのは主催者だけの「展示から外す」。 */}
-              {isOrganizer ? (
+              {/* 主催者だけの後始末。参加作家が降りるのは部屋の「公開」タブから。 */}
+              {isOrganizer && (
                 <button type="button" className="btn-line" disabled={busy} onClick={() => void leaveExpo()}>
                   {t('expo.roomLeaveExpo')}
                 </button>
-              ) : (
-                <p className="me-note" style={{ marginTop: 0 }}>{t('expo.roomLeaveHint')}</p>
               )}
             </>
-          ) : (
-            // 合同展示への参加は常にExpoManagerの新規作成から（DECISIONS 2026-08-12）。
-            // ここでは案内だけ出し、下の「展示管理へ」に導く。
-            <p className="room-expo-panel-title">{t('expo.roomSwitchAddHeading')}</p>
           )}
-          <button
-            type="button"
-            className="btn-line room-expo-manage"
-            onClick={() => {
-              setOpen(false)
-              onOpenExpoManager()
-            }}
-          >
-            {t('expo.tab')} →
-          </button>
         </div>
       )}
     </div>

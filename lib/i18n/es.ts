@@ -693,7 +693,6 @@ export const es: PartialDictionary = {
     endedBanner: 'El periodo de esta exposición ha terminado.',
     roomModeNormal: 'Sala normal',
     roomModeJoint: 'Colectiva: {title}',
-    roomSwitchAddHeading: 'Crea una exposición colectiva desde la pestaña “Exposiciones colectivas”.',
     roomSwitchNoExpo: 'Aún no tienes ninguna exposición colectiva.',
     roomSwitchCurrentHeading: 'Parte de «{title}»',
     roomSwitchFailedEmpty: 'Esta sala ya tiene obras colgadas, así que no se puede cambiar.',

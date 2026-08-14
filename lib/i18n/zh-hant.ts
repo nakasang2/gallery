@@ -692,7 +692,6 @@ export const zhHant: PartialDictionary = {
     endedBanner: '本展覽的展期已結束。',
     roomModeNormal: '常規展廳',
     roomModeJoint: '聯合展覽: {title}',
-    roomSwitchAddHeading: '可以在「聯合展覽」分頁中新建聯合展覽。',
     roomSwitchNoExpo: '您還沒有任何聯合展覽。',
     roomSwitchCurrentHeading: '屬於「{title}」',
     roomSwitchFailedEmpty: '此展廳已經掛有作品，無法切換。',

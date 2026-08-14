@@ -693,7 +693,6 @@ export const de: PartialDictionary = {
     endedBanner: 'Die Laufzeit dieser Ausstellung ist beendet.',
     roomModeNormal: 'Normaler Raum',
     roomModeJoint: 'Gemeinschaft: {title}',
-    roomSwitchAddHeading: 'Gemeinschaftsausstellungen starten Sie im Tab „Gemeinschaftsausstellungen“.',
     roomSwitchNoExpo: 'Sie haben noch keine Gemeinschaftsausstellung.',
     roomSwitchCurrentHeading: 'Teil von „{title}“',
     roomSwitchFailedEmpty: 'In diesem Raum hängen bereits Werke, daher kann er nicht umgestellt werden.',

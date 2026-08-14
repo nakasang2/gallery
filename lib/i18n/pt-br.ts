@@ -693,7 +693,6 @@ export const ptBr: PartialDictionary = {
     endedBanner: 'O período desta exposição terminou.',
     roomModeNormal: 'Sala normal',
     roomModeJoint: 'Coletiva: {title}',
-    roomSwitchAddHeading: 'Crie uma exposição coletiva na aba “Exposições coletivas”.',
     roomSwitchNoExpo: 'Você ainda não tem nenhuma exposição coletiva.',
     roomSwitchCurrentHeading: 'Parte de “{title}”',
     roomSwitchFailedEmpty: 'Esta sala já tem obras expostas, então não pode ser alterada.',

@@ -694,7 +694,6 @@ export const zhHans: PartialDictionary = {
     endedBanner: '本展览的展期已结束。',
     roomModeNormal: '常规展厅',
     roomModeJoint: '联合展览: {title}',
-    roomSwitchAddHeading: '可以在「联合展览」标签中新建联合展览。',
     roomSwitchNoExpo: '您还没有任何联合展览。',
     roomSwitchCurrentHeading: '属于「{title}」',
     roomSwitchFailedEmpty: '此展厅已经挂有作品，无法切换。',

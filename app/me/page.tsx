@@ -1627,24 +1627,15 @@ function GalleryCard({
   // 変わるのはこの2ステージだけ（作品は口座全体の作品庫・公開は「いま開いている
   // 部屋」の話で、どちらも切替の意味が薄い）。ロジックは変えず、置き場所だけ動かした。
   //
-  // **合同展示の部屋もここに並べる**（ユーザー選択A 2026-08-14）。呼び手（`MePage`）は
-  // 通常展示の部屋＋自分の合同展示の部屋を `rooms` に渡す。招かれた作家は、自分の
-  // 通常展示の部屋と展示用の部屋を**この1か所で行き来する**（どちらも残る）。
+  // **合同展示の部屋はここに並べない**（ユーザー指摘 2026-08-14）。一度は同じ列に混ぜて
+  // 行き来させたが、**合同展示は「もう1つの部屋」ではなく別のモード**なので同列に並ぶと
+  // 違和感が出る、という指摘で撤回した。通常展示⇄合同展示の切替は Hero 右上のボタン
+  // （`RoomExpoBadge`）が担う。
   //
-  // 2026-08-13 にはここを `!row.expo_id` で丸ごと隠していた。当時 `rooms` は通常展示の
-  // 部屋だけで、合同展示の部屋を開くと「いまの部屋がリストに無いのにタブだけ並ぶ」
-  // 宙に浮いた状態になったため。渡す一覧を直したので、その条件は要らなくなった ──
-  // ただし**同じ状態はもう1つの経路で起きる**: 主催者が「参加者」タブから参加作家の
-  // 部屋を開くと、開いている部屋は**他人の持ち物**なので `rooms`（自分の部屋の一覧）に
-  // 無い。
-  //
-  // **他人の部屋を見ているときこそ出す**（別視点レビューで検出）。一度は「いまの部屋が
-  // 一覧に居るとき」に絞ったが、それだと**主催者が参加作家の部屋を開いた瞬間に部屋タブが
-  // 消えて、自分の部屋へ戻る道が画面から無くなる**（`listAllOwnedRooms` が失敗して合同
-  // 展示の部屋が一覧から落ちたときも同じ）。どれも選ばれていないタブ列は、その状況では
-  // 「宙に浮いたタブ」ではなく**唯一の帰り道**なので出す。
-  const viewingOwnRoom = rooms?.some((g) => g.id === row.id) ?? false
-  const roomSwitcher = rooms && rooms.length > 0 && (rooms.length > 1 || !viewingOwnRoom) && (
+  // **合同展示の部屋を開いているあいだは丸ごと隠す**: 合同展示は1展示につき1部屋と
+  // 決めてあるので（migration 0062）、そこに切替タブが並ぶ意味が無い。
+  // ※これは 2026-08-13 に置いた条件と同じ。混ぜた期間（同日）の変更を戻したもの。
+  const roomSwitcher = !row.expo_id && rooms && rooms.length > 1 && (
     <nav className="me-rooms" aria-label={t('me.roomsNav')}>
       {rooms.map((g) => {
         const label = isPlaceholderTitle(g.title) ? g.slug : g.title
@@ -1657,14 +1648,6 @@ function GalleryCard({
             onClick={() => onSwitchRoom?.(g.id)}
           >
             {label}
-            {/* 合同展示の部屋であることをタブの中で名乗る ── 同じ列に混ざるので、
-                無いと「どれが展示用の部屋か」が開くまで分からない。玄関の印
-                （`.me-room-main`）と同じ形の小さな添え字にする。 */}
-            {g.expo_id && (
-              <span className="me-room-expo" title={t('expo.roomModeJointShort')}>
-                {t('expo.roomModeJointShort')}
-              </span>
-            )}
             {g.id === frontDoorId && (
               <span className="me-room-main" title={t('me.frontDoor')}>{t('me.frontDoorShort')}</span>
             )}
@@ -1745,17 +1728,15 @@ function GalleryCard({
         出してほしいと追加指示）。追加ボタンも同じ3ステージすべてに出す（ユーザー指摘
         2026-08-12: 「部屋タブは配置・公開タブ配下にも設置して」— 以前は「部屋」
         ステージだけに限定されていた）。 */}
-    {/* **部屋タブはどのステージでも出す**（ユーザー指摘 2026-08-14）。2026-08-11 には
-        「部屋によって中身が変わるのは部屋／配置／公開の3つだけ」という理由で3ステージに
-        絞っていたが、**部屋タブの意味が変わった** ── 合同展示の部屋も並ぶようになり、
-        参加作家にとってはこれが自分の通常展示の部屋と展示用の部屋を行き来する唯一の
-        手段になった。参加作家が最初に着くのは「作品」タブなので、絞ったままだと
-        **通常展示に戻る道が画面上に存在しない**（本番でユーザーが実際に詰まった）。
-        「部屋を追加」は今までどおり3ステージだけ ── あれは行き来ではなく購入の導線。 */}
-    {(roomSwitcher || ((stage === 'room' || stage === 'placement' || stage === 'publish') && roomAdd)) && (
+    {/* 部屋の切替タブ＋部屋の追加は「部屋」「配置」「公開」の3ステージだけに出す
+        （ユーザー指示 2026-08-11、2026-08-14 に一度全ステージへ広げてから元に戻した）。
+        部屋によって中身が変わるのはこの3つだけで、作品は口座全体の作品庫・プロフィールは
+        人の話なので、そこに部屋の切替が並ぶ意味が無い。通常展示⇄合同展示の切替は
+        ステージに関係なく Hero 右上のボタンから行える。 */}
+    {(stage === 'room' || stage === 'placement' || stage === 'publish') && (roomSwitcher || roomAdd) && (
       <div className="me-rooms-row">
         {roomSwitcher}
-        {(stage === 'room' || stage === 'placement' || stage === 'publish') && roomAdd}
+        {roomAdd}
       </div>
     )}
     {/* One next step at a time toward publishing — not shown on the housekeeping stages */}
@@ -3639,18 +3620,6 @@ export default function MePage() {
   // `mainRoomOf` owns the pre-0036 fallback (no flag → the oldest room), so every
   // consumer here agrees on which room `/@name` renders.
   const frontDoor = mainRoomOf(rooms)
-  /**
-   * 部屋タブに並べる一覧＝**通常展示の部屋 ＋ 自分の合同展示の部屋**
-   * （ユーザー選択A 2026-08-14）。合同展示に招かれた作家は、承諾でできた自分の部屋と
-   * 自分の通常展示の部屋を**行き来する**（どちらも残る・枠は食い合わない）。
-   *
-   * **`rooms` の側は合同展示を除いたままにする。** 玄関の決定（`mainRoomOf`）・部屋枠の
-   * 勘定（`unbuiltRooms`）・共有プールの計算は「通常展示の部屋だけ」で成り立っていて、
-   * ここへ合同展示の部屋を混ぜると意味が変わる（合同展示の部屋が玄関になり `/@ハンドル`
-   * が壊れる／場所代で立てた部屋を購入済みの枠として数える）。**並べる一覧と数える
-   * 一覧を分ける**のが要点。
-   */
-  const switchableRooms = allOwnedRooms ?? rooms
   // `rooms`（`listMyGalleries`）は合同展示の部屋を弾く（`lib/galleries.ts` 冒頭参照）ので、
   // ExpoManager の「部屋を開く」で立てた `roomId` がそこに無いことがある。**見つからない
   // ときは黙って玄関の部屋に化けさせず、id で直接引く**（見つかるまでは玄関に留まる＝
@@ -3808,6 +3777,15 @@ export default function MePage() {
                   <RoomExpoBadge
                     room={current}
                     userId={user.id}
+                    /* 通常展示へ戻る＝玄関の部屋を開く（ユーザー指示 2026-08-14）。
+                       `roomId` を null に戻すのではなく**明示的に玄関の id を入れる**
+                       ── null は「まだ選んでいない」の意味で、記憶の復元 effect が
+                       合同展示の部屋を開き直してしまう。
+                       **通常展示の部屋が1室も無いときは渡さない**（別視点レビューで検出）。
+                       渡すと押せるのに何も起きないボタンになる ── 合同展示の部屋では
+                       部屋タブを隠しているので、ここが唯一の帰り道になっている。
+                       0室は「最後の1室を自分で削除した」等で実際に起こりうる。 */
+                    onOpenNormal={frontDoor ? () => setRoomId(frontDoor.id) : null}
                     onOpenExpoManager={() => setExpoManagerOpen(true)}
                     onChanged={() => void reload()}
                   />
@@ -3865,11 +3843,11 @@ export default function MePage() {
                       onStageChange={setStage}
                       /* 部屋の切替タブ（ユーザー指示 2026-08-10: 「部屋」「配置」ステージの
                          中だけに置く。UIとロジックは変えず場所だけ動かした）。 */
-                      rooms={switchableRooms}
+                      rooms={rooms}
                       frontDoorId={frontDoor?.id ?? null}
                       onSwitchRoom={(id) => {
-                        const g = switchableRooms.find((r) => r.id === id)
-                        track('room_switch', { to: g?.slug, main: id === frontDoor?.id, expo: !!g?.expo_id })
+                        const g = rooms.find((r) => r.id === id)
+                        track('room_switch', { to: g?.slug, main: id === frontDoor?.id })
                         setRoomId(id)
                       }}
                       /* 「参加者」タブから、承諾済みの作家の自動生成の部屋へ飛ぶ

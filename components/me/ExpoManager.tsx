@@ -86,8 +86,13 @@ export default function ExpoManager({
       setRooms(byExpo)
     } catch (e) {
       // 0044 未適用なら「まだ無い」と同じ扱いにする（/me 全体を落とさない）。
+      // **`participating` も必ず埋めてから抜ける**（別視点レビューで検出）。ここだけ
+      // 下の招待の読み込みを飛ばして `return` していたので、`participating` が null の
+      // まま固定され、**ウィンドウが見出しと作成ボタンだけになる**（「まだ展示は
+      // ありません」の行が `participating !== null` を待つようになったため）。
       if (expoErrorKey(e) === 'missing_table') {
         setExpos([])
+        setParticipating([])
         return
       }
       setErr(t('expo.loadFailed'))
@@ -162,7 +167,14 @@ export default function ExpoManager({
 
       {!creating && expos === null && <p className="me-note">{t('expo.loading')}</p>}
 
-      {!creating && expos !== null && expos.length === 0 && (
+      {/* 「まだ展示はありません」は**主催も参加も無いとき**だけ（ユーザー指示 2026-08-14 で
+          このウィンドウが行き先の一覧になったため）。招かれて参加しているのに
+          「ありません」と先に出ると、その下の一覧と食い違って読める。 */}
+      {/* **`participating` の到着も待つ**（別視点レビューで検出）。`?? 0` だと読み込み中の
+          null を「参加なし」と数えるので、`listMyInvites` を待つ1往復のあいだ
+          「まだ展示はありません」が出て、そのあと参加一覧が現れる ── ウィンドウを
+          開くたびに毎回ちらつく。 */}
+      {!creating && expos !== null && expos.length === 0 && participating !== null && participating.length === 0 && (
         <p className="me-note">{t('expo.empty')}</p>
       )}
 

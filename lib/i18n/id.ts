@@ -693,7 +693,6 @@ export const id: PartialDictionary = {
     endedBanner: 'Masa pameran ini telah berakhir.',
     roomModeNormal: 'Ruang biasa',
     roomModeJoint: 'Bersama: {title}',
-    roomSwitchAddHeading: 'Mulai pameran bersama dari tab “Pameran bersama”.',
     roomSwitchNoExpo: 'Anda belum memiliki pameran bersama.',
     roomSwitchCurrentHeading: 'Bagian dari “{title}”',
     roomSwitchFailedEmpty: 'Ruang ini sudah memiliki karya yang dipajang, jadi tidak dapat diubah.',
