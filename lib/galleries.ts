@@ -19,10 +19,10 @@ import type { ArtworkData } from './artworks'
 
 export interface GalleryRow {
   id: string
-  /** 部屋の所有者。**合同展示の部屋一覧（`listExpoRoomsWithOwners`）で「誰の部屋か」を
-   *  見分けるために使う**（migration 0062）。他のすべての読み出しは自分の行しか
-   *  返らないので今まで不要だったが、主催者は`galleries_select_expo_owner`（0062）で
-   *  他の作家の部屋も読めるようになった。 */
+  /** 部屋の所有者。**開いている部屋が自分のものか**を見分けるのに使う（migration 0062）。
+   *  他のすべての読み出しは自分の行しか返らないので今まで不要だったが、主催者は
+   *  `galleries_select_expo_owner`（0062）で他の作家の部屋も読めるようになった
+   *  ── その部屋では編集面を読み取り専用にする（`isMyRoom`）。 */
   owner_id: string
   slug: string
   title: string
@@ -261,43 +261,11 @@ export async function listExpoRooms(expoId: string): Promise<GalleryRow[]> {
   })) as GalleryRow[]
 }
 
-/** `listExpoRooms` の1件に、部屋の持ち主の表示名を添えたもの（`ExpoManager`の
- *  統合一覧が使う）。 */
-export interface ExpoRoomInfo {
-  room: GalleryRow
-  ownerName: string
-  ownerUsername: string | null
-}
-
-/**
- * 展示に属する全部屋を、持ち主の表示名つきで引く（migration 0062）。
- * **主催者が呼ぶことを想定** ── `galleries_select_expo_owner`（0062）が、その展示の
- * 主催者になら他の作家の部屋も読めるようにしているので、`listExpoRooms` と違って
- * 「1人一部屋」の合同展示で誰の部屋が準備できているかを一覧できる。
- */
-export async function listExpoRoomsWithOwners(expoId: string): Promise<ExpoRoomInfo[]> {
-  const { data, error } = await supabase!
-    .from('galleries')
-    .select(`${COLS}, profiles (username, display_name)`)
-    .eq('expo_id', expoId)
-    .order('created_at', { ascending: true })
-  if (error) throw error
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map((rec) => {
-    const { profiles, ...rest } = rec
-    const p = profiles as { username: string | null; display_name: string | null } | null
-    return {
-      room: {
-        ...rest,
-        mat_default: (rest as { mat_default?: string }).mat_default ?? 'auto',
-        work_cap: (rest as { work_cap?: number }).work_cap ?? PLAN.worksPerGallery,
-        design_overrides: (rest as { design_overrides?: unknown }).design_overrides ?? null,
-        arrangement: (rest as { arrangement?: unknown }).arrangement ?? null,
-      } as GalleryRow,
-      ownerName: p?.display_name || p?.username || '',
-      ownerUsername: p?.username ?? null,
-    }
-  })
-}
+/* `ExpoRoomInfo` と `listExpoRoomsWithOwners`（展示内の全部屋＋持ち主名）はここにあったが、**呼び手が
+   無くなったので撤去した**（ユーザー指示 2026-08-14: 合同展示のウィンドウには自分の
+   部屋だけを出す。他の作家の部屋は「参加者」タブから開く）。展示内の全部屋を読む
+   権利そのものは migration 0062 の `galleries_select_expo_owner` が主催者に与えたままで、
+   必要になったらここに書き直せる（型も一緒に消したので、戻すときは対で書く）。 */
 
 /**
  * 表示用の名前を1人ぶんだけ引く（migration 0064・2026-08-14）。

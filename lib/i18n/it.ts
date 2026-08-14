@@ -679,8 +679,6 @@ export const it: PartialDictionary = {
     phaseEnded: 'La mostra è terminata ({on})',
     scheduleLabel: 'Data e ora di inizio (lascia vuoto per iniziare subito dopo il pagamento)',
     purgeNote: 'Questa mostra e il suo indirizzo verranno rimossi il {on}. Potrai poi aprire una nuova edizione con lo stesso nome.',
-    noRooms: 'Ancora nessuna sala.',
-    roomCount: '{n} sala/sale',
     addRoom: 'Prepara una sala',
     needRoomFirst: 'Serve una sala prima di aprire la mostra.',
     openIt: 'Scegli la durata e apri',

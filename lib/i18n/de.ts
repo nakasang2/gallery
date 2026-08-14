@@ -680,8 +680,6 @@ export const de: PartialDictionary = {
     phaseEnded: 'Die Laufzeit ist beendet ({on})',
     scheduleLabel: 'Beginn (Datum & Uhrzeit) — leer lassen, um sofort nach der Zahlung zu starten',
     purgeNote: 'Diese Ausstellung und ihre URL werden am {on} gelöscht. Danach können Sie unter demselben Namen eine neue Laufzeit starten.',
-    noRooms: 'Noch kein Raum.',
-    roomCount: '{n} Raum/Räume',
     addRoom: 'Raum einrichten',
     needRoomFirst: 'Für die Eröffnung braucht es einen Raum.',
     openIt: 'Laufzeit wählen und eröffnen',

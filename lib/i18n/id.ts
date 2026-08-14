@@ -680,8 +680,6 @@ export const id: PartialDictionary = {
     phaseEnded: 'Masa pamer telah berakhir ({on})',
     scheduleLabel: 'Tanggal & waktu mulai (biarkan kosong untuk mulai segera setelah pembayaran)',
     purgeNote: 'Pameran ini dan alamatnya akan dihapus pada {on}. Setelah itu Anda bisa membuka masa pamer baru dengan nama yang sama.',
-    noRooms: 'Belum ada ruang.',
-    roomCount: '{n} ruang',
     addRoom: 'Siapkan ruang',
     needRoomFirst: 'Perlu satu ruang sebelum membuka pameran.',
     openIt: 'Pilih masa pamer lalu buka',

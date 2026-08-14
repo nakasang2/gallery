@@ -745,8 +745,6 @@ export const ko: PartialDictionary = {
     phaseEnded: '회기가 끝났습니다({on})',
     scheduleLabel: '시작 날짜 및 시간(비워두면 결제 완료 직후 바로 시작)',
     purgeNote: '{on}에 이 전시와 URL이 삭제됩니다. 같은 이름으로 다음 회기를 다시 열 수 있습니다.',
-    noRooms: '아직 전시실이 없습니다.',
-    roomCount: '전시실 {n}개',
     addRoom: '전시실 준비하기',
     needRoomFirst: '공개하려면 전시실이 하나 필요합니다.',
     openIt: '회기를 골라 공개하기',

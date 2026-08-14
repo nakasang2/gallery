@@ -681,8 +681,6 @@ export const zhHans: PartialDictionary = {
     phaseEnded: '展期已结束（{on}）',
     scheduleLabel: '开始日期与时间（留空则付款完成后立即开始）',
     purgeNote: '此展览及其网址将于 {on} 删除。之后可以用同一名称开启下一个展期。',
-    noRooms: '还没有展厅。',
-    roomCount: '{n} 个展厅',
     addRoom: '准备展厅',
     needRoomFirst: '公开前需要先有一个展厅。',
     openIt: '选择展期并公开',

@@ -680,8 +680,6 @@ export const ptBr: PartialDictionary = {
     phaseEnded: 'O período terminou ({on})',
     scheduleLabel: 'Data e hora de início (deixe em branco para começar logo após o pagamento)',
     purgeNote: 'Esta exposição e seu endereço serão removidos em {on}. Depois você pode abrir uma nova edição com o mesmo nome.',
-    noRooms: 'Ainda sem sala.',
-    roomCount: '{n} sala(s)',
     addRoom: 'Preparar uma sala',
     needRoomFirst: 'É preciso uma sala antes de abrir a exposição.',
     openIt: 'Escolher o período e abrir',

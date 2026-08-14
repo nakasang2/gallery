@@ -119,7 +119,7 @@ export async function getExpoById(id: string): Promise<Expo | null> {
   return data ? rowToExpo(data as ExpoRow) : null
 }
 
-export type ExpoError = 'slug_taken' | 'slug_invalid' | 'missing_table' | 'other'
+export type ExpoError = 'slug_taken' | 'slug_invalid' | 'room_exists' | 'missing_table' | 'other'
 
 /** 生のDBエラーを、UIが文言を選べる形に翻訳する。 */
 export function expoErrorKey(e: unknown): ExpoError {
@@ -130,7 +130,15 @@ export function expoErrorKey(e: unknown): ExpoError {
   // ポリシー再帰や権限エラーまで「未適用」に見える（LESSONS 2026-08-09）。
   if (code === '42P01' || code === 'PGRST205') return 'missing_table'
   if (code === '23505') return 'slug_taken'
-  if (code === '23514' || msg.includes('expos_slug_check')) return 'slug_invalid'
+  // 「この展示にはもう自分の部屋がある」（0062 の `enforce_room_allowance`）。
+  // **`23514` より先に見る。** 下の行がかつて `code === '23514'` だけで
+  // `slug_invalid` に丸めていたので、**URLの入力欄が無い操作なのに「3〜40文字、
+  // 半角の小文字・数字…」というまるで関係ない注意書きが出ていた**（別視点レビューで
+  // 検出）。`23514` は check 制約すべてに付く汎用のコードで、それだけでは何が
+  // 起きたか決まらない。
+  if (msg.includes('you already have a room')) return 'room_exists'
+  // 名前の形（`expos_slug_check`）。**制約名で見分ける** — コードだけで判断しない。
+  if (msg.includes('expos_slug_check')) return 'slug_invalid'
   return 'other'
 }
 

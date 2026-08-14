@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useT } from '@/components/I18nProvider'
 import { useGallery } from '@/lib/store'
-import { listExpoRoomsWithOwners, type ExpoRoomInfo } from '@/lib/galleries'
+import { listAllOwnedRooms, type GalleryRow } from '@/lib/galleries'
 import {
   EXPO_SLUG_RE,
   addExpoRoom,
@@ -55,7 +55,8 @@ export default function ExpoManager({
   const user = useGallery((s) => s.user)
   const day = useDay()
   const [expos, setExpos] = useState<Expo[] | null>(null)
-  const [rooms, setRooms] = useState<Record<string, ExpoRoomInfo[]>>({})
+  /** 展示id → その展示にある**自分の**部屋（無ければ載らない）。 */
+  const [rooms, setRooms] = useState<Record<string, GalleryRow>>({})
   /** 招かれて参加している展示（自分は主催者ではない。migration 0062）。 */
   const [participating, setParticipating] = useState<MyInvite[] | null>(null)
   const [err, setErr] = useState('')
@@ -70,20 +71,25 @@ export default function ExpoManager({
     try {
       const list = await listMyExpos(user.id)
       setExpos(list)
-      // 部屋は展示ごとに引く（数が少ないので一括にしない）。**主催者の視点**なので
-      // `listExpoRoomsWithOwners`（migration 0062の`galleries_select_expo_owner`）で
-      // 参加作家の部屋も見える。持ち主が分かるように名前つきで持つ ── 参加作家の
-      // 自動生成の部屋は展示名をそのままタイトルに持つので、名前が無いと全部同じ
-      // ラベルに見えて誰の部屋か分からない。
-      const byExpo: Record<string, ExpoRoomInfo[]> = {}
-      for (const x of list) {
-        try {
-          byExpo[x.id] = await listExpoRoomsWithOwners(x.id)
-        } catch {
-          byExpo[x.id] = []
-        }
+      // **要るのは自分の部屋だけ**（ユーザー指示 2026-08-14: 他の作家の部屋はここに
+      // 出さない。主催者は「参加者」タブから行く）。以前は展示ごとに
+      // `listExpoRoomsWithOwners` を呼んで全部屋＋持ち主名を取っていたが、10人の展示なら
+      // 10行取って9行捨てることになる。**自分の部屋は1回で全部取れる**ので展示数ぶんの
+      // 往復も要らない。
+      // **失敗しても展示の一覧は生かす**（別視点レビューで検出）。1回で取る形にしたとき
+      // この呼び出しを外側の try に入れてしまい、部屋が取れないだけで下の catch が
+      // `setExpos([])` を走らせて**主催している展示が1件も無いように見えて**いた
+      // （展示ごとに引いていた頃は内側で握っていたので一覧は残っていた）。
+      try {
+        const mine = await listAllOwnedRooms(user.id)
+        const byExpo: Record<string, GalleryRow> = {}
+        for (const g of mine) if (g.expo_id) byExpo[g.expo_id] = g
+        setRooms(byExpo)
+      } catch {
+        // 部屋だけ諦める。「部屋を追加」が出るが、押しても 0062 が拒否し
+        // `room_exists` として「すでにあなたの部屋があります」と出るので嘘にはならない。
+        setRooms({})
       }
-      setRooms(byExpo)
     } catch (e) {
       // 0044 未適用なら「まだ無い」と同じ扱いにする（/me 全体を落とさない）。
       // **`participating` も必ず埋めてから抜ける**（別視点レビューで検出）。ここだけ
@@ -139,11 +145,13 @@ export default function ExpoManager({
           ? t('expo.slugTaken')
           : key === 'slug_invalid'
             ? t('expo.slugInvalid')
-            : key === 'missing_table'
-              ? t('expo.notReady')
-              : e instanceof Error
-                ? e.message
-                : String(e)
+            : key === 'room_exists'
+              ? t('expo.roomExists')
+              : key === 'missing_table'
+                ? t('expo.notReady')
+                : e instanceof Error
+                  ? e.message
+                  : String(e)
       )
     } finally {
       setBusy(false)
@@ -182,8 +190,7 @@ export default function ExpoManager({
         <ul className="expo-list">
           {expos.map((x) => {
             const phase = expoPhase(x)
-            const xr = rooms[x.id] ?? []
-            const myOwnRoom = xr.find((info) => info.room.owner_id === user.id)
+            const myOwnRoom = rooms[x.id]
             const purge = expoPurgeAt(x)
             // クラス名は**そのまま書く**。`expo-${phase}` のように組むと
             // `npm run check:css` から見えず、綴りを間違えても誰も気づかない
@@ -226,28 +233,25 @@ export default function ExpoManager({
                   <p className="me-note expo-warn">{t('expo.purgeNote', { on: purge.toLocaleDateString() })}</p>
                 )}
 
-                {/* 部屋。合同展示の部屋は主催者の $25 の枠を消費しない。 */}
-                <p className="me-note">
-                  {xr.length === 0 ? t('expo.noRooms') : t('expo.roomCount', { n: xr.length })}
-                </p>
-                {xr.length > 0 && (
+                {/* **ここに出すのは自分の部屋だけ**（ユーザー指示 2026-08-14）。
+                    参加作家の部屋は**部屋を開いた先の「参加者」タブ**から行ける ──
+                    入口を2つ作らない。以前は展示内の全部屋を並べていたが、部屋の題は
+                    どれも展示名を焼いたもので（0062のトリガと `addExpoRoom` が
+                    そうしている）**同じ名前が人数分並び、区別は末尾の作家名の有無だけ**、
+                    しかも**名前が付かないのが自分**という一番読みにくい形になっていた。
+                    参加者の人数や準備状況は「参加者」タブが持っている。 */}
+                {myOwnRoom && (
                   <ul className="expo-rooms">
-                    {/* 1展示・1作家1部屋（migration 0062）なので、複数の部屋があるのは
-                        参加作家がそれぞれ自分の部屋を持っている状態 ── 誰の部屋か
-                        分からないと開く前に選べないので、名前を添える。 */}
-                    {xr.map(({ room: r, ownerName }) => (
-                      <li key={r.id}>
-                        <button
-                          type="button"
-                          className="btn-line"
-                          onClick={() => onOpenRoom?.(r.id)}
-                          disabled={!onOpenRoom}
-                        >
-                          {r.title || r.slug}
-                          {r.owner_id !== user.id && ownerName ? ` — ${ownerName}` : ''}
-                        </button>
-                      </li>
-                    ))}
+                    <li>
+                      <button
+                        type="button"
+                        className="btn-line"
+                        onClick={() => onOpenRoom?.(myOwnRoom.id)}
+                        disabled={!onOpenRoom}
+                      >
+                        {t('invite.openRoom')}
+                      </button>
+                    </li>
                   </ul>
                 )}
 

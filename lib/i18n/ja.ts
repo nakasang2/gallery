@@ -999,6 +999,9 @@ export const ja: Dictionary = {
     fieldSlug: 'URLの名前',
     slugNote: '来場者はこのURLで開きます: {url}',
     slugInvalid: '3〜40文字、半角の小文字・数字・ハイフンで入力してください。',
+    // 「この展示にはもう自分の部屋がある」。読み込みに失敗して「部屋を追加」が出たまま
+    // 押されたときに出る（1展示・1作家1部屋・migration 0062）。
+    roomExists: 'この展示にはすでにあなたの部屋があります。画面を開き直してください。',
     slugTaken: 'そのURLの名前はすでに使われています。',
     phaseDraft: '下書き（誰にも見えていません）',
     phaseScheduled: '{on}に開始予定',
@@ -1007,8 +1010,8 @@ export const ja: Dictionary = {
     scheduleLabel: '公開日時（空欄なら決済完了後すぐに公開）',
     scheduleTzHint: 'あなたの現在地のタイムゾーンで入力してください: {tz}',
     purgeNote: '{on} にこの展示とURLは消えます。同じ名前で次の会期を立て直せます。',
-    noRooms: '部屋がまだありません。',
-    roomCount: '部屋 {n}室',
+    // 合同展示のウィンドウから自分の部屋へ入る唯一のボタン。展示名は見出しに出ているので
+    // ここでは繰り返さない（人数分並んだときに同じ名前が続くのを避ける）。
     addRoom: '部屋を用意する',
     needRoomFirst: '公開するには部屋が1つ必要です。',
     openIt: '会期を選んで公開する',

@@ -679,8 +679,6 @@ export const zhHant: PartialDictionary = {
     phaseEnded: '展期已結束（{on}）',
     scheduleLabel: '開始日期與時間（留空則付款完成後立即開始）',
     purgeNote: '此展覽及其網址將於 {on} 刪除。之後可以用同一名稱開啟下一個展期。',
-    noRooms: '還沒有展廳。',
-    roomCount: '{n} 個展廳',
     addRoom: '準備展廳',
     needRoomFirst: '公開前需要先有一個展廳。',
     openIt: '選擇展期並公開',
