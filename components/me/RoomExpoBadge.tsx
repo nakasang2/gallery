@@ -11,8 +11,16 @@
 // 一本化した（DECISIONS 2026-08-12）。以前はここに「既存の空部屋を、選んだ展示に
 // 参加させる」変換リストもあり、ExpoManagerでの新規作成と2つの入口が並んでいたのが
 // ユーザーには分かりにくかった（「合同展示を作ったら、そこで0から設定できる方が
-// いいのでは」という指摘）。**通常展示に戻す**（合同展示の部屋を抜ける）方向だけは
-// 残す — これは「作成」ではなく「離脱」で、入口が2つになる話ではない。
+// いいのでは」という指摘）。
+//
+// **部屋の行き来はここではしない**（ユーザー選択A 2026-08-14）。通常展示の部屋と
+// 合同展示の部屋は**部屋タブの列**（`.me-rooms`）で切り替える。ここに残るのは
+// 「いまどの部屋に居るか」の表示と、**主催者だけ**の「この部屋を展示から外す」。
+// 参加作家に出していた「通常展示に戻す」は撤去した ── 名前は表示の切り替えに
+// 見えるのに実際には展示から抜ける操作で、本番で1人が押して展示から消え、
+// 招待が `accepted` のままなので復帰できなくなった（DECISIONS 2026-08-14）。
+// **守っているのはDB側**（migration 0063 が主催者以外のこの操作を拒否する）で、
+// ここで出さないのは説明のため。
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useT } from '@/components/I18nProvider'
 import type { GalleryRow } from '@/lib/galleries'
@@ -28,6 +36,8 @@ export default function RoomExpoBadge({
   onChanged,
 }: {
   room: GalleryRow
+  /** サインインしている人。**この部屋の持ち主とは限らない** — 主催者が参加作家の
+   *  部屋を開いていることがある（migration 0062 の `galleries_select_expo_owner`）。 */
   userId: string
   onOpenExpoManager: () => void
   onChanged: () => void
@@ -75,14 +85,27 @@ export default function RoomExpoBadge({
     }
   }, [open])
 
+  // `listMyExpos(userId)` は**自分が主催している展示**しか返さないので、ここに
+  // 見つかるかどうかがそのまま「自分がこの展示の主催者か」になる。参加作家として
+  // 招かれている展示は返らない（＝`currentExpo` は undefined）。
   const currentExpo = room.expo_id ? expos?.find((x) => x.id === room.expo_id) : undefined
+  const isOrganizer = !!currentExpo
   const label = room.expo_id
     ? t('expo.roomModeJoint', { title: currentExpo?.title || t('common.untitled') })
     : t('expo.roomModeNormal')
 
-  // 合同展示への**参加**はもうここでは行わない（ExpoManagerからの新規作成に一本化 —
-  // DECISIONS 2026-08-12）。残るのは**離脱**（通常展示に戻す）だけなので、引数は要らない。
-  async function revertToNormal() {
+  /**
+   * この部屋を展示から外す。**「通常展示に戻す」という名前をやめた**
+   * （ユーザー決定 2026-08-14）── 名前は表示の切り替えに見えるのに、実際には部屋を
+   * 展示から抜く操作で、本番で参加作家が1人これを押して**展示から消えた**。
+   *
+   * **主催者にしか出さない。** 主催者は `ExpoManager` の「部屋を追加」で作り直せるが、
+   * 参加作家は招待が `accepted` のままなので 0062 のトリガが再発火せず、**復帰する
+   * 導線が1つも無い**。参加作家が降りる道は受信箱の「降りる」（＝辞退）に一本化した。
+   * DB側（migration 0063）も主催者以外からのこの操作を拒否する ── ここで隠すのは
+   * 説明のためで、守っているのはDBの方（DECISIONS【絶対ルール】2026-08-12）。
+   */
+  async function leaveExpo() {
     setBusy(true)
     setErr('')
     try {
@@ -133,9 +156,15 @@ export default function RoomExpoBadge({
               <p className="room-expo-panel-title">
                 {t('expo.roomSwitchCurrentHeading', { title: currentExpo?.title || t('common.untitled') })}
               </p>
-              <button type="button" className="btn-line" disabled={busy} onClick={() => void revertToNormal()}>
-                {t('expo.roomSwitchToNormal')}
-              </button>
+              {/* 部屋の行き来は**部屋タブ**でする（ユーザー選択A 2026-08-14）ので、
+                  ここには行き先を並べない。残るのは主催者だけの「展示から外す」。 */}
+              {isOrganizer ? (
+                <button type="button" className="btn-line" disabled={busy} onClick={() => void leaveExpo()}>
+                  {t('expo.roomLeaveExpo')}
+                </button>
+              ) : (
+                <p className="me-note" style={{ marginTop: 0 }}>{t('expo.roomLeaveHint')}</p>
+              )}
             </>
           ) : (
             // 合同展示への参加は常にExpoManagerの新規作成から（DECISIONS 2026-08-12）。

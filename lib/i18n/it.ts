@@ -695,7 +695,6 @@ export const it: PartialDictionary = {
     roomSwitchAddHeading: 'Crea una mostra collettiva dalla scheda “Mostre collettive”.',
     roomSwitchNoExpo: 'Non hai ancora nessuna mostra collettiva.',
     roomSwitchCurrentHeading: 'Parte di «{title}»',
-    roomSwitchToNormal: 'Rendila di nuovo una sala normale',
     roomSwitchFailedEmpty: 'In questa sala ci sono già opere esposte, quindi non può essere cambiata.',
     roomSwitchFailedAllowance: 'Nessuno spazio sala libero — acquista prima una sala.',
     roomSwitchFailedOther: 'Impossibile cambiare questa sala.',

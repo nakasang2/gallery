@@ -695,7 +695,6 @@ export const zhHant: PartialDictionary = {
     roomSwitchAddHeading: '可以在「聯合展覽」分頁中新建聯合展覽。',
     roomSwitchNoExpo: '您還沒有任何聯合展覽。',
     roomSwitchCurrentHeading: '屬於「{title}」',
-    roomSwitchToNormal: '改回常規展廳',
     roomSwitchFailedEmpty: '此展廳已經掛有作品，無法切換。',
     roomSwitchFailedAllowance: '沒有空餘的展廳名額——請先購買展廳。',
     roomSwitchFailedOther: '無法切換此展廳。',

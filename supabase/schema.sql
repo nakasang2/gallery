@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0062 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0064 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -5946,3 +5946,213 @@ create policy "galleries_select_expo_owner"
     expo_id is not null
     and exists (select 1 from public.expos x where x.id = expo_id and x.owner_id = (select auth.uid()))
   );
+
+-- # 0063_expo_leave_guard.sql — 参加作家が「通常展示に戻す」で合同展示から消えるのを塞ぐ(ユーザー決定 2026-08-14)
+-- 参加作家が合同展示から抜け落ちるのを塞ぐ（ユーザー決定 2026-08-14。DECISIONS に全文）
+--
+-- 背景: 本番で招待された作家が**合同展示から消える**事故が起きた。原因は
+-- `switch_room_expo(部屋, null)`（画面では `RoomExpoBadge` の「通常展示に戻す」）が
+-- **表示の切り替えではなく変換**で、参加作家が押すと自分の合同展示の部屋が通常展示の
+-- 部屋に変わり、展示から居なくなること。招待は `accepted` のまま残るので 0062 の
+-- `create_room_on_expo_accept` は二度と発火せず、**復帰する導線が1つも無い**状態になる。
+-- 実データで確定: 残った部屋の `slug` が自動生成名 `expo-21f070ac-1` のまま `expo_id`
+-- だけ null で、`created_at` が承認時刻とマイクロ秒まで一致していた。
+--
+-- ここで直すのは1つだけ ── `switch_room_expo` が、**その展示の主催者でない人**からの
+-- 「通常展示に戻す」を拒否する。参加作家が降りる道は受信箱の「降りる」（招待を
+-- `declined` にする＝0062 のトリガが部屋も片付ける）だけにする。画面側でもボタンを
+-- 出さないが、**判断の権威はDBに置く**（DECISIONS【絶対ルール】2026-08-12）。
+--
+-- **「登録したら通常展示の部屋がある」はここでは実装しない**（同じ日の決定2）。
+-- 一度この migration に `handle_new_user` での部屋の自動作成として書いたが、2つの
+-- 理由で画面側（既存の `createGallery` を呼ぶ）に移した:
+--   ①「最初の部屋の作り方」（無料テーマ `whitecube` / 無料間取り `corridor` / 5枠 /
+--     無料等級）のレシピが `lib/entitlements` `lib/limits` `lib/galleries` と**SQLの
+--     2か所**に増える ── DECISIONS【絶対ルール】2026-08-12 が禁じている形そのもの。
+--   ②実測で **SQLテスト17ファイル中10ファイル**が「無料の部屋は既にある」で落ちた。
+--     各テストは自分で無料の部屋を作って土台にしているため。修正自体は可能だが、
+--     10ファイルの書き換えが今回の不具合修正に混ざると検証が成立しない。
+--
+-- 適用方法: SQL Editor に貼り付けて Run（再実行安全）。0001〜0062 を先に適用しておくこと。
+
+/* ================= 参加作家は「通常展示に戻す」で展示から抜けられない ================= */
+-- 0062 の関数に**1つだけ**足す（それ以外は0062のまま）。`p_expo is null`（＝展示から
+-- 外す向き）のとき、その部屋が属している展示の主催者が自分でなければ拒否する。
+--
+-- **主催者には残す。** 主催者にとってこの操作は「自分の展示から自分の部屋を外す」で、
+-- `ExpoManager` の「部屋を追加」が再び出るので取り返しがつく。参加作家には取り返しが
+-- 無い（招待が `accepted` のままなので部屋が再生成されない）のが今回の事故だった。
+create or replace function public.switch_room_expo(p_gallery uuid, p_expo uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_me uuid := (select auth.uid());
+  v_room_owner uuid;
+  v_room_expo uuid;
+  v_expo_owner uuid;
+  v_placements int;
+  v_free int;
+  v_paid int;
+  v_purchased int;
+begin
+  if v_me is null then
+    raise exception 'sign in first';
+  end if;
+
+  select owner_id, expo_id into v_room_owner, v_room_expo
+    from public.galleries where id = p_gallery;
+  if v_room_owner is null then
+    raise exception 'no such room';
+  end if;
+  if v_room_owner <> v_me then
+    raise exception 'not your room';
+  end if;
+
+  if v_room_expo is not distinct from p_expo then
+    return;
+  end if;
+
+  select count(*) into v_placements from public.placements where gallery_id = p_gallery;
+  if v_placements > 0 then
+    raise exception 'room is not empty' using errcode = 'check_violation';
+  end if;
+
+  -- ★ 0063 で足した1点。展示から外せるのはその展示の主催者だけ。
+  if p_expo is null and v_room_expo is not null then
+    select owner_id into v_expo_owner from public.expos where id = v_room_expo;
+    if v_expo_owner is distinct from v_me then
+      raise exception 'leave the exhibition from your invitations, not by switching this room'
+        using errcode = 'check_violation';
+    end if;
+  end if;
+
+  if p_expo is not null then
+    select owner_id into v_expo_owner from public.expos where id = p_expo;
+    if v_expo_owner is distinct from v_me then
+      if not exists (
+        select 1 from public.expo_invites i
+         where i.expo_id = p_expo and i.artist_id = v_me and i.status = 'accepted'
+      ) then
+        raise exception 'expo does not belong to this user' using errcode = 'check_violation';
+      end if;
+    end if;
+    if not exists (
+      select 1 from public.galleries
+       where owner_id = v_me and expo_id is null and id <> p_gallery
+    ) then
+      raise exception 'cannot move your only room into a joint exhibition' using errcode = 'check_violation';
+    end if;
+    -- 1展示・1作家1部屋（migration 0062）。
+    if exists (
+      select 1 from public.galleries where expo_id = p_expo and owner_id = v_me and id <> p_gallery
+    ) then
+      raise exception 'you already have a room in this exhibition' using errcode = 'check_violation';
+    end if;
+    update public.galleries
+       set expo_id = p_expo, slots_included = true, work_cap = 15
+     where id = p_gallery;
+    return;
+  end if;
+
+  select count(*) filter (where not slots_included),
+         count(*) filter (where slots_included)
+    into v_free, v_paid
+    from public.galleries
+   where owner_id = v_me and expo_id is null and id <> p_gallery;
+  select count(*) into v_purchased from public.purchases
+   where user_id = v_me and kind = 'room';
+
+  if v_free = 0 then
+    update public.galleries set expo_id = null, slots_included = false, work_cap = 5
+     where id = p_gallery;
+  elsif v_paid < v_purchased then
+    update public.galleries set expo_id = null, slots_included = true, work_cap = 15
+     where id = p_gallery;
+  else
+    raise exception 'no unused room purchase: buy a room first' using errcode = 'check_violation';
+  end if;
+
+  update public.artworks set gallery_id = null where gallery_id = p_gallery;
+end;
+$$;
+
+revoke all on function public.switch_room_expo(uuid, uuid) from public, anon;
+grant execute on function public.switch_room_expo(uuid, uuid) to authenticated;
+
+-- # 0064_expo_ready_room_visible.sql — 「準備できた」参加作家の部屋だけ主催者に中身を見せる(ユーザー選択C 2026-08-14)
+-- 「準備できた」参加作家の部屋だけ、主催者に中身を見せる（ユーザー選択C 2026-08-14）
+--
+-- 背景（実測して分かったこと）: 0062 の `galleries_select_expo_owner` が主催者に開けたのは
+-- **部屋の行だけ**で、作品（`artworks`）と配置（`placements`）は開けていなかった。その結果:
+--   ・会期前  → 主催者は参加作家の部屋を開いても**空っぽの部屋**しか見えない
+--   ・会期中  → 誰でも見える（0045 の公開経路）
+-- つまり主催者は **中身を一度も見ないまま $15〜$40 の場所代を払って公開する**ことになり、
+-- 判断の材料は参加作家の自己申告トグルだけだった。
+--
+-- 決定（ユーザー選択C）: **「準備できた」がオンの部屋に限って**主催者に中身を開く。
+--   ・A案（準備状態に関わらず読み取り専用で開放）は却下 ── 作りかけを見られる。
+--   ・B案（見えないままにして「部屋を開く」を撤去）も却下 ── 課金の判断材料が
+--     自己申告だけになる。
+-- トグルが「作りかけを見られたくない作家」と「付ける前に確かめたい主催者」を両立させる。
+-- 作家はいつでもオフに戻せる（0062 の `set_expo_room_ready`）ので、**見せるかどうかの
+-- 決定権は最後まで作家が持つ**。
+--
+-- **読み取りだけ。** 書き込みのポリシーは1つも増やさない（0062 のSQLテスト09で、主催者が
+-- 参加作家の部屋を書き換えられないことを確かめてある。ここでもテストで再確認する）。
+--
+-- 適用方法: SQL Editor に貼り付けて Run（再実行安全）。0001〜0063 を先に適用しておくこと。
+
+/* ================= 1. 述語（1か所に置く） ================= */
+-- **「その部屋は、私が主催する展示の中にあって、準備できたが立っているか」** だけを見る。
+-- 2つのポリシーが同じ述語を読むので、条件が食い違う余地が無い
+-- （DECISIONS【絶対ルール】2026-08-12「同じ意味の値を2か所で計算しない」）。
+--
+-- `security definer` にするのは、判定のために `galleries` と `expos` を横断して読む必要が
+-- あるため（呼び手のRLSで絞られると、判定そのものができない）。**引数の部屋しか見ない**
+-- ので、これで見えるようになるのは呼び手が既に指定した1部屋の可否だけ。
+create or replace function public.expo_room_ready_for_organizer(p_gallery uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+      from public.galleries g
+      join public.expos x on x.id = g.expo_id
+     where g.id = p_gallery
+       and g.expo_ready_at is not null
+       and x.owner_id = (select auth.uid())
+  );
+$$;
+
+-- **`anon` にも execute を渡す。ここを絞ってはいけない。**
+-- 最初 `revoke … from public, anon` と書いたところ、**未ログインの来場者が `artworks` を
+-- 1行読むだけで `permission denied for function` で落ちる**状態になった（下のSQLテスト13が
+-- 検出）。RLSのポリシーは**全てのロールについて評価される**ので、`anon` の SELECT でも
+-- この述語が呼ばれる ── 呼べなければクエリごとエラーになり、**公開ページが全滅する**。
+-- これは 0041 で実際に本番へ出してしまった事故と同じ形（supabase/tests/README 参照）。
+-- 未ログインでは `auth.uid()` が null なので、述語は常に false を返す＝権限を渡しても
+-- 見えるものは1行も増えない。0047 の `invited_to_expo` が同じ理由で3ロールに配っている。
+revoke all on function public.expo_room_ready_for_organizer(uuid) from public;
+grant execute on function public.expo_room_ready_for_organizer(uuid) to anon, authenticated, service_role;
+
+/* ================= 2. 作品 ================= */
+-- 既存のポリシーは**1文字も変えない**（ポリシーは OR で足されるので、`artworks_owner_all`
+-- や会期中の公開経路の意味を変えずに済む＝通常展示への回帰が原理的に起きない。0046 で
+-- 採った作法と同じ）。
+drop policy if exists "artworks_select_expo_ready_room" on public.artworks;
+create policy "artworks_select_expo_ready_room"
+  on public.artworks for select
+  using (gallery_id is not null and public.expo_room_ready_for_organizer(gallery_id));
+
+/* ================= 3. 配置 ================= */
+-- 主催者のプレビュー（配置タブ・3D）が壁の並びを読めるように。ここも select だけ。
+drop policy if exists "placements_select_expo_ready_room" on public.placements;
+create policy "placements_select_expo_ready_room"
+  on public.placements for select
+  using (public.expo_room_ready_for_organizer(gallery_id));

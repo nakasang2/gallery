@@ -697,7 +697,6 @@ export const zhHans: PartialDictionary = {
     roomSwitchAddHeading: '可以在「联合展览」标签中新建联合展览。',
     roomSwitchNoExpo: '您还没有任何联合展览。',
     roomSwitchCurrentHeading: '属于「{title}」',
-    roomSwitchToNormal: '改回常规展厅',
     roomSwitchFailedEmpty: '此展厅已经挂有作品，无法切换。',
     roomSwitchFailedAllowance: '没有空余的展厅名额——请先购买展厅。',
     roomSwitchFailedOther: '无法切换此展厅。',

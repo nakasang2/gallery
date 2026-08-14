@@ -696,7 +696,6 @@ export const ptBr: PartialDictionary = {
     roomSwitchAddHeading: 'Crie uma exposição coletiva na aba “Exposições coletivas”.',
     roomSwitchNoExpo: 'Você ainda não tem nenhuma exposição coletiva.',
     roomSwitchCurrentHeading: 'Parte de “{title}”',
-    roomSwitchToNormal: 'Voltar a ser uma sala normal',
     roomSwitchFailedEmpty: 'Esta sala já tem obras expostas, então não pode ser alterada.',
     roomSwitchFailedAllowance: 'Não há vaga de sala disponível — compre uma sala primeiro.',
     roomSwitchFailedOther: 'Não foi possível alterar esta sala.',

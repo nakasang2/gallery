@@ -385,6 +385,7 @@ export const en = {
     // 主催者側の参加者一覧に出す、各作家の部屋の状態。
     participantRoomReady: 'Ready',
     participantRoomNotReady: 'Not ready yet',
+    statusNoRoom: 'No room yet — remove with × and invite again',
     openParticipantRoom: 'Open room',
   },
 
@@ -611,6 +612,8 @@ export const en = {
     profileCv: 'CV (exhibitions & awards)',
     profileCvNote: 'One entry per line — exhibitions, awards, press. Shown to visitors on its own tab, next to your bio.',
     markdownOk: 'Markdown works here: **bold** · *italic* · - list · [link](URL) · # heading', mdPreview: 'Preview', saveAll: 'Save', unsavedNote: 'You have changes', unsavedMark: 'Unsaved', unsavedLeave: 'You have unsaved changes. Leave without saving?', saveAllFailed: 'Could not save: {msg}',
+    readOnlyRoom: 'This is {name}’s room. You can look around, but you can’t change anything.',
+    readOnlyRoomAnon: 'This is another artist’s room. You can look around, but you can’t change anything.',
     profileSnsNote: 'Link your SNS — shown on your public page and while visitors walk your room, so they can follow you elsewhere. Paste the whole link (the one in the address bar) into each row.',
     snsWrongPlatform: 'That looks like a {found} link — this row is for {expected}.',
     snsNotPlatform: 'That does not look like a {expected} link.',
@@ -1056,7 +1059,9 @@ export const en = {
     roomSwitchAddHeading: 'Start a joint exhibition from the “Joint exhibitions” tab.',
     roomSwitchNoExpo: 'You don’t have a joint exhibition yet.',
     roomSwitchCurrentHeading: 'Part of “{title}”',
-    roomSwitchToNormal: 'Make it a regular room',
+    roomModeJointShort: 'Joint',
+    roomLeaveExpo: 'Take this room out of the exhibition',
+    roomLeaveHint: 'To leave this exhibition, use “Leave” in the invitations panel at the top of your dashboard.',
     roomSwitchFailedEmpty: 'This room already has work on its walls, so it can’t be switched.',
     roomSwitchFailedAllowance: 'No free room slot is available — buy a room first.',
     roomSwitchFailedOther: 'Could not switch this room.',

@@ -46,6 +46,7 @@ import {
   elsewherePlacedWorkIds,
   elsewherePlacedCount,
   getGalleryById,
+  fetchProfileName,
   createGallery,
   updateGalleryDetails,
   updateGallerySlug,
@@ -550,6 +551,14 @@ type Stage = (typeof STAGES)[number]
 /** 選んでいたタブの保存先。**部屋をまたいで同じ**にする（部屋を切り替えても見ている
  *  面は同じままにしたい）。値が壊れていたら黙って既定へ落ちる（`STAGES` で検査する）。 */
 const STAGE_KEY = 'xibit360.me.stage'
+/** 最後に開いていた部屋の保存先（ユーザー決定 2026-08-14）。合同展示の部屋も部屋タブに
+ *  並ぶようになったので、リロードで玄関へ戻されると「さっき編集していた展示用の部屋」を
+ *  毎回探し直すことになる。保存した id が今の一覧に無ければ黙って捨てる。 */
+const ROOM_KEY = 'xibit360.me.room'
+/** 「この口座は一度でも部屋を持った」の記録。**ユーザーidを後ろに付けて使う**
+ *  （同じタブでアカウントを切り替えたときに前の人の事実を持ち越さない）。0室のときに
+ *  部屋を自動で作るか、それとも作成ウィザードを出すかの判断だけに使う。 */
+const HAD_ROOM_KEY = 'xibit360.me.hadroom'
 // `allOwnedRooms`が未取得のときの安定した空集合（`EMPTY_OVERRIDES`と同じ作法。
 // レンダーごとに`new Set()`すると子コンポーネントの参照比較を毎回変えてしまう）。
 const EMPTY_ELSEWHERE: ReadonlySet<string> = new Set()
@@ -644,21 +653,55 @@ function GalleryCard({
   // それがそのまま「作品」タブに出て「今まで使っている設定が反映されている」ように
   // 見えて混乱するという指摘を受け、その部屋だけ0から積む形にした。`works` が以下の
   // 全ての参照先（作品タブ・配置トレイ・rebuildPlacements）を差し替える1点。
-  const artistName = profileDisplayName || user.displayName
+  /** **この部屋は自分のものか。** 主催者は「参加者」タブから参加作家の部屋を開ける
+   *  （migration 0062 の `galleries_select_expo_owner`）ので、`row.owner_id` が自分とは
+   *  限らない。他人の部屋は**見るだけ**（DB側に書き込みのポリシーは1つも無い）。 */
+  const isMyRoom = row.owner_id === user.id
+  /** 他人の部屋を見ているときの、その部屋の持ち主の名前（プレートに出す作家名）。
+   *  `profiles_select_all` は `using (true)` なので追加のポリシーは要らない。 */
+  const [roomOwnerName, setRoomOwnerName] = useState('')
+  useEffect(() => {
+    if (isMyRoom) {
+      setRoomOwnerName('')
+      return
+    }
+    let alive = true
+    void fetchProfileName(row.owner_id).then((n) => {
+      if (alive) setRoomOwnerName(n)
+    }).catch(() => {
+      if (alive) setRoomOwnerName('')
+    })
+    return () => {
+      alive = false
+    }
+  }, [isMyRoom, row.owner_id])
+  // 自分の部屋なら自分の名前、他人の部屋ならその持ち主の名前をプレートに配る
+  // （主催者が参加作家の部屋を見ているときに、自分の名前が作品に付くのを防ぐ）。
+  const artistName = isMyRoom ? (profileDisplayName || user.displayName) : roomOwnerName
   const [roomArtworks, setRoomArtworks] = useState<ArtworkData[] | null>(null)
+  /** 何回目の取得か。**遅れて返った古い応答で新しい結果を上書きしないため**（2巡目の
+   *  別視点レビューで検出）。作家名があとから届く作りにしたので、1つの部屋で取得が
+   *  2回走る ── 順序が入れ替わると、名前の入っていない方が最後に着いて**プレートから
+   *  作家名が消えたまま固定される**（直したはずの不具合がそのまま出る）。 */
+  const roomArtGen = useRef(0)
   const refreshRoomArtworks = useCallback(async () => {
     if (!row.expo_id) return
+    const gen = ++roomArtGen.current
     try {
-      setRoomArtworks(await listRoomArtworks(user.id, row.id, artistName))
+      const list = await listRoomArtworks(row.id, artistName)
+      if (gen === roomArtGen.current) setRoomArtworks(list)
     } catch {
-      setRoomArtworks([])
+      if (gen === roomArtGen.current) setRoomArtworks([])
     }
-  }, [row.expo_id, row.id, user.id, artistName])
+  }, [row.expo_id, row.id, artistName])
+  // `artistName` を deps に入れる（別視点レビューで検出）。他人の部屋を開いたときの
+  // 持ち主の名前は**あとから届く**ので、入れないと最初の1回（名前が空）のまま固定され、
+  // **主催者の画面で参加作家の作品に作家名が付かない**。届いたら読み直す。
   useEffect(() => {
     if (row.expo_id) void refreshRoomArtworks()
     else setRoomArtworks(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [row.expo_id, row.id])
+  }, [row.expo_id, row.id, artistName])
   const works: ArtworkData[] = row.expo_id ? (roomArtworks ?? []) : cloudArtworks
   const refreshWorks = row.expo_id ? refreshRoomArtworks : refreshCloud
   // 合同展示の部屋は専用プールなので、口座の共有プールの計算（`poolCapacity`・
@@ -700,16 +743,29 @@ function GalleryCard({
   }, [row.expo_id])
   // 自分がこの展示の主催者かどうか（migration 0062）。参加作家にも自分の部屋がある
   // ので、「参加者」タブ・会期を選んでの決済は主催者だけに絞る ── 参加者側の
-  // 「公開」タブは決済ではなく「準備できた」トグルに変わる。`expo`未取得のうちは
-  // 判断がつかないので、いったん主催者扱い（決済UIの一瞬のちらつきより、参加者の
-  // 誤操作＝他人の会期の決済に進んでしまう方を避ける必要はない ── ボタンは
-  // `expo`が要るので押しても何も起きない）。
-  const isOrganizer = !expo || expo.ownerId === user.id
-  // 通常展示に戻した直後、または自分が主催者でない展示で、タブが「参加者」に
+  // 「公開」タブは決済ではなく「準備できた」トグルに変わる。
+  //
+  // **`expo` が未取得のうちは「主催者ではない」に倒す**（2026-08-14 に反転させた）。
+  // 以前は `!expo || …` で主催者扱いにしていたが、それだと**参加作家の画面に一瞬
+  // 「参加者」タブが出て、「準備できた」トグルは出ない**。しかも `getExpoById` が
+  // 失敗すると `expo` は null のまま固定されるので、**参加作家がトグルに永久に
+  // 辿り着けない**（招待があれば `expos_select_invited`(0047) で読めるはずだが、
+  // 読めなかったときに開く側へ倒す理由が無い）。主催者側で「参加者」タブが一瞬
+  // 遅れて出るのは、その逆より軽い。
+  const isOrganizer = !!expo && expo.ownerId === user.id
+  // 展示から外した直後、または自分が主催者でない展示で、タブが「参加者」に
   // 居座って中身の無い画面にならないように。
+  // **`expo` を読み終えてから判定する** ── `isOrganizer` を安全側に倒したので、
+  // 読み込み中に判定すると**主催者が「参加者」タブを開いていても毎回「作品」へ
+  // 弾き出される**（タブの記憶が効かなくなる）。
   useEffect(() => {
-    if (stage === 'participants' && (!row.expo_id || !isOrganizer)) setStage('works')
-  }, [stage, row.expo_id, isOrganizer])
+    if (stage !== 'participants') return
+    if (!row.expo_id) {
+      setStage('works')
+      return
+    }
+    if (expo && expo.ownerId !== user.id) setStage('works')
+  }, [stage, row.expo_id, expo, user.id])
   // 合同展示の公開日時の予約（`<input type="datetime-local">` の値。空欄=今すぐ。
   // ユーザー指示 2026-08-10、上限なし）。
   const [scheduleInput, setScheduleInput] = useState('')
@@ -1571,12 +1627,18 @@ function GalleryCard({
   // 変わるのはこの2ステージだけ（作品は口座全体の作品庫・公開は「いま開いている
   // 部屋」の話で、どちらも切替の意味が薄い）。ロジックは変えず、置き場所だけ動かした。
   //
-  // `!row.expo_id`（ユーザー指摘 2026-08-13）: `rooms` prop は呼び手（`MePage`）が
-  // **常に自分の通常展示の部屋一覧**を渡しているので、合同展示の部屋を開いているときに
-  // ここへ来ると「いまの部屋がリストに無いのにタブだけ並ぶ」宙に浮いた状態になっていた。
-  // 合同展示の部屋は1展示につき1部屋（`ExpoManager`から開く専用の入口）で、通常展示の
-  // 部屋どうしを行き来する切替とは別の話なので、丸ごと隠す。
-  const roomSwitcher = !row.expo_id && rooms && rooms.length > 1 && (
+  // **合同展示の部屋もここに並べる**（ユーザー選択A 2026-08-14）。呼び手（`MePage`）は
+  // 通常展示の部屋＋自分の合同展示の部屋を `rooms` に渡す。招かれた作家は、自分の
+  // 通常展示の部屋と展示用の部屋を**この1か所で行き来する**（どちらも残る）。
+  //
+  // 2026-08-13 にはここを `!row.expo_id` で丸ごと隠していた。当時 `rooms` は通常展示の
+  // 部屋だけで、合同展示の部屋を開くと「いまの部屋がリストに無いのにタブだけ並ぶ」
+  // 宙に浮いた状態になったため。渡す一覧を直したので、その条件は要らなくなった ──
+  // ただし**同じ状態はもう1つの経路で起きる**: 主催者が「参加者」タブから参加作家の
+  // 部屋を開くと、開いている部屋は**他人の持ち物**なので `rooms`（自分の部屋の一覧）に
+  // 無い。条件を `row.expo_id` ではなく「**いまの部屋がこの一覧に居るか**」に置き換えて、
+  // 経路によらず宙に浮かないようにする。
+  const roomSwitcher = rooms && rooms.length > 1 && rooms.some((g) => g.id === row.id) && (
     <nav className="me-rooms" aria-label={t('me.roomsNav')}>
       {rooms.map((g) => {
         const label = isPlaceholderTitle(g.title) ? g.slug : g.title
@@ -1589,6 +1651,14 @@ function GalleryCard({
             onClick={() => onSwitchRoom?.(g.id)}
           >
             {label}
+            {/* 合同展示の部屋であることをタブの中で名乗る ── 同じ列に混ざるので、
+                無いと「どれが展示用の部屋か」が開くまで分からない。玄関の印
+                （`.me-room-main`）と同じ形の小さな添え字にする。 */}
+            {g.expo_id && (
+              <span className="me-room-expo" title={t('expo.roomModeJointShort')}>
+                {t('expo.roomModeJointShort')}
+              </span>
+            )}
             {g.id === frontDoorId && (
               <span className="me-room-main" title={t('me.frontDoor')}>{t('me.frontDoorShort')}</span>
             )}
@@ -1645,11 +1715,25 @@ function GalleryCard({
     </nav>
     {/* 「変更があります」を**言葉で**出す（ユーザー指示 2026-08-13）。タブを移動しても
         内容は保たれる作りなので、金色のボタンだけでは「何か残っている」と気づけない。 */}
-    <div className="me-save-slot">
-      {dirty && <span className="me-save-note">{t('me.unsavedNote')}</span>}
-      <SaveAllButton />
+    {/* 保存の枠は**自分の部屋のときだけ**。主催者が参加作家の部屋を開いているときは
+        DB側に書き込みのポリシーが1つも無いので（migration 0062・0064）、保存ボタンを
+        出しても押せば必ず失敗する ── 押せるのに失敗するボタンは出さない。 */}
+    {isMyRoom && (
+      <div className="me-save-slot">
+        {dirty && <span className="me-save-note">{t('me.unsavedNote')}</span>}
+        <SaveAllButton />
+      </div>
+    )}
     </div>
-    </div>
+    {/* 他人の部屋を見ていることを、編集面より先に言う（migration 0064・ユーザー選択C
+        2026-08-14: 主催者は「準備できた」参加作家の部屋の中身を見られる）。
+        **見た目が編集画面そのものなので、書けないことを言葉で出さないと、触ってから
+        エラーで気づくことになる。** */}
+    {!isMyRoom && (
+      <p className="me-note me-readonly-note" role="status">
+        {roomOwnerName ? t('me.readOnlyRoom', { name: roomOwnerName }) : t('me.readOnlyRoomAnon')}
+      </p>
+    )}
     {/* 部屋の切替タブ＋部屋の追加は「部屋」「配置」「公開」ステージの枠の外・タブの
         直下に出す（ユーザー指示 2026-08-11: 以前は箱の中にあった／公開タブにも
         出してほしいと追加指示）。追加ボタンも同じ3ステージすべてに出す（ユーザー指摘
@@ -1978,7 +2062,11 @@ function GalleryCard({
                 there are a few works — the same trap the old rail fell into
                 (ユーザー指摘 2026-07-28). */}
             <div className="me-works-row">
-              {works.length < (effectivePoolCapacity ?? row.work_cap) && (
+              {/* `isMyRoom`（別視点レビューで検出）: 主催者が参加作家の部屋を開いている
+                  ときにここを出すと、**R2へのアップロードは通ってから** `artworks` の
+                  insert が 0061 に拒否され、**誰も消せない孤児ファイルだけが残る**。
+                  押せるのに必ず失敗する操作は出さない。 */}
+              {isMyRoom && works.length < (effectivePoolCapacity ?? row.work_cap) && (
                 <label className={`me-work-tile me-add-tile${uploading ? ' busy' : ''}`} aria-disabled={uploading}>
                   <span className="me-add-tile-plus" aria-hidden="true">{uploading ? '…' : '+'}</span>
                   <small>{uploading ? t('me.uploading') : works.length === 0 ? t('me.addFirstWork') : t('me.addWork')}</small>
@@ -2014,15 +2102,19 @@ function GalleryCard({
                         reads without a label the 64px tile has no room for. */}
                     {selectedId === art.id && <span className="me-work-tile-mark" aria-hidden="true" />}
                   </button>
-                  <button
-                    type="button"
-                    className="me-work-tile-del"
-                    aria-label={t('me.workRemove')}
-                    title={t('me.workRemove')}
-                    onClick={() => void removeWork(art)}
-                  >
-                    ✕
-                  </button>
+                  {/* 他人の部屋では出さない（別視点レビューで検出）。RLS が他人の作品の
+                      削除を0行で弾くので、押しても何も起きないボタンになる。 */}
+                  {isMyRoom && (
+                    <button
+                      type="button"
+                      className="me-work-tile-del"
+                      aria-label={t('me.workRemove')}
+                      title={t('me.workRemove')}
+                      onClick={() => void removeWork(art)}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -2599,18 +2691,23 @@ function GalleryCard({
                 (ユーザー指示 2026-07-30). */}
             <GuestbookCard galleryId={row.id} enabled={row.guestbook_enabled !== false} />
             {/* Quiet row for rare / destructive housekeeping — not a peer of the rest */}
-            <div className="hako-secondary">
-              <button
-                className="danger"
-                disabled={busy}
-                onClick={() => {
-                  if (!confirm(t('me.deleteGalleryConfirm', { name: isPlaceholderTitle(row.title) ? t('me.myGallery') : row.title }))) return
-                  void run(t('me.deleteGallery'), () => deleteGallery(row.id))
-                }}
-              >
-                {t('me.deleteGallery')}
-              </button>
-            </div>
+            {/* 他人の部屋では出さない（別視点レビューで検出）。**これが一番たちが悪い**
+                ── RLS は削除を0行で弾くが例外は投げないので、`run()` は成功したことに
+                して「保存しました」を出す。主催者は**他人の部屋を消したと思い込む**。 */}
+            {isMyRoom && (
+              <div className="hako-secondary">
+                <button
+                  className="danger"
+                  disabled={busy}
+                  onClick={() => {
+                    if (!confirm(t('me.deleteGalleryConfirm', { name: isPlaceholderTitle(row.title) ? t('me.myGallery') : row.title }))) return
+                    void run(t('me.deleteGallery'), () => deleteGallery(row.id))
+                  }}
+                >
+                  {t('me.deleteGallery')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -3275,6 +3372,8 @@ export default function MePage() {
   const [checked, setChecked] = useState(false)
   // null = still loading (prevents flashing the create card at returning users)
   const [galleries, setGalleries] = useState<GalleryRow[] | null>(null)
+  /** `galleries` が誰の一覧か。**`user` と一致するまで、部屋数を根拠に何も決めない。** */
+  const [galleriesFor, setGalleriesFor] = useState<string | null>(null)
   // 口座内の全部屋（合同展示の部屋も含む）。作品スロットの合計を出すためだけに持つ
   // ── `galleries`（`listMyGalleries`）は合同展示の部屋を落とすので、これは別に引く。
   const [allOwnedRooms, setAllOwnedRooms] = useState<GalleryRow[] | null>(null)
@@ -3322,34 +3421,173 @@ export default function MePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /** 何回目の読み込みか。**遅れて返った古い応答で新しい状態を上書きしない**
+   *  （5巡目の別視点レビューで検出）。同じタブでアカウントが差し替わると読み込みが
+   *  2本走り、前の人の応答が後に着地すると `galleries` と `galleriesFor` が前の人で
+   *  固定される ── そうなると下の自動作成は「一覧が今の人のものではない」と判断して
+   *  永久に止まり、**新しい人に部屋もウィザードも出ない**まま前の人の部屋が表示される。 */
+  const reloadGen = useRef(0)
   const reload = useCallback(async () => {
     if (!user) return
+    const gen = ++reloadGen.current
+    const fresh = () => gen === reloadGen.current
     try {
-      setGalleries(await listMyGalleries(user.id))
+      const list = await listMyGalleries(user.id)
+      if (!fresh()) return
+      setGalleries(list)
       setLoadErr('')
     } catch (e) {
       console.error('could not load galleries (are supabase/migrations applied?):', e)
+      if (!fresh()) return
       setLoadErr(t('me.loadFailed'))
       setGalleries([])
     }
+    // **この一覧が誰のものかを一緒に覚える**（4巡目の別視点レビューで検出）。同じタブで
+    // アカウントが差し替わっても（supabase は別タブのサインインを伝えてくる）`galleries`
+    // は前の人のまま残るので、`user` だけを見て判断すると**前の人の部屋数を新しい人の
+    // 事実として記録してしまう**（実害: 新規の人に自動作成が二度と走らなくなる）。
+    setGalleriesFor(user.id)
     try {
-      setUsage(await getStorageUsage(user.id))
+      const bytes = await getStorageUsage(user.id)
+      if (fresh()) setUsage(bytes)
     } catch {
-      setUsage(null) // storage unconfigured or unreachable — hide the meter
+      if (fresh()) setUsage(null) // storage unconfigured or unreachable — hide the meter
     }
     try {
       // 作品スロットの合計（migration 0052の「移動」を撤回し、口座内の全部屋
       // ── 合同展示の部屋も含む ── のwork_capを合算した1つの数字にする。
       // ユーザー指摘 2026-08-11: 部屋ごとの数字を分けて考えたくない。
-      setAllOwnedRooms(await listAllOwnedRooms(user.id))
+      const all = await listAllOwnedRooms(user.id)
+      if (fresh()) setAllOwnedRooms(all)
     } catch {
-      setAllOwnedRooms(null) // 取れないときは呼び手がこの部屋自身のwork_capへフォールバックする
+      if (fresh()) setAllOwnedRooms(null) // 取れないときは呼び手がこの部屋自身のwork_capへフォールバックする
     }
   }, [user])
 
   useEffect(() => {
     void reload()
   }, [reload])
+
+  /**
+   * 部屋が1つも無い口座には、**その場で無料の部屋を1つ作る**（ユーザー決定 2026-08-14）。
+   *
+   * なぜ要るか: 登録時にできるのは `profiles` の行だけで、部屋は下の `CreateCard`
+   * （2ステップのウィザード）を完了して初めてできた。ところが合同展示に招かれた作家は、
+   * 承諾で自分の展示用の部屋ができても `listMyGalleries` がそれを除外するので、ここが
+   * **「0室」に見えたままウィザードが出続け、先に進めなかった**（本番でのユーザー報告
+   * 2026-08-14）。
+   *
+   * 選ばせずに作ってよい理由: 無料枠のテーマ／間取りは `whitecube`/`corridor` の
+   * 1つずつだけ（`lib/entitlements` の `FOREVER_FREE_*`）なので、**無料ユーザーが
+   * 選べるテンプレートは元から `studio`（White Cube）1つ**だった。ウィザードは4枚
+   * 見せていたが3枚は鍵付きで、選ぶと「続ける」が押せない。つまり選択肢は1つも
+   * 減らない。有料のテーマ／間取りは「部屋」タブに鍵付きで並び、そこから実物の
+   * プレビュー付きで買えるので、売り場も失われない。
+   *
+   * **DBのトリガ（`handle_new_user`）にはしない。** 「最初の部屋の作り方」（無料テーマ・
+   * 無料間取り・5枠・無料等級）のレシピが `lib/` とSQLの2か所に増えるため
+   * （DECISIONS【絶対ルール】2026-08-12）。ここで `createGallery` を呼べばレシピは1か所。
+   */
+  /** 自動作成がいま走っているか。**走っている最中はウィザードを出さない**
+   *  （3巡目の別視点レビューで検出）── 作成中に auth のイベントで `galleries` の
+   *  identity だけが変わると、この effect が再入して「まだ0室」と読み、消したはずの
+   *  ウィザードが割り込んで出ていた（着地すると入力中でも消える）。 */
+  const autoRoomCreating = useRef(false)
+  /** 自動作成を**試したユーザー**（成否を問わず1人につき1回）。失敗してウィザードを
+   *  出したあとに、`user` オブジェクトの作り直し（トークン更新など）で effect が
+   *  再入して**2回目の作成が入力中のウィザードの裏で走る**のを防ぐ（4巡目の別視点
+   *  レビューで検出）。ユーザーidで持つので、アカウントを切り替えれば仕切り直しになる。 */
+  const autoRoomAttempted = useRef<string | null>(null)
+  const [showCreateCard, setShowCreateCard] = useState(false)
+  useEffect(() => {
+    if (!user || loadErr || galleries === null) return
+    // **いま手元にある一覧が、いまのユーザーのものだと確かめてから判断する。**
+    if (galleriesFor !== user.id) return
+    // 「一度でも部屋を持った」は**この口座の事実**なので、マウント限りの ref ではなく
+    // ブラウザに残す（3巡目の別視点レビューで検出）。ref だと、最後の部屋を削除した人が
+    // **リロードしただけで部屋が黙って作り直され**、削除ボタンが効いていないように見える。
+    const key = `${HAD_ROOM_KEY}.${user.id}`
+    if (galleries.length > 0) {
+      try { localStorage.setItem(key, '1') } catch { /* 保存できなくても動作は変えない */ }
+      setShowCreateCard(false)
+      return
+    }
+    // 走っている最中は何も出さない（出すと作成中にウィザードが割り込む）。
+    if (autoRoomCreating.current) return
+    // 試して終わったのにまだ0室＝作成に失敗した。**作り直さずウィザードを出したまま**にする。
+    if (autoRoomAttempted.current === user.id) {
+      setShowCreateCard(true)
+      return
+    }
+    let had = false
+    try { had = localStorage.getItem(key) === '1' } catch { /* 読めなければ「初めて」扱い */ }
+    if (had) {
+      // 持っていたのに0室＝自分で削除した。本人の意思なので黙って作り直さない。
+      setShowCreateCard(true)
+      return
+    }
+    autoRoomAttempted.current = user.id
+    autoRoomCreating.current = true
+    // **時間切れでウィザードを出す逃げ道は置かない**（5巡目の別視点レビューで撤去した）。
+    // 一度書いてみたが、回線が遅くて作成に8秒以上かかると**ウィザードが出た直後に
+    // 作成が着地して、入力中のウィザードが消える**（あるいは利用者が先に完走して
+    // 2本目の作成が走り「もう部屋は作れません」で弾かれる）。作成が遅いだけの人に
+    // 壊れた体験を配る方が、応答が返らない稀な人を救うより高くつく。返らないときは
+    // ブラウザ側が最後には失敗させ、その `catch` でウィザードが出る。
+    void (async () => {
+      try {
+        // 題は空のまま（`createGallery` の作法）。表示側は題が空なら作家名を先に出す。
+        await createGallery(user.id, { title: '', templateId: 'studio' })
+        track('me_room_auto_create', {})
+        await reload()
+      } catch (e) {
+        // **画面は止めない。** 失敗したらウィザードをそのまま出して手で作ってもらう
+        // （オフライン・RLSの想定外など、ここで詰ませるとアカウントが使えなくなる）。
+        console.error('could not create the first room automatically:', e)
+        setShowCreateCard(true)
+      } finally {
+        autoRoomCreating.current = false
+      }
+    })()
+  }, [user, loadErr, galleries, galleriesFor, reload])
+
+  /**
+   * どの部屋を開くか。**初回は合同展示の部屋を開く**（ユーザー決定 2026-08-14:
+   * 「参加表明して承認されてダッシュボードに行ったら、合同展示のダッシュボードが
+   * 開いている状態になっている」）。2回目以降は前に開いていた部屋に戻す。
+   *
+   * 復元を mount 後の effect でやるのは `stage` と同じ理由（初期値で `localStorage` を
+   * 読むと、サーバが描いたHTMLと食い違って hydration が壊れる）。**書き込みは復元が
+   * 済むまでしない** ── mount 直後は「復元 → 保存」の順に走るので、保存側が先に
+   * 初期値（null）を書くと、その一瞬でタブを閉じられた人の記憶が消える。
+   */
+  const roomRestored = useRef(false)
+  useEffect(() => {
+    if (roomRestored.current) return
+    // **利用者が先に部屋を選んでいたら、記憶で上書きしない。** 受信箱の「自分の部屋を
+    // 開く」や `ExpoManager` の「部屋を開く」は一覧の到着より先に押せるので、ここで
+    // 無条件に復元すると**押した部屋が一瞬で別の部屋にすり替わる**。
+    if (roomId) {
+      roomRestored.current = true
+      return
+    }
+    // 一覧が届くまで待つ（届く前に決めると、保存された id が「一覧に無い」と判定される）。
+    if (!allOwnedRooms || allOwnedRooms.length === 0) return
+    roomRestored.current = true
+    const saved = localStorage.getItem(ROOM_KEY)
+    if (saved && allOwnedRooms.some((g) => g.id === saved)) {
+      setRoomId(saved)
+      return
+    }
+    // 記憶が無い（＝承認された直後に初めて来た人を含む）。合同展示の部屋があれば
+    // そちらを開く。無ければ `roomId` は null のままで、玄関の部屋が開く。
+    const joint = allOwnedRooms.find((g) => g.expo_id)
+    if (joint) setRoomId(joint.id)
+  }, [allOwnedRooms, roomId])
+  useEffect(() => {
+    if (!roomRestored.current || !roomId) return
+    localStorage.setItem(ROOM_KEY, roomId)
+  }, [roomId])
 
   // How many rooms this account may own: the free one plus one per $25 purchase.
   const owned = usePurchasedIds(user?.id ?? null)
@@ -3360,6 +3598,18 @@ export default function MePage() {
   // `mainRoomOf` owns the pre-0036 fallback (no flag → the oldest room), so every
   // consumer here agrees on which room `/@name` renders.
   const frontDoor = mainRoomOf(rooms)
+  /**
+   * 部屋タブに並べる一覧＝**通常展示の部屋 ＋ 自分の合同展示の部屋**
+   * （ユーザー選択A 2026-08-14）。合同展示に招かれた作家は、承諾でできた自分の部屋と
+   * 自分の通常展示の部屋を**行き来する**（どちらも残る・枠は食い合わない）。
+   *
+   * **`rooms` の側は合同展示を除いたままにする。** 玄関の決定（`mainRoomOf`）・部屋枠の
+   * 勘定（`unbuiltRooms`）・共有プールの計算は「通常展示の部屋だけ」で成り立っていて、
+   * ここへ合同展示の部屋を混ぜると意味が変わる（合同展示の部屋が玄関になり `/@ハンドル`
+   * が壊れる／場所代で立てた部屋を購入済みの枠として数える）。**並べる一覧と数える
+   * 一覧を分ける**のが要点。
+   */
+  const switchableRooms = allOwnedRooms ?? rooms
   // `rooms`（`listMyGalleries`）は合同展示の部屋を弾く（`lib/galleries.ts` 冒頭参照）ので、
   // ExpoManager の「部屋を開く」で立てた `roomId` がそこに無いことがある。**見つからない
   // ときは黙って玄関の部屋に化けさせず、id で直接引く**（見つかるまでは玄関に留まる＝
@@ -3551,8 +3801,14 @@ export default function MePage() {
                   {(galleries === null || galleries.length === 0) && <h2>{t('me.myGallery')}</h2>}
                   {loadErr && <p className="me-error">{loadErr}</p>}
                   {galleries === null && !loadErr && <p className="me-note">{t('me.loading')}</p>}
+                  {/* 部屋が0室のときは、上の effect が黙って1室作る（ユーザー決定
+                      2026-08-14）。ウィザードは**その自動作成が失敗したときの退路**
+                      としてだけ残す ── 出しっぱなしにすると、合同展示に招かれた作家の
+                      画面に「最初の部屋を作りましょう」が居座る（今回の不具合）。 */}
                   {galleries !== null && !loadErr && galleries.length === 0 && (
-                    <CreateCard onCreated={() => void reload()} />
+                    showCreateCard
+                      ? <CreateCard onCreated={() => void reload()} />
+                      : <p className="me-note">{t('me.loading')}</p>
                   )}
                   {current && (
                     <GalleryCard
@@ -3568,11 +3824,11 @@ export default function MePage() {
                       onStageChange={setStage}
                       /* 部屋の切替タブ（ユーザー指示 2026-08-10: 「部屋」「配置」ステージの
                          中だけに置く。UIとロジックは変えず場所だけ動かした）。 */
-                      rooms={rooms}
+                      rooms={switchableRooms}
                       frontDoorId={frontDoor?.id ?? null}
                       onSwitchRoom={(id) => {
-                        const g = rooms.find((r) => r.id === id)
-                        track('room_switch', { to: g?.slug, main: id === frontDoor?.id })
+                        const g = switchableRooms.find((r) => r.id === id)
+                        track('room_switch', { to: g?.slug, main: id === frontDoor?.id, expo: !!g?.expo_id })
                         setRoomId(id)
                       }}
                       /* 「参加者」タブから、承諾済みの作家の自動生成の部屋へ飛ぶ

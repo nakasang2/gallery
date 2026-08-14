@@ -696,7 +696,6 @@ export const de: PartialDictionary = {
     roomSwitchAddHeading: 'Gemeinschaftsausstellungen starten Sie im Tab „Gemeinschaftsausstellungen“.',
     roomSwitchNoExpo: 'Sie haben noch keine Gemeinschaftsausstellung.',
     roomSwitchCurrentHeading: 'Teil von „{title}“',
-    roomSwitchToNormal: 'Wieder zu einem normalen Raum machen',
     roomSwitchFailedEmpty: 'In diesem Raum hängen bereits Werke, daher kann er nicht umgestellt werden.',
     roomSwitchFailedAllowance: 'Kein freier Raumplatz verfügbar — kaufen Sie zuerst einen Raum.',
     roomSwitchFailedOther: 'Dieser Raum konnte nicht umgestellt werden.',

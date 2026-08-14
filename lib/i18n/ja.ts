@@ -352,6 +352,9 @@ export const ja: Dictionary = {
     participantRoomReady: '準備完了',
     // state-ok: 同上。呼び手が各参加者の`roomReadyAt`から選ぶ。
     participantRoomNotReady: '準備中',
+    // 承諾済みなのに部屋が無い（0062より前の招待／0063より前に部屋を失った人）。
+    // 主催者の対処はどちらも同じなので、原因ではなく次にすることを出す。
+    statusNoRoom: '部屋がありません（× で取り消して招き直してください）',
     openParticipantRoom: '部屋を開く',
   },
 
@@ -578,6 +581,12 @@ export const ja: Dictionary = {
     profileCv: '来歴（展示歴・受賞歴）',
     profileCvNote: '1行に1件。展示・受賞・掲載などを書けます。来場者には自己紹介と並ぶ別タブとして表示されます。',
     markdownOk: 'マークダウンが使えます: **太字** · *斜体* · - 箇条書き · [リンク](URL) · # 見出し', mdPreview: 'プレビュー', saveAll: '保存', unsavedNote: '変更があります', unsavedMark: '未保存', unsavedLeave: '保存していない変更があります。保存せずに移動しますか？', saveAllFailed: '保存できませんでした: {msg}',
+    // 主催者が参加作家の部屋を開いているとき（migration 0064）。編集画面と同じ見た目なので、
+    // 書けないことを言葉で出す。
+    readOnlyRoom: 'これは {name} さんの部屋です。中を見ることはできますが、変更はできません。',
+    // 名前が引けなかったとき。**「どなたか さんの部屋」と差し込まない**（日本語として
+    // 壊れる）。名前を出さない文を別に持つ。
+    readOnlyRoomAnon: 'これはほかの作家の部屋です。中を見ることはできますが、変更はできません。',
     profileSnsNote: 'SNSを登録すると、公開ページと部屋の中に表示され、来場者が他の場所でもあなたを追えるようになります。各欄には、アドレス欄のURLをそのまま貼り付けてください。',
     snsWrongPlatform: '{found} のリンクのようです（この欄は {expected} です）。',
     snsNotPlatform: '{expected} のリンクではないようです。',
@@ -1015,7 +1024,12 @@ export const ja: Dictionary = {
     roomSwitchAddHeading: '合同展示は「合同展示」タブから新しく作成できます。',
     roomSwitchNoExpo: 'まだ合同展示がありません。',
     roomSwitchCurrentHeading: '「{title}」の一部',
-    roomSwitchToNormal: '通常展示に戻す',
+    // 部屋タブの中で「これは合同展示の部屋」だと名乗る添え字。短く（タブの幅を食わない）。
+    roomModeJointShort: '合同',
+    // 「通常展示に戻す」から改名（ユーザー決定 2026-08-14）。表示の切り替えに見える
+    // 名前だったが、実際には部屋を展示から抜く操作で、参加作家が押して展示から消えた。
+    roomLeaveExpo: 'この部屋を展示から外す',
+    roomLeaveHint: 'この展示から降りるときは、ダッシュボード上部の招待の欄から「降りる」を押してください。',
     roomSwitchFailedEmpty: '作品が置かれているため、切り替えられません。',
     roomSwitchFailedAllowance: '空いている部屋枠がありません。先に部屋を購入してください。',
     roomSwitchFailedOther: '切り替えに失敗しました。',

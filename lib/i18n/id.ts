@@ -696,7 +696,6 @@ export const id: PartialDictionary = {
     roomSwitchAddHeading: 'Mulai pameran bersama dari tab “Pameran bersama”.',
     roomSwitchNoExpo: 'Anda belum memiliki pameran bersama.',
     roomSwitchCurrentHeading: 'Bagian dari “{title}”',
-    roomSwitchToNormal: 'Jadikan ruang biasa lagi',
     roomSwitchFailedEmpty: 'Ruang ini sudah memiliki karya yang dipajang, jadi tidak dapat diubah.',
     roomSwitchFailedAllowance: 'Tidak ada slot ruang kosong — beli ruang terlebih dahulu.',
     roomSwitchFailedOther: 'Tidak dapat mengubah ruang ini.',

@@ -300,6 +300,25 @@ export async function listExpoRoomsWithOwners(expoId: string): Promise<ExpoRoomI
 }
 
 /**
+ * 表示用の名前を1人ぶんだけ引く（migration 0064・2026-08-14）。
+ *
+ * **主催者が参加作家の部屋を開いたとき、作品のプレートに出す作家名**に使う。所有者で
+ * 絞らずに部屋の作品を読むようにしたので（`listRoomArtworks`）、名前まで自分のものを
+ * 配ると**他人の作品に主催者の名前が付く**。`profiles_select_all` は `using (true)` なので
+ * 追加のポリシーは要らない。見つからなければ空文字（表示側は作家名を出さないだけ）。
+ */
+export async function fetchProfileName(userId: string): Promise<string> {
+  const { data, error } = await supabase!
+    .from('profiles')
+    .select('username, display_name')
+    .eq('id', userId)
+    .maybeSingle()
+  if (error || !data) return ''
+  const p = data as { username: string | null; display_name: string | null }
+  return p.display_name || p.username || ''
+}
+
+/**
  * 1件だけ、idで直接引く。**合同展示の部屋を`roomId`で開くときに使う**
  * ── `listMyGalleries()` は合同展示の部屋を弾くので、そちらの一覧には乗ってこない
  * （このファイル冒頭のコメント参照）。RLS は所有者なら `expo_id` の有無に関わらず

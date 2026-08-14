@@ -140,15 +140,27 @@ export async function POST(req: NextRequest) {
     })
     const { data: x } = await asUser
       .from('expos')
-      .select('id, owner_id, starts_at')
+      .select('id, owner_id, starts_at, ends_at')
       .eq('id', expoId)
       .maybeSingle()
-    const row = x as { owner_id?: string; starts_at?: string | null } | null
+    const row = x as { owner_id?: string; starts_at?: string | null; ends_at?: string | null } | null
     if (!row || row.owner_id !== user.id) {
       return NextResponse.json({ error: 'That exhibition is not yours.' }, { status: 403 })
     }
+    // 会期が既に決まっている＝もう払われている。**「開催中です」と決めつけない**
+    // （2026-08-14 に直した）── 終わった展示にもう一度払おうとしたときにも同じ文が
+    // 出ていて、終わっているのに「開催中」と言っていた。同じ展示で次の会期は立てられない
+    // （`record_expo_purchase` が2件目を黙って抜ける）ので、新しく作る案内まで出す。
     if (row.starts_at) {
-      return NextResponse.json({ error: 'This exhibition is already running.' }, { status: 409 })
+      const ended = !!row.ends_at && new Date(row.ends_at).getTime() < Date.now()
+      return NextResponse.json(
+        {
+          error: ended
+            ? 'That exhibition’s run has finished. Create a new exhibition to open another run.'
+            : 'That exhibition already has a run booked.',
+        },
+        { status: 409 }
+      )
     }
   }
 

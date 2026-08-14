@@ -517,8 +517,17 @@ export function ParticipantsPanel({
                         ? inv.roomReadyAt
                           ? t('invite.participantRoomReady')
                           : t('invite.participantRoomNotReady')
-                        // 後方互換（0062以前に承諾済みで部屋がまだ無い）: 旧・提出モデルの点数。
-                        : t('invite.statusSubmitted', { count: inv.submittedCount })
+                        // 部屋が無い承諾済み。**「0点提出」と出してはいけない**
+                        // （2026-08-14 に直した）── 旧・提出モデルの言い方なので、
+                        // 実際には提出という仕組みを一度も見ていない作家について
+                        // 「0点しか出していない」と読め、主催者が状況を誤解する。
+                        // 該当するのは①0062より前に承諾した人②0063より前に
+                        // 「通常展示に戻す」で部屋を失った人、のどちらか。**どちらも
+                        // 主催者側の対処は同じ（招き直す）**なので、点数ではなく
+                        // 「部屋がまだ無い」と、その直し方を出す。
+                        : inv.submittedCount > 0
+                          ? t('invite.statusSubmitted', { count: inv.submittedCount })
+                          : t('invite.statusNoRoom')
                       : t('invite.statusDeclined')}
               </span>
               {/* 参加希望は主催者が承認するまで何の権限も持たない（0048）。断るときは

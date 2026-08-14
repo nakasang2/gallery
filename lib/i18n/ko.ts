@@ -761,7 +761,6 @@ export const ko: PartialDictionary = {
     roomSwitchAddHeading: '합동 전시는 "합동 전시" 탭에서 새로 만들 수 있습니다.',
     roomSwitchNoExpo: '아직 합동 전시가 없습니다.',
     roomSwitchCurrentHeading: '「{title}」의 일부',
-    roomSwitchToNormal: '일반 전시실로 되돌리기',
     roomSwitchFailedEmpty: '이 전시실에는 이미 작품이 걸려 있어 전환할 수 없습니다.',
     roomSwitchFailedAllowance: '비어 있는 전시실 자리가 없습니다. 먼저 전시실을 구매하세요.',
     roomSwitchFailedOther: '전시실을 전환하지 못했습니다.',

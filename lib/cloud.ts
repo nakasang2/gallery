@@ -232,11 +232,16 @@ export async function listMyArtworks(ownerId: string, artistName: string): Promi
  * `.eq('gallery_id', ...)` 未適用のDB（0061前）では列が無くクエリが丸ごと落ちるので、
  * その場合は「まだ1点も無い」と同じ扱いにする（合同展示タブ全体を落とさない）。
  */
-export async function listRoomArtworks(ownerId: string, galleryId: string, artistName: string): Promise<ArtworkData[]> {
+export async function listRoomArtworks(galleryId: string, artistName: string): Promise<ArtworkData[]> {
+  // **所有者では絞らない**（2026-08-14 に `ownerId` 引数を外した）。合同展示の部屋に
+  // `gallery_id` を名乗れるのは**その部屋の持ち主の作品だけ**なので（migration 0061 が
+  // 拒否する／0062 のSQLテストO4で実測）、部屋で絞れば所有者で絞るのと同じ集合になる。
+  // 一方で所有者で絞っていると、**主催者が「準備できた」参加作家の部屋を開いたときに
+  // 0点に見える** ── 0064 でRLSを開けても、クライアント側のこの条件が先に落としていた。
+  // 見えてよいかどうかはRLSが決める（アプリはその答えを表示するだけ）。
   const { data, error } = await supabase!
     .from('artworks')
     .select('*')
-    .eq('owner_id', ownerId)
     .eq('gallery_id', galleryId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })
