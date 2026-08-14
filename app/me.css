@@ -513,44 +513,30 @@
 }
 .me-error { font-size: 0.78rem; line-height: 1.8; color: #e08a7a; margin-top: 0.8rem; }
 
-/* トリミング位置（十字アンカー）— デザインツールの9マス風。実際にトリミングが
-   起きるのは横 or 縦のどちらか一方の軸だけ(object-fit: cover)なので、効かない
-   軸の6マスは選べないダミー枠として薄く出す（ユーザー指示 2026-08-14） */
-.crop-align-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1.9rem);
-  grid-template-rows: repeat(3, 1.9rem);
-  gap: 0.3rem;
-  margin-top: 0.5rem;
-}
-.crop-align-cell {
-  width: 100%;
-  height: 100%;
+/* トリミング位置 — ⇄(縦横入れ替え)の隣に置く、枠の無いアイコンだけのボタン列。
+   実際にトリミングが起きるのは横 or 縦のどちらか一方の軸だけ(object-fit: cover)
+   なので、効く3値だけを並べる（ユーザー指示 2026-08-14: ボタンの箱は要らない） */
+.crop-align-icons { display: inline-flex; align-items: center; gap: 0.15rem; }
+.crop-align-icon {
+  width: 1.9rem;
+  height: 1.9rem;
   padding: 0;
-  border: 1px solid var(--hairline);
-  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--muted);
   background: transparent;
+  border: none;
+  border-radius: 5px;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
+  transition: color 0.2s, background 0.2s;
 }
-.crop-align-cell:hover { border-color: var(--gold); }
-.crop-align-cell.active { border-color: var(--gold); background: rgba(212, 162, 78, 0.16); }
-.crop-align-cell.active::after {
-  content: '';
-  display: block;
-  width: 0.4rem;
-  height: 0.4rem;
-  margin: auto;
-  border-radius: 50%;
-  background: var(--gold);
+.crop-align-icon:hover { color: var(--gold); background: rgba(212, 162, 78, 0.08); }
+.crop-align-icon.active { color: var(--gold); background: rgba(212, 162, 78, 0.16); }
+@media (pointer: coarse) {
+  .crop-align-icon { width: 44px; height: 44px; }
 }
-.crop-align-cell--inactive {
-  border-style: dashed;
-  border-color: var(--hairline);
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-.crop-align-current { font-size: 0.72rem; color: var(--muted); margin-top: 0.4rem; }
 
 .me-field { display: block; margin: 0.9rem 0; }
 .me-field span {

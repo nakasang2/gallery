@@ -197,3 +197,30 @@ export function BellIcon({ className }: { className?: string }) {
     </svg>
   )
 }
+
+// トリミング位置(app/me/page.tsx)。額縁を表す枠の中で、実際に見える範囲(塗り)が
+// 上/中央/下または左/中央/右のどこに寄っているかを図にする — デザインツールの
+// クロップ・アンカー風（ユーザー指示 2026-08-14: チップ/ドットではなくアイコンで）
+const CROP_ANCHOR_RECT: Record<'top' | 'bottom' | 'center-v' | 'left' | 'right' | 'center-h', string> = {
+  top: '5 5 14 6',
+  'center-v': '5 9 14 6',
+  bottom: '5 13 14 6',
+  left: '5 5 6 14',
+  'center-h': '9 5 6 14',
+  right: '13 5 6 14',
+}
+export function CropAnchorIcon({
+  dir,
+  className,
+}: {
+  dir: 'top' | 'bottom' | 'center-v' | 'left' | 'right' | 'center-h'
+  className?: string
+}) {
+  const [x, y, w, h] = CROP_ANCHOR_RECT[dir].split(' ')
+  return (
+    <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" className={className}>
+      <rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="currentColor" strokeWidth="1.4" opacity="0.4" />
+      <rect x={x} y={y} width={w} height={h} rx="1" fill="currentColor" />
+    </svg>
+  )
+}

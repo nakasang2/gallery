@@ -23,7 +23,7 @@ import TopActions from '@/components/TopActions'
 import NotificationBell from '@/components/me/NotificationBell'
 import ExpoManager from '@/components/me/ExpoManager'
 import RoomExpoBadge from '@/components/me/RoomExpoBadge'
-import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon } from '@/components/icons'
+import { LockIcon, VideoIcon, InfoIcon, CopyIcon, CheckIcon, CropAnchorIcon } from '@/components/icons'
 import { PRICE_SLOT, PRICE_PER_SLOT_CENTS, PRICE_VIDEO_PASS, PRICE_ROOM, PRICE_USD_CENTS, usd, expoRunOptions, type PaidKind } from '@/lib/pricing'
 import {
   getExpoById,
@@ -1476,153 +1476,123 @@ function GalleryCard({
             </button>
           </div>
         </div>
-        <div className="wd-row" style={{ margin: '0.45rem 0' }}>
-          <span className="wd-label">{t('me.size')}</span>
-          <div className="design-controls wd-size" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-            {/* Pick a standard size (号 / A / B), or "Custom" to type cm. The W×H
-                fields only appear in custom mode; a preset shows just the ⇄ swap. */}
-            <select
-              className="ent-select"
-              value={sizeCustom ? 'custom' : (matchPreset(parseFloat(widthInput), parseFloat(heightInput)) ?? 'custom')}
-              onChange={(e) => {
-                const p = presetByLabel(e.target.value)
-                if (p) {
-                  editWork({ width: String(p.w), height: String(p.h) })
-                  setSizeCustom(false)
-                } else {
-                  setSizeCustom(true) // "{t('me.sizeCustom')}" — reveal the cm fields
-                }
-              }}
-            >
-              <option value="custom">{t('me.sizeCustom')}</option>
-              {SIZE_GROUPS.map((g) => (
-                <optgroup key={g.label} label={g.label}>
-                  {g.options.map((o) => (
-                    <option key={o.label} value={o.label}>
-                      {o.label} — {o.w} × {o.h} cm
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
-              {sizeCustom && (
-                <>
-                  <input
-                    type="number"
-                    min={1}
-                    inputMode="decimal"
-                    placeholder="W"
-                    className="size-num"
-                    value={widthInput}
-                    onChange={(e) => editWork({ width: e.target.value })}
-                  />
-                  <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
-                  <input
-                    type="number"
-                    min={1}
-                    inputMode="decimal"
-                    placeholder="H"
-                    className="size-num"
-                    value={heightInput}
-                    onChange={(e) => editWork({ height: e.target.value })}
-                  />
-                  <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
-                </>
-              )}
-              <button
-                type="button"
-                className="btn-line"
-                title={t('me.swapSize')}
-                style={{ padding: '0.35em 0.6em' }}
-                onClick={() => editWork({ width: heightInput, height: widthInput })}
-              >
-                ⇄
-              </button>
-            </div>
-          </div>
-        </div>
         {/* Cover-fit crops the image when the chosen size's aspect differs from the
-            image's — warn so the artist knows part of the picture is cut off
-            (ユーザー指示 2026-07-30). The ⇄ swap can flip the ratio to fix it. */}
+            image's (ユーザー指示 2026-07-30). Crop happens on exactly one axis
+            (Exhibit.tsx's UV offset) — 'start'/'end' are UV-space positions
+            (offset 0 / the far offset), axis-agnostic on purpose (see the comment
+            there). Whether that reads as Left/Right or Top/Bottom is decided here,
+            from which axis is being cropped: the U axis is unflipped (start=left),
+            but the V axis is flipped for texture upload, so a vertical crop's
+            start=bottom. */}
         {(() => {
           const w = parseFloat(widthInput)
           const h = parseFloat(heightInput)
-          if (!(w > 0 && h > 0)) return null
           const imgA = selected.ratio[0] / selected.ratio[1]
-          const sizeA = w / h
+          const sizeA = w > 0 && h > 0 ? w / h : imgA
           const crop = 1 - Math.min(imgA, sizeA) / Math.max(imgA, sizeA)
-          if (crop <= 0.01) return null
-          // The crop happens on exactly one axis (Exhibit.tsx's UV offset), and
-          // 'start'/'end' are UV-space positions (offset 0 / the far offset) —
-          // axis-agnostic on purpose (see the comment there). Whether that reads
-          // as Left/Right or Top/Bottom is decided here, from which axis is being
-          // cropped: the U axis is unflipped (start=left), but the V axis is
-          // flipped for texture upload, so a vertical crop's start=bottom.
+          const showCropAlign = w > 0 && h > 0 && crop > 0.01
           const vertical = imgA <= sizeA
-          const alignOptions: { value: CropAlign; labelKey: string }[] = vertical
-            ? [
-                { value: 'end', labelKey: 'me.cropAlignTop' },
-                { value: 'center', labelKey: 'me.cropAlignCenter' },
-                { value: 'start', labelKey: 'me.cropAlignBottom' },
-              ]
-            : [
-                { value: 'start', labelKey: 'me.cropAlignLeft' },
-                { value: 'center', labelKey: 'me.cropAlignCenter' },
-                { value: 'end', labelKey: 'me.cropAlignRight' },
-              ]
-          // Cross-anchor layout: the 3 positions along the axis that actually
-          // crops sit in the middle column (vertical) or middle row (horizontal);
-          // the other 6 grid cells are dead (the other axis fits exactly, so
-          // aligning it would change nothing) and shown as disabled placeholders.
-          const labelByValue = new Map(alignOptions.map((o) => [o.value, o.labelKey] as const))
-          const activeByPos = new Map<string, CropAlign>(
+          const alignOptions: { value: CropAlign; labelKey: string; dir: 'top' | 'bottom' | 'center-v' | 'left' | 'right' | 'center-h' }[] =
             vertical
               ? [
-                  ['0,1', 'end'],
-                  ['1,1', 'center'],
-                  ['2,1', 'start'],
+                  { value: 'end', labelKey: 'me.cropAlignTop', dir: 'top' },
+                  { value: 'center', labelKey: 'me.cropAlignCenter', dir: 'center-v' },
+                  { value: 'start', labelKey: 'me.cropAlignBottom', dir: 'bottom' },
                 ]
               : [
-                  ['1,0', 'start'],
-                  ['1,1', 'center'],
-                  ['1,2', 'end'],
+                  { value: 'start', labelKey: 'me.cropAlignLeft', dir: 'left' },
+                  { value: 'center', labelKey: 'me.cropAlignCenter', dir: 'center-h' },
+                  { value: 'end', labelKey: 'me.cropAlignRight', dir: 'right' },
                 ]
-          )
           return (
-            <div style={{ margin: '0.45rem 0' }}>
-              <p className="me-note me-note--warn">{t('me.cropWarn', { pct: Math.round(crop * 100) })}</p>
-              <div className="crop-align-grid" role="group" aria-label={t('me.cropAlignLabel')}>
-                {[0, 1, 2].flatMap((row) =>
-                  [0, 1, 2].map((col) => {
-                    const pos = `${row},${col}`
-                    const value = activeByPos.get(pos)
-                    if (!value) {
-                      return (
-                        <span
-                          key={pos}
-                          className="crop-align-cell crop-align-cell--inactive"
-                          aria-hidden="true"
-                          title={t('me.cropAlignInactive')}
+            <>
+              <div className="wd-row" style={{ margin: '0.45rem 0' }}>
+                <span className="wd-label">{t('me.size')}</span>
+                <div className="design-controls wd-size" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {/* Pick a standard size (号 / A / B), or "Custom" to type cm. The W×H
+                      fields only appear in custom mode; a preset shows just the ⇄ swap. */}
+                  <select
+                    className="ent-select"
+                    value={sizeCustom ? 'custom' : (matchPreset(parseFloat(widthInput), parseFloat(heightInput)) ?? 'custom')}
+                    onChange={(e) => {
+                      const p = presetByLabel(e.target.value)
+                      if (p) {
+                        editWork({ width: String(p.w), height: String(p.h) })
+                        setSizeCustom(false)
+                      } else {
+                        setSizeCustom(true) // "{t('me.sizeCustom')}" — reveal the cm fields
+                      }
+                    }}
+                  >
+                    <option value="custom">{t('me.sizeCustom')}</option>
+                    {SIZE_GROUPS.map((g) => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.options.map((o) => (
+                          <option key={o.label} value={o.label}>
+                            {o.label} — {o.w} × {o.h} cm
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'nowrap' }}>
+                    {sizeCustom && (
+                      <>
+                        <input
+                          type="number"
+                          min={1}
+                          inputMode="decimal"
+                          placeholder="W"
+                          className="size-num"
+                          value={widthInput}
+                          onChange={(e) => editWork({ width: e.target.value })}
                         />
-                      )
-                    }
-                    const labelKey = labelByValue.get(value)!
-                    return (
-                      <button
-                        key={pos}
-                        type="button"
-                        className={`crop-align-cell${cropAlignInput === value ? ' active' : ''}`}
-                        aria-label={t(labelKey)}
-                        title={t(labelKey)}
-                        onClick={() => editWork({ cropAlign: value })}
-                      />
-                    )
-                  })
-                )}
+                        <span aria-hidden="true" style={{ color: 'var(--muted)' }}>×</span>
+                        <input
+                          type="number"
+                          min={1}
+                          inputMode="decimal"
+                          placeholder="H"
+                          className="size-num"
+                          value={heightInput}
+                          onChange={(e) => editWork({ height: e.target.value })}
+                        />
+                        <span aria-hidden="true" style={{ color: 'var(--muted)' }}>cm</span>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-line"
+                      title={t('me.swapSize')}
+                      style={{ padding: '0.35em 0.6em' }}
+                      onClick={() => editWork({ width: heightInput, height: widthInput })}
+                    >
+                      ⇄
+                    </button>
+                    {showCropAlign && (
+                      <div className="crop-align-icons" role="group" aria-label={t('me.cropAlignLabel')}>
+                        {alignOptions.map((o) => (
+                          <button
+                            key={o.value}
+                            type="button"
+                            className={`crop-align-icon${cropAlignInput === o.value ? ' active' : ''}`}
+                            aria-label={t(o.labelKey)}
+                            aria-pressed={cropAlignInput === o.value}
+                            title={t(o.labelKey)}
+                            onClick={() => editWork({ cropAlign: o.value })}
+                          >
+                            <CropAnchorIcon dir={o.dir} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              <p className="crop-align-current">{t(labelByValue.get(cropAlignInput) ?? 'me.cropAlignCenter')}</p>
-            </div>
+              {showCropAlign && (
+                <p className="me-note me-note--warn">{t('me.cropWarn', { pct: Math.round(crop * 100) })}</p>
+              )}
+            </>
           )
         })()}
         <label className="me-field" style={{ margin: '0.45rem 0' }}>

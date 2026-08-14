@@ -542,7 +542,6 @@ export const en = {
     cropAlignRight: 'Right',
     cropAlignTop: 'Top',
     cropAlignBottom: 'Bottom',
-    cropAlignInactive: 'This side already fits exactly, so nothing is cropped here',
     placementHint: 'Choose which work hangs on each spot: tap a spot on the map to pick its work. Leave gaps to space a small show out. Spots past this room’s capacity show a lock — tap one to add slots.',
     ambience: 'Ambience',
     ambienceHint: 'A looping background track for visitors walking your room; they can mute it with the ♪ button. MP3/M4A up to {max}MB — upload only audio you have the rights to.',
