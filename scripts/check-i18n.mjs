@@ -598,11 +598,58 @@ const coverage = localeFiles
   })
   .sort((a, b) => b.n - a.n)
 
+/* ======== 呼ばれていないキー（/kaizen 2026-08-14 で追加） ========
+ *
+ * **文言を画面から撤去したのに、辞書のキーだけ残る**を機械で止める。`check:css`
+ * （CSSがあってマークアップが無い）と同じ形で、基準線から**減らす方向にしか変えない**。
+ *
+ * なぜ要るか: 2026-08-14 の1セッションだけで**i18nキー12個とエクスポート3つ**が
+ * 呼び手ゼロになり、**全部が人（別視点レビュー）に拾われた** ── 番人は1つも止めて
+ * いない。溜まった分を測ったら 34 件あった。残っていても画面は壊れないが、辞書は
+ * 11言語ぶんあるので、**次に訳す人が「もう誰も呼ばない文」を訳すことになる**。
+ *
+ * 誤検出への手当て（測って必要だと分かった3つだけ）:
+ *   ①複数形（`_one` / `_other` …）は、コードが**基底のキー**を呼ぶ
+ *   ②`t(`presets.layout.${key}`)` のように**組み立てる**キーは、接頭辞で呼ばれる
+ *   ③辞書そのもの（`lib/i18n/*`）は探索対象から外す（定義が「呼び出し」に見える）
+ */
+const ORPHAN_BASELINE = new Set(
+  JSON.parse(readFileSync('scripts/i18n-orphan-baseline.json', 'utf8'))
+)
+const callerFiles = execSync("git ls-files '*.ts' '*.tsx'", { encoding: 'utf8' })
+  .split('\n')
+  .filter((f) => f && !f.startsWith('lib/i18n/'))
+const callerSrc = callerFiles.map((f) => readFileSync(f, 'utf8')).join('\n')
+const isCalled = (k) =>
+  callerSrc.includes(`'${k}'`) || callerSrc.includes(`"${k}"`) || callerSrc.includes(`\`${k}\``)
+const PLURAL = /_(zero|one|two|few|many|other)$/
+const orphans = [...enLeaves2.keys()].filter((k) => {
+  if (isCalled(k)) return false
+  const base = k.replace(PLURAL, '')
+  if (base !== k && isCalled(base)) return false // ①
+  // ② 組み立てるキー: **祖先のどれかが** `t(`presets.layout.${x}`)` の形で呼ばれていれば
+  //    その下の葉は全部使われている（葉そのものは一度もソースに現れない）。
+  const parts = k.split('.')
+  for (let n = 1; n < parts.length; n++) {
+    if (callerSrc.includes('`' + parts.slice(0, n).join('.') + '.${')) return false
+  }
+  return true
+})
+const newOrphans = orphans.filter((k) => !ORPHAN_BASELINE.has(k))
+if (newOrphans.length) {
+  console.error(`\n呼ばれていない辞書のキー ${newOrphans.length} 件（画面から撤去したのに辞書に残っています）:\n`)
+  for (const k of newOrphans) console.error(`  ${k}`)
+  console.error('\n消すか、組み立てて呼ぶなら scripts/i18n-orphan-baseline.json に理由付きで足してください。')
+  console.error('※基準線は**減らす方向にしか変えない**（check:css と同じ作法）。')
+  process.exit(1)
+}
+
 if (stateFindings.length) process.exit(1)
 console.log(`UI文言の直書き: 0 件（${files.length} ファイルを検査）`)
 console.log(`状態を語る対外文言: 0 件（${stateFiles.length} ファイルを検査）`)
 console.log(`複数形キーの相方が無いもの: 0 件（${dictFiles.length} 辞書を検査）`)
 console.log(`プレースホルダの取り違え: 0 件（英語の ${enLeaves2.size} キーと照合）`)
+console.log(`呼ばれていない辞書のキー: 新規 0 件（基準線 ${ORPHAN_BASELINE.size} 件・現在 ${orphans.length} 件）`)
 console.log(`\n翻訳カバレッジ（英語 ${enLeaves} キーに対して。欠けた分は英語で表示される）:`)
 for (const c of coverage) {
   const bar = '█'.repeat(Math.round(c.pct / 5)).padEnd(20, '·')

@@ -43,6 +43,23 @@ for (const sig of ['SIGINT', 'SIGTERM']) {
   })
 }
 
+/** 合成辞書（`export const en = { ns: { key: '…' } }`）から `ns.key` の一覧を作る。
+ *  本番の `leafValues` を持ち込むほどの精度は要らない — ここで扱うのは自分で書いた
+ *  小さな辞書だけで、値に `{` や `:` を含む形は別のケースが受け持つ。 */
+const dictKeys = (src) => {
+  const out = []
+  const stack = []
+  for (const raw of src.split('\n')) {
+    const line = raw.trim()
+    const open = line.match(/^([a-zA-Z0-9_]+)\s*:\s*\{/)
+    if (open) { stack.push(open[1]); continue }
+    if (/^\},?$/.test(line)) { stack.pop(); continue }
+    const leaf = line.match(/^([a-zA-Z0-9_]+)\s*:\s*['"`]/)
+    if (leaf && stack.length) out.push([...stack, leaf[1]].join('.'))
+  }
+  return out
+}
+
 const run = ({ files, gate, add = true, setup, args = [] }) => {
   const dir = mkdtempSync(join(tmpdir(), 'gate-'))
   madeDirs.add(dir)
@@ -51,7 +68,17 @@ const run = ({ files, gate, add = true, setup, args = [] }) => {
     // check:ship-ready は origin/main と比べるので、ここが揺れるとケースが嘘になる。
     execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir })
     // 番人が読む定型のファイル（基準線は空配列＝ラチェットの現在値）
-    const base = { 'scripts/css-dead-baseline.json': '[]', ...files }
+    // 合成辞書のキーは、既定で「呼ばれていないキー」の基準線に載せる。
+    // ケースの大半は**別の観点**（直書き・複数形・プレースホルダ…）を見るために辞書を
+    // 置いているだけで、その小さな `app/page.tsx` が全キーを呼ぶことはない。載せないと
+    // 新しい検出が全ケースを巻き添えにする（実際に6件落ちた）。**この検出そのものを
+    // 試すケースは、自分で `scripts/i18n-orphan-baseline.json` を置いて上書きする。**
+    const synthDict = files['lib/i18n/en.ts']
+    const base = {
+      'scripts/css-dead-baseline.json': '[]',
+      'scripts/i18n-orphan-baseline.json': JSON.stringify(synthDict ? dictKeys(synthDict) : []),
+      ...files,
+    }
     for (const [rel, body] of Object.entries(base)) {
       mkdirSync(join(dir, dirname(rel)), { recursive: true })
       writeFileSync(join(dir, rel), body)
@@ -206,6 +233,72 @@ gateCase('check:i18n — 状態を語る定型句を検出する', {
   },
   expectFail: true,
   contains: ['Coming soon'],
+})
+
+// 呼ばれていない辞書のキー（/kaizen 2026-08-14 で追加）。**この番人が無い間、
+// 撤去し忘れた文言は全部レビュー頼みだった**（2026-08-14 の1セッションで12件）。
+gateCase('check:i18n — 画面から呼ばれていない辞書のキーを検出する', {
+  gate: 'check-i18n.mjs',
+  files: {
+    // **この検出を試すケースなので、既定の「合成辞書は全部基準線」を空で上書きする。**
+    'scripts/i18n-orphan-baseline.json': '[]',
+    'app/page.tsx': "export default function P() {\n  return <p>{t('common.save')}</p>\n}\n",
+    'lib/i18n/en.ts': ['export const en = {', '  common: {', "    save: 'Save',", "    ghost: 'Nobody calls me',", '  },', '}', ''].join('\n'),
+    'lib/i18n/ja.ts': ['export const ja = {', '  common: {', "    save: '保存',", "    ghost: '誰も呼ばない',", '  },', '}', ''].join('\n'),
+  },
+  expectFail: true,
+  contains: ['common.ghost'],
+})
+
+// 誤検知しない3つの形。①基準線に載せた既知の分 ②複数形（コードは基底キーを呼ぶ）
+// ③`t(`presets.layout.${x}`)` のように**祖先の接頭辞で組み立てる**キー。
+// ③が抜けていたときは presets 配下の33件を誤検出した（実測して直した）。
+gateCase('check:i18n — 基準線・複数形・組み立てるキーを誤検知しない', {
+  gate: 'check-i18n.mjs',
+  files: {
+    'scripts/i18n-orphan-baseline.json': JSON.stringify(['common.known']),
+    'app/page.tsx': [
+      'export default function P() {',
+      "  const n = 2",
+      "  return <p>{t('common.save')}{t('common.item', { count: n })}{t(`presets.layout.${'hall'}`)}</p>",
+      '}',
+    ].join('\n'),
+    'lib/i18n/en.ts': [
+      'export const en = {',
+      '  common: {',
+      "    save: 'Save',",
+      "    known: 'Known orphan',",
+      "    item_one: 'one item',",
+      "    item_other: '{count} items',",
+      '  },',
+      '  presets: {',
+      '    layout: {',
+      "      hall: 'Hall',",
+      "      corridor: 'Corridor',",
+      '    },',
+      '  },',
+      '}',
+      '',
+    ].join('\n'),
+    'lib/i18n/ja.ts': [
+      'export const ja = {',
+      '  common: {',
+      "    save: '保存',",
+      "    known: '既知',",
+      "    item_one: '1点',",
+      "    item_other: '{count}点',",
+      '  },',
+      '  presets: {',
+      '    layout: {',
+      "      hall: 'ホール',",
+      "      corridor: '回廊',",
+      '    },',
+      '  },',
+      '}',
+      '',
+    ].join('\n'),
+  },
+  expectFail: false,
 })
 
 gateCase('check:i18n — 辞書を通した文言と i18n-ok を誤検知しない', {
