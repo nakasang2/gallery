@@ -605,7 +605,7 @@ function missingOverrideColumns(error: { code?: string; message?: string }): boo
   return (
     error.code === 'PGRST204' ||
     error.code === '42703' ||
-    /light_override|hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides|arrangement|guestbook_enabled|bgm_url|is_main|slots_included/.test(error.message ?? '')
+    /light_override|hanging_override|caption_override|mat_override|mat_default|work_cap|design_overrides|arrangement|guestbook_enabled|bgm_url|is_main|slots_included|expo_id|expo_ready_at/.test(error.message ?? '')
   )
 }
 
