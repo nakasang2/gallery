@@ -16,7 +16,7 @@ import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components
 import WorkDesign from '@/components/WorkDesign'
 import PlacementEditor from '@/components/PlacementEditor'
 import { InviteInbox, ParticipantsPanel } from '@/components/me/ExpoInvites'
-import { listSubmittedArtworksForRoom } from '@/lib/invites'
+import { listSubmittedArtworksForRoom, leaveExpo } from '@/lib/invites'
 import PurchaseModal from '@/components/PurchaseModal'
 import HelpModal from '@/components/HelpModal'
 import TopActions from '@/components/TopActions'
@@ -1636,9 +1636,15 @@ function GalleryCard({
   // 宙に浮いた状態になったため。渡す一覧を直したので、その条件は要らなくなった ──
   // ただし**同じ状態はもう1つの経路で起きる**: 主催者が「参加者」タブから参加作家の
   // 部屋を開くと、開いている部屋は**他人の持ち物**なので `rooms`（自分の部屋の一覧）に
-  // 無い。条件を `row.expo_id` ではなく「**いまの部屋がこの一覧に居るか**」に置き換えて、
-  // 経路によらず宙に浮かないようにする。
-  const roomSwitcher = rooms && rooms.length > 1 && rooms.some((g) => g.id === row.id) && (
+  // 無い。
+  //
+  // **他人の部屋を見ているときこそ出す**（別視点レビューで検出）。一度は「いまの部屋が
+  // 一覧に居るとき」に絞ったが、それだと**主催者が参加作家の部屋を開いた瞬間に部屋タブが
+  // 消えて、自分の部屋へ戻る道が画面から無くなる**（`listAllOwnedRooms` が失敗して合同
+  // 展示の部屋が一覧から落ちたときも同じ）。どれも選ばれていないタブ列は、その状況では
+  // 「宙に浮いたタブ」ではなく**唯一の帰り道**なので出す。
+  const viewingOwnRoom = rooms?.some((g) => g.id === row.id) ?? false
+  const roomSwitcher = rooms && rooms.length > 0 && (rooms.length > 1 || !viewingOwnRoom) && (
     <nav className="me-rooms" aria-label={t('me.roomsNav')}>
       {rooms.map((g) => {
         const label = isPlaceholderTitle(g.title) ? g.slug : g.title
@@ -1739,10 +1745,17 @@ function GalleryCard({
         出してほしいと追加指示）。追加ボタンも同じ3ステージすべてに出す（ユーザー指摘
         2026-08-12: 「部屋タブは配置・公開タブ配下にも設置して」— 以前は「部屋」
         ステージだけに限定されていた）。 */}
-    {(stage === 'room' || stage === 'placement' || stage === 'publish') && (roomSwitcher || roomAdd) && (
+    {/* **部屋タブはどのステージでも出す**（ユーザー指摘 2026-08-14）。2026-08-11 には
+        「部屋によって中身が変わるのは部屋／配置／公開の3つだけ」という理由で3ステージに
+        絞っていたが、**部屋タブの意味が変わった** ── 合同展示の部屋も並ぶようになり、
+        参加作家にとってはこれが自分の通常展示の部屋と展示用の部屋を行き来する唯一の
+        手段になった。参加作家が最初に着くのは「作品」タブなので、絞ったままだと
+        **通常展示に戻る道が画面上に存在しない**（本番でユーザーが実際に詰まった）。
+        「部屋を追加」は今までどおり3ステージだけ ── あれは行き来ではなく購入の導線。 */}
+    {(roomSwitcher || ((stage === 'room' || stage === 'placement' || stage === 'publish') && roomAdd)) && (
       <div className="me-rooms-row">
         {roomSwitcher}
-        {roomAdd}
+        {(stage === 'room' || stage === 'placement' || stage === 'publish') && roomAdd}
       </div>
     )}
     {/* One next step at a time toward publishing — not shown on the housekeeping stages */}
@@ -2443,6 +2456,34 @@ function GalleryCard({
                     </div>
                     {row.expo_ready_at && (
                       <p className="me-note">{t('invite.readyMarkedAt', { date: fmtDate(row.expo_ready_at) })}</p>
+                    )}
+                    {/* この展示から降りる（ユーザー指示 2026-08-14）。受信箱にあったものを
+                        ここへ移した ── 受信箱は画面の一番上、部屋の編集画面はその下という
+                        離れた場所にあり、**同じ展示の話が2か所に分かれていた**。降りるのは
+                        「この部屋をやめる」なので、部屋の中にあるのが自然。
+                        押すと 0062 のトリガがこの部屋も片付ける（作品は共有プールへ戻る）。 */}
+                    {/* **降りるボタンだけ `expo` の到着を待つ**（別視点レビューで2回検出）。
+                        `isOrganizer` は読み込み中「主催者ではない」に倒しているので、
+                        待たないと**主催者が自分の展示の部屋でこれを押せる** ── `leaveExpo`
+                        は該当行が無く0行更新で静かに戻り、何も起きないのに「保存しました」
+                        だけが出る。**上のトグルまで一緒に待たせてはいけない** ──
+                        `getExpoById` が失敗すると `expo` は null のまま再取得されないので、
+                        参加作家がトグルにも降り口にも辿り着けなくなる（受信箱から導線を
+                        外した今、ここが唯一の降り口）。 */}
+                    {expo && (
+                      <div className="hako-actions" style={{ marginTop: '0.9rem' }}>
+                        <button
+                          type="button"
+                          className="btn-line"
+                          disabled={busy}
+                          onClick={() => {
+                            if (!confirm(t('invite.leaveConfirm'))) return
+                            void run(t('invite.leave'), () => leaveExpo(row.expo_id!, user.id))
+                          }}
+                        >
+                          {t('invite.leave')}
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -3794,7 +3835,7 @@ export default function MePage() {
                 {/* 招待の受信箱。招待が無ければ何も描かない（GuestImportCard と同じ作法）。
                     ここに置いたのは、**招かれたことに気づく場所が他に無い**から
                     （通知の仕組みは無く、主催者は「送った」と思っている）。 */}
-                <InviteInbox onOpenRoom={(id) => setRoomId(id)} />
+                <InviteInbox />
                 <section className="me-section">
                   {/* A bare heading only while there's no gallery card yet (loading / empty).
                       The card itself carries the stage bar and needs no separate header. */}
@@ -3837,6 +3878,11 @@ export default function MePage() {
                       onOpenRoom={(id) => {
                         track('expo_room_open', { room: id })
                         setRoomId(id)
+                        // **「部屋」タブへ移す**（ユーザー指摘 2026-08-14 と同じ筋）。
+                        // 「参加者」タブに留まったままだと、開いたあとも同じ参加者一覧が
+                        // 出ているので**押しても何も起きていないように見える**（変わるのは
+                        // 読み取り専用の断り書きが増えることだけ）。
+                        setStage('room')
                       }}
                       /* 未使用の部屋枠、または購入の誘い。**「部屋」ステージの中**に置く
                          （ユーザー指示 2026-08-09「部屋の中に追加して欲しい」）。以前は

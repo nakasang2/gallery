@@ -33,7 +33,10 @@ import { track } from '@/lib/analytics'
 
 /* ============================ 作家側: 受信箱 ============================ */
 
-export function InviteInbox({ onOpenRoom }: { onOpenRoom?: (id: string) => void }) {
+// **`onOpenRoom` は受け取らない**（ユーザー指示 2026-08-14）。参加中の展示の部屋は
+// 部屋タブから開く ── ここから開こうとすると、画面の一番上のボタンで下の編集画面が
+// 差し替わるだけになり、押しても何も起きていないように見える。
+export function InviteInbox() {
   const t = useT()
   const user = useGallery((s) => s.user)
   const cloudArtworks = useGallery((s) => s.cloudArtworks)
@@ -62,16 +65,32 @@ export function InviteInbox({ onOpenRoom }: { onOpenRoom?: (id: string) => void 
     if (user) void reload()
   }, [user, reload])
 
-  if (!invites || invites.length === 0) return null
+  if (!invites) return null
 
-  // 保留中を先に、次に受諾済み。辞退したものは畳んだ行として最後に残す（消すと
-  // 「あの招待はどうなった」が分からなくなる）。
+  // 保留中を先に。辞退したものは畳んだ行として最後に残す（消すと「あの招待はどうなった」
+  // が分からなくなる）。
   const pending = invites.filter((i) => i.status === 'pending')
-  const accepted = invites.filter((i) => i.status === 'accepted')
+  // **参加中で自分の部屋がある展示は、ここには出さない**（ユーザー指示 2026-08-14:
+  // 「そもそもこのコンポーネント非表示でよくない？混乱する」）。部屋タブにその部屋が
+  // 並ぶようになったので、ここに「自分の部屋を開く」を置くと**同じ展示への入口が2つ**に
+  // なる。しかもこのボタンはページ遷移ではなく下の編集画面を差し替えるだけなので、
+  // 画面の一番上で押しても**見た目には何も起きない**（「押しても無反応」に見える）。
+  // 降りる導線は部屋の「公開」タブへ移した ── 部屋の話は部屋の中で完結させる。
+  //
+  // **部屋が無い受諾済みだけ残す**: 0062 より前に承諾した人（旧・提出モデル）は
+  // 部屋タブに何も並ばないので、ここが唯一の操作面。
+  const accepted = invites.filter((i) => i.status === 'accepted' && !i.roomId)
   const declined = invites.filter((i) => i.status === 'declined')
   // 自分が招待リンクから出した希望（0048）。**主催者の承認待ち**で、まだ何もできない。
   // 受信箱に出すのは「出したことを覚えておく場所」が他に無いから。
   const requested = invites.filter((i) => i.status === 'requested')
+
+  // **出すものが1行も無ければカードごと出さない。** 判定は**分類のあと**に置くこと
+  // （別視点レビューで検出）── `invites.length === 0` で早期 return していたときは、
+  // 部屋つきの受諾済みを上で外したせいで**「招待」の見出しだけの空カードが
+  // ダッシュボードの一番上に居座っていた**。しかもそれが起きるのは、この変更が
+  // まさに対象にしている「承諾して自分の部屋を持っている参加作家」の画面。
+  if (pending.length + accepted.length + requested.length + declined.length === 0) return null
 
   async function respond(inv: MyInvite, accept: boolean) {
     setBusyId(inv.id)
@@ -137,32 +156,6 @@ export function InviteInbox({ onOpenRoom }: { onOpenRoom?: (id: string) => void 
                     onClick={() => void respond(inv, false)}
                   >
                     {t('invite.decline')}
-                  </button>
-                </div>
-              </>
-            ) : inv.roomId ? (
-              /* migration 0062（ユーザー決定 2026-08-13）: 承諾した瞬間に自分の部屋が
-                 自動でできるので、ここは「開く」だけでいい。作品を選ぶ・掛けるのは
-                 通常の部屋編集画面（タブUI）でする。 */
-              <>
-                <p className="me-note invite-explain">{t('invite.roomAcceptedExplain')}</p>
-                <div className="hako-actions">
-                  <button
-                    type="button"
-                    className="btn-line"
-                    disabled={!onOpenRoom}
-                    onClick={() => onOpenRoom?.(inv.roomId!)}
-                  >
-                    {t('invite.openRoom')}
-                  </button>
-                  <button
-                    className="btn-line"
-                    disabled={busyId === inv.id}
-                    onClick={() => {
-                      if (confirm(t('invite.leaveConfirm'))) void respond(inv, false)
-                    }}
-                  >
-                    {t('invite.leave')}
                   </button>
                 </div>
               </>

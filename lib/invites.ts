@@ -438,6 +438,30 @@ export async function respondToInvite(inviteId: string, accept: boolean): Promis
   if (error) throw error
 }
 
+/**
+ * この展示から降りる（ユーザー指示 2026-08-14）。
+ *
+ * **招待の id ではなく展示の id で降りる。** 降りる導線を受信箱から**部屋の「公開」
+ * タブ**へ移したため、呼び手（`GalleryCard`）が知っているのは自分が居る部屋の
+ * `expo_id` だけで、招待の行の id は持っていない。
+ *
+ * 絞りは `artist_id` も書く ── `expo_invites_artist_respond`(0047) が RLS で同じ条件を
+ * 課すので**無くても他人の行は動かない**が、書いておけば「自分の行だけ」という意図が
+ * 読める（主催者は同じ展示の他人の招待も SELECT できる＝一覧の見え方と更新できる
+ * 範囲が違う表なので、条件を省くと読む人が誤解する）。
+ *
+ * 降りると 0062 のトリガが**自分の部屋も片付ける**（掛けていた作品は
+ * `artworks.gallery_id` が null に戻るだけで失われない）。
+ */
+export async function leaveExpo(expoId: string, artistId: string): Promise<void> {
+  const { error } = await supabase!
+    .from('expo_invites')
+    .update({ status: 'declined', responded_at: new Date().toISOString() })
+    .eq('expo_id', expoId)
+    .eq('artist_id', artistId)
+  if (error) throw error
+}
+
 /** この展示に出す作品を選び直す。差分だけ書く（全消し→全入れにすると、掛かっている
  *  作品が一瞬 placement から落ちる＝0047 の取り下げトリガが発火して主催者の配置が壊れる）。 */
 export async function setMySubmissions(expoId: string, artworkIds: string[]): Promise<void> {

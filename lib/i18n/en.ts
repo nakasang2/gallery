@@ -374,7 +374,6 @@ export const en = {
     errGeneric: 'That did not work. Please try again.',
     // 参加作家に自分の部屋ができるモデル（migration 0062、ユーザー決定 2026-08-13）。
     // 受信箱では「作品を選ぶ」トレイの代わりに、自分の部屋を開くボタンを出す。
-    roomAcceptedExplain: 'This is your own room in the exhibition. Add your works, set its theme, and arrange them — just like a regular room.',
     openRoom: 'Open your room',
     // 「準備できた」トグル（部屋編集画面の「公開」タブに出る、作家側の中身）。
     readyToggleLabel: 'Ready for the show',
