@@ -513,36 +513,29 @@
 }
 .me-error { font-size: 0.78rem; line-height: 1.8; color: #e08a7a; margin-top: 0.8rem; }
 
-/* トリミング位置 — デザインツールのアイコン付きツールバー風の segmented control。
+/* トリミング位置 — ⇄(縦横入れ替え)の隣に置く、枠の無いアイコンだけのボタン列。
    実際にトリミングが起きるのは横 or 縦のどちらか一方の軸だけ(object-fit: cover)
-   なので、効く3値だけを並べる（ダミー枠は出さない。ユーザー指示 2026-08-14） */
-.crop-align-row {
-  display: inline-flex;
-  margin-top: 0.5rem;
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.crop-align-btn {
-  width: 2.4rem;
-  height: 2.4rem;
+   なので、効く3値だけを並べる（ユーザー指示 2026-08-14: ボタンの箱は要らない） */
+.crop-align-icons { display: inline-flex; align-items: center; gap: 0.15rem; }
+.crop-align-icon {
+  width: 1.9rem;
+  height: 1.9rem;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   color: var(--muted);
   background: transparent;
   border: none;
-  border-right: 1px solid var(--hairline);
+  border-radius: 5px;
   cursor: pointer;
   transition: color 0.2s, background 0.2s;
 }
-.crop-align-btn:last-child { border-right: none; }
-.crop-align-btn:hover { color: var(--gold); background: rgba(212, 162, 78, 0.08); }
-.crop-align-btn.active { color: var(--gold); background: rgba(212, 162, 78, 0.16); }
+.crop-align-icon:hover { color: var(--gold); background: rgba(212, 162, 78, 0.08); }
+.crop-align-icon.active { color: var(--gold); background: rgba(212, 162, 78, 0.16); }
 @media (pointer: coarse) {
-  .crop-align-btn { width: 44px; height: 44px; }
+  .crop-align-icon { width: 44px; height: 44px; }
 }
 
 .me-field { display: block; margin: 0.9rem 0; }
