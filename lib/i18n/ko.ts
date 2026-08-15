@@ -861,9 +861,8 @@ export const ko: PartialDictionary = {
     announceSent: '{n}건에 전달했습니다.',
   },
   seo: {
-    homeTitle: 'Xibit360 — 작품에, 자리를.',
-    homeDesc:
-      'Xibit360 은 당신의 포트폴리오를 걸어서 보는 3D 전시로 만듭니다. 작품을 올리고 공간을 구성해, 링크 하나로 세계에 열 수 있습니다.',
+    homeTitle: 'Xibit360 — 당신의 작품에, 작품만의 자리를.',
+    homeDesc: 'Xibit360 은 당신의 작품을 걸어서 관람하는 3D 전시로 만듭니다. 무료로 시작해 몇 분이면 개막하고, 설치는 필요 없습니다. 링크 하나로 세계에 엽니다.',
     exploreTitle: '전시 찾아보기 — Xibit360',
     exploreDesc: '공개된 전시를 모두 모았습니다. 어느 전시장이든 브라우저에서 바로 3D로 열려, 걸어서 볼 수 있습니다.',
     articlesTitle: '가이드 — Xibit360',

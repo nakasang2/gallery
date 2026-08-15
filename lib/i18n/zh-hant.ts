@@ -795,9 +795,8 @@ export const zhHant: PartialDictionary = {
     announceSent: '已送達 {n} 個帳號。',
   },
   seo: {
-    homeTitle: 'Xibit360 — 給你的作品，一個空間。',
-    homeDesc:
-      'Xibit360 把你的作品集變成能走進去的 3D 展覽。上傳作品、佈置展場，用一個連結向世界打開。',
+    homeTitle: 'Xibit360 — 給你的作品，一個專屬的位置。',
+    homeDesc: 'Xibit360 把你的作品變成可以走進去參觀的 3D 展覽。免費開始，幾分鐘就能開展，不必安裝，一個連結就能向世界打開。',
     exploreTitle: '瀏覽展覽 — Xibit360',
     exploreDesc: '平台上所有公開的展覽。每個展場都能在瀏覽器裡直接以 3D 開啟，走進去看。',
     articlesTitle: '指南 — Xibit360',

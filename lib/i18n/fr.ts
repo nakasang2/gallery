@@ -796,9 +796,8 @@ export const fr: PartialDictionary = {
     announceSent: 'Livrée à {n} comptes.',
   },
   seo: {
-    homeTitle: 'Xibit360 — Votre travail, un espace à lui.',
-    homeDesc:
-      'Xibit360 transforme votre portfolio en une exposition 3D où l’on marche. Importez vos œuvres, composez la salle, et ouvrez votre exposition au monde avec un seul lien.',
+    homeTitle: 'Xibit360 — Offrez à vos œuvres un lieu à elles.',
+    homeDesc: 'Xibit360 transforme vos œuvres en une exposition 3D que l’on parcourt. Gratuit au départ, ouvert en quelques minutes, rien à installer : un lien ouvre votre exposition au monde.',
     exploreTitle: 'Explorer — Xibit360',
     exploreDesc:
       'Toutes les expositions publiques de la plateforme. Chaque salle s’ouvre en 3D dans votre navigateur, et se parcourt à pied.',

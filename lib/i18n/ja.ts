@@ -22,9 +22,8 @@ export const ja: Dictionary = {
     caption: { side: '横に名板', under: '下に名板', none: 'なし' },
   },
   seo: {
-    homeTitle: 'Xibit360 — 作品に、空間を。',
-    homeDesc:
-      'Xibit360 は、あなたのポートフォリオを歩いて見る3Dの個展にします。作品をアップして空間を組み、URLひとつで世界に開けます。',
+    homeTitle: 'Xibit360 — あなたの作品に、とっておきの居場所を。',
+    homeDesc: 'Xibit360 は、あなたの作品を歩いて観てもらえる3Dの個展にします。わずか数分、無料ではじめられて、インストールは不要。リンク1本で世界に開けます。',
     exploreTitle: '展示をさがす — Xibit360',
     exploreDesc: '公開されている展示をすべて。どの部屋もブラウザでそのまま3Dで開き、歩いて見られます。',
     articlesTitle: 'ガイド — Xibit360',

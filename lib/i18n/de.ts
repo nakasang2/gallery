@@ -796,9 +796,8 @@ export const de: PartialDictionary = {
     announceSent: 'An {n} Konten ausgeliefert.',
   },
   seo: {
-    homeTitle: 'Xibit360 — Deiner Arbeit einen Raum geben.',
-    homeDesc:
-      'Xibit360 macht aus deinem Portfolio eine begehbare 3D-Ausstellung. Werke hochladen, den Raum einrichten, und mit einem einzigen Link für die Welt öffnen.',
+    homeTitle: 'Xibit360 — Gib deinen Werken einen eigenen Ort.',
+    homeDesc: 'Xibit360 macht aus deinen Werken eine begehbare 3D-Ausstellung. Kostenlos starten, in wenigen Minuten eröffnen, nichts installieren — ein Link öffnet deine Ausstellung für die Welt.',
     exploreTitle: 'Entdecken — Xibit360',
     exploreDesc:
       'Alle öffentlichen Ausstellungen der Plattform. Jeder Raum öffnet sich in 3D im Browser und lässt sich zu Fuß durchgehen.',

@@ -797,9 +797,8 @@ export const zhHans: PartialDictionary = {
     announceSent: '已送达 {n} 个账号。',
   },
   seo: {
-    homeTitle: 'Xibit360 — 给你的作品，一个空间。',
-    homeDesc:
-      'Xibit360 把你的作品集变成可以走进去的 3D 展览。上传作品、布置展厅，用一个链接向世界打开。',
+    homeTitle: 'Xibit360 — 给你的作品，一个专属的位置。',
+    homeDesc: 'Xibit360 把你的作品变成可以走进去参观的 3D 展览。免费开始，几分钟就能开展，无需安装，一个链接就能向世界打开。',
     exploreTitle: '浏览展览 — Xibit360',
     exploreDesc: '平台上所有公开的展览。每个展厅都能在浏览器里直接以 3D 打开，走进去看。',
     articlesTitle: '指南 — Xibit360',

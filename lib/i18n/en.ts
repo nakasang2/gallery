@@ -44,9 +44,8 @@ export const en = {
   // 固有名詞であり、検索結果でシリーズとして認識されるのは接尾が揃っている
   // ときだから。/terms /privacy /legal は単一URLなので layout の英語のまま。
   seo: {
-    homeTitle: 'Xibit360 — Your work, given space.',
-    homeDesc:
-      'Xibit360 turns your portfolio into a walkable 3D exhibition. Upload your work, compose the room, and open your show to the world with a single URL.',
+    homeTitle: 'Xibit360 — Give your work a place of its own.',
+    homeDesc: 'Xibit360 turns your work into a 3D exhibition people can walk through. Free to start, minutes to open, nothing to install — one link opens your show to the world.',
     exploreTitle: 'Explore — Xibit360',
     exploreDesc:
       'Walk through public galleries from other artists — every exhibition on the platform, one link each.',

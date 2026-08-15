@@ -796,9 +796,8 @@ export const id: PartialDictionary = {
     announceSent: 'Terkirim ke {n} akun.',
   },
   seo: {
-    homeTitle: 'Xibit360 — Beri ruang untuk karyamu.',
-    homeDesc:
-      'Xibit360 mengubah portofoliomu menjadi pameran 3D yang bisa dijelajahi. Unggah karyamu, susun ruangnya, lalu buka pameranmu ke dunia dengan satu tautan.',
+    homeTitle: 'Xibit360 — Beri karyamu tempatnya sendiri.',
+    homeDesc: 'Xibit360 mengubah karyamu menjadi pameran 3D yang bisa dijelajahi. Mulai gratis, buka dalam hitungan menit, tanpa instalasi — satu tautan membuka pameranmu ke dunia.',
     exploreTitle: 'Jelajahi — Xibit360',
     exploreDesc:
       'Semua pameran publik di platform ini. Setiap ruang terbuka dalam 3D di peramban dan bisa dijelajahi dengan berjalan.',
