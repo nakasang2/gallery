@@ -1217,7 +1217,16 @@ body:not(.gallery-mode) {
 .minimap .mm-slot.empty { fill: none; stroke: currentColor; stroke-width: 0.22; opacity: 0.5; }
 .minimap .mm-slot.focus { fill: var(--gold); stroke: var(--ink); stroke-width: 0.22; }
 @media (max-width: 640px) {
-  .minimap { width: 92px; bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px)); left: 1rem; }
+  /* 電話では、ページャー（`.hud-stepper`）の1つ上の帯にミニマップ・HUDのボタン束・
+     部屋切替を並べる。**その高さをここ1か所で決める**（2026-08-15）── 以前は同じ
+     `4.4rem` が3か所（`.minimap` / `.hud-cluster` / `.roomswitch`）に写されていて、
+     【絶対ルール】2026-08-12 が禁じている形だった。
+     値の根拠: ページャーは下端 1.2rem ＋ 高さ 51.6px（`.step-btn` 2.5rem ＋ padding
+     0.3rem×2 ＋ 枠1px×2。すべて rem と px なので言語で変わらない）＝ 70.8px を占める。
+     4.4rem は 70.4px で **0.4px 足りず、320px 幅で 28.2×0.4px 噛んでいた**（実測）。
+     5rem = 80px にして 9.2px 空ける。 */
+  :root { --hud-row-bottom: 5rem; }
+  .minimap { width: 92px; bottom: calc(var(--hud-row-bottom) + env(safe-area-inset-bottom, 0px)); left: 1rem; }
   /* The phone bottom sheet + lifted pager leave no honest room for the map —
      hide it while a work is focused instead of colliding with the pager */
   .minimap.lifted { opacity: 0; pointer-events: none; }
@@ -1842,7 +1851,7 @@ body:not(.gallery-mode) {
      bottom-right group is `.hud-cluster` (components/gallery/Hud.tsx). The rule
      therefore never applied and the cluster stayed at 1.2rem, sharing the bottom
      row with the centred pager. Sit on the minimap's row instead, as intended. */
-  .hud-cluster { bottom: calc(4.4rem + env(safe-area-inset-bottom, 0px)); }
+  .hud-cluster { bottom: calc(var(--hud-row-bottom, 5rem) + env(safe-area-inset-bottom, 0px)); }
   /* (The old `.hud-record` rule that lived here is gone: the walkthrough Record
      button is no longer positioned on its own — it is an item inside
      `.hud-others-menu`, which the cluster carries.) */
@@ -2032,7 +2041,7 @@ body:not(.gallery-mode) {
   /* The phone stacks the minimap higher to clear the pager — follow it up.
      left/transform stay inherited from the base rule (centered). */
   .roomswitch {
-    bottom: calc(4.4rem + 92px + 0.6rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--hud-row-bottom, 5rem) + 92px + 0.6rem + env(safe-area-inset-bottom, 0px));
     max-width: calc(100vw - 2rem);
   }
 }
