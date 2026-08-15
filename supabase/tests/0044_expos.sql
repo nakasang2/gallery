@@ -30,6 +30,21 @@ end $$;
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- `savepoint` で囲って文を撃つだけの書き方は、判定器が `ERROR` を見ない設計と噛み合って
+-- **通ってしまった日も「すべて期待どおり」**になる（この11項目がまさにそれで、
+-- `scripts/sql-vacuous-baseline.json` に空振りとして登録されていた）。
+-- 例外を捕まえて SQLSTATE を返し、期待するコードと突き合わせる。
+-- `exception` を持つ plpgsql ブロックは副トランザクションなので、部分的な書き込みも
+-- ここで巻き戻る＝原子性の確認も兼ねる（savepoint が要らなくなる理由）。
+create or replace function public.__t44_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo '--- 作る（下書きは無料・非公開） ---'
 savepoint s;
 set local role authenticated;
@@ -48,19 +63,19 @@ select coalesce(bool_and(not public.expo_is_live(starts_at, ends_at)), false) fr
 reset role;
 
 \echo '--- 支払いを通さずに公開できないこと（設計の一番の要点） ---'
+-- **この節を壊して赤くするときは `0049_expo_launch_guard_fix.sql` を触ること。**
+-- `guard_expo_run` は 0044 で作られたあと **0049 が create or replace で差し替えている**
+-- ので、0044 側の定義を壊しても後から上書きされて何も起きない（2026-08-15 に一度これで
+-- 「テストが赤くならない」と誤診しかけた）。
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'e1000000-0000-0000-0000-0000000000e1';
-savepoint e;
-\echo -n '04 主催者が starts_at を自分で入れる → '
-update public.expos set starts_at = now() where id='ee000000-0000-0000-0000-0000000000e1';
-rollback to e;
-release e;
-savepoint e;
-\echo -n '05 service role 専用のRPCを呼ぶ → '
-select public.record_expo_purchase('cs_x', 'e1000000-0000-0000-0000-0000000000e1',
-  'ee000000-0000-0000-0000-0000000000e1', 14, 2500, 'usd');
-rollback to e;
-release e;
+\echo -n '04 主催者は starts_at を自分で入れられない（支払いを通さずに公開できない）: '
+select public.__t44_state($q$update public.expos set starts_at = now() where id='ee000000-0000-0000-0000-0000000000e1';$q$) = '23514';
+\echo -n '05 作家の席から service role 専用のRPCは呼べない: '
+-- 42501 = insufficient_privilege。`record_expo_purchase` の execute は service_role
+-- だけに配ってあるので、作家の席からは中身に届く前に弾かれる。
+select public.__t44_state($q$select public.record_expo_purchase('cs_x', 'e1000000-0000-0000-0000-0000000000e1',
+  'ee000000-0000-0000-0000-0000000000e1', 14, 2500, 'usd');$q$) = '42501';
 reset role;
 \echo -n '06 上のどちらも効いていない（まだ下書き）: '
 select coalesce(bool_and(starts_at is null), false) from public.expos
@@ -89,16 +104,10 @@ select count(*)=1 from public.purchases where kind='expo' and sku='cs_spring_1';
 \echo '--- 公開後は会期と名前を動かせない ---'
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'e1000000-0000-0000-0000-0000000000e1';
-savepoint e;
-\echo -n '12 会期の長さを変える → '
-update public.expos set duration_days = 30 where id='ee000000-0000-0000-0000-0000000000e1';
-rollback to e;
-release e;
-savepoint e;
-\echo -n '13 名前を変える → '
-update public.expos set slug = 'other-name' where id='ee000000-0000-0000-0000-0000000000e1';
-rollback to e;
-release e;
+\echo -n '12 会期の長さは後から変えられない: '
+select public.__t44_state($q$update public.expos set duration_days = 30 where id='ee000000-0000-0000-0000-0000000000e1';$q$) = '23514';
+\echo -n '13 展示の名前は後から変えられない: '
+select public.__t44_state($q$update public.expos set slug = 'other-name' where id='ee000000-0000-0000-0000-0000000000e1';$q$) = '23514';
 \echo -n '14 題名は変えられる（会期に関係ない）: '
 update public.expos set title = '春の合同展 2026' where id='ee000000-0000-0000-0000-0000000000e1';
 select coalesce(bool_and(title='春の合同展 2026'), false) from public.expos
@@ -151,34 +160,23 @@ insert into public.galleries (id, owner_id, slug, title, expo_id, work_cap)
   values ('ea000000-0000-0000-0000-0000000000a2', 'e1000000-0000-0000-0000-0000000000e1',
           'expo-room', 'Expo room', 'ee000000-0000-0000-0000-0000000000e1', 15);
 select count(*)=1 from public.galleries where id='ea000000-0000-0000-0000-0000000000a2';
-savepoint e;
-\echo -n '20 通常の部屋は今までどおり購入が要る → '
-insert into public.galleries (owner_id, slug, title, slots_included, work_cap)
-  values ('e1000000-0000-0000-0000-0000000000e1', 'paid-room', 'Paid', true, 15);
-rollback to e;
-release e;
-savepoint e;
-\echo -n '21 無料の2室目も今までどおり弾かれる → '
-insert into public.galleries (owner_id, slug, title, work_cap)
-  values ('e1000000-0000-0000-0000-0000000000e1', 'free2', 'Free 2', 5);
-rollback to e;
-release e;
+\echo -n '20 通常の部屋は今までどおり購入が要る: '
+select public.__t44_state($q$insert into public.galleries (owner_id, slug, title, slots_included, work_cap)
+  values ('e1000000-0000-0000-0000-0000000000e1', 'paid-room', 'Paid', true, 15);$q$) = '23514';
+\echo -n '21 無料の2室目も今までどおり弾かれる: '
+select public.__t44_state($q$insert into public.galleries (owner_id, slug, title, work_cap)
+  values ('e1000000-0000-0000-0000-0000000000e1', 'free2', 'Free 2', 5);$q$) = '23514';
 
 \echo '--- 会期の長さ ---'
-savepoint e;
-\echo -n '22 認められていない長さは拒否 → '
 -- **存在する展示**を使う（存在しないidだと「no such expo」で落ちて、長さの検査を
 -- 通ったかどうか分からない＝空振りになる）。
-select public.record_expo_purchase('cs_bad', 'e1000000-0000-0000-0000-0000000000e1',
-  'ee000000-0000-0000-0000-0000000000e1', 21, 3000, 'usd');
-rollback to e;
-release e;
-savepoint e;
-\echo -n '23 他人の展示に払わせられない → '
-select public.record_expo_purchase('cs_other', 'e2000000-0000-0000-0000-0000000000e2',
-  'ee000000-0000-0000-0000-0000000000e1', 14, 2500, 'usd');
-rollback to e;
-release e;
+\echo -n '22 認められていない長さは拒否: '
+-- P0001 = raise_exception（`errcode` を付けずに `raise exception` した既定）。
+select public.__t44_state($q$select public.record_expo_purchase('cs_bad', 'e1000000-0000-0000-0000-0000000000e1',
+  'ee000000-0000-0000-0000-0000000000e1', 21, 3000, 'usd');$q$) = 'P0001';
+\echo -n '23 他人の展示に払わせられない: '
+select public.__t44_state($q$select public.record_expo_purchase('cs_other', 'e2000000-0000-0000-0000-0000000000e2',
+  'ee000000-0000-0000-0000-0000000000e1', 14, 2500, 'usd');$q$) = 'P0001';
 
 \echo '--- 猶予と掃除 ---'
 savepoint p;
@@ -220,28 +218,23 @@ release p;
 
 \echo '--- 名前 ---'
 savepoint n;
-savepoint e;
-\echo -n '35 同じ名前は2つ作れない → '
-insert into public.expos (owner_id, slug, title) values
-  ('e2000000-0000-0000-0000-0000000000e2', 'spring-show', '横取り');
-rollback to e;
-release e;
+\echo -n '35 同じ名前は2つ作れない: '
+-- 23505 = unique_violation（`expos.slug` の一意制約）。
+select public.__t44_state($q$insert into public.expos (owner_id, slug, title) values
+  ('e2000000-0000-0000-0000-0000000000e2', 'spring-show', '横取り');$q$) = '23505';
 rollback to n;
 savepoint n;
-savepoint e;
-\echo -n '36 大文字違いも同じ名前として弾く → '
-insert into public.expos (owner_id, slug, title) values
-  ('e2000000-0000-0000-0000-0000000000e2', 'Spring-Show', '横取り');
-rollback to e;
-release e;
+\echo -n '36 大文字を含む名前は弾かれる（横取りできない）: '
+-- **弾いているのは一意制約ではなく形式の check**（23514）── slug は小文字のみなので、
+-- 大文字を含む時点で入らない。結果として「大文字違いで横取り」は起きないが、
+-- 効いている番人は項目35とは別物なので、コードで区別しておく。
+select public.__t44_state($q$insert into public.expos (owner_id, slug, title) values
+  ('e2000000-0000-0000-0000-0000000000e2', 'Spring-Show', '横取り');$q$) = '23514';
 rollback to n;
 savepoint n;
-savepoint e;
-\echo -n '37 形式が違う名前は拒否 → '
-insert into public.expos (owner_id, slug, title) values
-  ('e2000000-0000-0000-0000-0000000000e2', 'ab', '短すぎ');
-rollback to e;
-release e;
+\echo -n '37 形式が違う名前は拒否: '
+select public.__t44_state($q$insert into public.expos (owner_id, slug, title) values
+  ('e2000000-0000-0000-0000-0000000000e2', 'ab', '短すぎ');$q$) = '23514';
 rollback to n;
 release n;
 

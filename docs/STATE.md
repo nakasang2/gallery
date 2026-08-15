@@ -36,7 +36,15 @@
 - **このセッションの作業は全部出荷済み**（0058・0059 も本番適用済み）。以下は判断・確認を待っているものだけ。
 - **【解消済 2026-08-15・台帳が古かった】R2の孤児ファイル**: `uploadArtwork` / `uploadVideoArtwork` とも insert 失敗時に `deleteArtworkFiles(id)` を呼んでおり、**`756410e` で既に直っていた**（件名が `docs:` なのでコード変更が埋もれていた）。`/api/storage/delete` は `{uid}/{artworkId}/` を prefix で消すので**行が無くても消せる**ことも確認済み。**この確認の途中で本物のバグを1件見つけて直した** ── DBの拒否をクライアントの入れ直しが迂回していた件（DECISIONS 2026-08-15・番人 `check:insert-retry`）。
 - **【ユーザー確認待ち】元の不具合の後始末**: 旧コードが `placements` から削った行は、**各部屋で一度ダッシュボードの配置を動かす（＝再保存させる）まで戻らない**（`galleries.arrangement` には残っている）。済んだかどうか未確認。
-- **【別タスク】SQLテストの空振り61項目の書き直し**。`scripts/sql-vacuous-baseline.json` から1つずつ外していく。書き方の見本は `supabase/tests/0058_replace_placements.sql` の `__t58_state`（例外を捕まえて SQLSTATE を返し `= '42501'` と突き合わせる）。
+- **【進行中 2026-08-15】SQLテストの空振りの書き直し（61 → 50 件）**。`0044_expos` の11項目を書き直して基準線から外した。**手順が確立したので、残り50件は同じ形で機械的に進められる**:
+  1. その test に `__tNN_state(p_sql text)`（例外を捕まえて SQLSTATE を返す）を1つ置く
+  2. `savepoint e; \echo -n 'NN … → '; <文>; rollback to e;` を `select public.__tNN_state($q$<文>$q$) = '<code>';` に置き換える（例外ブロックは副トランザクションなので savepoint は要らなくなる）
+  3. **まずコードを観測してから断定に変える**（決め打ちで書くと別の理由の失敗を「期待どおり」と読む）
+  4. **ラベルの末尾を `→ ` から `: ` にする** ── 判定器は行末の `: t` / `: f` で値を読むので、`→ ` のままだと直しても「何も検査していない」と言われ続ける
+  5. `scripts/sql-vacuous-baseline.json` から該当ファイルの項目を外す
+  6. **守りを外して赤くなることを実測する**
+  - 残り50件の内訳: `0048_expo_invite_links` 9／`0047_expo_invites` 8／`0042_notifications` 6／`0046_expo_engagement` 6／`0050_room_expo_toggle` 6／`0056_report_dmca` 4／`0043_admin_add_room` 3／`0049_expo_launch_guard_fix` 3／`0045_expo_public_read` 2／`0051_expo_schedule` 2／`0057_notify_unsubmit` 1。
+  - **0044 で分かったこと**: 11項目とも守り自体は本当に効いていた（`no-error` はゼロ）。ただし**項目36は一意制約ではなく形式の check が弾いていた**（ラベルと機構が食い違っていたのでコードで区別した）。また **`guard_expo_run` は 0044 で作られたあと 0049 が差し替えている**ので、壊して赤くする実験は 0049 側を触らないと空振りする（一度これで誤診しかけた）。
 - **【別セッション進行中】** `components/gallery/*`（3Dの扉・廊下）／`lib/i18n/*` 11言語／`app/me/*`／migration 0060（プロフィールCV）。**このセッションでは触っていない**。
 
 ## 次にやること（再開ポイント）
