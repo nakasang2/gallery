@@ -51,7 +51,7 @@ export const zhHant: PartialDictionary = {
     stat2Sub: '開始，不必安裝',
     stat3: '1 個網址',
     stat3Sub: '邀請全世界',
-    stat4: '不用於 AI',
+    stat4: '不用於 AI 訓練',
     stat4Sub: '你的作品不會被用來訓練',
 
     flowTitle: '三步就能開幕。',
@@ -96,6 +96,7 @@ export const zhHant: PartialDictionary = {
     comingSoon: '即將推出',
     pricingNoteLive: '你做的一切都屬於你，公開永遠免費。所有升級都是一次性購買 — 沒有訂閱，不必續約，也不必取消。',
     pricingNoteSoon: '你做的一切都屬於你，公開永遠免費。所有升級都是一次性購買 — 沒有訂閱，不必續約。付費升級還沒有開放。',
+    pricingCurrency: '價格以美元顯示。消費稅／加值稅將在結帳頁面另行計算。',
 
     closingEyebrow: '輪到你了',
     closingTitle1: '打開',

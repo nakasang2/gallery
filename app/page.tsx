@@ -36,9 +36,12 @@ export default async function LandingPage() {
 
       <nav className="nav" id="nav">
         <LocaleLink className="nav-logo" href="/">XIBIT360</LocaleLink>
+        {/* 並びはページの並びと同じにする（features は3Dの廊下なのでヒーローの
+            直後に来る）。逆にしていた頃は「コンセプト」を押すと、まだ見ていない
+            features を飛び越して下へ跳んでいた */}
         <div className="nav-links">
-          <a href="#concept">{t('lp.navConcept')}</a>
           <a href="#features">{t('lp.navFeatures')}</a>
+          <a href="#concept">{t('lp.navConcept')}</a>
           <a href="#flow">{t('lp.navFlow')}</a>
           <a href="#pricing">{t('lp.navPricing')}</a>
           <LocaleLink href="/explore">{t('footer.explore')}</LocaleLink>
@@ -231,10 +234,15 @@ export default async function LandingPage() {
             )}
           </div>
         </div>
+        {/* 表示通貨と税を金額のすぐ下に置く。lib/pricing は USD cents で、Stripe の
+            Managed Payments が決済画面で税を出す（特商法ページの legal.valExtra と
+            同じ事実）。既存の段落に足しているのは、.pricing-note が唯一この位置の
+            スタイルを持つため（新しいクラスは check:css の視界に入らない） */}
         <p className="pricing-note reveal">
           {billingLive
             ? t('lp.pricingNoteLive')
-            : t('lp.pricingNoteSoon')}
+            : t('lp.pricingNoteSoon')}{' '}
+          {t('lp.pricingCurrency')}
         </p>
       </section>
 
@@ -258,8 +266,8 @@ export default async function LandingPage() {
         <div className="footer-logo">XIBIT360</div>
         <p>{t('lp.footerTagline')}</p>
         <nav className="footer-links" aria-label={t('lp.footerNav')}>
-          <a href="#concept">{t('lp.navConcept')}</a>
           <a href="#features">{t('lp.navFeatures')}</a>
+          <a href="#concept">{t('lp.navConcept')}</a>
           <a href="#pricing">{t('lp.navPricing')}</a>
           <LocaleLink href="/demo">{t('lp.navDemo')}</LocaleLink>
           <LocaleLink href="/explore">{t('footer.explore')}</LocaleLink>

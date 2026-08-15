@@ -52,7 +52,7 @@ export const id: PartialDictionary = {
     stat2Sub: 'untuk memulai, tanpa pasang apa pun',
     stat3: '1 URL',
     stat3Sub: 'untuk mengundang dunia',
-    stat4: 'Tanpa AI',
+    stat4: 'Tanpa pelatihan AI',
     stat4Sub: 'karyamu tidak pernah dipakai untuk pelatihan',
 
     flowTitle: 'Tiga langkah sampai pembukaan.',
@@ -97,6 +97,7 @@ export const id: PartialDictionary = {
     comingSoon: 'Segera',
     pricingNoteLive: 'Semua yang kamu buat tetap milikmu, dan menerbitkan selalu gratis. Setiap tambahan dibeli sekali saja: tanpa langganan, tidak ada yang perlu diperpanjang atau dibatalkan.',
     pricingNoteSoon: 'Semua yang kamu buat tetap milikmu, dan menerbitkan selalu gratis. Setiap tambahan dibeli sekali saja: tanpa langganan, tidak ada yang perlu diperpanjang. Tambahan berbayar belum dibuka.',
+    pricingCurrency: 'Harga ditampilkan dalam dolar AS. Pajak atau PPN ditambahkan saat pembayaran.',
 
     closingEyebrow: 'Sekarang kamu',
     closingTitle1: 'Buka',

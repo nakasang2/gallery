@@ -52,7 +52,7 @@ export const fr: PartialDictionary = {
     stat2Sub: 'pour commencer, rien à installer',
     stat3: '1 URL',
     stat3Sub: 'pour inviter le monde',
-    stat4: 'Sans IA',
+    stat4: 'Sans entraînement IA',
     stat4Sub: 'vos œuvres ne servent jamais à l’entraînement',
 
     flowTitle: 'Trois étapes jusqu’au vernissage.',
@@ -97,6 +97,7 @@ export const fr: PartialDictionary = {
     comingSoon: 'Bientôt',
     pricingNoteLive: 'Tout ce que vous créez reste à vous, et publier est toujours gratuit. Chaque option est un achat unique : pas d’abonnement, rien à renouveler, rien à résilier.',
     pricingNoteSoon: 'Tout ce que vous créez reste à vous, et publier est toujours gratuit. Chaque option est un achat unique : pas d’abonnement, rien à renouveler. Les options payantes ne sont pas encore ouvertes.',
+    pricingCurrency: 'Les prix sont affichés en dollars américains. La TVA éventuelle est ajoutée au paiement.',
 
     closingEyebrow: 'À vous',
     closingTitle1: 'Ouvrez',

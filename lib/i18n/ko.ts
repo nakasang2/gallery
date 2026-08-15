@@ -98,6 +98,7 @@ export const ko: PartialDictionary = {
     comingSoon: '준비 중',
     pricingNoteLive: '만든 것은 모두 당신의 것이고, 공개는 언제나 무료입니다. 업그레이드는 모두 한 번만 사면 끝 — 정기 결제도, 갱신도, 해지도 없습니다.',
     pricingNoteSoon: '만든 것은 모두 당신의 것이고, 공개는 언제나 무료입니다. 업그레이드는 모두 한 번만 사면 끝 — 정기 결제도 갱신도 없습니다. 유료 업그레이드는 아직 시작하지 않았습니다.',
+    pricingCurrency: '가격은 미국 달러로 표시됩니다. 부가세 등은 결제 화면에서 더해집니다.',
 
     closingEyebrow: '이제 당신의 차례',
     closingTitle1: '당신의 방을',

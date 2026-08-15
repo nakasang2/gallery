@@ -52,7 +52,7 @@ export const ptBr: PartialDictionary = {
     stat2Sub: 'para começar, nada para instalar',
     stat3: '1 URL',
     stat3Sub: 'para convidar o mundo',
-    stat4: 'Sem IA',
+    stat4: 'Sem treino de IA',
     stat4Sub: 'seu trabalho nunca é usado para treinar',
 
     flowTitle: 'Três passos até a abertura.',
@@ -97,6 +97,7 @@ export const ptBr: PartialDictionary = {
     comingSoon: 'Em breve',
     pricingNoteLive: 'Tudo o que você faz continua seu, e publicar é sempre de graça. Cada melhoria é uma compra única: sem assinatura, nada para renovar, nada para cancelar.',
     pricingNoteSoon: 'Tudo o que você faz continua seu, e publicar é sempre de graça. Cada melhoria é uma compra única: sem assinatura, nada para renovar. As melhorias pagas ainda não estão liberadas.',
+    pricingCurrency: 'Os preços são exibidos em dólares americanos. Impostos ou IVA são adicionados no checkout.',
 
     closingEyebrow: 'Sua vez',
     closingTitle1: 'Abra',

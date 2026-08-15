@@ -53,7 +53,7 @@ export const zhHans: PartialDictionary = {
     stat2Sub: '开始，无需安装',
     stat3: '1 个网址',
     stat3Sub: '邀请全世界',
-    stat4: '不用于 AI',
+    stat4: '不用于 AI 训练',
     stat4Sub: '你的作品不会被用来训练',
 
     flowTitle: '三步就能开幕。',
@@ -98,6 +98,7 @@ export const zhHans: PartialDictionary = {
     comingSoon: '即将推出',
     pricingNoteLive: '你做的一切都属于你，公开永远免费。所有升级都是一次性购买 — 没有订阅，不用续费，也不必取消。',
     pricingNoteSoon: '你做的一切都属于你，公开永远免费。所有升级都是一次性购买 — 没有订阅，不用续费。付费升级还没有开放。',
+    pricingCurrency: '价格以美元显示。消费税／增值税将在结账页面另行计算。',
 
     closingEyebrow: '轮到你了',
     closingTitle1: '打开',

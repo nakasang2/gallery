@@ -97,6 +97,7 @@ export const de: PartialDictionary = {
     comingSoon: 'Bald',
     pricingNoteLive: 'Alles, was du machst, bleibt deins, und Veröffentlichen ist immer kostenlos. Jede Erweiterung ist ein einmaliger Kauf: kein Abo, nichts zu verlängern, nichts zu kündigen.',
     pricingNoteSoon: 'Alles, was du machst, bleibt deins, und Veröffentlichen ist immer kostenlos. Jede Erweiterung ist ein einmaliger Kauf: kein Abo, nichts zu verlängern. Bezahlte Erweiterungen sind noch nicht freigeschaltet.',
+    pricingCurrency: 'Preise in US-Dollar. Umsatzsteuer bzw. MwSt. wird beim Bezahlen hinzugefügt.',
 
     closingEyebrow: 'Du bist dran',
     closingTitle1: 'Öffne',

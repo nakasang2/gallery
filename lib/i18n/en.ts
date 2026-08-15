@@ -812,7 +812,10 @@ export const en = {
     stat2Sub: 'to start, nothing to install',
     stat3: '1 URL',
     stat3Sub: 'to invite the world',
-    stat4: 'No AI',
+    // 「AIを一切使っていない」と読ませない。読み上げ（/api/tts）で OpenAI を
+    // 使っており、約束しているのは**作品を学習に使わないこと**（規約 §3 /
+    // プライバシー §2・§3）。ja・de・ko は元から学習に限定した言い方だった。
+    stat4: 'No AI training',
     stat4Sub: 'your work is never used for training',
 
     flowTitle: 'Three steps to opening night.',
@@ -863,6 +866,10 @@ export const en = {
     comingSoon: 'Coming soon',
     pricingNoteLive: 'Everything you make stays yours — publishing is always free. Every upgrade is a one-time purchase: no subscription, nothing to renew, nothing to cancel.',
     pricingNoteSoon: 'Everything you make stays yours — publishing is always free. Every upgrade is a one-time purchase: no subscription, nothing to renew. Paid upgrades are not switched on yet.',
+    // 表示通貨と税の注記（料金カードの直下）。ja だけ `¥0` で、有料は全部 $ だった
+    // ため「円建て」と読めた（2026-08-15 のLPレビュー）。金額は米ドル、税は Stripe が
+    // 決済画面で加算する（特商法ページの `legal.valExtra` と同じ事実）。
+    pricingCurrency: 'Prices are shown in US dollars. Any consumption tax or VAT is added at checkout.',
 
     closingEyebrow: 'Your turn',
     closingTitle1: 'Open your',
@@ -1214,7 +1221,7 @@ export const en = {
     // script-ok: 日本の法律名を原語で示す（英文の中の意図した和文）
     // 日付はこのページの開示内容を変えたら必ず更新する（施行されている版がどれかは
     // 争いになったときにまさにここで決まる）。2026-08-12: 合同展示の場所代と引渡時期。
-    intro: 'Seller information disclosed under the Japanese Act on Specified Commercial Transactions (特定商取引法に基づく表記). Last updated: August 12, 2026.',
+    intro: 'Seller information disclosed under the Japanese Act on Specified Commercial Transactions (特定商取引法に基づく表記). Last updated: August 15, 2026.',
     rowService: 'Service',
     rowOperator: 'Operator',
     rowAddress: 'Address',
@@ -1246,7 +1253,10 @@ export const en = {
     // 会期には終わりがあり、猶予のあと消える）。日数は EXPO_GRACE_DAYS から導出する。
     valDelivery: 'Immediately on payment confirmation — the upgrade unlocks in your dashboard. A joint exhibition opens at the start date and time you pick before paying (right after payment, if you leave it blank), stays open for the number of days you bought, and the show and its URL are removed {grace} days after the run ends.',
     rowReturns: 'Returns and cancellation',
-    valReturns: 'Upgrades are digital goods delivered immediately, so they are not refundable once unlocked, except where the law requires otherwise. If an upgrade does not unlock after you were charged, write to us and we will fix it or refund you. See the Terms for the full policy.',
+    // Must not contradict Terms section 6 (closing the service) — once upgrades are
+    // sold as "pay once, keep forever", what happens on closure IS part of the refund
+    // terms (2026-08-15 landing-page review).
+    valReturns: 'Upgrades are digital goods delivered immediately, so they are not refundable once unlocked, except where the law requires otherwise. If an upgrade does not unlock after you were charged, write to us and we will fix it or refund you. If we ever close the service entirely, we give at least 90 days’ notice and, on request during that period, refund any one-time upgrade bought in the 12 months before the announcement. See the Terms for the full policy.',
     rowAge: 'Age',
     valAge: 'Xibit360 is for people aged 18 and over. See the Terms.',
     rowSystem: 'System requirements',
