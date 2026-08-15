@@ -869,6 +869,8 @@ export const en = {
     // ため「円建て」と読めた（2026-08-15 のLPレビュー）。金額は米ドル、税は Stripe が
     // 決済画面で加算する（特商法ページの `legal.valExtra` と同じ事実）。
     pricingCurrency: 'Prices are shown in US dollars. Any consumption tax or VAT is added at checkout.',
+    pricingFaq: 'Common questions',
+    pricingRefund: 'About refunds',
 
     closingEyebrow: 'Your turn',
     closingTitle1: 'Open your',
@@ -976,6 +978,15 @@ export const en = {
     s4: 'Publishing & sharing',
     s5: 'More rooms, and showing together',
     s6: 'Troubleshooting',
+    s7: 'Money, and your rights',
+    qRefund: 'Can I get a refund?',
+    aRefund: 'Upgrades unlock the moment your payment clears, so they are not refundable once unlocked, except where the law requires otherwise. If you were charged and the upgrade did not unlock, write to us and we will fix it or refund you in full. If we ever close the service, we give at least 90 days’ notice and refund any one-time purchase made in the 12 months before that announcement.',
+    qRights: 'Who owns the work I upload?',
+    aRights: 'You do — all of it. What we hold is only the technical permission needed to show your exhibition while it is published (storing it, resizing it for display, serving it to visitors), and that ends when you delete the work or close your account.',
+    qAi: 'Will my work be used to train AI?',
+    aAi: 'No. We do not use your work to train AI or machine-learning models, and we do not provide, sell or license it to anyone else for that purpose. Only when you use read-aloud is the caption text sent to an external speech service to generate the audio — your images are never sent.',
+    qStorage: 'How much can I store?',
+    aStorage: 'Up to {storage}MB per account in total, and up to {video}MB for a single video. Images are compressed in your browser before upload, so {storage}MB holds a great many photographs or illustrations.',
     qWhat: 'What is Xibit360?',
     aWhat: 'Xibit360 lets you build your own walk-through exhibition — a solo show inside the browser. No app or plugin needed: it opens from a single link, and visitors can walk it on a computer or a phone.',
     qCost: 'How much does it cost?',
