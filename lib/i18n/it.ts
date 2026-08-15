@@ -17,9 +17,9 @@ export const it: PartialDictionary = {
     footerTagline: 'Al tuo lavoro, uno spazio.',
     footerNav: 'Piè di pagina',
 
-    heroEyebrow: 'Una personale',
-    heroTitle: 'Entra nella tua luce.',
-    heroSub: 'Il tuo portfolio diventa una galleria 3D in cui si cammina — un link, niente da installare.',
+    heroEyebrow: 'Più di qualcosa da scorrere.',
+    heroTitle: 'Dai alle tue opere un luogo tutto loro.',
+    heroSub: 'In pochi minuti diventano una mostra da percorrere a piedi. Un link, senza installare nulla.',
     heroCta: 'Attraversa la demo',
     heroCtaArrow: 'Attraversa la demo →',
     heroAlt: 'oppure crea la tua — gratis →',
@@ -28,18 +28,18 @@ export const it: PartialDictionary = {
 
     featuresCue: 'Attraversa la sala — sei cose che questo spazio sa fare, appese alla parete.',
     featuresTitle: 'Cosa sa fare la sala.',
-    f1Title: 'Una personale nel browser',
-    f1Body: 'Nessuna app, nessun plugin. Un link apre la galleria, e la si attraversa da computer o da telefono.',
-    f2Title: 'Appendi trascinando',
-    f2Body: 'Carica un’immagine e mettila sulla parete. Altezza, distanze e linea dello sguardo si allineano al modello.',
-    f3Title: 'Illumina e allestisci ogni opera',
-    f3Body: 'Faretti, colore della parete e pavimento fanno l’atmosfera. Ogni opera ha la sua presentazione.',
-    f4Title: 'Un indirizzo, aperto al mondo',
-    f4Body: 'una URL permanente per il tuo lavoro, pronta per qualsiasi bio o portfolio.',
-    f5Title: 'Didascalie che raccontano',
-    f5Body: 'Titolo, anno e testo stanno accanto all’opera, come la didascalia di un museo.',
-    f6Title: 'Libro dei visitatori e reazioni',
-    f6Body: 'Passaggi, brevi note, attenzione silenziosa — risposte che somigliano a una mostra, non a una sezione commenti.',
+    f1Title: 'La tua mostra, già da oggi',
+    f1Body: 'Nessuno spazio da affittare, nessuna app da installare. Carica le opere e puoi inaugurare lo stesso giorno.',
+    f2Title: 'Le tue parole, accanto all’opera',
+    f2Body: 'Titolo, anno e statement, esposti come la didascalia di un museo. Le opere in vendita rimandano direttamente al tuo shop o alla tua galleria.',
+    f3Title: 'Nessun abbonamento. Nessuno.',
+    f3Body: 'Creare e pubblicare resta gratis. Paghi una volta sola, e solo per ciò che vuoi aggiungere. Niente si rinnova e non c’è nulla da disdire.',
+    f4Title: 'Non solo vedere: esserci',
+    f4Body: 'Chi visita si avvicina, si ferma e guarda, dentro una sala che si comporta come una sala. Da computer o da telefono, è lo stesso spazio.',
+    f5Title: 'Ogni opera, come vuoi mostrarla',
+    f5Body: 'Luce e cornice regolate opera per opera. Si possono esporre anche i video.',
+    f6Title: 'Da soli o insieme',
+    f6Body: 'Più artisti possono aprire una mostra sola. Ogni artista invitato riceve la propria sala e chi organizza tiene insieme il tutto: pensato per mostre di diploma e collettive.',
 
     conceptStatement1: 'Una mostra,',
     conceptStatement2: 'non un feed.',
@@ -51,7 +51,7 @@ export const it: PartialDictionary = {
     stat2Sub: 'per iniziare, niente da installare',
     stat3: '1 URL',
     stat3Sub: 'per invitare il mondo',
-    stat4: 'Nessuna IA',
+    stat4: 'Nessun training IA',
     stat4Sub: 'le tue opere non vengono mai usate per l’addestramento',
 
     flowTitle: 'Tre passi fino all’inaugurazione.',
@@ -96,6 +96,7 @@ export const it: PartialDictionary = {
     comingSoon: 'Presto',
     pricingNoteLive: 'Tutto quello che fai resta tuo, e pubblicare è sempre gratis. Ogni estensione è un acquisto unico: nessun abbonamento, niente da rinnovare, niente da disdire.',
     pricingNoteSoon: 'Tutto quello che fai resta tuo, e pubblicare è sempre gratis. Ogni estensione è un acquisto unico: nessun abbonamento, niente da rinnovare. Le estensioni a pagamento non sono ancora attive.',
+    pricingCurrency: 'I prezzi sono indicati in dollari statunitensi. L’IVA eventuale viene aggiunta al pagamento.',
 
     closingEyebrow: 'Tocca a te',
     closingTitle1: 'Apri',
@@ -718,6 +719,9 @@ export const it: PartialDictionary = {
   },
 
   adminUi: {
+    lpPanels: 'Home — pannelli del corridoio',
+    lpPanelsNote: 'Un’opera accanto a ciascuno dei sei pannelli del corridoio 3D. Il testo della targa viene dal dizionario; qui si cambia solo l’immagine di fianco. Uno slot vuoto lascia il pannello da solo. I formati orizzontali funzionano meglio.',
+    noPanelArt: 'Nessuna immagine',
     exhibitionSpaces: 'Spazi espositivi ({count})',
     packagesNote:
       '«Estensioni» mostra ciò che ogni utente possiede — comprato al pagamento o concesso qui. La × revoca. Concedere scrive nel registro purchases (come admin_grant, 0 $, quindi non conta negli incassi) e sblocca subito. I nuovi temi e allestimenti a pagamento compaiono da soli nell’elenco. Gli indirizzi e-mail stanno in Supabase Auth e non sono esposti alla chiave anon.',
@@ -791,9 +795,8 @@ export const it: PartialDictionary = {
     announceSent: 'Consegnato a {n} account.',
   },
   seo: {
-    homeTitle: 'Xibit360 — Al tuo lavoro, uno spazio.',
-    homeDesc:
-      'Xibit360 trasforma il tuo portfolio in una mostra 3D da attraversare. Carica le opere, componi la sala e apri la mostra al mondo con un solo link.',
+    homeTitle: 'Xibit360 — Dai alle tue opere un luogo tutto loro.',
+    homeDesc: 'Xibit360 trasforma le tue opere in una mostra 3D da percorrere a piedi. Inizi gratis, inauguri in pochi minuti, senza installare nulla: un link apre la mostra al mondo.',
     exploreTitle: 'Esplora — Xibit360',
     exploreDesc:
       'Tutte le mostre pubbliche della piattaforma. Ogni sala si apre in 3D nel browser e si attraversa a piedi.',

@@ -18,9 +18,9 @@ export const de: PartialDictionary = {
     footerTagline: 'Deiner Arbeit einen Raum geben.',
     footerNav: 'Fußzeile',
 
-    heroEyebrow: 'Eine Ausstellung für eine Person',
-    heroTitle: 'Tritt in dein eigenes Licht.',
-    heroSub: 'Aus deinem Portfolio wird eine 3D-Galerie, durch die man geht — ein Link, nichts zu installieren.',
+    heroEyebrow: 'Mehr als etwas zum Weiterscrollen.',
+    heroTitle: 'Gib deinen Werken einen eigenen Ort.',
+    heroSub: 'In wenigen Minuten wird daraus eine Ausstellung zum Durchgehen. Ein Link, keine Installation.',
     heroCta: 'Durch die Demo gehen',
     heroCtaArrow: 'Durch die Demo gehen →',
     heroAlt: 'oder deine eigene anlegen — kostenlos →',
@@ -29,18 +29,18 @@ export const de: PartialDictionary = {
 
     featuresCue: 'Geh durch den Saal — sechs Dinge, die dieser Raum kann, an der Wand aufgehängt.',
     featuresTitle: 'Was der Raum kann.',
-    f1Title: 'Eine Einzelausstellung im Browser',
-    f1Body: 'Keine App, kein Plug-in. Ein Link öffnet die Galerie, und man geht am Rechner wie am Handy hindurch.',
-    f2Title: 'Werke per Ziehen aufhängen',
-    f2Body: 'Bild hochladen und an die Wand setzen. Höhe, Abstand und Blickachse richten sich an der Vorlage aus.',
-    f3Title: 'Jedes Werk beleuchten',
-    f3Body: 'Strahler, Wandfarbe und Boden machen die Stimmung. Jedes Werk bekommt seine eigene Präsentation.',
-    f4Title: 'Eine Adresse, offen für alle',
-    f4Body: 'eine dauerhafte URL für deine Arbeit, passend für jede Bio und jedes Portfolio.',
-    f5Title: 'Schilder, die die Geschichte tragen',
-    f5Body: 'Titel, Jahr und Text stehen neben dem Werk — so wie ein Museumsschild.',
-    f6Title: 'Gästebuch und Reaktionen',
-    f6Body: 'Spuren, kurze Notizen, stille Anerkennung — Rückmeldungen wie in einer Ausstellung, nicht wie in einem Kommentarfeld.',
+    f1Title: 'Heute noch eine eigene Ausstellung',
+    f1Body: 'Keine Galerie mieten, keine App installieren. Werke hochladen — und noch am selben Tag eröffnen.',
+    f2Title: 'Deine Worte, direkt neben dem Werk',
+    f2Body: 'Titel, Jahr und Statement, angebracht wie ein Museumsschild. Verkäufliche Werke führen direkt zu deinem Shop oder deiner Galerie.',
+    f3Title: 'Kein Abo. Wirklich keins.',
+    f3Body: 'Erstellen und Veröffentlichen bleibt kostenlos. Nur was du erweitern willst, bezahlst du einmalig. Nichts verlängert sich, nichts muss gekündigt werden.',
+    f4Title: 'Nicht nur sehen, sondern erleben',
+    f4Body: 'Besucher treten heran, bleiben stehen und schauen — in einem Raum, der sich wie ein Raum anfühlt. Am Rechner wie am Handy derselbe Ort.',
+    f5Title: 'Jedes Werk so, wie du es zeigen willst',
+    f5Body: 'Licht und Rahmung für jedes Werk einzeln. Auch Videoarbeiten lassen sich ausstellen.',
+    f6Title: 'Allein oder gemeinsam',
+    f6Body: 'Mehrere Kunstschaffende können eine Ausstellung zusammen eröffnen. Jede eingeladene Person bekommt einen eigenen Raum, die Organisation hält alles zusammen — gemacht für Abschluss- und Gruppenausstellungen.',
 
     conceptStatement1: 'Eine Ausstellung,',
     conceptStatement2: 'kein Feed.',
@@ -97,6 +97,7 @@ export const de: PartialDictionary = {
     comingSoon: 'Bald',
     pricingNoteLive: 'Alles, was du machst, bleibt deins, und Veröffentlichen ist immer kostenlos. Jede Erweiterung ist ein einmaliger Kauf: kein Abo, nichts zu verlängern, nichts zu kündigen.',
     pricingNoteSoon: 'Alles, was du machst, bleibt deins, und Veröffentlichen ist immer kostenlos. Jede Erweiterung ist ein einmaliger Kauf: kein Abo, nichts zu verlängern. Bezahlte Erweiterungen sind noch nicht freigeschaltet.',
+    pricingCurrency: 'Preise in US-Dollar. Umsatzsteuer bzw. MwSt. wird beim Bezahlen hinzugefügt.',
 
     closingEyebrow: 'Du bist dran',
     closingTitle1: 'Öffne',
@@ -719,6 +720,9 @@ export const de: PartialDictionary = {
   },
 
   adminUi: {
+    lpPanels: 'Startseite — Panels im Gang',
+    lpPanelsNote: 'Je ein Werk neben den sechs Panels im 3D-Gang. Der Text auf der Tafel kommt aus dem Wörterbuch; hier geht es nur um das Bild daneben. Ein leeres Feld heißt: Tafel ohne Bild. Querformate passen am besten.',
+    noPanelArt: 'Kein Bild',
     exhibitionSpaces: 'Ausstellungsräume ({count})',
     packagesNote:
       '„Erweiterungen“ zeigt, was jede Person besitzt — gekauft oder hier freigeschaltet. Das × nimmt es zurück. Ein Freischalten wird im purchases-Journal als admin_grant mit 0 $ verbucht (zählt also nicht zum Umsatz) und wirkt sofort. Neue kostenpflichtige Themen und Anordnungen erscheinen von selbst in der Liste. E-Mail-Adressen liegen in Supabase Auth und sind dem anon-Schlüssel nicht zugänglich.',
@@ -792,9 +796,8 @@ export const de: PartialDictionary = {
     announceSent: 'An {n} Konten ausgeliefert.',
   },
   seo: {
-    homeTitle: 'Xibit360 — Deiner Arbeit einen Raum geben.',
-    homeDesc:
-      'Xibit360 macht aus deinem Portfolio eine begehbare 3D-Ausstellung. Werke hochladen, den Raum einrichten, und mit einem einzigen Link für die Welt öffnen.',
+    homeTitle: 'Xibit360 — Gib deinen Werken einen eigenen Ort.',
+    homeDesc: 'Xibit360 macht aus deinen Werken eine begehbare 3D-Ausstellung. Kostenlos starten, in wenigen Minuten eröffnen, nichts installieren — ein Link öffnet deine Ausstellung für die Welt.',
     exploreTitle: 'Entdecken — Xibit360',
     exploreDesc:
       'Alle öffentlichen Ausstellungen der Plattform. Jeder Raum öffnet sich in 3D im Browser und lässt sich zu Fuß durchgehen.',

@@ -44,9 +44,8 @@ export const en = {
   // 固有名詞であり、検索結果でシリーズとして認識されるのは接尾が揃っている
   // ときだから。/terms /privacy /legal は単一URLなので layout の英語のまま。
   seo: {
-    homeTitle: 'Xibit360 — Your work, given space.',
-    homeDesc:
-      'Xibit360 turns your portfolio into a walkable 3D exhibition. Upload your work, compose the room, and open your show to the world with a single URL.',
+    homeTitle: 'Xibit360 — Give your work a place of its own.',
+    homeDesc: 'Xibit360 turns your work into a 3D exhibition people can walk through. Free to start, minutes to open, nothing to install — one link opens your show to the world.',
     exploreTitle: 'Explore — Xibit360',
     exploreDesc:
       'Walk through public galleries from other artists — every exhibition on the platform, one link each.',
@@ -770,9 +769,9 @@ export const en = {
     footerTagline: 'Your work, given space.',
     footerNav: 'Footer',
 
-    heroEyebrow: 'An exhibition of one',
-    heroTitle: 'Step into your own light.',
-    heroSub: 'Turn your portfolio into a walkable 3D gallery — one link, no installs.',
+    heroEyebrow: 'More than something to scroll past.',
+    heroTitle: 'Give your work a place of its own.',
+    heroSub: 'In a few minutes it becomes an exhibition people can walk through. One link, no installs.',
     heroCta: 'Walk the demo',
     heroCtaArrow: 'Walk the demo →',
     heroAlt: 'or create your own — free →',
@@ -787,20 +786,20 @@ export const en = {
 
     featuresCue: 'Walk the hall — six things the room can do, hung along the wall.',
     featuresTitle: 'What the room can do.',
-    f1Title: 'A solo show in the browser',
-    f1Body: 'No apps, no plugins. One link opens the gallery, and visitors walk it on desktop or phone.',
-    f2Title: 'Hang works by drag & drop',
-    f2Body: 'Upload an image and place it on a wall. Height, spacing and sightlines snap to the template.',
-    f3Title: 'Light and stage every piece',
-    f3Body: 'Spotlights, wall colour and flooring set the mood. Each work gets its own presentation.',
-    f4Title: 'One address, open worldwide',
+    f1Title: 'Anyone can open a show today',
+    f1Body: 'No gallery to rent, no app to install. Upload your work and you can open the doors the same day.',
+    f2Title: 'Your own words, beside the work',
+    f2Body: 'Title, year and statement, mounted the way a museum label would be. Works that are for sale link straight through to your shop or your dealer’s page.',
+    f3Title: 'No subscription. None.',
+    f3Body: 'Building and publishing stays free. Pay once, only for what you want to add. Nothing renews and there is nothing to cancel.',
+    f4Title: 'Not just seen — felt',
     // URLの見本のあとに続く一文（LPのFeatures一覧と3Dヒーローの壁で共有）。
     // 日本語と同じく区切りの — を訳文側に持つ: 語順と区切りは言語に委ねる。
-    f4Body: '— a permanent URL for your practice, made for any bio or portfolio.',
-    f5Title: 'Captions that carry the story',
-    f5Body: 'Title, year and statement are mounted beside each work, the way a museum label would be.',
-    f6Title: 'Guestbook & reactions',
-    f6Body: 'Footprints, notes, quiet appreciation — feedback that behaves like an exhibition, not a comment feed.',
+    f4Body: 'Visitors walk up to a piece, stop, and take it in, inside a room that feels like a room. Desktop or phone, it is the same space.',
+    f5Title: 'Every piece, shown your way',
+    f5Body: 'Lighting and framing tuned for each work. Video works can be exhibited too.',
+    f6Title: 'On your own, or together',
+    f6Body: 'Several artists can open one exhibition. Every artist you invite gets their own room, and the organiser holds the whole show together — made for graduation and group shows.',
 
     conceptStatement1: 'An exhibition,',
     conceptStatement2: 'not a feed.',
@@ -812,7 +811,10 @@ export const en = {
     stat2Sub: 'to start, nothing to install',
     stat3: '1 URL',
     stat3Sub: 'to invite the world',
-    stat4: 'No AI',
+    // 「AIを一切使っていない」と読ませない。読み上げ（/api/tts）で OpenAI を
+    // 使っており、約束しているのは**作品を学習に使わないこと**（規約 §3 /
+    // プライバシー §2・§3）。ja・de・ko は元から学習に限定した言い方だった。
+    stat4: 'No AI training',
     stat4Sub: 'your work is never used for training',
 
     flowTitle: 'Three steps to opening night.',
@@ -863,6 +865,10 @@ export const en = {
     comingSoon: 'Coming soon',
     pricingNoteLive: 'Everything you make stays yours — publishing is always free. Every upgrade is a one-time purchase: no subscription, nothing to renew, nothing to cancel.',
     pricingNoteSoon: 'Everything you make stays yours — publishing is always free. Every upgrade is a one-time purchase: no subscription, nothing to renew. Paid upgrades are not switched on yet.',
+    // 表示通貨と税の注記（料金カードの直下）。ja だけ `¥0` で、有料は全部 $ だった
+    // ため「円建て」と読めた（2026-08-15 のLPレビュー）。金額は米ドル、税は Stripe が
+    // 決済画面で加算する（特商法ページの `legal.valExtra` と同じ事実）。
+    pricingCurrency: 'Prices are shown in US dollars. Any consumption tax or VAT is added at checkout.',
 
     closingEyebrow: 'Your turn',
     closingTitle1: 'Open your',
@@ -1135,6 +1141,12 @@ export const en = {
     remove: 'Remove',
 
     lpHero: 'Landing page hero',
+
+    lpPanels: 'Landing page — corridor panels',
+
+    lpPanelsNote: 'One work hung beside each of the six panels along the 3D corridor. The wording on the board comes from the dictionary; this is only the picture next to it. Leave a slot empty and that panel hangs on its own. Landscape images sit best.',
+
+    noPanelArt: 'No image',
     demoDefault: 'Demo default',
     clear: 'Clear',
     // ヒーローの3枠（lib/siteConfig の LP_HERO_SLOT_LABEL_KEYS が指す）
@@ -1214,7 +1226,7 @@ export const en = {
     // script-ok: 日本の法律名を原語で示す（英文の中の意図した和文）
     // 日付はこのページの開示内容を変えたら必ず更新する（施行されている版がどれかは
     // 争いになったときにまさにここで決まる）。2026-08-12: 合同展示の場所代と引渡時期。
-    intro: 'Seller information disclosed under the Japanese Act on Specified Commercial Transactions (特定商取引法に基づく表記). Last updated: August 12, 2026.',
+    intro: 'Seller information disclosed under the Japanese Act on Specified Commercial Transactions (特定商取引法に基づく表記). Last updated: August 15, 2026.',
     rowService: 'Service',
     rowOperator: 'Operator',
     rowAddress: 'Address',
@@ -1246,7 +1258,10 @@ export const en = {
     // 会期には終わりがあり、猶予のあと消える）。日数は EXPO_GRACE_DAYS から導出する。
     valDelivery: 'Immediately on payment confirmation — the upgrade unlocks in your dashboard. A joint exhibition opens at the start date and time you pick before paying (right after payment, if you leave it blank), stays open for the number of days you bought, and the show and its URL are removed {grace} days after the run ends.',
     rowReturns: 'Returns and cancellation',
-    valReturns: 'Upgrades are digital goods delivered immediately, so they are not refundable once unlocked, except where the law requires otherwise. If an upgrade does not unlock after you were charged, write to us and we will fix it or refund you. See the Terms for the full policy.',
+    // Must not contradict Terms section 6 (closing the service) — once upgrades are
+    // sold as "pay once, keep forever", what happens on closure IS part of the refund
+    // terms (2026-08-15 landing-page review).
+    valReturns: 'Upgrades are digital goods delivered immediately, so they are not refundable once unlocked, except where the law requires otherwise. If an upgrade does not unlock after you were charged, write to us and we will fix it or refund you. If we ever close the service entirely, we give at least 90 days’ notice and, on request during that period, refund any one-time upgrade bought in the 12 months before the announcement. See the Terms for the full policy.',
     rowAge: 'Age',
     valAge: 'Xibit360 is for people aged 18 and over. See the Terms.',
     rowSystem: 'System requirements',

@@ -17,9 +17,9 @@ export const zhHant: PartialDictionary = {
     footerTagline: '給你的作品，一個空間。',
     footerNav: '頁尾',
 
-    heroEyebrow: '一個人的展覽',
-    heroTitle: '走進屬於你的光裡。',
-    heroSub: '把作品集變成能走進去的 3D 展場 — 一個連結，不必安裝。',
+    heroEyebrow: '不該只是被滑過去。',
+    heroTitle: '給你的作品，一個專屬的位置。',
+    heroSub: '幾分鐘就能做成可以走進去參觀的展覽。一個連結，不必安裝。',
     heroCta: '走進範例展場',
     heroCtaArrow: '走進範例展場 →',
     heroAlt: '或做一個自己的 — 免費 →',
@@ -28,18 +28,18 @@ export const zhHant: PartialDictionary = {
 
     featuresCue: '在展場裡走一圈 — 六件這個空間能做的事，掛在牆上。',
     featuresTitle: '這個空間能做什麼。',
-    f1Title: '瀏覽器裡的個展',
-    f1Body: '不必安裝應用程式，也不必外掛。一個連結就打開展場，觀眾在電腦和手機上都能走進去。',
-    f2Title: '拖放就能掛上作品',
-    f2Body: '上傳圖片，放到牆上即可。高度、間距和視線高度都會依模板自動對齊。',
-    f3Title: '為每件作品打光',
-    f3Body: '投射燈、牆色和地面決定氣氛。每件作品都能有自己的呈現方式。',
-    f4Title: '一個網址，面向世界',
-    f4Body: '屬於你創作的固定網址，可以直接放進簡介或作品集。',
-    f5Title: '把故事寫在標籤上',
-    f5Body: '標題、年份和創作自述會像美術館的說明牌一樣，放在作品旁邊。',
-    f6Title: '留言簿與回應',
-    f6Body: '足跡、短短的留言、安靜的欣賞 — 回應像一場展覽，而不是留言區。',
+    f1Title: '誰都可以，今天就辦個展',
+    f1Body: '不必租展場，也不必安裝應用程式。把作品傳上來，當天就能開展。',
+    f2Title: '在作品旁邊，寫下你的話',
+    f2Body: '標題、創作年份、創作自述，像美術館的說明牌一樣放在作品旁邊。販售中的作品可以直接連到你的商店或委託的畫廊頁面。',
+    f3Title: '沒有訂閱，一次也沒有',
+    f3Body: '建立與公開一直免費。只有想擴充的時候，才為需要的部分付一次費。不會續約，也不必取消。',
+    f4Title: '不只是看，而是身歷其境',
+    f4Body: '觀眾在真正像展場的空間裡走近作品，停下來，慢慢觀看。電腦和手機進入的是同一個空間。',
+    f5Title: '一件一件，按你想要的方式呈現',
+    f5Body: '燈光與畫框可以逐件調整。影像作品同樣可以展出。',
+    f6Title: '一個人，或者一起',
+    f6Body: '多位創作者可以共同開一場展覽。每位受邀的創作者都會有自己的展場，主辦者把整場串在一起——適合畢業展和聯展。',
 
     conceptStatement1: '這是展覽，',
     conceptStatement2: '不是動態牆。',
@@ -51,7 +51,7 @@ export const zhHant: PartialDictionary = {
     stat2Sub: '開始，不必安裝',
     stat3: '1 個網址',
     stat3Sub: '邀請全世界',
-    stat4: '不用於 AI',
+    stat4: '不用於 AI 訓練',
     stat4Sub: '你的作品不會被用來訓練',
 
     flowTitle: '三步就能開幕。',
@@ -96,6 +96,7 @@ export const zhHant: PartialDictionary = {
     comingSoon: '即將推出',
     pricingNoteLive: '你做的一切都屬於你，公開永遠免費。所有升級都是一次性購買 — 沒有訂閱，不必續約，也不必取消。',
     pricingNoteSoon: '你做的一切都屬於你，公開永遠免費。所有升級都是一次性購買 — 沒有訂閱，不必續約。付費升級還沒有開放。',
+    pricingCurrency: '價格以美元顯示。消費稅／加值稅將在結帳頁面另行計算。',
 
     closingEyebrow: '輪到你了',
     closingTitle1: '打開',
@@ -718,6 +719,9 @@ export const zhHant: PartialDictionary = {
   },
 
   adminUi: {
+    lpPanels: '首頁 — 走廊上的展板',
+    lpPanelsNote: '在 3D 走廊的六塊展板旁各掛一件作品。展板上的文字來自字典，這裡換的只是旁邊的圖。留空則該處只掛展板。橫向圖片最合適。',
+    noPanelArt: '沒有圖片',
     exhibitionSpaces: '展覽空間（{count}）',
     packagesNote:
       '「方案」顯示每個使用者擁有的東西（購買的，或者在這裡開通的）。要撤銷就按 ×。開通會在 purchases 帳冊裡記為 admin_grant、$0（不計入營收），並且立即生效。新的付費主題和版面會自動出現在清單裡。電子郵件地址在 Supabase Auth 那邊，不會暴露給 anon 金鑰。',
@@ -791,9 +795,8 @@ export const zhHant: PartialDictionary = {
     announceSent: '已送達 {n} 個帳號。',
   },
   seo: {
-    homeTitle: 'Xibit360 — 給你的作品，一個空間。',
-    homeDesc:
-      'Xibit360 把你的作品集變成能走進去的 3D 展覽。上傳作品、佈置展場，用一個連結向世界打開。',
+    homeTitle: 'Xibit360 — 給你的作品，一個專屬的位置。',
+    homeDesc: 'Xibit360 把你的作品變成可以走進去參觀的 3D 展覽。免費開始，幾分鐘就能開展，不必安裝，一個連結就能向世界打開。',
     exploreTitle: '瀏覽展覽 — Xibit360',
     exploreDesc: '平台上所有公開的展覽。每個展場都能在瀏覽器裡直接以 3D 開啟，走進去看。',
     articlesTitle: '指南 — Xibit360',

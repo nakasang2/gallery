@@ -14,7 +14,7 @@ export default function TermsPage() {
         <h1 className="me-h1">Terms of Service</h1>
         <div className="legal-body">
           <p>
-            Last updated: July 28, 2026. These terms are between you and Nakamae Yusuke, the
+            Last updated: August 15, 2026. These terms are between you and Nakamae Yusuke, the
             operator of Xibit360 (&quot;we&quot;). Our full seller details are on the{' '}
             <Link href="/legal">Legal</Link> page. Questions:{' '}
             <a href="mailto:support@xibit360.art">support@xibit360.art</a>.
@@ -38,16 +38,25 @@ export default function TermsPage() {
           <p>Because upgrades are digital and unlock the moment your payment clears, they are <strong>not refundable</strong> once unlocked, except where the law requires otherwise. By agreeing to these terms at checkout you ask us to supply the upgrade immediately, and you accept that it unlocks before any statutory cancellation period would have ended — consumers in the EU and UK, that is the period this concerns. If you were charged and the upgrade did not unlock, write to us: we will fix it or refund you in full.</p>
           <p>Prices may change, but a change never affects something you already bought.</p>
 
-          <h2>6. Your account, and ending it</h2>
+          {/* Upgrades are sold as "pay once, keep forever" — on the landing page, in the
+              purchase modal and in section 5 above. Until this section existed, nothing in
+              the Terms said what "forever" was worth if Xibit360 stopped running, which is
+              the part of that promise a buyer cannot verify. The two numbers below (90 days'
+              notice, a 12-month refund window) are the commitment that makes the claim
+              honest; changing them changes what we are promising. Added 2026-08-15. */}
+          <h2>6. If we ever close Xibit360</h2>
+          <p>Upgrades are one-time purchases, so &quot;keep forever&quot; depends on this service continuing to run. If we ever decide to close it, we will say so on the site and by email <strong>at least 90 days</strong> before it closes, and we will keep your published galleries reachable and your files downloadable for the whole of that period, so you can take everything with you. If you bought a one-time upgrade in the <strong>12 months</strong> before that announcement, write to us during the notice period and we will refund it. This section is about closing the service for everyone; it does not apply to an individual account we suspend or terminate under section 7, and it does not cover a joint exhibition whose run has already finished.</p>
+
+          <h2>7. Your account, and ending it</h2>
           <p>You are responsible for your account credentials. You can delete your account at any time from the dashboard, which removes your profile, galleries and uploaded works. We may suspend or terminate accounts that violate these terms; where we can, we will tell you first.</p>
 
-          <h2>7. Our responsibility to you</h2>
+          <h2>8. Our responsibility to you</h2>
           <p>We provide the service with reasonable care and skill. Nothing in these terms limits our liability for death or personal injury caused by negligence, for fraud, or for anything else that cannot be limited under the law that applies to you — including the consumer protections in your own country, which these terms do not take away. Subject to that, we are not liable for indirect or consequential loss, and our total liability to you is limited to the greater of the amount you have paid us in the previous twelve months or JPY 5,000.</p>
 
-          <h2>8. Changes</h2>
+          <h2>9. Changes</h2>
           <p>We may update these terms. For changes that materially affect you we will give notice on the site before they take effect. Continuing to use Xibit360 after that means you accept the new terms.</p>
 
-          <h2>9. Governing law</h2>
+          <h2>10. Governing law</h2>
           <p>These terms are governed by the law of Japan, and the Tokyo District Court is the court of first instance for disputes. If you are a consumer, this does not deprive you of the protection of the mandatory laws of the country where you live, or of the right to bring a claim in your local courts.</p>
         </div>
         <footer className="artist-footer">

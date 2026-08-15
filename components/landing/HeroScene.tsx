@@ -11,24 +11,26 @@ import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
-import { fetchLpHero, LP_HERO_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
+import { fetchLpHero, fetchLpPanels, LP_HERO_SLOTS, LP_PANEL_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
 import { useT } from '@/components/I18nProvider'
 
-/** LP hook: the configured hero images (null per slot = fall back to the demo art).
- *  Lives here (its only caller) so lib/siteConfig stays hook-free and server-importable. */
-function useLpHero(): LpHeroSlot[] {
-  // Start with all-empty slots (same shape fetchLpHero resolves to) so the first
+/** LP hook: the admin-configured images for one face of the LP (null per slot =
+ *  nothing configured). Lives here (its only caller) so lib/siteConfig stays
+ *  hook-free and server-importable. Both faces — the entrance works and the six
+ *  corridor panels — load the same way, so they share this one loader. */
+function useLpSlots(load: () => Promise<LpHeroSlot[]>, count: number): LpHeroSlot[] {
+  // Start with all-empty slots (the same shape the fetch resolves to) so the first
   // paint falls back to the demo art rather than briefly indexing undefined.
-  const [slots, setSlots] = useState<LpHeroSlot[]>(() => Array(LP_HERO_SLOTS).fill(null))
+  const [slots, setSlots] = useState<LpHeroSlot[]>(() => Array(count).fill(null))
   useEffect(() => {
     let alive = true
-    fetchLpHero()
+    load()
       .then((s) => alive && setSlots(s))
       .catch(() => {})
     return () => {
       alive = false
     }
-  }, [])
+  }, [load, count])
   return slots
 }
 
@@ -55,21 +57,25 @@ const HERO_SLOTS: { idx: number; z: number; scale: number }[] = [
   { idx: 6, z: 9.2, scale: 1.3 }, // right
 ]
 
-// i18n-ok: URLの見本。ブランドのドメインなので訳さない（LPの Features 一覧と同じ形）
-const HANDLE_SAMPLE = 'xibit360.art/@you'
-
 // 左壁の機能パネル 01〜06。ここに持つのは番号と位置だけで、文言は辞書から引く
 // （`lp.f1Title` … `lp.f6Body`）。壁のパネルと Features セクションは同じ6項目なので、
 // キーを共有して「壁と一覧で言っていることが違う」状態を作らない。
-const PANEL_SPOTS: { n: string; z: number; k: string; pre?: string }[] = [
+const PANEL_SPOTS: { n: string; z: number; k: string }[] = [
   { n: '01', z: -6, k: 'f1' },
   { n: '02', z: -11, k: 'f2' },
   { n: '03', z: -16, k: 'f3' },
-  // 04 の本文はURLの見本に続く一文（辞書側も同じ形）
-  { n: '04', z: -21, k: 'f4', pre: HANDLE_SAMPLE },
+  { n: '04', z: -21, k: 'f4' },
   { n: '05', z: -26, k: 'f5' },
   { n: '06', z: -31, k: 'f6' },
 ]
+/**
+ * 管理画面から入れた1点を、板から廊下の奥側へこれだけずらして掛ける。
+ *
+ * カメラの止まり位置は板の手前（`p.z + 0.9`）で、見る先は板（`p.z`）なので、
+ * **視線は -z 側へ傾いている**＝奥側に置いた方が同じ画に入る。板の間隔は5あるので
+ * この値では隣のパネルと重ならない。**構図はここだけで決まる**ので、実機で見て
+ * 詰めたくなったらこの1つの数字を動かせばよい。 */
+const PANEL_ART_DZ = -1.9
 
 /** 壁に焼く1枚ぶんの文言（辞書解決済み）＋その位置 */
 type PanelText = { n: string; h: string; b: string; z: number }
@@ -579,7 +585,7 @@ function Rig() {
   return <pointLight ref={fill} intensity={12} distance={9} decay={1.4} color="#efe6d4" />
 }
 
-function Scene({ heroImages, panels }: { heroImages: LpHeroSlot[]; panels: PanelText[] }) {
+function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; panelArt: LpHeroSlot[]; panels: PanelText[] }) {
   return (
     <>
       {/* ローポリを暗さで隠す: フォグを手前に寄せ、環境光は弱く、スポット主体の陰影に */}
@@ -641,9 +647,20 @@ function Scene({ heroImages, panels }: { heroImages: LpHeroSlot[]; panels: Panel
       {APPROACH_ART.map(([idx, z, side], k) => (
         <CorridorArt key={`ap${k}`} idx={idx} z={z} side={side} scale={1.15} />
       ))}
-      {panels.map((p) => (
-        <Panel key={p.n} p={p} />
-      ))}
+      {panels.map((p, k) => {
+        const art = panelArt[k]
+        return (
+          <group key={p.n}>
+            <Panel p={p} />
+            {/* 板の隣（廊下の奥側）に、その訴求そのものを写した1点を掛ける。
+                CorridorArt を通すので、額・スポット・壁への貼り付けは入口の
+                主役アートと同じ実装を使う（`src` があれば `idx` は使われない）。 */}
+            {art && (
+              <CorridorArt idx={0} z={p.z + PANEL_ART_DZ} side="L" src={art.url} ratio={[art.w, art.h]} />
+            )}
+          </group>
+        )
+      })}
       <Hall />
       <Dust />
       <Rig />
@@ -661,16 +678,15 @@ export default function HeroScene() {
   // (with a cap) so museum labels don't ship in a fallback serif forever
   const [fontsReady, setFontsReady] = useState(false)
   // Admin-configured hero images (migration 0018); nulls fall back to the demo art
-  const heroImages = useLpHero()
+  const heroImages = useLpSlots(fetchLpHero, LP_HERO_SLOTS)
+  // パネルの隣に掛かる1点（管理画面から差し替え。未設定の枠は板だけが掛かる）
+  const panelArt = useLpSlots(fetchLpPanels, LP_PANEL_SLOTS)
   // 文言は辞書から。壁のテクスチャは1枚ずつ canvas に焼くので、配列そのものを
   // memo して同一性を保つ（スクロールごとの再描画で焼き直させない）。
   const t = useT()
   const panels = useMemo<PanelText[]>(
     () =>
-      PANEL_SPOTS.map((s) => {
-        const body = t(`lp.${s.k}Body`)
-        return { n: s.n, z: s.z, h: t(`lp.${s.k}Title`), b: s.pre ? `${s.pre} ${body}` : body }
-      }),
+      PANEL_SPOTS.map((s) => ({ n: s.n, z: s.z, h: t(`lp.${s.k}Title`), b: t(`lp.${s.k}Body`) })),
     [t],
   )
   const hudStops = useMemo(() => buildHud(t, panels), [t, panels])
@@ -742,7 +758,7 @@ export default function HeroScene() {
           gl.toneMappingExposure = 1.3
         }}
       >
-        {fontsReady && <Scene heroImages={heroImages} panels={panels} />}
+        {fontsReady && <Scene heroImages={heroImages} panelArt={panelArt} panels={panels} />}
       </Canvas>
       <div className="hero-grade" aria-hidden="true" />
       <div className={`journey-hud${hudOn ? ' on' : ''}`}>

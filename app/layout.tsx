@@ -21,12 +21,17 @@ export const metadata: Metadata = {
   // `*.vercel.app` domain, so shared cards and canonicals pointed at a URL nobody
   // should be indexing (docs/DECISIONS 2026-07-30 SEO).
   metadataBase: new URL(siteUrl()),
-  title: 'Xibit360 — Your work, given space.',
+  // サイト全体の既定（自分で metadata を持たないページはこれが出る）。LPだけは
+  // app/page.tsx が `seo.homeTitle` / `seo.homeDesc` で言語ごとに上書きする。
+  // **英語の言い回しはそちらの en と揃えること** — ここは辞書を通らないので
+  // `check:i18n` の視界に入らず、LPの文言を変えても黙って古いまま残る
+  // （実際にヒーローを作り直した 2026-08-15 に、ここだけ旧タグラインで残っていた）。
+  title: 'Xibit360 — Give your work a place of its own.',
   description:
-    'Xibit360 turns your portfolio into a walkable 3D exhibition. Upload your work, compose the room, and open your show to the world with a single URL.',
+    'Xibit360 turns your work into a 3D exhibition people can walk through. Free to start, minutes to open, nothing to install — one link opens your show to the world.',
   openGraph: {
-    title: 'Xibit360 — Your work, given space.',
-    description: 'A platform for exhibiting art as walkable 3D galleries.',
+    title: 'Xibit360 — Give your work a place of its own.',
+    description: 'Exhibit your art as a 3D gallery people can walk through — one link, no installs.',
     siteName: 'Xibit360',
     locale: 'en_US',
     type: 'website',
