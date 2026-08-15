@@ -6,6 +6,7 @@
 // quota, which used to be a Supabase RLS policy plus an advisory client check.
 // See docs/DECISIONS.md 2026-07-27.
 import { supabase } from './supabase'
+import { optionalColumnToDrop } from './insertRetry'
 import type { ArtworkData, CropAlign, PurchaseLink } from './artworks'
 import { loadImage, loadImageFile } from './upload'
 import { publicUrl } from './publicUrl'
@@ -293,7 +294,11 @@ async function insertArtworkRow(row: Record<string, unknown>): Promise<void> {
   for (let attempt = 0; attempt <= INSERT_OPTIONAL.length; attempt++) {
     const { error } = await supabase!.from('artworks').insert(current)
     if (!error) return
-    const missing = INSERT_OPTIONAL.find((c) => c in current && new RegExp(c).test(error.message))
+    // 判定は lib/insertRetry（純関数・番人 `npm run check:insert-retry` が固定している）。
+    // **エラーコードで「列が無い」と分かったときだけ**落とす ── メッセージに列名が
+    // 出ているかだけで決めていた頃は、0061 の拒否文が `gallery_id` を含むせいで、
+    // DBが正しく拒否したアップロードを共有プールへ入れ直して**成功させていた**。
+    const missing = optionalColumnToDrop(error, current, INSERT_OPTIONAL)
     if (!missing) throw error
     const { [missing]: _dropped, ...rest } = current
     current = rest
