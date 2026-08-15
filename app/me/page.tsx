@@ -926,7 +926,9 @@ function GalleryCard({
 
   // Live preview of the size being edited: override the selected work's dimensions with the
   // current input values so the 3D preview follows the picker/typing immediately — before
-  // Save, and independent of whether the DB has the 0025 columns yet.
+  // Save, and independent of whether the DB has the 0025 columns yet. cropAlign rides along
+  // for the same reason (ユーザー指示 2026-08-14: crop position wasn't updating the preview
+  // — it was left out of this override, so the picker only took effect after Save).
   const previewArt = selected
     ? (() => {
         const w = parseFloat(widthInput)
@@ -935,6 +937,7 @@ function GalleryCard({
           ...selected,
           widthCm: Number.isFinite(w) && w > 0 ? w : undefined,
           heightCm: Number.isFinite(h) && h > 0 ? h : undefined,
+          cropAlign: cropAlignInput,
         }
       })()
     : undefined
@@ -2102,9 +2105,6 @@ function GalleryCard({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img crossOrigin="anonymous" src={art.poster ?? art.thumb ?? art.src} alt={art.title} loading="lazy" />
                     {art.kind === 'video' && <span className="me-work-tile-video" aria-hidden="true"><VideoIcon /></span>}
-                    {/* Points at the editor below, so "this is the one you're editing"
-                        reads without a label the 64px tile has no room for. */}
-                    {selectedId === art.id && <span className="me-work-tile-mark" aria-hidden="true" />}
                   </button>
                   {/* 他人の部屋では出さない（別視点レビューで検出）。RLS が他人の作品の
                       削除を0行で弾くので、押しても何も起きないボタンになる。 */}
