@@ -2,131 +2,24 @@
 // Admin editor for the landing-page hero works (migration 0018). Upload up to three
 // images (center / left / right); an empty slot falls back to the built-in demo art.
 // One setting drives both PC and mobile, since the LP just reads site_config.
-import { useEffect, useRef, useState } from 'react'
-import { useGallery } from '@/lib/store'
-import { uploadLpImage } from '@/lib/cloud'
-import { fetchLpHero, saveLpHero, LP_HERO_SLOTS, LP_HERO_SLOT_LABEL_KEYS, type LpHeroSlot } from '@/lib/siteConfig'
-import { useT } from '@/components/I18nProvider'
+//
+// 画面そのものは LpImageSlotsEditor（3Dパネルの絵と共用）。ここが持っているのは
+// 「ヒーローという面はどこに保存し、枠がいくつで、どう呼ばれるか」だけ。
+import { fetchLpHero, saveLpHero, LP_HERO_SLOTS, LP_HERO_SLOT_LABEL_KEYS } from '@/lib/siteConfig'
+import LpImageSlotsEditor from '@/components/LpImageSlotsEditor'
 
 export default function LpHeroEditor() {
-  const t = useT()
-  const user = useGallery((s) => s.user)
-  const [slots, setSlots] = useState<LpHeroSlot[]>(Array(LP_HERO_SLOTS).fill(null))
-  const [loaded, setLoaded] = useState(false)
-  const [busy, setBusy] = useState<number | null>(null)
-  const [saved, setSaved] = useState(false)
-  const [dirty, setDirty] = useState(false)
-  // Guards against setState after unmount (navigating away mid-save/upload)
-  const alive = useRef(true)
-  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    alive.current = true
-    fetchLpHero()
-      .then((s) => {
-        if (!alive.current) return
-        setSlots(s)
-        setLoaded(true)
-      })
-      .catch(() => alive.current && setLoaded(true))
-    return () => {
-      alive.current = false
-      if (savedTimer.current) clearTimeout(savedTimer.current)
-    }
-  }, [])
-
-  async function onFile(i: number, file: File | undefined) {
-    if (!file || !user) return
-    setBusy(i)
-    try {
-      const img = await uploadLpImage(user.id, i, file)
-      if (!alive.current) return
-      setSlots((prev) => prev.map((s, k) => (k === i ? img : s)))
-      setDirty(true)
-    } catch (e) {
-      if (alive.current) alert(t('adminUi.uploadFailed', { msg: String(e instanceof Error ? e.message : e) }))
-    } finally {
-      if (alive.current) setBusy(null)
-    }
-  }
-
-  function clearSlot(i: number) {
-    setSlots((prev) => prev.map((s, k) => (k === i ? null : s)))
-    setDirty(true)
-  }
-
-  async function save() {
-    setBusy(-1)
-    try {
-      await saveLpHero(slots)
-      if (!alive.current) return
-      setSaved(true)
-      setDirty(false)
-      savedTimer.current = setTimeout(() => setSaved(false), 1800)
-    } catch (e) {
-      if (alive.current) alert(t('adminUi.saveFailed', { msg: String(e instanceof Error ? e.message : e) }))
-    } finally {
-      if (alive.current) setBusy(null)
-    }
-  }
-
   return (
-    <section className="me-section">
-      <h2>{t('adminUi.lpHero')}</h2>
-      <div className="me-card">
-        <p className="me-note" style={{ marginTop: 0 }}>
-          {t('adminUi.lpHeroNote')}
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginTop: '0.8rem' }}>
-          {Array.from({ length: LP_HERO_SLOTS }).map((_, i) => {
-            const s = slots[i]
-            return (
-              <div key={i} style={{ border: '1px solid var(--hairline)', borderRadius: 8, padding: '0.8rem' }}>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '0.6rem' }}>
-                  {/* i18n-ok: 枠が増えたときの控え。番号だけなので訳す対象ではない */}
-                  {LP_HERO_SLOT_LABEL_KEYS[i] ? t(LP_HERO_SLOT_LABEL_KEYS[i]) : `#${i + 1}`}
-                </div>
-                <div style={{ aspectRatio: '4 / 3', background: '#0d0c0b', border: '1px solid var(--hairline)', borderRadius: 4, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {s ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img crossOrigin="anonymous" src={s.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t('adminUi.demoDefault')}</span>
-                  )}
-                </div>
-                <div className="hako-actions" style={{ marginTop: '0.6rem' }}>
-                  <label className="btn-line file-btn" aria-disabled={busy === i} style={{ marginTop: 0 }}>
-                    {busy === i ? t('me.uploading') : s ? t('adminUi.replace') : t('adminUi.upload')}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      disabled={busy !== null}
-                      onChange={(e) => {
-                        void onFile(i, e.target.files?.[0])
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                  {s && (
-                    <button className="btn-line" disabled={busy !== null} onClick={() => clearSlot(i)}>
-                      {t('adminUi.clear')}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        <div className="hako-actions" style={{ marginTop: '1rem' }}>
-          <button className="btn-line btn-gold" disabled={!loaded || busy !== null || !dirty} onClick={() => void save()}>
-            {saved ? t('adminUi.saved') : busy === -1 ? t('adminUi.saving') : t('common.save')}
-          </button>
-        </div>
-        <p className="me-note">
-          {t('adminUi.lpHeroApplyNote')}
-        </p>
-      </div>
-    </section>
+    <LpImageSlotsEditor
+      headingKey="adminUi.lpHero"
+      noteKey="adminUi.lpHeroNote"
+      applyNoteKey="adminUi.lpHeroApplyNote"
+      count={LP_HERO_SLOTS}
+      labelKeys={LP_HERO_SLOT_LABEL_KEYS}
+      emptyLabelKey="adminUi.demoDefault"
+      slotOffset={0}
+      fetchSlots={fetchLpHero}
+      saveSlots={saveLpHero}
+    />
   )
 }

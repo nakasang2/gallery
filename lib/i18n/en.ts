@@ -770,9 +770,9 @@ export const en = {
     footerTagline: 'Your work, given space.',
     footerNav: 'Footer',
 
-    heroEyebrow: 'An exhibition of one',
-    heroTitle: 'Step into your own light.',
-    heroSub: 'Turn your portfolio into a walkable 3D gallery — one link, no installs.',
+    heroEyebrow: 'More than something to scroll past.',
+    heroTitle: 'Give your work a place of its own.',
+    heroSub: 'In a few minutes it becomes an exhibition people can walk through. One link, no installs.',
     heroCta: 'Walk the demo',
     heroCtaArrow: 'Walk the demo →',
     heroAlt: 'or create your own — free →',
@@ -787,20 +787,20 @@ export const en = {
 
     featuresCue: 'Walk the hall — six things the room can do, hung along the wall.',
     featuresTitle: 'What the room can do.',
-    f1Title: 'A solo show in the browser',
-    f1Body: 'No apps, no plugins. One link opens the gallery, and visitors walk it on desktop or phone.',
-    f2Title: 'Hang works by drag & drop',
-    f2Body: 'Upload an image and place it on a wall. Height, spacing and sightlines snap to the template.',
-    f3Title: 'Light and stage every piece',
-    f3Body: 'Spotlights, wall colour and flooring set the mood. Each work gets its own presentation.',
-    f4Title: 'One address, open worldwide',
+    f1Title: 'Anyone can open a show today',
+    f1Body: 'No gallery to rent, no app to install. Upload your work and you can open the doors the same day.',
+    f2Title: 'Your own words, beside the work',
+    f2Body: 'Title, year and statement, mounted the way a museum label would be. Works that are for sale link straight through to your shop or your dealer’s page.',
+    f3Title: 'No subscription. None.',
+    f3Body: 'Building and publishing stays free. Pay once, only for what you want to add. Nothing renews and there is nothing to cancel.',
+    f4Title: 'Not just seen — felt',
     // URLの見本のあとに続く一文（LPのFeatures一覧と3Dヒーローの壁で共有）。
     // 日本語と同じく区切りの — を訳文側に持つ: 語順と区切りは言語に委ねる。
-    f4Body: '— a permanent URL for your practice, made for any bio or portfolio.',
-    f5Title: 'Captions that carry the story',
-    f5Body: 'Title, year and statement are mounted beside each work, the way a museum label would be.',
-    f6Title: 'Guestbook & reactions',
-    f6Body: 'Footprints, notes, quiet appreciation — feedback that behaves like an exhibition, not a comment feed.',
+    f4Body: 'Visitors walk up to a piece, stop, and take it in, inside a room that feels like a room. Desktop or phone, it is the same space.',
+    f5Title: 'Every piece, shown your way',
+    f5Body: 'Lighting and framing tuned for each work. Video works can be exhibited too.',
+    f6Title: 'On your own, or together',
+    f6Body: 'Several artists can open one exhibition. Every artist you invite gets their own room, and the organiser holds the whole show together — made for graduation and group shows.',
 
     conceptStatement1: 'An exhibition,',
     conceptStatement2: 'not a feed.',
@@ -1142,6 +1142,12 @@ export const en = {
     remove: 'Remove',
 
     lpHero: 'Landing page hero',
+
+    lpPanels: 'Landing page — corridor panels',
+
+    lpPanelsNote: 'One work hung beside each of the six panels along the 3D corridor. The wording on the board comes from the dictionary; this is only the picture next to it. Leave a slot empty and that panel hangs on its own. Landscape images sit best.',
+
+    noPanelArt: 'No image',
     demoDefault: 'Demo default',
     clear: 'Clear',
     // ヒーローの3枠（lib/siteConfig の LP_HERO_SLOT_LABEL_KEYS が指す）

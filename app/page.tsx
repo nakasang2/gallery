@@ -99,8 +99,7 @@ export default async function LandingPage() {
           <div className="cfeat"><span className="cfeat-no">01</span><div><h3>{t('lp.f1Title')}</h3><p>{t('lp.f1Body')}</p></div></div>
           <div className="cfeat"><span className="cfeat-no">02</span><div><h3>{t('lp.f2Title')}</h3><p>{t('lp.f2Body')}</p></div></div>
           <div className="cfeat"><span className="cfeat-no">03</span><div><h3>{t('lp.f3Title')}</h3><p>{t('lp.f3Body')}</p></div></div>
-          {/* i18n-ok: 公開URLの見本 */}
-          <div className="cfeat"><span className="cfeat-no">04</span><div><h3>{t('lp.f4Title')}</h3><p><code>xibit360.art/@you</code> {t('lp.f4Body')}</p></div></div>
+          <div className="cfeat"><span className="cfeat-no">04</span><div><h3>{t('lp.f4Title')}</h3><p>{t('lp.f4Body')}</p></div></div>
           <div className="cfeat"><span className="cfeat-no">05</span><div><h3>{t('lp.f5Title')}</h3><p>{t('lp.f5Body')}</p></div></div>
           <div className="cfeat"><span className="cfeat-no">06</span><div><h3>{t('lp.f6Title')}</h3><p>{t('lp.f6Body')}</p></div></div>
         </div>

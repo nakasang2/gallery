@@ -24,11 +24,27 @@ export const LP_HERO_SLOT_LABEL_KEYS = [
   'adminUi.slotRight',
 ] as const
 
-function normalize(value: unknown): LpHeroSlot[] {
+// 3Dの廊下に並ぶ6枚の訴求パネル。板（文字）は辞書から焼くが、その隣に掛かる
+// 1点はここで差し替える ── 訴求ごとに「それが何なのか見える絵」を運営が入れる。
+export const LP_PANEL_SLOTS = 6
+/** パネルの枠に添えるラベルは、そのパネルの見出しをそのまま使う。専用の辞書キーを
+ *  作ると、パネルの文言を変えたときに管理画面のラベルだけ古いまま残る。 */
+export const LP_PANEL_SLOT_LABEL_KEYS = ['lp.f1Title', 'lp.f2Title', 'lp.f3Title', 'lp.f4Title', 'lp.f5Title', 'lp.f6Title'] as const
+/**
+ * `lp-image` のアップロードは口座ごとに `{uid}/lp/{slot}.jpg` を上書きする
+ * （app/api/upload-url の 'lp-image'。枠番号は 0〜20 まで）。ヒーローが 0〜2 を
+ * 使っているので、パネルは 10 から始めて**同じファイルを取り合わない**ようにする。
+ */
+export const LP_PANEL_SLOT_OFFSET = 10
+
+// 保存の形（`{ slots: [...] }`）も検算も、ヒーローとパネルで同一。**同じ意味の
+// 処理を2か所に書かない**（DECISIONS 2026-08-12 の絶対ルール）ため、キーと枠数
+// だけを引数に取る1つの実装に通す。
+function normalize(value: unknown, count: number): LpHeroSlot[] {
   const raw = value as { slots?: unknown } | unknown[] | null
   const arr = Array.isArray(raw) ? raw : Array.isArray((raw as { slots?: unknown })?.slots) ? (raw as { slots: unknown[] }).slots : []
   const out: LpHeroSlot[] = []
-  for (let i = 0; i < LP_HERO_SLOTS; i++) {
+  for (let i = 0; i < count; i++) {
     const s = arr[i] as Partial<LpHeroImage> | null | undefined
     out.push(
       s && typeof s.url === 'string' && Number.isFinite(s.w) && Number.isFinite(s.h)
@@ -39,27 +55,32 @@ function normalize(value: unknown): LpHeroSlot[] {
   return out
 }
 
-export async function fetchLpHero(): Promise<LpHeroSlot[]> {
-  if (!supabase) return normalize(null)
+async function fetchSlots(key: string, count: number): Promise<LpHeroSlot[]> {
+  if (!supabase) return normalize(null, count)
   try {
     const { data, error } = await supabase
       .from('site_config')
       .select('value')
-      .eq('key', 'lp_hero')
+      .eq('key', key)
       .maybeSingle()
-    if (error || !data) return normalize(null) // 0018 not applied / unset — demo defaults
-    return normalize(data.value)
+    if (error || !data) return normalize(null, count) // 0018 not applied / unset — demo defaults
+    return normalize(data.value, count)
   } catch {
-    return normalize(null)
+    return normalize(null, count)
   }
 }
 
-export async function saveLpHero(slots: LpHeroSlot[]): Promise<void> {
+async function saveSlots(key: string, slots: LpHeroSlot[]): Promise<void> {
   const { error } = await supabase!
     .from('site_config')
-    .upsert({ key: 'lp_hero', value: { slots }, updated_at: new Date().toISOString() })
+    .upsert({ key, value: { slots }, updated_at: new Date().toISOString() })
   if (error) throw error
 }
+
+export const fetchLpHero = (): Promise<LpHeroSlot[]> => fetchSlots('lp_hero', LP_HERO_SLOTS)
+export const saveLpHero = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_hero', slots)
+export const fetchLpPanels = (): Promise<LpHeroSlot[]> => fetchSlots('lp_panels', LP_PANEL_SLOTS)
+export const saveLpPanels = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_panels', slots)
 
 // ---- Explore spotlight (企画展 / 特集) — a curated row on /explore, admin-managed ----
 
