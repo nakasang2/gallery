@@ -194,4 +194,62 @@ select count(*)=1 from public.galleries
   where expo_id='62e00000-0000-0000-0000-000000000001'
     and owner_id='62000000-0000-0000-0000-000000000002';
 
+/* ================= 6. 招待URL経路（requested → approve_expo_request） =================
+   **ここが 2026-08-14 まで未カバーだった穴**（STATE に「別タスク」として記録されていた）。
+   0062 のトリガは `after insert or update of status` なので、承認で `accepted` に変わる
+   この経路でも部屋ができるはずだが、テストは `status='accepted'` への直接UPDATEしか
+   通っていなかった。**しかもこの経路は definer の中で走る** ── `approve_expo_request` は
+   `security definer` なので `current_user` は変わるが `auth.uid()` は**主催者のまま**で、
+   その状態で「作家が所有する部屋」を insert することになる。`enforce_room_allowance`
+   （0062 で緩めた側）が `auth.uid()` を見ていたら、ここで落ちる。 */
+-- **`reset role` は JWT のクレームを消さない**（LESSONS 2026-08-09）。直前の席は
+-- artist62 なので、明示的に主催者を名乗り直さないと `not your exhibition` で落ちる。
+set local role authenticated;
+set local "request.jwt.claim.sub" = '62000000-0000-0000-0000-000000000001';
+select public.create_expo_invite_link('62e00000-0000-0000-0000-000000000001') as tok62 \gset
+
+set local role authenticated;
+set local "request.jwt.claim.sub" = '62000000-0000-0000-0000-000000000003';
+select public.request_expo_invite(:'tok62');
+
+reset role;
+\echo -n '22 リンクから出した希望は requested で入る: '
+select coalesce(bool_and(status='requested'), false) from public.expo_invites
+  where expo_id='62e00000-0000-0000-0000-000000000001'
+    and artist_id='62000000-0000-0000-0000-000000000003';
+
+\echo -n '23 requested の段階では、まだ other62 の部屋は作られていない: '
+select count(*)=0 from public.galleries
+  where expo_id='62e00000-0000-0000-0000-000000000001'
+    and owner_id='62000000-0000-0000-0000-000000000003';
+
+select id as inv62 from public.expo_invites
+  where expo_id='62e00000-0000-0000-0000-000000000001'
+    and artist_id='62000000-0000-0000-0000-000000000003' \gset
+
+set local role authenticated;
+set local "request.jwt.claim.sub" = '62000000-0000-0000-0000-000000000001';
+select public.approve_expo_request(:'inv62');
+
+reset role;
+\echo -n '24 承認で accepted になる: '
+select coalesce(bool_and(status='accepted'), false) from public.expo_invites
+  where id=:'inv62';
+
+\echo -n '25 **承認と同時に other62 自身の部屋が1つ自動で作られる**（この経路が未カバーだった）: '
+select count(*)=1 from public.galleries
+  where expo_id='62e00000-0000-0000-0000-000000000001'
+    and owner_id='62000000-0000-0000-0000-000000000003';
+
+\echo -n '26 その部屋は合同展示の部屋として作られる（枠15・枠込み）: '
+select coalesce(bool_and(slots_included and work_cap=15), false) from public.galleries
+  where expo_id='62e00000-0000-0000-0000-000000000001'
+    and owner_id='62000000-0000-0000-0000-000000000003';
+
+\echo -n '27 持ち主は主催者ではなく other62（definer の中でも所有者を取り違えない）: '
+select count(*)=0 from public.galleries
+  where expo_id='62e00000-0000-0000-0000-000000000001'
+    and owner_id='62000000-0000-0000-0000-000000000001'
+    and slug like 'expo-%';
+
 rollback;
