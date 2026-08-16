@@ -25,7 +25,6 @@ export const ptBr: PartialDictionary = {
     heroCtaArrow: 'Percorrer a demo →',
     heroAlt: 'ou crie a sua — de graça →',
     heroScroll: 'Role',
-    hudRoom: 'A sala', hudRoomWork: 'Construída em torno de uma única obra.', hudRoomWalk: 'Você caminha, não rola a tela.', hudFeatures: 'Recursos · {n}',
 
     featuresCue: 'Atravesse a sala — seis coisas que este espaço sabe fazer, penduradas na parede.',
     featuresTitle: 'O que a sala sabe fazer.',
@@ -723,9 +722,6 @@ export const ptBr: PartialDictionary = {
   },
 
   adminUi: {
-    lpPanels: 'Página inicial — painéis do corredor',
-    lpPanelsNote: 'Uma obra ao lado de cada um dos seis painéis do corredor 3D. O texto da placa vem do dicionário; aqui só muda a imagem ao lado. Um espaço vazio deixa o painel sozinho. Imagens em paisagem ficam melhores.',
-    noPanelArt: 'Sem imagem',
     exhibitionSpaces: 'Espaços de exposição ({count})',
     packagesNote:
       '«Melhorias» mostra o que cada usuário tem — comprado no pagamento ou liberado aqui. O × revoga. Liberar grava no livro purchases (como admin_grant, US$ 0, então não conta como receita) e vale na hora. Temas e layouts pagos novos aparecem sozinhos na lista. Os e-mails ficam no Supabase Auth e não são expostos à chave anon.',

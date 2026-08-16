@@ -25,7 +25,6 @@ export const id: PartialDictionary = {
     heroCtaArrow: 'Jelajahi demo →',
     heroAlt: 'atau buat milikmu — gratis →',
     heroScroll: 'Gulir',
-    hudRoom: 'Ruangan ini', hudRoomWork: 'Dibangun untuk satu karya.', hudRoomWalk: 'Dijelajahi dengan berjalan, bukan digulir.', hudFeatures: 'Fitur · {n}',
 
     featuresCue: 'Jelajahi ruangnya — enam hal yang bisa dilakukan ruang ini, tergantung di dinding.',
     featuresTitle: 'Apa yang bisa dilakukan ruang ini.',
@@ -723,9 +722,6 @@ export const id: PartialDictionary = {
   },
 
   adminUi: {
-    lpPanels: 'Halaman depan — panel di lorong',
-    lpPanelsNote: 'Satu karya di samping setiap panel di lorong 3D (enam panel). Teks pada papan diambil dari kamus; di sini hanya gambarnya. Slot yang dikosongkan berarti panel berdiri sendiri. Gambar melebar paling cocok.',
-    noPanelArt: 'Tanpa gambar',
     exhibitionSpaces: 'Ruang pameran ({count})',
     packagesNote:
       '«Tambahan» menunjukkan apa yang dimiliki tiap pengguna — dibeli lewat pembayaran atau diberikan di sini. Tombol × mencabutnya. Pemberian dicatat di buku purchases sebagai admin_grant, US$0 (jadi tidak dihitung sebagai pendapatan) dan langsung berlaku. Tema dan tata letak berbayar yang baru muncul sendiri di daftar. Alamat email ada di Supabase Auth dan tidak terbuka bagi kunci anon.',

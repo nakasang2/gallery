@@ -5,19 +5,17 @@
 //   3. そのまま廊下の先の「暗闇」へ前進 — 何もない空間なので背景は黒く沈み、
 //      中間セクション(Concept〜Pricing)のテキストが読める
 //   4. 終盤(Closing)でフォグの奥から「大部屋のギャラリー」が現れる — 廊下を抜けて広間へ
-// カメラ位置に合わせて 2D の見出しをオーバーレイする。
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
-import { fetchLpHero, fetchLpPanels, LP_HERO_SLOTS, LP_PANEL_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
+import { fetchLpHero, LP_HERO_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
 import { useT } from '@/components/I18nProvider'
 
-/** LP hook: the admin-configured images for one face of the LP (null per slot =
- *  nothing configured). Lives here (its only caller) so lib/siteConfig stays
- *  hook-free and server-importable. Both faces — the entrance works and the six
- *  corridor panels — load the same way, so they share this one loader. */
+/** LP hook: the admin-configured hero images (null per slot = nothing configured).
+ *  Lives here (its only caller) so lib/siteConfig stays hook-free and
+ *  server-importable. */
 function useLpSlots(load: () => Promise<LpHeroSlot[]>, count: number): LpHeroSlot[] {
   // Start with all-empty slots (the same shape the fetch resolves to) so the first
   // paint falls back to the demo art rather than briefly indexing undefined.
@@ -68,15 +66,6 @@ const PANEL_SPOTS: { n: string; z: number; k: string }[] = [
   { n: '05', z: -26, k: 'f5' },
   { n: '06', z: -31, k: 'f6' },
 ]
-/**
- * 管理画面から入れた1点を、板から廊下の奥側へこれだけずらして掛ける。
- *
- * カメラの止まり位置は板の手前（`p.z + 0.9`）で、見る先は板（`p.z`）なので、
- * **視線は -z 側へ傾いている**＝奥側に置いた方が同じ画に入る。板の間隔は5あるので
- * この値では隣のパネルと重ならない。**構図はここだけで決まる**ので、実機で見て
- * 詰めたくなったらこの1つの数字を動かせばよい。 */
-const PANEL_ART_DZ = -1.9
-
 /** 壁に焼く1枚ぶんの文言（辞書解決済み）＋その位置 */
 type PanelText = { n: string; h: string; b: string; z: number }
 
@@ -94,19 +83,6 @@ const HALL_SIDES: [number, number, number, 'L' | 'R'][] = [
   [7, -100, 3.6, 'R'],
   [4, -114, 3.6, 'R'],
 ]
-
-type Hud = { eyebrow: string; title: string; body?: string }
-
-/** カメラの止まり位置ごとの見出し（入口の2つ ＋ パネル6枚）。
- *  Body copy rides along in the DOM HUD — the wall textures alone are unreadable
- *  on portrait phones and invisible to screen readers. */
-function buildHud(t: (key: string, params?: Record<string, string | number>) => string, panels: PanelText[]): Hud[] {
-  return [
-    { eyebrow: t('lp.hudRoom'), title: t('lp.hudRoomWork') },
-    { eyebrow: t('lp.hudRoom'), title: t('lp.hudRoomWalk') },
-    ...panels.map((p) => ({ eyebrow: t('lp.hudFeatures', { n: p.n }), title: p.h, body: p.b })),
-  ]
-}
 
 // ---- canvas の折り返し ----
 // 折り返せる場所は文字体系ごとに違う。ラテン文字とハングルは語間に空白があるので
@@ -264,7 +240,10 @@ function Spot({ pos, target, color = '#ffeed6', intensity = 120, angle = 0.55, d
 function Panel({ p }: { p: PanelText }) {
   const tex = useMemo(() => makePanelTexture(p), [p])
   useEffect(() => () => tex.dispose(), [tex])
-  const w = 1.7
+  // 隣に掛けていた1点の画像枠（2026-08-16 に廃止）を吸収して、板そのものを
+  // 展示室の壁面タイトルくらいの大きさへ拡大した。旧サイズは 1.7。パネルの
+  // z間隔は5あるので、この大きさでも隣の板とは重ならない。
+  const w = 2.6
   const h = w * (1180 / 900)
   return (
     <group position={[-WALL_X + 0.08, ITEM_Y, p.z]} rotation-y={Math.PI / 2}>
@@ -585,7 +564,7 @@ function Rig() {
   return <pointLight ref={fill} intensity={12} distance={9} decay={1.4} color="#efe6d4" />
 }
 
-function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; panelArt: LpHeroSlot[]; panels: PanelText[] }) {
+function Scene({ heroImages, panels }: { heroImages: LpHeroSlot[]; panels: PanelText[] }) {
   return (
     <>
       {/* ローポリを暗さで隠す: フォグを手前に寄せ、環境光は弱く、スポット主体の陰影に */}
@@ -647,20 +626,9 @@ function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; pan
       {APPROACH_ART.map(([idx, z, side], k) => (
         <CorridorArt key={`ap${k}`} idx={idx} z={z} side={side} scale={1.15} />
       ))}
-      {panels.map((p, k) => {
-        const art = panelArt[k]
-        return (
-          <group key={p.n}>
-            <Panel p={p} />
-            {/* 板の隣（廊下の奥側）に、その訴求そのものを写した1点を掛ける。
-                CorridorArt を通すので、額・スポット・壁への貼り付けは入口の
-                主役アートと同じ実装を使う（`src` があれば `idx` は使われない）。 */}
-            {art && (
-              <CorridorArt idx={0} z={p.z + PANEL_ART_DZ} side="L" src={art.url} ratio={[art.w, art.h]} />
-            )}
-          </group>
-        )
-      })}
+      {panels.map((p) => (
+        <Panel key={p.n} p={p} />
+      ))}
       <Hall />
       <Dust />
       <Rig />
@@ -670,8 +638,6 @@ function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; pan
 }
 
 export default function HeroScene() {
-  const [hud, setHud] = useState<Hud | null>(null)
-  const [hudOn, setHudOn] = useState(false)
   // Stop the render loop entirely while the tab is hidden (battery)
   const [halted, setHalted] = useState(false)
   // Wall/label textures bake fonts into canvases once — wait for the webfonts
@@ -679,8 +645,6 @@ export default function HeroScene() {
   const [fontsReady, setFontsReady] = useState(false)
   // Admin-configured hero images (migration 0018); nulls fall back to the demo art
   const heroImages = useLpSlots(fetchLpHero, LP_HERO_SLOTS)
-  // パネルの隣に掛かる1点（管理画面から差し替え。未設定の枠は板だけが掛かる）
-  const panelArt = useLpSlots(fetchLpPanels, LP_PANEL_SLOTS)
   // 文言は辞書から。壁のテクスチャは1枚ずつ canvas に焼くので、配列そのものを
   // memo して同一性を保つ（スクロールごとの再描画で焼き直させない）。
   const t = useT()
@@ -689,7 +653,6 @@ export default function HeroScene() {
       PANEL_SPOTS.map((s) => ({ n: s.n, z: s.z, h: t(`lp.${s.k}Title`), b: t(`lp.${s.k}Body`) })),
     [t],
   )
-  const hudStops = useMemo(() => buildHud(t, panels), [t, panels])
 
   useEffect(() => {
     const onVis = () => setHalted(document.hidden)
@@ -717,34 +680,11 @@ export default function HeroScene() {
       const revealTop = pricing ? pricing.offsetTop - vh * 0.4 : closeTop
       const footTop = footer ? footer.offsetTop - vh * 0.5 : closeTop + vh
       ANCHORS = buildAnchors(corEnd, revealTop, footTop)
-      return { corEnd, revealTop, closeTop, footTop, vh }
     }
-    let dims = recompute()
-
-    const walkLen = HERO_ART.length + PANEL_SPOTS.length
-    const onScroll = () => {
-      const y = window.scrollY
-      const walkSpan = dims.corEnd * 0.82
-      if (y < walkSpan) {
-        const idx = Math.min(walkLen - 1, Math.max(0, Math.round((y / Math.max(1, walkSpan)) * (walkLen - 1))))
-        setHud(hudStops[idx])
-        setHudOn(y > dims.vh * 0.55)
-      } else {
-        setHudOn(false) // 通路〜大部屋は見出しを出さない(作品を主役に)
-      }
-    }
-    const onResize = () => {
-      dims = recompute()
-      onScroll()
-    }
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onResize)
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onResize)
-    }
-  }, [hudStops])
+    recompute()
+    window.addEventListener('resize', recompute)
+    return () => window.removeEventListener('resize', recompute)
+  }, [])
 
   return (
     <div className="hero-canvas" aria-hidden="true">
@@ -758,16 +698,9 @@ export default function HeroScene() {
           gl.toneMappingExposure = 1.3
         }}
       >
-        {fontsReady && <Scene heroImages={heroImages} panelArt={panelArt} panels={panels} />}
+        {fontsReady && <Scene heroImages={heroImages} panels={panels} />}
       </Canvas>
       <div className="hero-grade" aria-hidden="true" />
-      <div className={`journey-hud${hudOn ? ' on' : ''}`}>
-        <div className="journey-hud-inner" key={(hud?.eyebrow || '') + (hud?.title || '')}>
-          <span className="journey-hud-eyebrow">{hud?.eyebrow}</span>
-          <p className="journey-hud-title">{hud?.title}</p>
-          {hud?.body && <p className="journey-hud-desc">{hud.body}</p>}
-        </div>
-      </div>
     </div>
   )
 }

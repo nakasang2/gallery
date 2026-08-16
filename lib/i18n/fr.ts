@@ -25,7 +25,6 @@ export const fr: PartialDictionary = {
     heroCtaArrow: 'Parcourir la démo →',
     heroAlt: 'ou créez la vôtre — gratuitement →',
     heroScroll: 'Défiler',
-    hudRoom: 'La salle', hudRoomWork: 'Construite autour d’une seule œuvre.', hudRoomWalk: 'On la parcourt, on ne la fait pas défiler.', hudFeatures: 'Fonctions · {n}',
 
     featuresCue: 'Traversez la salle — six choses que cet espace sait faire, accrochées au mur.',
     featuresTitle: 'Ce que la salle sait faire.',
@@ -723,9 +722,6 @@ export const fr: PartialDictionary = {
   },
 
   adminUi: {
-    lpPanels: 'Page d’accueil — panneaux du couloir',
-    lpPanelsNote: 'Une œuvre à côté de chacun des six panneaux du couloir 3D. Le texte du cartel vient du dictionnaire ; ici, seule l’image compte. Un emplacement vide laisse le panneau seul. Les formats paysage conviennent le mieux.',
-    noPanelArt: 'Aucune image',
     exhibitionSpaces: 'Espaces d’exposition ({count})',
     packagesNote:
       '« Options » montre ce que possède chaque utilisateur — acheté au paiement ou accordé ici. Le × révoque. Un octroi est inscrit au registre purchases (comme admin_grant, 0 $, il ne compte donc pas dans les recettes) et débloque aussitôt. Les nouveaux thèmes et dispositions payants apparaissent automatiquement dans la liste. Les adresses e-mail vivent dans Supabase Auth et ne sont pas exposées à la clé anon.',
