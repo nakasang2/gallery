@@ -26,7 +26,6 @@ export const zhHans: PartialDictionary = {
     heroCtaArrow: '走进示例展厅 →',
     heroAlt: '或者做一个自己的 — 免费 →',
     heroScroll: '向下滚动',
-    hudRoom: '这个空间', hudRoomWork: '为一件作品而建的空间。', hudRoomWalk: '不是滑动，而是行走。', hudFeatures: '功能 · {n}',
 
     featuresCue: '在展厅里走一圈 — 六件这个空间能做的事，挂在墙上。',
     featuresTitle: '这个空间能做什么。',
@@ -724,9 +723,6 @@ export const zhHans: PartialDictionary = {
   },
 
   adminUi: {
-    lpPanels: '首页 — 走廊上的展板',
-    lpPanelsNote: '在 3D 走廊的六块展板旁各挂一件作品。展板上的文字来自词典，这里换的只是旁边的图。留空则该处只挂展板。横向图片最合适。',
-    noPanelArt: '没有图片',
     exhibitionSpaces: '展览空间（{count}）',
     packagesNote:
       '「套餐」显示每个用户拥有的东西（购买的，或者在这里开通的）。要撤销就按 ×。开通会在 purchases 台账里记为 admin_grant、$0（不计入营收），并且立即生效。新的付费主题和布局会自动出现在列表里。邮箱地址在 Supabase Auth 那边，不会暴露给 anon 密钥。',

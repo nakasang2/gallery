@@ -780,13 +780,6 @@ export const en = {
     heroAlt: 'or create your own — free →',
     heroScroll: 'Scroll',
 
-    // 3Dヒーローの見出し（components/landing/HeroScene）。スクロールに合わせて
-    // カメラの止まり位置ごとに出る。パネル6枚ぶんは下の f1〜f6 を共有する。
-    hudRoom: 'The room',
-    hudRoomWork: 'Built around a single work.',
-    hudRoomWalk: 'Walked, not scrolled.',
-    hudFeatures: 'Features · {n}',
-
     featuresCue: 'Walk the hall — six things the room can do, hung along the wall.',
     featuresTitle: 'What the room can do.',
     f1Title: 'Anyone can open a show today',
@@ -1156,11 +1149,6 @@ export const en = {
 
     lpHero: 'Landing page hero',
 
-    lpPanels: 'Landing page — corridor panels',
-
-    lpPanelsNote: 'One work hung beside each of the six panels along the 3D corridor. The wording on the board comes from the dictionary; this is only the picture next to it. Leave a slot empty and that panel hangs on its own. Landscape images sit best.',
-
-    noPanelArt: 'No image',
     demoDefault: 'Demo default',
     clear: 'Clear',
     // ヒーローの3枠（lib/siteConfig の LP_HERO_SLOT_LABEL_KEYS が指す）

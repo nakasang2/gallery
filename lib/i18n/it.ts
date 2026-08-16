@@ -24,7 +24,6 @@ export const it: PartialDictionary = {
     heroCtaArrow: 'Attraversa la demo →',
     heroAlt: 'oppure crea la tua — gratis →',
     heroScroll: 'Scorri',
-    hudRoom: 'La sala', hudRoomWork: 'Costruita attorno a una sola opera.', hudRoomWalk: 'Si percorre, non si scorre.', hudFeatures: 'Funzioni · {n}',
 
     featuresCue: 'Attraversa la sala — sei cose che questo spazio sa fare, appese alla parete.',
     featuresTitle: 'Cosa sa fare la sala.',
@@ -722,9 +721,6 @@ export const it: PartialDictionary = {
   },
 
   adminUi: {
-    lpPanels: 'Home — pannelli del corridoio',
-    lpPanelsNote: 'Un’opera accanto a ciascuno dei sei pannelli del corridoio 3D. Il testo della targa viene dal dizionario; qui si cambia solo l’immagine di fianco. Uno slot vuoto lascia il pannello da solo. I formati orizzontali funzionano meglio.',
-    noPanelArt: 'Nessuna immagine',
     exhibitionSpaces: 'Spazi espositivi ({count})',
     packagesNote:
       '«Estensioni» mostra ciò che ogni utente possiede — comprato al pagamento o concesso qui. La × revoca. Concedere scrive nel registro purchases (come admin_grant, 0 $, quindi non conta negli incassi) e sblocca subito. I nuovi temi e allestimenti a pagamento compaiono da soli nell’elenco. Gli indirizzi e-mail stanno in Supabase Auth e non sono esposti alla chiave anon.',
