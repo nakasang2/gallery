@@ -187,21 +187,23 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
 const PANEL_TEXT_W = 770
 const PANEL_TEXT_BOTTOM = 1110
 
+// 背景は塗らない（transparent のまま）── 文字が壁に直接転写されているように
+// 見せるため。地の板（カード）を廃止した分、色は壁 #241f1b 上で読める配色に
+// 反転させてある（旧: 明るい下地に濃色の文字／新: 透明の上に明るい文字。
+// --ink・--muted と同じ色を使い、CSS側と見た目を合わせてある）。
 function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasTexture {
   const c = document.createElement('canvas')
   c.width = 900
   c.height = 1180
   const ctx = c.getContext('2d')!
-  ctx.fillStyle = '#efeade'
-  ctx.fillRect(0, 0, 900, 1180)
   ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = '#cfc9b6'
+  ctx.fillStyle = 'rgba(236, 231, 222, 0.16)'
   ctx.font = 'italic 400 320px "Instrument Serif", serif'
   ctx.fillText(p.n, 70, 372)
-  ctx.fillStyle = '#191917'
+  ctx.fillStyle = '#ece7de'
   ctx.font = '600 62px "Geist", sans-serif'
   const hy = wrapText(ctx, p.h, 70, 580, PANEL_TEXT_W, 76)
-  ctx.fillStyle = '#5a584f'
+  ctx.fillStyle = '#9a938a'
   // 本文の長さは言語で倍近く変わる（CJKは1字が全角、独語は語が長い）。行数が増えて
   // 板の下に落ちるときは、文字サイズを1段ずつ落として収める — textures.ts の名板が
   // CJKのタイトルに対してやっているのと同じ手当て。
@@ -247,13 +249,13 @@ function Panel({ p }: { p: PanelText }) {
   const h = w * (1180 / 900)
   return (
     <group position={[-WALL_X + 0.08, ITEM_Y, p.z]} rotation-y={Math.PI / 2}>
-      <mesh position={[0, 0, -0.04]}>
-        <boxGeometry args={[w + 0.18, h + 0.18, 0.07]} />
-        <meshStandardMaterial color="#141416" roughness={0.5} metalness={0.2} />
-      </mesh>
+      {/* 地の板（カード）を持たない ── 文字が壁にそのまま転写されているように
+          見せるため。旧デザインは明るい下地の板を別オブジェクトとして
+          壁の手前に置いていたが、板を拡大したときに「安っぽいパネル張り」に
+          見えるとユーザー指摘があり撤去した（2026-08-16）。*/}
       <mesh position={[0, 0, 0.02]}>
         <planeGeometry args={[w, h]} />
-        <meshStandardMaterial map={tex} roughness={0.6} />
+        <meshStandardMaterial map={tex} roughness={0.85} transparent />
       </mesh>
       <Spot pos={[-WALL_X + 2.6, 4.2, p.z]} target={[-WALL_X, ITEM_Y, p.z]} intensity={130} />
     </group>
