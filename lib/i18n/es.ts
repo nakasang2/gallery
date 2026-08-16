@@ -109,6 +109,7 @@ export const es: PartialDictionary = {
     closingAlt: 'o recorre primero la demo →',
   },
   artwork: {
+    nowViewing: 'Obra {no} de {count}: {title}, de {artist}',
     viewIn3D: 'Ver en 3D',
     closePreview: 'Cerrar la vista previa',
     previewHint: 'Arrastra para girar · rueda o pinza para acercar',
@@ -831,6 +832,8 @@ export const es: PartialDictionary = {
     depthM: 'Profundidad {n} m',
   },
   hud: {
+    skipToList: 'Leer las obras en una lista (salir del 3D)',
+    backTo3d: 'Volver a la sala 3D',
     tour: 'Recorrido',
     endTour: 'Terminar recorrido',
     bgmOn: 'Música activada',

@@ -110,6 +110,7 @@ export const zhHans: PartialDictionary = {
     closingAlt: '先走一圈示例展厅 →',
   },
   artwork: {
+    nowViewing: '第 {no} / {count} 件：{title}，{artist}',
     viewIn3D: '以 3D 查看',
     closePreview: '关闭预览',
     previewHint: '拖动旋转 · 滚动或双指缩放',
@@ -829,6 +830,8 @@ export const zhHans: PartialDictionary = {
     depthM: '深 {n}m',
   },
   hud: {
+    skipToList: '以列表方式阅读作品（切换出 3D）',
+    backTo3d: '返回 3D 展厅',
     tour: '导览',
     endTour: '结束导览',
     bgmOn: '开启音乐',

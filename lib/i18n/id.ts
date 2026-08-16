@@ -109,6 +109,7 @@ export const id: PartialDictionary = {
     closingAlt: 'atau jelajahi demo dulu →',
   },
   artwork: {
+    nowViewing: 'Karya {no} dari {count}: {title}, oleh {artist}',
     viewIn3D: 'Lihat dalam 3D',
     closePreview: 'Tutup pratinjau',
     previewHint: 'Geser untuk memutar · gulir atau jepit untuk memperbesar',
@@ -831,6 +832,8 @@ export const id: PartialDictionary = {
     depthM: 'Kedalaman {n} m',
   },
   hud: {
+    skipToList: 'Baca karya sebagai daftar (keluar dari mode 3D)',
+    backTo3d: 'Kembali ke ruang 3D',
     tour: 'Pemanduan',
     endTour: 'Akhiri pemanduan',
     bgmOn: 'Musik menyala',

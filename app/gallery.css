@@ -278,6 +278,55 @@ body:not(.gallery-mode) {
 .hud-signup-cta:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(212, 162, 78, 0.36); }
 .hud-signup-cta:active { transform: translateY(0) scale(0.98); }
 
+/* 視覚的には無いが、スクリーンリーダーには読める（定番の隠し方。display:none や
+   visibility:hidden はATからも消えるので使わない）。U3・2026-08-16。 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- 3Dを使わずリストで読む切替（U3・2026-08-16） ----
+   視覚的には隠し、キーボードでフォーカスすると現れる「スキップリンク」の定石。
+   3D空間そのものをスクリーンリーダー向けに再現するのではなく、既にある
+   `FlatWorkList`（等価な代替。WCAG 1.1.1）へ**自分の意思で**切り替える入口。
+   「スクリーンリーダーが動いているか」はJSから検出できない（意図的にブラウザが
+   隠している）ので、機能検出（WebGL）だけに頼らず、いつでも押せる形にしてある。 */
+.gallery-a11y-toggle {
+  position: fixed;
+  top: -100%;
+  left: 1rem;
+  z-index: 100;
+  padding: 0.7em 1.1em;
+  background: var(--ink, #0b0a09);
+  color: var(--bg, #ece7de);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.gallery-a11y-toggle:focus-visible {
+  top: 1rem;
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+/* リストへ切り替えたあとの「3Dに戻る」。常設の来場者導線に混じらないよう、
+   一覧の一番上・見出しの前に置く（隠さない＝押した本人にはずっと見える）。 */
+.flat-a11y-return {
+  display: inline-block;
+  margin-bottom: 1.2rem;
+  font-size: 0.82rem;
+  color: var(--gold);
+}
+.flat-a11y-return:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
 /* ---- 操作ヒント(ページャーの上に重ならないよう配置) ---- */
 /* Non-blocking notice (errors / limits) — replaces native alert() inside the
    immersive walk so the viewer is never yanked out by a browser modal */

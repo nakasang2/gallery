@@ -78,6 +78,8 @@ export const en = {
   },
 
   hud: {
+    skipToList: 'Read the works as a list (switch away from 3D)',
+    backTo3d: 'Return to the 3D room',
     tour: 'Tour',
     endTour: 'End tour',
     bgmOn: 'BGM on',
@@ -142,6 +144,7 @@ export const en = {
   },
 
   artwork: {
+    nowViewing: 'Work {no} of {count}: {title}, by {artist}',
     viewIn3D: 'View in 3D',
     closePreview: 'Close preview',
     previewHint: 'Drag to rotate · scroll or pinch to zoom',

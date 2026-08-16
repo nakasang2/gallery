@@ -11,7 +11,7 @@ import { isPlaceholderTitle } from '@/lib/publish'
 import { useT } from '@/components/I18nProvider'
 import FlatWorkList from '@/components/gallery/FlatWorkList'
 
-export default function FlatGallery() {
+export default function FlatGallery({ onBackTo3d }: { onBackTo3d?: () => void }) {
   const t = useT()
   const list = useExhibitionList()
   const visitor = useGallery((s) => s.visitor)
@@ -38,13 +38,22 @@ export default function FlatGallery() {
       : 'A permanent collection — ten works'
 
   return (
-    <FlatWorkList
-      heading={heading}
-      subhead={subhead}
-      statement={visitor?.statement || undefined}
-      note={t('artwork.noWebgl')}
-      works={list}
-      emptyNote={t('artwork.noWorks')}
-    />
+    <>
+      {/* WebGLはあるが自分の意思でここへ来た（U3のスキップリンク）ときだけ出す。
+          WebGL非対応の環境では戻り先が無いので出さない。 */}
+      {onBackTo3d && (
+        <button type="button" className="flat-a11y-return" onClick={onBackTo3d}>
+          {t('hud.backTo3d')}
+        </button>
+      )}
+      <FlatWorkList
+        heading={heading}
+        subhead={subhead}
+        statement={visitor?.statement || undefined}
+        note={onBackTo3d ? undefined : t('artwork.noWebgl')}
+        works={list}
+        emptyNote={t('artwork.noWorks')}
+      />
+    </>
   )
 }

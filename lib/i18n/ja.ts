@@ -54,6 +54,8 @@ export const ja: Dictionary = {
   },
 
   hud: {
+    skipToList: '作品を一覧で読む（3Dを使わない表示に切り替える）',
+    backTo3d: '3Dの部屋に戻る',
     tour: '順路で見る',
     endTour: '順路を終える',
     bgmOn: 'BGM オン',
@@ -118,6 +120,7 @@ export const ja: Dictionary = {
   },
 
   artwork: {
+    nowViewing: '{no} 点目 / 全{count}点：{title}、{artist}',
     viewIn3D: '空間で見る',
     closePreview: 'プレビューを閉じる',
     previewHint: 'ドラッグで回転 · スクロールまたはピンチで拡大',

@@ -110,6 +110,7 @@ export const ko: PartialDictionary = {
     closingAlt: '먼저 데모를 걸어보기 →',
   },
   artwork: {
+    nowViewing: '{count}점 중 {no}번째: {title}, {artist}',
     viewIn3D: '3D로 보기',
     closePreview: '미리보기 닫기',
     previewHint: '드래그로 회전 · 스크롤이나 핀치로 확대',
@@ -893,6 +894,8 @@ export const ko: PartialDictionary = {
     depthM: '깊이 {n}m',
   },
   hud: {
+    skipToList: '작품을 목록으로 읽기(3D에서 전환)',
+    backTo3d: '3D 전시실로 돌아가기',
     tour: '순서대로 보기',
     endTour: '관람 종료',
     bgmOn: '음악 켜기',

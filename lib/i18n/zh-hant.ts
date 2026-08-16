@@ -108,6 +108,7 @@ export const zhHant: PartialDictionary = {
     closingAlt: '先走一圈範例展場 →',
   },
   artwork: {
+    nowViewing: '第 {no} / {count} 件：{title}，{artist}',
     viewIn3D: '以 3D 檢視',
     closePreview: '關閉預覽',
     previewHint: '拖曳旋轉 · 捲動或雙指縮放',
@@ -827,6 +828,8 @@ export const zhHant: PartialDictionary = {
     depthM: '深 {n}m',
   },
   hud: {
+    skipToList: '以清單方式閱讀作品（切換出 3D）',
+    backTo3d: '返回 3D 展場',
     tour: '導覽',
     endTour: '結束導覽',
     bgmOn: '開啟音樂',

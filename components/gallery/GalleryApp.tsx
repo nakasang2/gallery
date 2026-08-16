@@ -250,6 +250,13 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   pctSeen.current = loadPct
   // null = still detecting; false = no WebGL → 2D list fallback
   const [webgl, setWebgl] = useState<boolean | null>(null)
+  // WebGLがあっても、自分の意思でリスト表示へ切り替えられる（U3・2026-08-16）。
+  // 「スクリーンリーダーが動いているか」はJSから検出できない（意図的にブラウザが
+  // 隠している）ので、機能検出だけに頼らずスキップリンクで選べるようにする ──
+  // 3D空間を読み上げ向けに再現するのではなく、既にある FlatGallery（等価な代替。
+  // WCAG 1.1.1）へ切り替えるだけにしてある。
+  const [forceFlat, setForceFlat] = useState(false)
+  const flatMode = webgl === false || forceFlat
   // Render resolution per quality tier. The high tier starts at native retina and
   // steps down when PerformanceMonitor sees sustained low FPS (weak iGPU laptops).
   const [dpr, setDpr] = useState<[number, number]>(
@@ -461,7 +468,19 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
 
   return (
     <>
-      {ready && webgl && (
+      {/* スキップリンク（U3）。視覚的には隠れていて、ページ内で最初にTabすると現れる。
+          押すと3Dを畳んで FlatGallery（等価な代替）へ切り替える。forceFlat 中は
+          既にリスト側にいるので出さない（戻る導線は FlatGallery 側にある）。 */}
+      {ready && webgl && !forceFlat && (
+        <button
+          type="button"
+          className="gallery-a11y-toggle"
+          onClick={() => setForceFlat(true)}
+        >
+          {t('hud.skipToList')}
+        </button>
+      )}
+      {ready && webgl && !forceFlat && (
         <Canvas
           key={canvasKey}
           className="stage-root"
@@ -485,6 +504,10 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
             // autoUpdate isn't managed by R3F, so setting it once here is safe.
             gl.shadowMap.autoUpdate = false
             gl.domElement.style.touchAction = 'none'
+            // ラベルの無い canvas は空要素としてアクセシビリティツリーに残るだけで
+            // 実害は軽いが、正式には隠す。操作と情報はHUD側のDOM（ボタン・パネル）が
+            // 持っている（U3・2026-08-16）。
+            gl.domElement.setAttribute('aria-hidden', 'true')
             canvasRef.current = gl.domElement // for the walkthrough recorder
           }}
         >
@@ -520,10 +543,12 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
           <GalleryScene />
         </Canvas>
       )}
-      {ready && webgl === false && <FlatGallery />}
+      {ready && flatMode && (
+        <FlatGallery onBackTo3d={webgl && forceFlat ? () => setForceFlat(false) : undefined} />
+      )}
 
       <HudTop />
-      {webgl !== false ? (
+      {webgl !== false && !forceFlat ? (
         <>
           <Hint />
           <HudStepper />
