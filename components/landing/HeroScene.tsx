@@ -284,10 +284,24 @@ function Panel({ p, panelIdx }: { p: PanelText; panelIdx: number }) {
       {/* 地の板（カード）を持たない ── 文字が壁にそのまま転写されているように
           見せるため。旧デザインは明るい下地の板を別オブジェクトとして
           壁の手前に置いていたが、板を拡大したときに「安っぽいパネル張り」に
-          見えるとユーザー指摘があり撤去した（2026-08-16）。*/}
+          見えるとユーザー指摘があり撤去した（2026-08-16）。
+          地の板を無くした結果、光を受け止める明るい面が無くなり、
+          スポットライトの強さをいくら調整しても実機では暗いままだった
+          （明るい下地に当てていた頃の数値が基準になっていたが、暗い壁に
+          直接当てる前提では同じ数値では全く足りていなかった）。
+          `emissiveMap` で文字自身に発光させ、周囲の照明に頼らず
+          常に読める明るさを確保する。透明な部分はRGBが黒(0,0,0)なので
+          発光の影響を受けない。 */}
       <mesh position={[0, 0, 0.02]}>
         <planeGeometry args={[w, h]} />
-        <meshStandardMaterial map={tex} roughness={0.85} transparent />
+        <meshStandardMaterial
+          map={tex}
+          emissiveMap={tex}
+          emissive="#ffffff"
+          emissiveIntensity={0.85}
+          roughness={0.85}
+          transparent
+        />
       </mesh>
       <Spot pos={[-WALL_X + 2.6, 4.2, p.z]} target={[-WALL_X, ITEM_Y, p.z]} intensity={PANEL_LIGHT_BASE} dynamicIntensity={dynamicIntensity} />
     </group>
