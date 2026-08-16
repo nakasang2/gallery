@@ -26,6 +26,7 @@ export const ko: PartialDictionary = {
     heroCtaArrow: '데모를 걸어보기 →',
     heroAlt: '또는 직접 만들기 — 무료 →',
     heroScroll: '스크롤',
+    hudRoom: '이 공간', hudRoomWork: '한 점을 위해 지어진 공간.', hudRoomWalk: '스크롤이 아니라, 걷는 공간.', hudFeatures: '기능 · {n}',
 
     featuresCue: '전시장을 걸으며 — 이 공간이 할 수 있는 여섯 가지를 벽에 걸어 두었습니다.',
     featuresTitle: '이 공간이 할 수 있는 것.',
@@ -787,6 +788,9 @@ export const ko: PartialDictionary = {
   },
 
   adminUi: {
+    lpPanels: '첫 화면 — 복도의 패널',
+    lpPanelsNote: '3D 복도에 놓인 여섯 패널 옆에 한 점씩 겁니다. 판의 문구는 사전에서 구워지므로 여기서 바꾸는 것은 옆의 그림뿐입니다. 비워 두면 그 패널은 판만 걸립니다. 가로로 긴 이미지가 잘 어울립니다.',
+    noPanelArt: '이미지 없음',
     exhibitionSpaces: '전시 공간（{count}）',
     packagesNote:
       '「패키지」는 각 사용자가 가지고 있는 것입니다（구입한 것 또는 여기에서 부여한 것）. 취소하려면 × 를 누릅니다. 부여하면 purchases 대장에 admin_grant・$0 으로 기록되고（매출에는 넣지 않습니다） 바로 사용할 수 있게 됩니다. 새 유료 테마・레이아웃은 자동으로 목록에 나옵니다. 이메일 주소는 Supabase Auth 쪽에 있고 anon 키에는 공개되지 않습니다.',

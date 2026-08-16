@@ -250,6 +250,50 @@ a { color: inherit; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
 }
 
+/* スクロール同期の2D見出し(3Dのカメラ位置に対応) */
+.journey-hud {
+  position: absolute;
+  left: clamp(1.6rem, 5vw, 5rem);
+  bottom: clamp(2.2rem, 9vh, 6rem);
+  z-index: 2;
+  max-width: min(46ch, 62vw);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.journey-hud.on {
+  opacity: 1;
+  transform: translateY(0);
+}
+.journey-hud-eyebrow {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.journey-hud-title {
+  margin-top: 0.7rem;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(1.9rem, 3.6vw, 3.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-wrap: balance;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.55);
+}
+/* 見出しが切り替わるたびに繊細にフェードイン */
+.journey-hud-inner {
+  animation: hud-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes hud-in {
+  from { opacity: 0; transform: translateY(10px); filter: blur(3px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
 /* 不透明なセクションは固定背景の上に重ねる */
 .marquee,
 .concept,
@@ -275,7 +319,7 @@ a { color: inherit; }
 }
 /* has-hero3d時のフォールバック文言の隠し方は app/gallery.css の `.sr-only`
    ルールに乗せてある（display:none だとクローラーからも消えるため）。 */
-/* 3D時は壁のパネル自体が見出し・本文を掲げるため、旧キューは隠す */
+/* 3D時はスクロール同期の2D見出し(.journey-hud)が案内するため、旧キューは隠す */
 .corridor-cue {
   display: none;
 }
@@ -911,6 +955,14 @@ html { scroll-padding-top: 72px; }
 .price span { margin-left: 0.45em; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
 /* 注記は読ませる(免責を極小フォントに隠さない) */
 .pricing-note { font-size: 0.74rem; }
+/* スクロール同期HUDの本文(壁テクスチャの文字は読めない環境が多い) */
+.journey-hud-desc {
+  max-width: 46ch;
+  margin-top: 0.7rem;
+  font-size: 0.82rem;
+  line-height: 1.9;
+  color: var(--muted);
+}
 /* キャンバスとフッターの継ぎ目をぼかす */
 .footer { position: relative; }
 .footer::before {

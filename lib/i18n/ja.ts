@@ -753,6 +753,11 @@ export const ja: Dictionary = {
     heroAlt: '自分の展示を作る — 無料 →',
     heroScroll: 'スクロール',
 
+    hudRoom: 'この部屋',
+    hudRoomWork: '一点のためにつくられた部屋。',
+    hudRoomWalk: 'スクロールではなく、歩く。',
+    hudFeatures: 'できること · {n}',
+
     featuresCue: '廊下を歩いてください。この部屋にできること、6つを壁に掛けています。',
     featuresTitle: 'この部屋にできること。',
     f1Title: '誰でも、今日から個展を',
@@ -1119,6 +1124,11 @@ export const ja: Dictionary = {
 
     lpHero: 'トップページのヒーロー画像',
 
+    lpPanels: 'トップページ — 廊下のパネル',
+
+    lpPanelsNote: '3Dの廊下に並ぶ6枚のパネルそれぞれの隣に掛ける1点です。板の文言は辞書から焼くので、ここで差し替えるのは隣の絵だけ。空のままにするとその枠は板だけが掛かります。横長の画像がよく合います。',
+
+    noPanelArt: '画像なし',
     demoDefault: 'デモの既定',
     clear: 'クリア',
     slotCenter: '中央',
