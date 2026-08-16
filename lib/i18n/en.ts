@@ -778,7 +778,7 @@ export const en = {
     heroCta: 'Walk the demo',
     heroCtaArrow: 'Walk the demo →',
     heroAlt: 'or create your own — free →',
-    heroScroll: 'Scroll to enter',
+    heroScroll: 'Scroll',
 
     // 3Dヒーローの見出し（components/landing/HeroScene）。スクロールに合わせて
     // カメラの止まり位置ごとに出る。パネル6枚ぶんは下の f1〜f6 を共有する。

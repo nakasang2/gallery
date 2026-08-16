@@ -24,7 +24,7 @@ export const ptBr: PartialDictionary = {
     heroCta: 'Percorrer a demo',
     heroCtaArrow: 'Percorrer a demo →',
     heroAlt: 'ou crie a sua — de graça →',
-    heroScroll: 'Role para entrar',
+    heroScroll: 'Role',
     hudRoom: 'A sala', hudRoomWork: 'Construída em torno de uma única obra.', hudRoomWalk: 'Você caminha, não rola a tela.', hudFeatures: 'Recursos · {n}',
 
     featuresCue: 'Atravesse a sala — seis coisas que este espaço sabe fazer, penduradas na parede.',

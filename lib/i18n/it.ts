@@ -23,7 +23,7 @@ export const it: PartialDictionary = {
     heroCta: 'Attraversa la demo',
     heroCtaArrow: 'Attraversa la demo →',
     heroAlt: 'oppure crea la tua — gratis →',
-    heroScroll: 'Scorri per entrare',
+    heroScroll: 'Scorri',
     hudRoom: 'La sala', hudRoomWork: 'Costruita attorno a una sola opera.', hudRoomWalk: 'Si percorre, non si scorre.', hudFeatures: 'Funzioni · {n}',
 
     featuresCue: 'Attraversa la sala — sei cose che questo spazio sa fare, appese alla parete.',

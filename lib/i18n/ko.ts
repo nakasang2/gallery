@@ -25,7 +25,7 @@ export const ko: PartialDictionary = {
     heroCta: '데모를 걸어보기',
     heroCtaArrow: '데모를 걸어보기 →',
     heroAlt: '또는 직접 만들기 — 무료 →',
-    heroScroll: '스크롤하여 들어가기',
+    heroScroll: '스크롤',
     hudRoom: '이 공간', hudRoomWork: '한 점을 위해 지어진 공간.', hudRoomWalk: '스크롤이 아니라, 걷는 공간.', hudFeatures: '기능 · {n}',
 
     featuresCue: '전시장을 걸으며 — 이 공간이 할 수 있는 여섯 가지를 벽에 걸어 두었습니다.',

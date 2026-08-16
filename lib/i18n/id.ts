@@ -24,7 +24,7 @@ export const id: PartialDictionary = {
     heroCta: 'Jelajahi demo',
     heroCtaArrow: 'Jelajahi demo →',
     heroAlt: 'atau buat milikmu — gratis →',
-    heroScroll: 'Gulir untuk masuk',
+    heroScroll: 'Gulir',
     hudRoom: 'Ruangan ini', hudRoomWork: 'Dibangun untuk satu karya.', hudRoomWalk: 'Dijelajahi dengan berjalan, bukan digulir.', hudFeatures: 'Fitur · {n}',
 
     featuresCue: 'Jelajahi ruangnya — enam hal yang bisa dilakukan ruang ini, tergantung di dinding.',
