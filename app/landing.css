@@ -273,7 +273,8 @@ a { color: inherit; }
 .has-hero3d .corridor {
   height: 400vh;
 }
-.has-hero3d .corridor-fallback { display: none; }
+/* has-hero3d時のフォールバック文言の隠し方は app/gallery.css の `.sr-only`
+   ルールに乗せてある（display:none だとクローラーからも消えるため）。 */
 /* 3D時は壁のパネル自体が見出し・本文を掲げるため、旧キューは隠す */
 .corridor-cue {
   display: none;
