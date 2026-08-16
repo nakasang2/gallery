@@ -279,8 +279,14 @@ body:not(.gallery-mode) {
 .hud-signup-cta:active { transform: translateY(0) scale(0.98); }
 
 /* 視覚的には無いが、スクリーンリーダーには読める（定番の隠し方。display:none や
-   visibility:hidden はATからも消えるので使わない）。U3・2026-08-16。 */
-.sr-only {
+   visibility:hidden はATからも消えるので使わない）。U3・2026-08-16。
+   `.has-hero3d .corridor-fallback`（LPの廊下パネル6枚のフォールバック文言）も
+   同じ理由でここに乗せている ── display:none だと、WebGL対応のクローラー
+   (Googlebotのヘッドレスレンダラー含む)からも本文が丸ごと見えなくなる
+   （2026-08-16 ユーザー指摘。app/landing.css 側で個別定義すると値が
+   2か所に分かれるので、既存のこのルールにセレクタを足す形にした）。 */
+.sr-only,
+.has-hero3d .corridor-fallback {
   position: absolute;
   width: 1px;
   height: 1px;
