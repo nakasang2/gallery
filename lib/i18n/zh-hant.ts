@@ -23,7 +23,7 @@ export const zhHant: PartialDictionary = {
     heroCta: '走進範例展場',
     heroCtaArrow: '走進範例展場 →',
     heroAlt: '或做一個自己的 — 免費 →',
-    heroScroll: '向下捲動進入',
+    heroScroll: '向下捲動',
     hudRoom: '這個空間', hudRoomWork: '為一件作品而建的空間。', hudRoomWalk: '不是滑動，而是行走。', hudFeatures: '功能 · {n}',
 
     featuresCue: '在展場裡走一圈 — 六件這個空間能做的事，掛在牆上。',

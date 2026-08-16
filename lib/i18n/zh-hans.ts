@@ -25,7 +25,7 @@ export const zhHans: PartialDictionary = {
     heroCta: '走进示例展厅',
     heroCtaArrow: '走进示例展厅 →',
     heroAlt: '或者做一个自己的 — 免费 →',
-    heroScroll: '向下滚动进入',
+    heroScroll: '向下滚动',
     hudRoom: '这个空间', hudRoomWork: '为一件作品而建的空间。', hudRoomWalk: '不是滑动，而是行走。', hudFeatures: '功能 · {n}',
 
     featuresCue: '在展厅里走一圈 — 六件这个空间能做的事，挂在墙上。',

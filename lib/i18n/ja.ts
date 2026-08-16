@@ -751,7 +751,7 @@ export const ja: Dictionary = {
     heroCta: 'デモを歩く',
     heroCtaArrow: 'デモを歩く →',
     heroAlt: '自分の展示を作る — 無料 →',
-    heroScroll: 'スクロールして入る',
+    heroScroll: 'スクロール',
 
     hudRoom: 'この部屋',
     hudRoomWork: '一点のためにつくられた部屋。',
