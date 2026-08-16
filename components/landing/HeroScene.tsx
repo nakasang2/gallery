@@ -202,11 +202,21 @@ const PANEL_TEXT_BOTTOM = 1110
 // 見せるため。地の板（カード）を廃止した分、色は壁 #241f1b 上で読める配色に
 // 反転させてある（旧: 明るい下地に濃色の文字／新: 透明の上に明るい文字。
 // --ink・--muted と同じ色を使い、CSS側と見た目を合わせてある）。
+//
+// キャンバスは論理サイズ(900x1180)の2倍の実ピクセルで焼く（`ctx.scale` で
+// 以下の描画コードはすべて論理サイズのまま書ける）。スマホは3D全体の
+// 描画解像度を負荷対策で落としている(dpr上限1.25)ため、素の900x1180だと
+// 引き伸ばされて文字がジャギって見えるとの指摘（2026-08-16）を受けて
+// 追加した。焼くのは板1枚あたり1回だけ（`useMemo`）なので、常時コストの
+// 掛かる dpr 自体は変えずに、ここだけ解像度を上げられる。
+const PANEL_TEX_SCALE = 2
+
 function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasTexture {
   const c = document.createElement('canvas')
-  c.width = 900
-  c.height = 1180
+  c.width = 900 * PANEL_TEX_SCALE
+  c.height = 1180 * PANEL_TEX_SCALE
   const ctx = c.getContext('2d')!
+  ctx.scale(PANEL_TEX_SCALE, PANEL_TEX_SCALE)
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = 'rgba(236, 231, 222, 0.16)'
   ctx.font = 'italic 400 320px "Instrument Serif", serif'
@@ -540,11 +550,18 @@ let ANCHORS: Anchor[] = []
 // revealTop: 大部屋がフォグの奥から現れ始めるスクロール位置(手前=早く見える)
 function buildAnchors(corEnd: number, revealTop: number, footTop: number): Anchor[] {
   const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z)
+  // ここで直接 window を読む（`PORTRAIT` モジュール変数は R3F 側の
+  // ViewAdaptor が別タイミングで更新するので、初回はまだ反映されておらず
+  // 縦画面の初回ロードだけ横画面用の距離になる恐れがある）。この関数は
+  // `recompute()` から呼ばれ、その中で既に `window.innerHeight` を読んで
+  // いるのと同じタイミングで判定するので、ずれない。
+  const portrait = typeof window !== 'undefined' && window.innerHeight > window.innerWidth
   const walk: { pos: THREE.Vector3; look: THREE.Vector3 }[] = []
   // 入口の右壁アート
   for (const [, z] of HERO_ART) walk.push({ pos: v(-1.7, 1.66, z + 1.4), look: v(WALL_X, 1.5, z) })
-  // 左壁のパネル
-  for (const p of PANEL_SPOTS) walk.push({ pos: v(1.9, 1.6, p.z + 0.9), look: v(-WALL_X + 0.3, 1.5, p.z) })
+  // 左壁のパネル。縦画面（主にスマホ）は文字を大きく見せるため壁へ寄る
+  // （x=1.9→-1.0。壁は x≈-4.62 なので距離は約6.5→3.6 units）。
+  for (const p of PANEL_SPOTS) walk.push({ pos: v(portrait ? -1.0 : 1.9, 1.6, p.z + 0.9), look: v(-WALL_X + 0.3, 1.5, p.z) })
 
   const list: Anchor[] = []
   const walkSpan = Math.max(1, corEnd * 0.82)
