@@ -24,6 +24,22 @@ export const LP_HERO_SLOT_LABEL_KEYS = [
   'adminUi.slotRight',
 ] as const
 
+// 3Dの廊下に並ぶ6枚の訴求パネル。板（文字）は辞書から焼くが、その隣に掛かる
+// 1点はここで差し替える ── 訴求ごとに「それが何なのか見える絵」を運営が入れる。
+export const LP_PANEL_SLOTS = 6
+/** パネルの枠に添えるラベルは、そのパネルの見出しをそのまま使う。専用の辞書キーを
+ *  作ると、パネルの文言を変えたときに管理画面のラベルだけ古いまま残る。 */
+export const LP_PANEL_SLOT_LABEL_KEYS = ['lp.f1Title', 'lp.f2Title', 'lp.f3Title', 'lp.f4Title', 'lp.f5Title', 'lp.f6Title'] as const
+/**
+ * `lp-image` のアップロードは口座ごとに `{uid}/lp/{slot}.jpg` を上書きする
+ * （app/api/upload-url の 'lp-image'。枠番号は 0〜20 まで）。ヒーローが 0〜2 を
+ * 使っているので、パネルは 10 から始めて**同じファイルを取り合わない**ようにする。
+ */
+export const LP_PANEL_SLOT_OFFSET = 10
+
+// 保存の形（`{ slots: [...] }`）も検算も、ヒーローとパネルで同一。**同じ意味の
+// 処理を2か所に書かない**（DECISIONS 2026-08-12 の絶対ルール）ため、キーと枠数
+// だけを引数に取る1つの実装に通す。
 function normalize(value: unknown, count: number): LpHeroSlot[] {
   const raw = value as { slots?: unknown } | unknown[] | null
   const arr = Array.isArray(raw) ? raw : Array.isArray((raw as { slots?: unknown })?.slots) ? (raw as { slots: unknown[] }).slots : []
@@ -63,6 +79,8 @@ async function saveSlots(key: string, slots: LpHeroSlot[]): Promise<void> {
 
 export const fetchLpHero = (): Promise<LpHeroSlot[]> => fetchSlots('lp_hero', LP_HERO_SLOTS)
 export const saveLpHero = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_hero', slots)
+export const fetchLpPanels = (): Promise<LpHeroSlot[]> => fetchSlots('lp_panels', LP_PANEL_SLOTS)
+export const saveLpPanels = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_panels', slots)
 
 // ---- Explore spotlight (企画展 / 特集) — a curated row on /explore, admin-managed ----
 

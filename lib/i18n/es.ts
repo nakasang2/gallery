@@ -25,6 +25,7 @@ export const es: PartialDictionary = {
     heroCtaArrow: 'Recorrer la demo →',
     heroAlt: 'o crea la tuya — gratis →',
     heroScroll: 'Desplázate',
+    hudRoom: 'La sala', hudRoomWork: 'Construida en torno a una sola obra.', hudRoomWalk: 'Se recorre, no se desplaza.', hudFeatures: 'Funciones · {n}',
 
     featuresCue: 'Recorre la sala — seis cosas que este espacio sabe hacer, colgadas en la pared.',
     featuresTitle: 'Lo que la sala sabe hacer.',
@@ -722,6 +723,9 @@ export const es: PartialDictionary = {
   },
 
   adminUi: {
+    lpPanels: 'Portada — paneles del pasillo',
+    lpPanelsNote: 'Una obra junto a cada uno de los seis paneles del pasillo 3D. El texto del cartel viene del diccionario; aquí solo se cambia la imagen de al lado. Si dejas un hueco vacío, ese panel queda solo. Las imágenes apaisadas encajan mejor.',
+    noPanelArt: 'Sin imagen',
     exhibitionSpaces: 'Espacios de exposición ({count})',
     packagesNote:
       '«Mejoras» muestra lo que tiene cada usuario, comprado en el pago o concedido aquí. La × lo revoca. Conceder escribe en el registro purchases (como admin_grant, 0 US$, así que no cuenta como ingreso) y desbloquea al instante. Los temas y distribuciones de pago nuevos aparecen solos en la lista. Los correos viven en Supabase Auth y no se exponen a la clave anon.',

@@ -25,6 +25,7 @@ export const de: PartialDictionary = {
     heroCtaArrow: 'Durch die Demo gehen →',
     heroAlt: 'oder deine eigene anlegen — kostenlos →',
     heroScroll: 'Scrollen',
+    hudRoom: 'Der Raum', hudRoomWork: 'Um ein einzelnes Werk herum gebaut.', hudRoomWalk: 'Man geht hindurch, statt zu scrollen.', hudFeatures: 'Funktionen · {n}',
 
     featuresCue: 'Geh durch den Saal — sechs Dinge, die dieser Raum kann, an der Wand aufgehängt.',
     featuresTitle: 'Was der Raum kann.',
@@ -722,6 +723,9 @@ export const de: PartialDictionary = {
   },
 
   adminUi: {
+    lpPanels: 'Startseite — Panels im Gang',
+    lpPanelsNote: 'Je ein Werk neben den sechs Panels im 3D-Gang. Der Text auf der Tafel kommt aus dem Wörterbuch; hier geht es nur um das Bild daneben. Ein leeres Feld heißt: Tafel ohne Bild. Querformate passen am besten.',
+    noPanelArt: 'Kein Bild',
     exhibitionSpaces: 'Ausstellungsräume ({count})',
     packagesNote:
       '„Erweiterungen“ zeigt, was jede Person besitzt — gekauft oder hier freigeschaltet. Das × nimmt es zurück. Ein Freischalten wird im purchases-Journal als admin_grant mit 0 $ verbucht (zählt also nicht zum Umsatz) und wirkt sofort. Neue kostenpflichtige Themen und Anordnungen erscheinen von selbst in der Liste. E-Mail-Adressen liegen in Supabase Auth und sind dem anon-Schlüssel nicht zugänglich.',

@@ -5,17 +5,19 @@
 //   3. そのまま廊下の先の「暗闇」へ前進 — 何もない空間なので背景は黒く沈み、
 //      中間セクション(Concept〜Pricing)のテキストが読める
 //   4. 終盤(Closing)でフォグの奥から「大部屋のギャラリー」が現れる — 廊下を抜けて広間へ
+// カメラ位置に合わせて 2D の見出しをオーバーレイする。
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
-import { fetchLpHero, LP_HERO_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
+import { fetchLpHero, fetchLpPanels, LP_HERO_SLOTS, LP_PANEL_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
 import { useT } from '@/components/I18nProvider'
 
-/** LP hook: the admin-configured hero images (null per slot = nothing configured).
- *  Lives here (its only caller) so lib/siteConfig stays hook-free and
- *  server-importable. */
+/** LP hook: the admin-configured images for one face of the LP (null per slot =
+ *  nothing configured). Lives here (its only caller) so lib/siteConfig stays
+ *  hook-free and server-importable. Both faces — the entrance works and the six
+ *  corridor panels — load the same way, so they share this one loader. */
 function useLpSlots(load: () => Promise<LpHeroSlot[]>, count: number): LpHeroSlot[] {
   // Start with all-empty slots (the same shape the fetch resolves to) so the first
   // paint falls back to the demo art rather than briefly indexing undefined.
@@ -55,17 +57,6 @@ const HERO_SLOTS: { idx: number; z: number; scale: number }[] = [
   { idx: 6, z: 9.2, scale: 1.3 }, // right
 ]
 
-// 板のスポットは常時点灯ではなく、その板を見ているとき（カメラの止まり位置に
-// 近いとき）だけ明るくする（2026-08-16 ユーザー提案）。
-// 最初 18→170 で試したところ実機で「暗すぎる」との指摘。そこで
-// 100→190 に上げたが、**この 100 という数字自体が旧来の常時点灯(130)を
-// 下回っており、直した気になっていただけで実際には前より暗いままだった**
-// ── 「130より明るい」とコミットに書いたのは誤りで、実機での再指摘で発覚
-// した。今度は基準を数字で確認してから決める: 旧定数(130)を明確に上回る
-// 水準を素通り時の下限にし、フォーカス時はそこから大きく持ち上げる。
-const PANEL_LIGHT_BASE = 150
-const PANEL_LIGHT_FOCUS = 230
-
 // 左壁の機能パネル 01〜06。ここに持つのは番号と位置だけで、文言は辞書から引く
 // （`lp.f1Title` … `lp.f6Body`）。壁のパネルと Features セクションは同じ6項目なので、
 // キーを共有して「壁と一覧で言っていることが違う」状態を作らない。
@@ -77,6 +68,15 @@ const PANEL_SPOTS: { n: string; z: number; k: string }[] = [
   { n: '05', z: -26, k: 'f5' },
   { n: '06', z: -31, k: 'f6' },
 ]
+/**
+ * 管理画面から入れた1点を、板から廊下の奥側へこれだけずらして掛ける。
+ *
+ * カメラの止まり位置は板の手前（`p.z + 0.9`）で、見る先は板（`p.z`）なので、
+ * **視線は -z 側へ傾いている**＝奥側に置いた方が同じ画に入る。板の間隔は5あるので
+ * この値では隣のパネルと重ならない。**構図はここだけで決まる**ので、実機で見て
+ * 詰めたくなったらこの1つの数字を動かせばよい。 */
+const PANEL_ART_DZ = -1.9
+
 /** 壁に焼く1枚ぶんの文言（辞書解決済み）＋その位置 */
 type PanelText = { n: string; h: string; b: string; z: number }
 
@@ -94,6 +94,19 @@ const HALL_SIDES: [number, number, number, 'L' | 'R'][] = [
   [7, -100, 3.6, 'R'],
   [4, -114, 3.6, 'R'],
 ]
+
+type Hud = { eyebrow: string; title: string; body?: string }
+
+/** カメラの止まり位置ごとの見出し（入口の2つ ＋ パネル6枚）。
+ *  Body copy rides along in the DOM HUD — the wall textures alone are unreadable
+ *  on portrait phones and invisible to screen readers. */
+function buildHud(t: (key: string, params?: Record<string, string | number>) => string, panels: PanelText[]): Hud[] {
+  return [
+    { eyebrow: t('lp.hudRoom'), title: t('lp.hudRoomWork') },
+    { eyebrow: t('lp.hudRoom'), title: t('lp.hudRoomWalk') },
+    ...panels.map((p) => ({ eyebrow: t('lp.hudFeatures', { n: p.n }), title: p.h, body: p.b })),
+  ]
+}
 
 // ---- canvas の折り返し ----
 // 折り返せる場所は文字体系ごとに違う。ラテン文字とハングルは語間に空白があるので
@@ -198,35 +211,21 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
 const PANEL_TEXT_W = 770
 const PANEL_TEXT_BOTTOM = 1110
 
-// 背景は塗らない（transparent のまま）── 文字が壁に直接転写されているように
-// 見せるため。地の板（カード）を廃止した分、色は壁 #241f1b 上で読める配色に
-// 反転させてある（旧: 明るい下地に濃色の文字／新: 透明の上に明るい文字。
-// --ink・--muted と同じ色を使い、CSS側と見た目を合わせてある）。
-//
-// キャンバスは論理サイズ(900x1180)の2倍の実ピクセルで焼く（`ctx.scale` で
-// 以下の描画コードはすべて論理サイズのまま書ける）。スマホは3D全体の
-// 描画解像度を負荷対策で落としている(dpr上限1.25)ため、素の900x1180だと
-// 引き伸ばされて文字がジャギって見えるとの指摘（2026-08-16）を受けて
-// 追加した。焼くのは板1枚あたり1回だけ（`useMemo`）なので、常時コストの
-// 掛かる dpr 自体は変えずに、ここだけ解像度を上げられる。
-const PANEL_TEX_SCALE = 2
-
 function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasTexture {
   const c = document.createElement('canvas')
-  c.width = 900 * PANEL_TEX_SCALE
-  c.height = 1180 * PANEL_TEX_SCALE
+  c.width = 900
+  c.height = 1180
   const ctx = c.getContext('2d')!
-  ctx.scale(PANEL_TEX_SCALE, PANEL_TEX_SCALE)
+  ctx.fillStyle = '#efeade'
+  ctx.fillRect(0, 0, 900, 1180)
   ctx.textBaseline = 'alphabetic'
-  ctx.fillStyle = 'rgba(236, 231, 222, 0.16)'
+  ctx.fillStyle = '#cfc9b6'
   ctx.font = 'italic 400 320px "Instrument Serif", serif'
   ctx.fillText(p.n, 70, 372)
-  ctx.fillStyle = '#ece7de'
-  // サイトの見出し書体（--serif）に合わせる。壁の展示タイトルらしく、
-  // 本文の Geist(sans) とは対照させる（2026-08-16 ユーザー指摘）。
-  ctx.font = '400 66px "Instrument Serif", serif'
-  const hy = wrapText(ctx, p.h, 70, 580, PANEL_TEXT_W, 78)
-  ctx.fillStyle = '#9a938a'
+  ctx.fillStyle = '#191917'
+  ctx.font = '600 62px "Geist", sans-serif'
+  const hy = wrapText(ctx, p.h, 70, 580, PANEL_TEXT_W, 76)
+  ctx.fillStyle = '#5a584f'
   // 本文の長さは言語で倍近く変わる（CJKは1字が全角、独語は語が長い）。行数が増えて
   // 板の下に落ちるときは、文字サイズを1段ずつ落として収める — textures.ts の名板が
   // CJKのタイトルに対してやっているのと同じ手当て。
@@ -248,17 +247,12 @@ function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasT
   return tex
 }
 
-// `dynamicIntensity` を渡すと、毎フレーム呼んで intensity を差し替える
-// （呼ばれなければ静的な `intensity` のまま。既存の呼び出し元は変えていない）。
-function Spot({ pos, target, color = '#ffeed6', intensity = 120, angle = 0.55, distance = 13, dynamicIntensity }: { pos: [number, number, number]; target: [number, number, number]; color?: string; intensity?: number; angle?: number; distance?: number; dynamicIntensity?: () => number }) {
+function Spot({ pos, target, color = '#ffeed6', intensity = 120, angle = 0.55, distance = 13 }: { pos: [number, number, number]; target: [number, number, number]; color?: string; intensity?: number; angle?: number; distance?: number }) {
   const light = useRef<THREE.SpotLight>(null!)
   const tgt = useRef<THREE.Object3D>(null!)
   useEffect(() => {
     if (light.current && tgt.current) light.current.target = tgt.current
   }, [])
-  useFrame(() => {
-    if (dynamicIntensity && light.current) light.current.intensity = dynamicIntensity()
-  })
   return (
     <>
       <spotLight ref={light} position={pos} angle={angle} penumbra={0.7} intensity={intensity} distance={distance} decay={1.0} color={color} />
@@ -267,53 +261,22 @@ function Spot({ pos, target, color = '#ffeed6', intensity = 120, angle = 0.55, d
   )
 }
 
-function Panel({ p, panelIdx }: { p: PanelText; panelIdx: number }) {
+function Panel({ p }: { p: PanelText }) {
   const tex = useMemo(() => makePanelTexture(p), [p])
   useEffect(() => () => tex.dispose(), [tex])
-  // 隣に掛けていた1点の画像枠（2026-08-16 に廃止）を吸収して、板そのものを
-  // 展示室の壁面タイトルくらいの大きさへ拡大した。旧サイズは 1.7。パネルの
-  // z間隔は5あるので、この大きさでも隣の板とは重ならない。
-  const w = 2.6
+  const w = 1.7
   const h = w * (1180 / 900)
-  // この板がカメラの止まり位置(ANCHORS)の何番目かは HERO_ART の2つが先に
-  // 歩くぶん一定でずれる。前後の止まり位置との間隔からフォーカスの窓を決め、
-  // 今のスクロール位置がそこに近いほど明るくする（0=素通り、1=止まって見ている）。
-  const walkIdx = HERO_ART.length + panelIdx
-  const dynamicIntensity = () => {
-    const a = ANCHORS
-    if (walkIdx < 1 || a.length <= walkIdx + 1) return PANEL_LIGHT_FOCUS
-    const atY = a[walkIdx].atY
-    const win = Math.max(1, Math.min(atY - a[walkIdx - 1].atY, a[walkIdx + 1].atY - atY) * 0.9)
-    const scrollY = typeof window !== 'undefined' ? window.scrollY : 0
-    const raw = Math.max(0, 1 - Math.abs(scrollY - atY) / win)
-    const focus = raw * raw * (3 - 2 * raw) // smoothstep
-    return THREE.MathUtils.lerp(PANEL_LIGHT_BASE, PANEL_LIGHT_FOCUS, focus)
-  }
   return (
     <group position={[-WALL_X + 0.08, ITEM_Y, p.z]} rotation-y={Math.PI / 2}>
-      {/* 地の板（カード）を持たない ── 文字が壁にそのまま転写されているように
-          見せるため。旧デザインは明るい下地の板を別オブジェクトとして
-          壁の手前に置いていたが、板を拡大したときに「安っぽいパネル張り」に
-          見えるとユーザー指摘があり撤去した（2026-08-16）。
-          地の板を無くした結果、光を受け止める明るい面が無くなり、
-          スポットライトの強さをいくら調整しても実機では暗いままだった
-          （明るい下地に当てていた頃の数値が基準になっていたが、暗い壁に
-          直接当てる前提では同じ数値では全く足りていなかった）。
-          `emissiveMap` で文字自身に発光させ、周囲の照明に頼らず
-          常に読める明るさを確保する。透明な部分はRGBが黒(0,0,0)なので
-          発光の影響を受けない。 */}
+      <mesh position={[0, 0, -0.04]}>
+        <boxGeometry args={[w + 0.18, h + 0.18, 0.07]} />
+        <meshStandardMaterial color="#141416" roughness={0.5} metalness={0.2} />
+      </mesh>
       <mesh position={[0, 0, 0.02]}>
         <planeGeometry args={[w, h]} />
-        <meshStandardMaterial
-          map={tex}
-          emissiveMap={tex}
-          emissive="#ffffff"
-          emissiveIntensity={0.85}
-          roughness={0.85}
-          transparent
-        />
+        <meshStandardMaterial map={tex} roughness={0.6} />
       </mesh>
-      <Spot pos={[-WALL_X + 2.6, 4.2, p.z]} target={[-WALL_X, ITEM_Y, p.z]} intensity={PANEL_LIGHT_BASE} dynamicIntensity={dynamicIntensity} />
+      <Spot pos={[-WALL_X + 2.6, 4.2, p.z]} target={[-WALL_X, ITEM_Y, p.z]} intensity={130} />
     </group>
   )
 }
@@ -550,18 +513,11 @@ let ANCHORS: Anchor[] = []
 // revealTop: 大部屋がフォグの奥から現れ始めるスクロール位置(手前=早く見える)
 function buildAnchors(corEnd: number, revealTop: number, footTop: number): Anchor[] {
   const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z)
-  // ここで直接 window を読む（`PORTRAIT` モジュール変数は R3F 側の
-  // ViewAdaptor が別タイミングで更新するので、初回はまだ反映されておらず
-  // 縦画面の初回ロードだけ横画面用の距離になる恐れがある）。この関数は
-  // `recompute()` から呼ばれ、その中で既に `window.innerHeight` を読んで
-  // いるのと同じタイミングで判定するので、ずれない。
-  const portrait = typeof window !== 'undefined' && window.innerHeight > window.innerWidth
   const walk: { pos: THREE.Vector3; look: THREE.Vector3 }[] = []
   // 入口の右壁アート
   for (const [, z] of HERO_ART) walk.push({ pos: v(-1.7, 1.66, z + 1.4), look: v(WALL_X, 1.5, z) })
-  // 左壁のパネル。縦画面（主にスマホ）は文字を大きく見せるため壁へ寄る
-  // （x=1.9→-1.0。壁は x≈-4.62 なので距離は約6.5→3.6 units）。
-  for (const p of PANEL_SPOTS) walk.push({ pos: v(portrait ? -1.0 : 1.9, 1.6, p.z + 0.9), look: v(-WALL_X + 0.3, 1.5, p.z) })
+  // 左壁のパネル
+  for (const p of PANEL_SPOTS) walk.push({ pos: v(1.9, 1.6, p.z + 0.9), look: v(-WALL_X + 0.3, 1.5, p.z) })
 
   const list: Anchor[] = []
   const walkSpan = Math.max(1, corEnd * 0.82)
@@ -629,7 +585,7 @@ function Rig() {
   return <pointLight ref={fill} intensity={12} distance={9} decay={1.4} color="#efe6d4" />
 }
 
-function Scene({ heroImages, panels }: { heroImages: LpHeroSlot[]; panels: PanelText[] }) {
+function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; panelArt: LpHeroSlot[]; panels: PanelText[] }) {
   return (
     <>
       {/* ローポリを暗さで隠す: フォグを手前に寄せ、環境光は弱く、スポット主体の陰影に */}
@@ -691,9 +647,20 @@ function Scene({ heroImages, panels }: { heroImages: LpHeroSlot[]; panels: Panel
       {APPROACH_ART.map(([idx, z, side], k) => (
         <CorridorArt key={`ap${k}`} idx={idx} z={z} side={side} scale={1.15} />
       ))}
-      {panels.map((p, i) => (
-        <Panel key={p.n} p={p} panelIdx={i} />
-      ))}
+      {panels.map((p, k) => {
+        const art = panelArt[k]
+        return (
+          <group key={p.n}>
+            <Panel p={p} />
+            {/* 板の隣（廊下の奥側）に、その訴求そのものを写した1点を掛ける。
+                CorridorArt を通すので、額・スポット・壁への貼り付けは入口の
+                主役アートと同じ実装を使う（`src` があれば `idx` は使われない）。 */}
+            {art && (
+              <CorridorArt idx={0} z={p.z + PANEL_ART_DZ} side="L" src={art.url} ratio={[art.w, art.h]} />
+            )}
+          </group>
+        )
+      })}
       <Hall />
       <Dust />
       <Rig />
@@ -703,6 +670,8 @@ function Scene({ heroImages, panels }: { heroImages: LpHeroSlot[]; panels: Panel
 }
 
 export default function HeroScene() {
+  const [hud, setHud] = useState<Hud | null>(null)
+  const [hudOn, setHudOn] = useState(false)
   // Stop the render loop entirely while the tab is hidden (battery)
   const [halted, setHalted] = useState(false)
   // Wall/label textures bake fonts into canvases once — wait for the webfonts
@@ -710,6 +679,8 @@ export default function HeroScene() {
   const [fontsReady, setFontsReady] = useState(false)
   // Admin-configured hero images (migration 0018); nulls fall back to the demo art
   const heroImages = useLpSlots(fetchLpHero, LP_HERO_SLOTS)
+  // パネルの隣に掛かる1点（管理画面から差し替え。未設定の枠は板だけが掛かる）
+  const panelArt = useLpSlots(fetchLpPanels, LP_PANEL_SLOTS)
   // 文言は辞書から。壁のテクスチャは1枚ずつ canvas に焼くので、配列そのものを
   // memo して同一性を保つ（スクロールごとの再描画で焼き直させない）。
   const t = useT()
@@ -718,6 +689,7 @@ export default function HeroScene() {
       PANEL_SPOTS.map((s) => ({ n: s.n, z: s.z, h: t(`lp.${s.k}Title`), b: t(`lp.${s.k}Body`) })),
     [t],
   )
+  const hudStops = useMemo(() => buildHud(t, panels), [t, panels])
 
   useEffect(() => {
     const onVis = () => setHalted(document.hidden)
@@ -745,11 +717,34 @@ export default function HeroScene() {
       const revealTop = pricing ? pricing.offsetTop - vh * 0.4 : closeTop
       const footTop = footer ? footer.offsetTop - vh * 0.5 : closeTop + vh
       ANCHORS = buildAnchors(corEnd, revealTop, footTop)
+      return { corEnd, revealTop, closeTop, footTop, vh }
     }
-    recompute()
-    window.addEventListener('resize', recompute)
-    return () => window.removeEventListener('resize', recompute)
-  }, [])
+    let dims = recompute()
+
+    const walkLen = HERO_ART.length + PANEL_SPOTS.length
+    const onScroll = () => {
+      const y = window.scrollY
+      const walkSpan = dims.corEnd * 0.82
+      if (y < walkSpan) {
+        const idx = Math.min(walkLen - 1, Math.max(0, Math.round((y / Math.max(1, walkSpan)) * (walkLen - 1))))
+        setHud(hudStops[idx])
+        setHudOn(y > dims.vh * 0.55)
+      } else {
+        setHudOn(false) // 通路〜大部屋は見出しを出さない(作品を主役に)
+      }
+    }
+    const onResize = () => {
+      dims = recompute()
+      onScroll()
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [hudStops])
 
   return (
     <div className="hero-canvas" aria-hidden="true">
@@ -763,9 +758,16 @@ export default function HeroScene() {
           gl.toneMappingExposure = 1.3
         }}
       >
-        {fontsReady && <Scene heroImages={heroImages} panels={panels} />}
+        {fontsReady && <Scene heroImages={heroImages} panelArt={panelArt} panels={panels} />}
       </Canvas>
       <div className="hero-grade" aria-hidden="true" />
+      <div className={`journey-hud${hudOn ? ' on' : ''}`}>
+        <div className="journey-hud-inner" key={(hud?.eyebrow || '') + (hud?.title || '')}>
+          <span className="journey-hud-eyebrow">{hud?.eyebrow}</span>
+          <p className="journey-hud-title">{hud?.title}</p>
+          {hud?.body && <p className="journey-hud-desc">{hud.body}</p>}
+        </div>
+      </div>
     </div>
   )
 }

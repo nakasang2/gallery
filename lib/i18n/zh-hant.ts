@@ -24,6 +24,7 @@ export const zhHant: PartialDictionary = {
     heroCtaArrow: '走進範例展場 →',
     heroAlt: '或做一個自己的 — 免費 →',
     heroScroll: '向下捲動',
+    hudRoom: '這個空間', hudRoomWork: '為一件作品而建的空間。', hudRoomWalk: '不是滑動，而是行走。', hudFeatures: '功能 · {n}',
 
     featuresCue: '在展場裡走一圈 — 六件這個空間能做的事，掛在牆上。',
     featuresTitle: '這個空間能做什麼。',
@@ -721,6 +722,9 @@ export const zhHant: PartialDictionary = {
   },
 
   adminUi: {
+    lpPanels: '首頁 — 走廊上的展板',
+    lpPanelsNote: '在 3D 走廊的六塊展板旁各掛一件作品。展板上的文字來自字典，這裡換的只是旁邊的圖。留空則該處只掛展板。橫向圖片最合適。',
+    noPanelArt: '沒有圖片',
     exhibitionSpaces: '展覽空間（{count}）',
     packagesNote:
       '「方案」顯示每個使用者擁有的東西（購買的，或者在這裡開通的）。要撤銷就按 ×。開通會在 purchases 帳冊裡記為 admin_grant、$0（不計入營收），並且立即生效。新的付費主題和版面會自動出現在清單裡。電子郵件地址在 Supabase Auth 那邊，不會暴露給 anon 金鑰。',

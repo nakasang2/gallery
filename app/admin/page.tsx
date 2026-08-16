@@ -9,6 +9,7 @@ import { useGallery } from '@/lib/store'
 import { useIsAdmin, fetchAdminOverview, type AdminOverview } from '@/lib/admin'
 import AdminDashboard from '@/components/AdminDashboard'
 import LpHeroEditor from '@/components/LpHeroEditor'
+import LpPanelsEditor from '@/components/LpPanelsEditor'
 import SpotlightEditor from '@/components/SpotlightEditor'
 import ArticlesEditor from '@/components/ArticlesEditor'
 import AnnounceEditor from '@/components/AnnounceEditor'
@@ -110,6 +111,7 @@ export default function AdminPage() {
         {isAdmin && <DemoLookEditor />}
         {isAdmin && <GhostSpeedEditor />}
         {isAdmin && <LpHeroEditor />}
+        {isAdmin && <LpPanelsEditor />}
 
         <footer className="artist-footer">
           <Link href="/terms">{t('footer.terms')}</Link>
