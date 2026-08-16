@@ -55,6 +55,12 @@ const HERO_SLOTS: { idx: number; z: number; scale: number }[] = [
   { idx: 6, z: 9.2, scale: 1.3 }, // right
 ]
 
+// 板のスポットは常時点灯ではなく、その板を見ているとき（カメラの止まり位置に
+// 近いとき）だけ明るくする（2026-08-16 ユーザー提案）。素通りする間はこの
+// 暗さで、フォーカスが合うとこの明るさまで持ち上がる。
+const PANEL_LIGHT_BASE = 18
+const PANEL_LIGHT_FOCUS = 170
+
 // 左壁の機能パネル 01〜06。ここに持つのは番号と位置だけで、文言は辞書から引く
 // （`lp.f1Title` … `lp.f6Body`）。壁のパネルと Features セクションは同じ6項目なので、
 // キーを共有して「壁と一覧で言っていることが違う」状態を作らない。
@@ -201,8 +207,10 @@ function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasT
   ctx.font = 'italic 400 320px "Instrument Serif", serif'
   ctx.fillText(p.n, 70, 372)
   ctx.fillStyle = '#ece7de'
-  ctx.font = '600 62px "Geist", sans-serif'
-  const hy = wrapText(ctx, p.h, 70, 580, PANEL_TEXT_W, 76)
+  // サイトの見出し書体（--serif）に合わせる。壁の展示タイトルらしく、
+  // 本文の Geist(sans) とは対照させる（2026-08-16 ユーザー指摘）。
+  ctx.font = '400 66px "Instrument Serif", serif'
+  const hy = wrapText(ctx, p.h, 70, 580, PANEL_TEXT_W, 78)
   ctx.fillStyle = '#9a938a'
   // 本文の長さは言語で倍近く変わる（CJKは1字が全角、独語は語が長い）。行数が増えて
   // 板の下に落ちるときは、文字サイズを1段ずつ落として収める — textures.ts の名板が
@@ -225,12 +233,17 @@ function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasT
   return tex
 }
 
-function Spot({ pos, target, color = '#ffeed6', intensity = 120, angle = 0.55, distance = 13 }: { pos: [number, number, number]; target: [number, number, number]; color?: string; intensity?: number; angle?: number; distance?: number }) {
+// `dynamicIntensity` を渡すと、毎フレーム呼んで intensity を差し替える
+// （呼ばれなければ静的な `intensity` のまま。既存の呼び出し元は変えていない）。
+function Spot({ pos, target, color = '#ffeed6', intensity = 120, angle = 0.55, distance = 13, dynamicIntensity }: { pos: [number, number, number]; target: [number, number, number]; color?: string; intensity?: number; angle?: number; distance?: number; dynamicIntensity?: () => number }) {
   const light = useRef<THREE.SpotLight>(null!)
   const tgt = useRef<THREE.Object3D>(null!)
   useEffect(() => {
     if (light.current && tgt.current) light.current.target = tgt.current
   }, [])
+  useFrame(() => {
+    if (dynamicIntensity && light.current) light.current.intensity = dynamicIntensity()
+  })
   return (
     <>
       <spotLight ref={light} position={pos} angle={angle} penumbra={0.7} intensity={intensity} distance={distance} decay={1.0} color={color} />
@@ -239,7 +252,7 @@ function Spot({ pos, target, color = '#ffeed6', intensity = 120, angle = 0.55, d
   )
 }
 
-function Panel({ p }: { p: PanelText }) {
+function Panel({ p, panelIdx }: { p: PanelText; panelIdx: number }) {
   const tex = useMemo(() => makePanelTexture(p), [p])
   useEffect(() => () => tex.dispose(), [tex])
   // 隣に掛けていた1点の画像枠（2026-08-16 に廃止）を吸収して、板そのものを
@@ -247,6 +260,20 @@ function Panel({ p }: { p: PanelText }) {
   // z間隔は5あるので、この大きさでも隣の板とは重ならない。
   const w = 2.6
   const h = w * (1180 / 900)
+  // この板がカメラの止まり位置(ANCHORS)の何番目かは HERO_ART の2つが先に
+  // 歩くぶん一定でずれる。前後の止まり位置との間隔からフォーカスの窓を決め、
+  // 今のスクロール位置がそこに近いほど明るくする（0=素通り、1=止まって見ている）。
+  const walkIdx = HERO_ART.length + panelIdx
+  const dynamicIntensity = () => {
+    const a = ANCHORS
+    if (walkIdx < 1 || a.length <= walkIdx + 1) return PANEL_LIGHT_FOCUS
+    const atY = a[walkIdx].atY
+    const win = Math.max(1, Math.min(atY - a[walkIdx - 1].atY, a[walkIdx + 1].atY - atY) * 0.9)
+    const scrollY = typeof window !== 'undefined' ? window.scrollY : 0
+    const raw = Math.max(0, 1 - Math.abs(scrollY - atY) / win)
+    const focus = raw * raw * (3 - 2 * raw) // smoothstep
+    return THREE.MathUtils.lerp(PANEL_LIGHT_BASE, PANEL_LIGHT_FOCUS, focus)
+  }
   return (
     <group position={[-WALL_X + 0.08, ITEM_Y, p.z]} rotation-y={Math.PI / 2}>
       {/* 地の板（カード）を持たない ── 文字が壁にそのまま転写されているように
@@ -257,7 +284,7 @@ function Panel({ p }: { p: PanelText }) {
         <planeGeometry args={[w, h]} />
         <meshStandardMaterial map={tex} roughness={0.85} transparent />
       </mesh>
-      <Spot pos={[-WALL_X + 2.6, 4.2, p.z]} target={[-WALL_X, ITEM_Y, p.z]} intensity={130} />
+      <Spot pos={[-WALL_X + 2.6, 4.2, p.z]} target={[-WALL_X, ITEM_Y, p.z]} intensity={PANEL_LIGHT_BASE} dynamicIntensity={dynamicIntensity} />
     </group>
   )
 }
@@ -628,8 +655,8 @@ function Scene({ heroImages, panels }: { heroImages: LpHeroSlot[]; panels: Panel
       {APPROACH_ART.map(([idx, z, side], k) => (
         <CorridorArt key={`ap${k}`} idx={idx} z={z} side={side} scale={1.15} />
       ))}
-      {panels.map((p) => (
-        <Panel key={p.n} p={p} />
+      {panels.map((p, i) => (
+        <Panel key={p.n} p={p} panelIdx={i} />
       ))}
       <Hall />
       <Dust />
