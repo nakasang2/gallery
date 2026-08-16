@@ -663,12 +663,27 @@ a { color: inherit; }
 }
 .concept-stats {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 4.5rem;
+  gap: 2rem;
+  row-gap: 3rem;
   margin-top: 4.5rem;
   padding-top: 3rem;
   border-top: 1px solid var(--hairline);
-  max-width: 760px;
+  /* 760px は `.concept-cols`（読みやすさのための段落幅）から流用した値で、この4枠の
+     中身の幅とは無関係だった（2026-08-16 のスクリーンショット指摘で発覚）。実測すると
+     本当のボトルネックは大きい数値（.stat b）ではなく、その下の説明文（.stat span）
+     の1行分の幅だった ── 例えばイタリア語 stat4 の
+     "le tue opere non vengono mai usate per l'addestramento" は4枠合計で1112px
+     必要で、どんなに `.concept-stats` を広げても典型的なデスクトップ幅(1024px)には
+     収まらない。日本語の「URL 1本」が空白の無い「1」と「本」のあいだで折り返され
+     「URL1／本」という意味の壊れた2行になっていたのも、この「幅が足りないと折り返す」
+     という同じ仕組みが数値側で起きたケースだった。
+     幅を言語ごとに数値チューニングし続けるのではなく、①`.stat b`（大きい数値）は
+     `white-space: nowrap` で単語の途中では絶対に折り返させない、②収まらない言語は
+     `flex-wrap: wrap` で2行×2列に自然に折り返す、という構造的な直しに変更。
+     これで新しい言語や訴求文の変更が来ても、都度ここの数値を測り直す必要がない。 */
+  max-width: 980px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -679,6 +694,7 @@ a { color: inherit; }
   font-weight: 400;
   color: var(--ink);
   line-height: 1.25;
+  white-space: nowrap;
 }
 .stat span {
   font-family: var(--mono);
@@ -1189,7 +1205,7 @@ html { scroll-padding-top: 72px; }
      （値段を同じ行に置くと語中改行が必要になっていた）。狭い幅だけ詰める。 */
   .price-card { padding: 2.6rem 1.6rem; }
   .price-badge { left: 1.4rem; }
-  .concept-stats { gap: 2rem; flex-wrap: wrap; }
+  .concept-stats { gap: 2rem; row-gap: 2.5rem; }
   .closing { padding: 9rem 1.6rem; }
 }
 

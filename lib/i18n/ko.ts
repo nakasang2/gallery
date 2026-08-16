@@ -51,7 +51,7 @@ export const ko: PartialDictionary = {
     stat1Sub: '올리고 나서 개막까지',
     stat2: '무료',
     stat2Sub: '로 시작, 설치할 것 없음',
-    stat3: 'URL 1개',
+    stat3: 'URL 1⁠개',
     stat3Sub: '로 세계를 초대',
     stat4: 'AI 학습 없음',
     stat4Sub: '작품을 학습에 쓰지 않습니다',

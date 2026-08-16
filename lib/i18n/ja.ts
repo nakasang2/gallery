@@ -781,7 +781,7 @@ export const ja: Dictionary = {
     stat1Sub: 'アップロードから開場まで',
     stat2: '無料',
     stat2Sub: 'ではじめられる。インストール不要',
-    stat3: 'URL 1本',
+    stat3: 'URL 1⁠本',
     stat3Sub: 'で世界を招く',
     stat4: 'AI学習なし',
     stat4Sub: 'あなたの作品を学習には使いません',
