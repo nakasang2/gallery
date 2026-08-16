@@ -462,6 +462,9 @@ a { color: inherit; }
 .hero-cta:hover { border-color: var(--ink); letter-spacing: 0.3em; }
 @media (prefers-reduced-motion: reduce) {
   .hero-chrome, .hero-eyebrow, .hero-title, .hero-sub, .hero-cta { animation: none; }
+  /* 中央寄せは to 側の transform で保つため animation:none だけで足りる */
+  .hero-scroll { animation: none; opacity: 1; transform: translateX(-50%); }
+  .hero-scroll-glyph::after { animation: none; top: 8px; opacity: 0.7; }
 }
 
 /* ============ HERO: GALLERY WALL ============ */
@@ -563,22 +566,58 @@ a { color: inherit; }
   pointer-events: none;
 }
 
+/* 中央寄せは `left:50%` + `transform:translateX(-50%)`。汎用の `rise` 演出
+   (transform:none で終わる)をここに使うと、終了時に translateX(-50%) が
+   丸ごと消えて右にずれて見える不具合があったため、この要素専用の
+   `heroScrollIn` を用意し、translateX(-50%) を from/to の両方に残す
+   （2026-08-16 ユーザー指摘「位置がずれていて邪魔な感じ」で発覚）。 */
 .hero-scroll {
   position: absolute;
-  bottom: 2rem;
+  bottom: 2.2rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
   font-family: var(--mono);
   font-size: 0.56rem;
   letter-spacing: 0.4em;
   text-transform: uppercase;
   color: var(--muted);
-  animation: scrollfade 2.6s ease-in-out infinite, rise 1s ease both 1.7s;
+  animation: heroScrollIn 1s ease both 1.7s;
 }
-@keyframes scrollfade {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 0.9; }
+@keyframes heroScrollIn {
+  from { opacity: 0; transform: translate(-50%, 22px); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+/* 「線を下へ落ちる粒」＝スクロールホイールを模した最小限のアイコン。
+   文言だけの点滅より、下方向への動きそのものを見せた方が意図が伝わる。 */
+.hero-scroll-glyph {
+  position: relative;
+  width: 1px;
+  height: 22px;
+  background: linear-gradient(to bottom, var(--muted), transparent);
+  overflow: hidden;
+}
+.hero-scroll-glyph::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  width: 3px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--ink);
+  transform: translateX(-50%);
+  animation: heroScrollDrop 1.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes heroScrollDrop {
+  0% { top: -6px; opacity: 0; }
+  25% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { top: 22px; opacity: 0; }
 }
 
 /* ============ MARQUEE ============ */

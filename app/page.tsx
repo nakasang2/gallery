@@ -80,7 +80,10 @@ export default async function LandingPage() {
           </p>
         </div>
 
-        <div className="hero-scroll" aria-hidden="true">{t('lp.heroScroll')}</div>
+        <div className="hero-scroll" aria-hidden="true">
+          <span className="hero-scroll-label">{t('lp.heroScroll')}</span>
+          <span className="hero-scroll-glyph" />
+        </div>
       </header>
 
       {/* ============ CORRIDOR — walk the hall; features hang on the 3D walls ============ */}
