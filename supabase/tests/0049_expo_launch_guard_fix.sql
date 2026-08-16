@@ -17,13 +17,24 @@ update public.expos set starts_at = now() where id='ef000000-0000-0000-0000-0000
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。psql の変数はドル引用符の中では
+-- 展開されないので、使う場合は `|| quote_literal(:'x') ||` で外へ出す（0048 参照）。
+create or replace function public.__t0049_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo '--- バグ①: INSERTで starts_at を自分で入れて無料公開できないこと ---'
 savepoint e;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'f1000000-0000-0000-0000-0000000000f1';
-\echo -n '01 作成と同時に starts_at を入れる → '
-insert into public.expos (owner_id, slug, title, duration_days, starts_at)
-  values ('f1000000-0000-0000-0000-0000000000f1', 'free-attack-49', 'Free Attack', 30, now());
+\echo -n '01 作成と同時に starts_at を入れる : '
+select public.__t0049_state($q$insert into public.expos (owner_id, slug, title, duration_days, starts_at)
+  values ('f1000000-0000-0000-0000-0000000000f1', 'free-attack-49', 'Free Attack', 30, now());$q$) = '23514';
 rollback to e;
 release e;
 reset role;
@@ -44,10 +55,10 @@ reset role;
 savepoint e;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'f1000000-0000-0000-0000-0000000000f1';
-\echo -n '04 被害者の展示IDで部屋を作る（ただ乗り）→ '
-insert into public.galleries (owner_id, expo_id, slug, title, work_cap, slots_included)
+\echo -n '04 被害者の展示IDで部屋を作る（ただ乗り）: '
+select public.__t0049_state($q$insert into public.galleries (owner_id, expo_id, slug, title, work_cap, slots_included)
   values ('f1000000-0000-0000-0000-0000000000f1', 'ef000000-0000-0000-0000-0000000000f2',
-          'freeload-49', 'ただ乗り', 15, true);
+          'freeload-49', 'ただ乗り', 15, true);$q$) = '23514';
 rollback to e;
 release e;
 reset role;
@@ -57,10 +68,10 @@ select coalesce(bool_and(false), true) from public.galleries where slug='freeloa
 savepoint e;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'f1000000-0000-0000-0000-0000000000f1';
-\echo -n '06 自分の下書き展示IDでも work_cap を15超で作れない → '
-insert into public.galleries (owner_id, expo_id, slug, title, work_cap, slots_included)
+\echo -n '06 自分の下書き展示IDでも work_cap を15超で作れない : '
+select public.__t0049_state($q$insert into public.galleries (owner_id, expo_id, slug, title, work_cap, slots_included)
   values ('f1000000-0000-0000-0000-0000000000f1', 'ef000000-0000-0000-0000-0000000000f1',
-          'huge-cap-49', '容量無制限', 999999, true);
+          'huge-cap-49', '容量無制限', 999999, true);$q$) = '23514';
 rollback to e;
 release e;
 reset role;

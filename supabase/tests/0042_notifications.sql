@@ -45,6 +45,17 @@ end $$;
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。psql の変数はドル引用符の中では
+-- 展開されないので、使う場合は `|| quote_literal(:'x') ||` で外へ出す（0048 参照）。
+create or replace function public.__t0042_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo '--- 回帰: 未ログインの来場者が公開サイトを使えるか（0041 の事故） ---'
 savepoint s;
 set local role anon;
@@ -79,16 +90,16 @@ release s;
 savepoint s;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
-\echo -n '01 他人宛の通知を作る → '
-insert into public.notifications (user_id, kind, title)
-  values ('aaaaaaaa-0000-0000-0000-000000000001', 'announce', 'Xibit360からのお知らせ（偽）');
+\echo -n '01 他人宛の通知を作る : '
+select public.__t0042_state($q$insert into public.notifications (user_id, kind, title)
+  values ('aaaaaaaa-0000-0000-0000-000000000001', 'announce', 'Xibit360からのお知らせ（偽）');$q$) = '42501';
 rollback to s;
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
-\echo -n '02 自分宛でも直接は作れない（insertポリシーが無い） → '
-insert into public.notifications (user_id, kind, title)
-  values ('bbbbbbbb-0000-0000-0000-000000000002', 'announce', '自作自演');
+\echo -n '02 自分宛でも直接は作れない（insertポリシーが無い） : '
+select public.__t0042_state($q$insert into public.notifications (user_id, kind, title)
+  values ('bbbbbbbb-0000-0000-0000-000000000002', 'announce', '自作自演');$q$) = '42501';
 rollback to s;
 
 set local role anon;
@@ -96,21 +107,21 @@ set local role anon;
 -- 残る ── そのままだと anon でも `auth.uid()` が直前の人を返し、所有者ポリシーが
 -- 通ってしまう（実測 2026-08-09。「未ログインから下書きが見える」と誤診しかけた）。
 set local "request.jwt.claim.sub" = '';
-\echo -n '03 未ログインでも作れない → '
-insert into public.notifications (user_id, kind, title)
-  values ('aaaaaaaa-0000-0000-0000-000000000001', 'like', 'x');
+\echo -n '03 未ログインでも作れない : '
+select public.__t0042_state($q$insert into public.notifications (user_id, kind, title)
+  values ('aaaaaaaa-0000-0000-0000-000000000001', 'like', 'x');$q$) = '42501';
 rollback to s;
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
-\echo -n '04 push_notification を直接呼べない → '
-select public.push_notification('aaaaaaaa-0000-0000-0000-000000000001','announce',null,null,'偽','','x');
+\echo -n '04 push_notification を直接呼べない : '
+select public.__t0042_state($q$select public.push_notification('aaaaaaaa-0000-0000-0000-000000000001','announce',null,null,'偽','','x');$q$) = '42501';
 rollback to s;
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'bbbbbbbb-0000-0000-0000-000000000002';
-\echo -n '05 非管理者は一斉送信できない → '
-select public.broadcast_announcement('偽のお知らせ', '');
+\echo -n '05 非管理者は一斉送信できない : '
+select public.__t0042_state($q$select public.broadcast_announcement('偽のお知らせ', '');$q$) = 'P0001';
 rollback to s;
 release s;
 
@@ -247,8 +258,8 @@ select count(*)=1 from public.notifications
 savepoint s;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'cccccccc-0000-0000-0000-000000000003';
-\echo -n '25 空のタイトルは拒否 → '
-select public.broadcast_announcement('   ', '本文だけ');
+\echo -n '25 空のタイトルは拒否 : '
+select public.__t0042_state($q$select public.broadcast_announcement('   ', '本文だけ');$q$) = 'P0001';
 rollback to s;
 release s;
 
