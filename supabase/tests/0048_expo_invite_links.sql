@@ -30,14 +30,27 @@ end $$;
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。
+--
+-- **psql の変数はドル引用符の中では展開されない。** `$q$… :'tok1' …$q$` と書くと
+-- `:'tok1'` がそのまま渡って `42601`（構文エラー）になり、**守りに届く前に落ちた結果を
+-- 「拒否された」と読んでしまう**（2026-08-15 に実際にこう書いて観測で気づいた）。
+-- 変数を使う文は `$q$…$q$ || quote_literal(:'tok1') || $q$…$q$` と外で連結する。
+create or replace function public.__t48_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo '--- リンクを作る ---'
 savepoint s;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'c3000000-0000-0000-0000-0000000000c3';
-savepoint e;
-\echo -n '01 他人の展示のリンクは作れない → '
-select public.create_expo_invite_link('ce000000-0000-0000-0000-000000000048');
-rollback to e; release e;
+\echo -n '01 他人の展示のリンクは作れない: '
+select public.__t48_state($q$select public.create_expo_invite_link('ce000000-0000-0000-0000-000000000048');$q$) = 'P0001';
 reset role;
 rollback to s; release s;
 
@@ -97,22 +110,18 @@ rollback to s; release s;
 savepoint s;
 set local role anon;
 set local "request.jwt.claim.sub" = '';
-savepoint e;
-\echo -n '10 未ログインでは希望を出せない → '
-select public.request_expo_invite(
-  :'tok1');
-rollback to e; release e;
+\echo -n '10 未ログインでは希望を出せない: '
+select public.__t48_state($q$select public.request_expo_invite(
+  $q$ || quote_literal(:'tok1') || $q$);$q$) = '42501';
 reset role;
 rollback to s; release s;
 
 savepoint s;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'c1000000-0000-0000-0000-0000000000c1';
-savepoint e;
-\echo -n '11 主催者は自分の展示に希望を出せない → '
-select public.request_expo_invite(
-  :'tok1');
-rollback to e; release e;
+\echo -n '11 主催者は自分の展示に希望を出せない: '
+select public.__t48_state($q$select public.request_expo_invite(
+  $q$ || quote_literal(:'tok1') || $q$);$q$) = 'P0001';
 reset role;
 rollback to s; release s;
 
@@ -143,11 +152,9 @@ select coalesce(bool_and(title='Joint 48' and actor_name='Guest 48'), false)
 savepoint s;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'c2000000-0000-0000-0000-0000000000c2';
-savepoint e;
-\echo -n '14 承認前は作品を出せない → '
-insert into public.expo_submissions (expo_id, artwork_id) values
-  ('ce000000-0000-0000-0000-000000000048', 'cc000000-0000-0000-0000-000000000042');
-rollback to e; release e;
+\echo -n '14 承認前は作品を出せない: '
+select public.__t48_state($q$insert into public.expo_submissions (expo_id, artwork_id) values
+  ('ce000000-0000-0000-0000-000000000048', 'cc000000-0000-0000-0000-000000000042');$q$) = '42501';
 \echo -n '15 二度押しは requested のまま（増えない）: '
 select public.request_expo_invite(
   :'tok1') = 'requested';
@@ -161,18 +168,14 @@ rollback to s; release s;
 savepoint s;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'c2000000-0000-0000-0000-0000000000c2';
-savepoint e;
-\echo -n '16 希望を出した本人が accepted にできない → '
-update public.expo_invites set status='accepted'
+\echo -n '16 希望を出した本人が accepted にできない: '
+select public.__t48_state($q$update public.expo_invites set status='accepted'
   where expo_id='ce000000-0000-0000-0000-000000000048'
-    and artist_id='c2000000-0000-0000-0000-0000000000c2';
-rollback to e; release e;
-savepoint e;
-\echo -n '17 pending に化けさせることもできない → '
-update public.expo_invites set status='pending'
+    and artist_id='c2000000-0000-0000-0000-0000000000c2';$q$) = '23514';
+\echo -n '17 pending に化けさせることもできない: '
+select public.__t48_state($q$update public.expo_invites set status='pending'
   where expo_id='ce000000-0000-0000-0000-000000000048'
-    and artist_id='c2000000-0000-0000-0000-0000000000c2';
-rollback to e; release e;
+    and artist_id='c2000000-0000-0000-0000-0000000000c2';$q$) = '23514';
 \echo -n '18 希望の取り下げ（declined）はできる: '
 update public.expo_invites set status='declined', responded_at=now()
   where expo_id='ce000000-0000-0000-0000-000000000048'
@@ -187,10 +190,8 @@ rollback to s; release s;
 savepoint s;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'c3000000-0000-0000-0000-0000000000c3';
-savepoint e;
-\echo -n '19 他人は承認できない → '
-select public.approve_expo_request(:'inv');
-rollback to e; release e;
+\echo -n '19 他人は承認できない: '
+select public.__t48_state($q$select public.approve_expo_request($q$ || quote_literal(:'inv') || $q$);$q$) = 'P0001';
 reset role;
 rollback to s; release s;
 
@@ -227,12 +228,10 @@ insert into public.placements (gallery_id, artwork_id, slot_index) values
 reset role;
 select count(*)=1 from public.placements
   where gallery_id='ca000000-0000-0000-0000-000000000048';
-\echo -n '25 承認済みをもう一度承認しようとしても弾かれる（二度押し） → '
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'c1000000-0000-0000-0000-0000000000c1';
-savepoint e;
-select public.approve_expo_request(:'inv');
-rollback to e; release e;
+\echo -n '25 承認済みをもう一度承認しようとしても弾かれる（二度押し）: '
+select public.__t48_state($q$select public.approve_expo_request($q$ || quote_literal(:'inv') || $q$);$q$) = 'P0001';
 reset role;
 \echo -n '26 リンクから踏み直しても accepted のまま: '
 set local role authenticated;
@@ -285,11 +284,9 @@ select count(*)=0 from public.expo_by_invite_token(
 reset role;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'c3000000-0000-0000-0000-0000000000c3';
-savepoint e;
-\echo -n '32 無効化したリンクでは希望を出せない → '
-select public.request_expo_invite(
-  :'tok1');
-rollback to e; release e;
+\echo -n '32 無効化したリンクでは希望を出せない: '
+select public.__t48_state($q$select public.request_expo_invite(
+  $q$ || quote_literal(:'tok1') || $q$);$q$) = 'P0001';
 reset role;
 rollback to s; release s;
 

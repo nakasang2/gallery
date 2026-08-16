@@ -12,6 +12,17 @@ update public.profiles set username='other50', display_name='Other 50' where id=
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。psql の変数はドル引用符の中では
+-- 展開されないので、使う場合は `|| quote_literal(:'x') ||` で外へ出す（0048 参照）。
+create or replace function public.__t0050_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo '--- 用意: 主催者の下書き展示・他人の展示・作品1点 ---'
 insert into public.expos (id, owner_id, slug, title, duration_days) values
   ('55000000-0000-0000-0000-000000000011', '55000000-0000-0000-0000-000000000001', 'host50-expo', 'Host 50 Expo', 14);
@@ -32,8 +43,8 @@ select coalesce(bool_and(expo_id is null and not slots_included and work_cap=5),
 
 \echo '--- 唯一の部屋は合同展示に持っていけない（玄関が無くなるため） ---'
 savepoint e;
-\echo -n '02 唯一の部屋を合同展示にしようとすると拒否される → '
-select public.switch_room_expo('55000000-0000-0000-0000-000000000031', '55000000-0000-0000-0000-000000000011');
+\echo -n '02 唯一の部屋を合同展示にしようとすると拒否される : '
+select public.__t0050_state($q$select public.switch_room_expo('55000000-0000-0000-0000-000000000031', '55000000-0000-0000-0000-000000000011');$q$) = '23514';
 rollback to e; release e;
 \echo -n '   （拒否されたので部屋Aはまだ通常展示のまま）: '
 select coalesce(bool_and(expo_id is null), false)
@@ -71,8 +82,8 @@ insert into public.galleries (id, owner_id, slug, title, work_cap, slots_include
    '55000000-0000-0000-0000-000000000011');
 
 savepoint e;
-\echo -n '06 無料枠は部屋Aが使用中・有料枠も部屋Cが購入を使い切っているので拒否される → '
-select public.switch_room_expo('55000000-0000-0000-0000-000000000032', null);
+\echo -n '06 無料枠は部屋Aが使用中・有料枠も部屋Cが購入を使い切っているので拒否される : '
+select public.__t0050_state($q$select public.switch_room_expo('55000000-0000-0000-0000-000000000032', null);$q$) = '23514';
 rollback to e; release e;
 
 \echo '--- もう1つ購入があれば有料枠に着地する ---'
@@ -90,22 +101,22 @@ select coalesce(bool_and(expo_id is null and slots_included and work_cap=15), fa
 savepoint e;
 insert into public.placements (gallery_id, artwork_id, slot_index) values
   ('55000000-0000-0000-0000-000000000031', '55000000-0000-0000-0000-000000000021', 0);
-\echo -n '08 作品が置かれた部屋は合同展示に入れない → '
-select public.switch_room_expo('55000000-0000-0000-0000-000000000031', '55000000-0000-0000-0000-000000000011');
+\echo -n '08 作品が置かれた部屋は合同展示に入れない : '
+select public.__t0050_state($q$select public.switch_room_expo('55000000-0000-0000-0000-000000000031', '55000000-0000-0000-0000-000000000011');$q$) = '23514';
 rollback to e; release e;
 
 \echo '--- 他人の展示・他人の部屋は触れない ---'
 savepoint e;
-\echo -n '09 他人の展示には入れられない → '
-select public.switch_room_expo('55000000-0000-0000-0000-000000000031', '55000000-0000-0000-0000-000000000012');
+\echo -n '09 他人の展示には入れられない : '
+select public.__t0050_state($q$select public.switch_room_expo('55000000-0000-0000-0000-000000000031', '55000000-0000-0000-0000-000000000012');$q$) = '23514';
 rollback to e; release e;
 reset role;
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = '55000000-0000-0000-0000-000000000002';
 savepoint e;
-\echo -n '10 他人の部屋は切替できない → '
-select public.switch_room_expo('55000000-0000-0000-0000-000000000031', null);
+\echo -n '10 他人の部屋は切替できない : '
+select public.__t0050_state($q$select public.switch_room_expo('55000000-0000-0000-0000-000000000031', null);$q$) = 'P0001';
 rollback to e; release e;
 reset role;
 
@@ -113,9 +124,9 @@ reset role;
 set local role authenticated;
 set local "request.jwt.claim.sub" = '55000000-0000-0000-0000-000000000001';
 savepoint e;
-\echo -n '11 生のUPDATEでexpo_idを書けない → '
-update public.galleries set expo_id = '55000000-0000-0000-0000-000000000011'
- where id = '55000000-0000-0000-0000-000000000031';
+\echo -n '11 生のUPDATEでexpo_idを書けない : '
+select public.__t0050_state($q$update public.galleries set expo_id = '55000000-0000-0000-0000-000000000011'
+ where id = '55000000-0000-0000-0000-000000000031';$q$) = '23514';
 rollback to e; release e;
 reset role;
 

@@ -38,6 +38,17 @@ update public.galleries set is_main = true
   where owner_id='d2000000-0000-0000-0000-0000000000d2' and slug='first';
 
 begin;
+
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。psql の変数はドル引用符の中では
+-- 展開されないので、使う場合は `|| quote_literal(:'x') ||` で外へ出す（0048 参照）。
+create or replace function public.__t0043_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
 \echo '--- 管理者が部屋を足す ---'
 savepoint s;
 set local role authenticated;
@@ -101,21 +112,21 @@ rollback to s;
 savepoint s;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'd3000000-0000-0000-0000-0000000000d3';
-\echo -n '11 非管理者は呼べない → '
-select public.admin_add_room('d3000000-0000-0000-0000-0000000000d3');
+\echo -n '11 非管理者は呼べない : '
+select public.__t0043_state($q$select public.admin_add_room('d3000000-0000-0000-0000-0000000000d3');$q$) = 'P0001';
 rollback to s;
 set local role anon;
 -- **クレームも消す。** `reset role` はロールだけを戻し、`request.jwt.claim.sub` は
 -- 残る ── そのままだと anon でも `auth.uid()` が直前の人を返し、所有者ポリシーが
 -- 通ってしまう（実測 2026-08-09。「未ログインから下書きが見える」と誤診しかけた）。
 set local "request.jwt.claim.sub" = '';
-\echo -n '12 未ログインは呼べない → '
-select public.admin_add_room('d3000000-0000-0000-0000-0000000000d3');
+\echo -n '12 未ログインは呼べない : '
+select public.__t0043_state($q$select public.admin_add_room('d3000000-0000-0000-0000-0000000000d3');$q$) = '42501';
 rollback to s;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'd1000000-0000-0000-0000-0000000000d1';
-\echo -n '13 居ないユーザーには足せない → '
-select public.admin_add_room('d9000000-0000-0000-0000-0000000000d9');
+\echo -n '13 居ないユーザーには足せない : '
+select public.__t0043_state($q$select public.admin_add_room('d9000000-0000-0000-0000-0000000000d9');$q$) = 'P0001';
 rollback to s;
 release s;
 

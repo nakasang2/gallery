@@ -243,6 +243,16 @@ export default async function LandingPage() {
             : t('lp.pricingNoteSoon')}{' '}
           {t('lp.pricingCurrency')}
         </p>
+        {/* 買う前に出る疑問（返金・作品の権利・AI学習・容量）の答えは /help にある。
+            それまでLPからは辿れず、返金の条件に至っては規約と特商法ページ ── **読む人が
+            最も少ない面** ── にしか無かった。特商法の表記も、金額のすぐ下に置くのが本来
+            （フッタにもあるが、LegalLink は ja のときだけ描画される）。 */}
+        <p className="pricing-note reveal">
+          <LocaleLink href="/help">{t('lp.pricingFaq')}</LocaleLink>
+          {' · '}
+          <Link href="/terms">{t('lp.pricingRefund')}</Link>
+          <LegalLink before=" · " />
+        </p>
       </section>
 
       {/* ============ CLOSING — the invitation ============ */}

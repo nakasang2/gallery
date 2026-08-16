@@ -12,6 +12,17 @@ update public.profiles set username='other51', display_name='Other 51' where id=
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。psql の変数はドル引用符の中では
+-- 展開されないので、使う場合は `|| quote_literal(:'x') ||` で外へ出す（0048 参照）。
+create or replace function public.__t0051_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo '--- 用意: 展示3つ（未来予約用・即時用・過去指定用） ---'
 set local role authenticated;
 set local "request.jwt.claim.sub" = '66000000-0000-0000-0000-000000000001';
@@ -82,19 +93,19 @@ select count(*) = 1
 set local role authenticated;
 set local "request.jwt.claim.sub" = '66000000-0000-0000-0000-000000000001';
 savepoint e;
-\echo -n '11 支払い後、本人がstarts_atを書き換えようとすると拒否される → '
 -- **`now()` はトランザクション内で固定される**ので、直前の record_expo_purchase が
 -- 使った値と同じになり「変わっていない」と誤判定しかねない。区別できる値にする。
-update public.expos set starts_at = now() + interval '1 hour' where id='66000000-0000-0000-0000-000000000012';
+\echo -n '11 支払い後、本人がstarts_atを書き換えようとすると拒否される : '
+select public.__t0051_state($q$update public.expos set starts_at = now() + interval '1 hour' where id='66000000-0000-0000-0000-000000000012';$q$) = '23514';
 rollback to e; release e;
 reset role;
 
 \echo '--- 他人の展示には支払えない ---'
 savepoint e;
-\echo -n '12 他人の展示idでは拒否される → '
-select public.record_expo_purchase(
+\echo -n '12 他人の展示idでは拒否される : '
+select public.__t0051_state($q$select public.record_expo_purchase(
   'sess51-other', '66000000-0000-0000-0000-000000000002', '66000000-0000-0000-0000-000000000011',
-  14, 2500, 'usd', now() + interval '1 day');
+  14, 2500, 'usd', now() + interval '1 day');$q$) = 'P0001';
 rollback to e; release e;
 
 \echo '--- 6引数（p_starts_at省略）の呼び方も引き続き使える（既定値で解決） ---'

@@ -12,6 +12,17 @@ update public.profiles set username='artist57', display_name='Artist 57' where i
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。psql の変数はドル引用符の中では
+-- 展開されないので、使う場合は `|| quote_literal(:'x') ||` で外へ出す（0048 参照）。
+create or replace function public.__t0057_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo '--- 用意: 展示2つ（会期中・下書き）＋作家の作品2点＋主催者の作品1点 ---'
 set local role authenticated;
 set local "request.jwt.claim.sub" = '77000000-0000-0000-0000-000000000001';
@@ -120,10 +131,10 @@ delete from public.expos where id='77000000-0000-0000-0000-000000000011';
 select count(*)=0 from public.notifications;
 
 \echo '--- 種別の許可リスト ---'
-\echo -n '11 知らない種別は拒否される: '
 savepoint s11;
-insert into public.notifications (user_id, kind, title)
-  values ('77000000-0000-0000-0000-000000000001', 'bogus_kind', 'x');
+\echo -n '11 知らない種別は拒否される: '
+select public.__t0057_state($q$insert into public.notifications (user_id, kind, title)
+  values ('77000000-0000-0000-0000-000000000001', 'bogus_kind', 'x');$q$) = '23514';
 rollback to s11;
 \echo -n '12 既存の種別は引き続き通る（submission）: '
 insert into public.notifications (user_id, kind, title)

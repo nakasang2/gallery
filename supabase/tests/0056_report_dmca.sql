@@ -8,6 +8,17 @@
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。psql の変数はドル引用符の中では
+-- 展開されないので、使う場合は `|| quote_literal(:'x') ||` で外へ出す（0048 参照）。
+create or replace function public.__t0056_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo '--- 既存の経路（種別なし）は壊れていない ---'
 set local role anon;
 insert into public.reports (about, reason) values ('@someone/show', '嫌がらせを受けています');
@@ -28,20 +39,20 @@ select coalesce(bool_and(kind='illegal'), false) from public.reports where about
 
 \echo '--- 著作権は法定要件が揃っていないと拒否される（§512(c)(3)） ---'
 set local role anon;
-\echo -n '04 宣誓なしの著作権通報は拒否される（ERRORが出るのが正しい）: '
 savepoint s4;
-insert into public.reports (about, reason, kind, claimant, work_identified)
-  values ('@x/copy1', '私の絵が使われています', 'copyright', 'Yamada Taro', 'My painting "Blue"');
+\echo -n '04 宣誓なしの著作権通報は拒否される（ERRORが出るのが正しい）: '
+select public.__t0056_state($q$insert into public.reports (about, reason, kind, claimant, work_identified)
+  values ('@x/copy1', '私の絵が使われています', 'copyright', 'Yamada Taro', 'My painting "Blue"');$q$) = '23514';
 rollback to s4;
-\echo -n '05 申立人の氏名が空の著作権通報は拒否される: '
 savepoint s5;
-insert into public.reports (about, reason, kind, claimant, work_identified, sworn)
-  values ('@x/copy2', '私の絵が使われています', 'copyright', '', 'My painting "Blue"', true);
+\echo -n '05 申立人の氏名が空の著作権通報は拒否される: '
+select public.__t0056_state($q$insert into public.reports (about, reason, kind, claimant, work_identified, sworn)
+  values ('@x/copy2', '私の絵が使われています', 'copyright', '', 'My painting "Blue"', true);$q$) = '23514';
 rollback to s5;
-\echo -n '06 著作物の特定が空の著作権通報は拒否される: '
 savepoint s6;
-insert into public.reports (about, reason, kind, claimant, work_identified, sworn)
-  values ('@x/copy3', '私の絵が使われています', 'copyright', 'Yamada Taro', '', true);
+\echo -n '06 著作物の特定が空の著作権通報は拒否される: '
+select public.__t0056_state($q$insert into public.reports (about, reason, kind, claimant, work_identified, sworn)
+  values ('@x/copy3', '私の絵が使われています', 'copyright', 'Yamada Taro', '', true);$q$) = '23514';
 rollback to s6;
 \echo '--- 揃っていれば通る ---'
 insert into public.reports (about, reason, kind, claimant, work_identified, sworn)
@@ -53,9 +64,9 @@ select coalesce(bool_and(kind='copyright' and sworn and claimant='Yamada Taro'),
 
 \echo '--- 種別の許可リスト ---'
 set local role anon;
-\echo -n '08 知らない種別は拒否される: '
 savepoint s8;
-insert into public.reports (about, reason, kind) values ('@x/bogus', 'test', 'whatever');
+\echo -n '08 知らない種別は拒否される: '
+select public.__t0056_state($q$insert into public.reports (about, reason, kind) values ('@x/bogus', 'test', 'whatever');$q$) = '23514';
 rollback to s8;
 reset role;
 

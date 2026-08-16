@@ -36,23 +36,34 @@ end $$;
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。psql の変数はドル引用符の中では
+-- 展開されないので、使う場合は `|| quote_literal(:'x') ||` で外へ出す（0048 参照）。
+create or replace function public.__t0046_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo '--- 会期が始まる前（下書き。払っていないのだから何も書けない） ---'
 savepoint s;
 set local role anon;
 set local "request.jwt.claim.sub" = '';
 savepoint e;
-\echo -n '01 来場を記録できない → '
-insert into public.visits (gallery_id) values ('aa000000-0000-0000-0000-000000000047');
+\echo -n '01 来場を記録できない : '
+select public.__t0046_state($q$insert into public.visits (gallery_id) values ('aa000000-0000-0000-0000-000000000047');$q$) = '42501';
 rollback to e; release e;
 savepoint e;
-\echo -n '02 芳名帳に書けない → '
-insert into public.guestbook (gallery_id, name, message) values
-  ('aa000000-0000-0000-0000-000000000047', 'x', 'y');
+\echo -n '02 芳名帳に書けない : '
+select public.__t0046_state($q$insert into public.guestbook (gallery_id, name, message) values
+  ('aa000000-0000-0000-0000-000000000047', 'x', 'y');$q$) = '42501';
 rollback to e; release e;
 savepoint e;
-\echo -n '03 いいねできない → '
-insert into public.likes (gallery_id, artwork_id) values
-  ('aa000000-0000-0000-0000-000000000047', 'ac000000-0000-0000-0000-000000000047');
+\echo -n '03 いいねできない : '
+select public.__t0046_state($q$insert into public.likes (gallery_id, artwork_id) values
+  ('aa000000-0000-0000-0000-000000000047', 'ac000000-0000-0000-0000-000000000047');$q$) = '42501';
 rollback to e; release e;
 \echo -n '04 人影の数は 0（下書きを覗けない）: '
 select public.public_visit_count('aa000000-0000-0000-0000-000000000047') = 0;
@@ -109,9 +120,9 @@ update public.galleries set guestbook_enabled = false
 set local role anon;
 set local "request.jwt.claim.sub" = '';
 savepoint e;
-\echo -n '13 閉じていれば書けない → '
-insert into public.guestbook (gallery_id, name, message) values
-  ('aa000000-0000-0000-0000-000000000047', 'x', 'y');
+\echo -n '13 閉じていれば書けない : '
+select public.__t0046_state($q$insert into public.guestbook (gallery_id, name, message) values
+  ('aa000000-0000-0000-0000-000000000047', 'x', 'y');$q$) = '42501';
 rollback to e; release e;
 reset role;
 rollback to s; release s;
@@ -123,9 +134,9 @@ update public.expos set starts_at = now() - interval '30 days'
 set local role anon;
 set local "request.jwt.claim.sub" = '';
 savepoint e;
-\echo -n '14 芳名帳に書けない → '
-insert into public.guestbook (gallery_id, name, message) values
-  ('aa000000-0000-0000-0000-000000000047', 'x', 'y');
+\echo -n '14 芳名帳に書けない : '
+select public.__t0046_state($q$insert into public.guestbook (gallery_id, name, message) values
+  ('aa000000-0000-0000-0000-000000000047', 'x', 'y');$q$) = '42501';
 rollback to e; release e;
 \echo -n '15 人影の数は 0: '
 select public.public_visit_count('aa000000-0000-0000-0000-000000000047') = 0;
@@ -161,9 +172,9 @@ update public.galleries set is_public = false where id='aa000000-0000-0000-0000-
 set local role anon;
 set local "request.jwt.claim.sub" = '';
 savepoint e;
-\echo -n '20 非公開の部屋には書けない → '
-insert into public.guestbook (gallery_id, name, message) values
-  ('aa000000-0000-0000-0000-000000000046', 'x', 'y');
+\echo -n '20 非公開の部屋には書けない : '
+select public.__t0046_state($q$insert into public.guestbook (gallery_id, name, message) values
+  ('aa000000-0000-0000-0000-000000000046', 'x', 'y');$q$) = '42501';
 rollback to e; release e;
 \echo -n '21 非公開の部屋の人影の数は 0: '
 select public.public_visit_count('aa000000-0000-0000-0000-000000000046') = 0;

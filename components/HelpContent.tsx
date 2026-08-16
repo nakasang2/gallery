@@ -29,9 +29,21 @@ type T = (key: string, params?: Record<string, string | number>) => string
  */
 const SECTIONS: { title: string; qa: [q: string, a: string][] }[] = [
   { title: 'help.s1', qa: [['help.qWhat', 'help.aWhat'], ['help.qCost', 'help.aCost'], ['help.qStart', 'help.aStart']] },
+  // お金と権利（2026-08-15 追加）。**購入・登録を止めるのはこの3問**なのに、19問の
+  // どこにも答えが無かった（LPの構成レビューで判明）── 返金の条件は規約と特商法に、
+  // 権利とAI学習は規約とプライバシーにしか書いておらず、**読む人が最も少ない面にだけ
+  // 置かれていた**。LPの料金セクションからここへ導線を張ってある。
+  // キーが `s7` なのは後から足したからで、**読む順はこの配列の順**（章の並びは
+  // 「作業の単位」だが、この章だけは作業ではなく判断の材料なので料金の直後に置く）。
+  { title: 'help.s7', qa: [
+    ['help.qRefund', 'help.aRefund'],
+    ['help.qRights', 'help.aRights'],
+    ['help.qAi', 'help.aAi'],
+  ] },
   // 作品タブでできること
   { title: 'help.s2', qa: [
     ['help.qMax', 'help.aMax'],
+    ['help.qStorage', 'help.aStorage'],
     ['help.qCaption', 'help.aCaption'],
     ['help.qCrop', 'help.aCrop'],
     ['help.qVideo', 'help.aVideo'],
@@ -54,12 +66,15 @@ const SECTIONS: { title: string; qa: [q: string, a: string][] }[] = [
 
 /** Per-video size cap in whole MB, from the plan (never typed into a sentence). */
 const VIDEO_MAX_MB = Math.round(PLAN.videoBytes / (1024 * 1024))
+/** 口座あたりの保存容量。同じ理由で文に書かず PLAN から出す。 */
+const STORAGE_MAX_MB = Math.round(PLAN.storageBytes / (1024 * 1024))
 
 /** Params for the answers that quote a live figure — keyed by answer key. */
 const A_PARAMS: Record<string, Record<string, string | number>> = {
   'help.aCost': { slot: PRICE_SLOT, room: PRICE_ROOM, video: PRICE_VIDEO_PASS, max: MAX_WORKS_PER_ROOM },
   'help.aMax': { max: MAX_WORKS_PER_ROOM },
   'help.aVideo': { price: PRICE_VIDEO_PASS, max: VIDEO_MAX_MB },
+  'help.aStorage': { storage: STORAGE_MAX_MB, video: VIDEO_MAX_MB },
 }
 
 export default function HelpContent({ t }: { t: T }) {

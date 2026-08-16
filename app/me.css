@@ -386,24 +386,32 @@
   background: rgba(212, 162, 78, 0.08);
 }
 
-/* エンゲージメント統計タイル */
+/* エンゲージメント統計タイル
+   **`.stat-row` の中に閉じてある**（2026-08-15）。素の `.stat` で書いていた頃は、
+   `app/layout.tsx` の import 順で me.css が landing.css より後に来るため、**同じ
+   詳細度でLPのコンセプト節の統計行まで上書きしていた** ── LPは 2.4rem のセリフ・
+   枠なしを意図しているのに、実際は 1.3rem ＋枠線＋角丸＋ホバーで描かれていた
+   （実測で確認）。DECISIONS 2026-08-12・D-1（`:root` を landing/gallery に二重定義
+   してサイト全体の書体が死んでいた）と同じ形で、【絶対ルール】2026-08-12 に当たる。
+   この面の `.stat` は AdminDashboard と /me の2か所だけで、**どちらも必ず
+   `.stat-row` の中**にあるので、親で閉じれば見た目は1pxも変わらない。 */
 .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-top: 1rem; }
-.stat {
+.stat-row .stat {
   border: 1px solid var(--hairline);
   border-radius: 10px;
   padding: 0.6rem 0.85rem;
   background: rgba(236, 231, 222, 0.03);
   transition: border-color 0.2s;
 }
-.stat:hover { border-color: rgba(212, 162, 78, 0.4); }
-.stat b {
+.stat-row .stat:hover { border-color: rgba(212, 162, 78, 0.4); }
+.stat-row .stat b {
   display: block;
   font-family: var(--serif);
   font-size: 1.3rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
-.stat span {
+.stat-row .stat span {
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;

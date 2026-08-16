@@ -38,6 +38,17 @@ end $$;
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。psql の変数はドル引用符の中では
+-- 展開されないので、使う場合は `|| quote_literal(:'x') ||` で外へ出す（0048 参照）。
+create or replace function public.__t0045_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo -n '00 合同展示の部屋は is_public を持てない（true で入れても false に落ちる）: '
 select coalesce(bool_and(not is_public), false) from public.galleries
   where id='9a000000-0000-0000-0000-000000000046';
@@ -122,11 +133,11 @@ release s;
 
 \echo '--- 名前の取り合い ---'
 savepoint s;
-\echo -n '16 アカウント別名と同じ名前で合同展示を作れない → '
 update public.profiles set expo_slug = 'taken-name' where id='92000000-0000-0000-0000-000000000092';
 savepoint e;
-insert into public.expos (owner_id, slug, title) values
-  ('91000000-0000-0000-0000-000000000091', 'taken-name', 'ぶつかる');
+\echo -n '16 アカウント別名と同じ名前で合同展示を作れない : '
+select public.__t0045_state($q$insert into public.expos (owner_id, slug, title) values
+  ('91000000-0000-0000-0000-000000000091', 'taken-name', 'ぶつかる');$q$) = '23505';
 rollback to e;
 release e;
 rollback to s;
@@ -137,8 +148,8 @@ insert into public.admins (user_id, note) values ('91000000-0000-0000-0000-00000
 set local role authenticated;
 set local "request.jwt.claim.sub" = '91000000-0000-0000-0000-000000000091';
 savepoint e;
-\echo -n '17 合同展示と同じ名前をアカウント別名に付けられない → '
-select public.set_expo_slug('92000000-0000-0000-0000-000000000092', 'joint-45');
+\echo -n '17 合同展示と同じ名前をアカウント別名に付けられない : '
+select public.__t0045_state($q$select public.set_expo_slug('92000000-0000-0000-0000-000000000092', 'joint-45');$q$) = '23505';
 rollback to e;
 release e;
 \echo -n '18 ぶつからない名前なら付けられる: '

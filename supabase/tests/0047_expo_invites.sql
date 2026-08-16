@@ -40,6 +40,17 @@ end $$;
 \set ON_ERROR_STOP off
 begin;
 
+-- 拒否の確認は**positive なアサーション**にする（DECISIONS 2026-08-13 の決定1）。
+-- 理由の全文は 0044_expos の同じ関数のコメント。psql の変数はドル引用符の中では
+-- 展開されないので、使う場合は `|| quote_literal(:'x') ||` で外へ出す（0048 参照）。
+create or replace function public.__t47_state(p_sql text) returns text language plpgsql as $$
+begin
+  execute p_sql;
+  return 'no-error';
+exception when others then
+  return sqlstate;
+end $$;
+
 \echo '--- 部屋への招待が撤去されていること ---'
 \echo -n '01 room_invites が無い: '
 select count(*)=0 from pg_class c join pg_namespace n on n.oid=c.relnamespace
@@ -70,21 +81,15 @@ select public.invite_artist_to_expo('be000000-0000-0000-0000-000000000047', '@Gu
 select coalesce(bool_and(status='pending'), false) from public.expo_invites
   where expo_id='be000000-0000-0000-0000-000000000047'
     and artist_id='b2000000-0000-0000-0000-0000000000b2';
-savepoint e;
-\echo -n '08 自分は招けない → '
-select public.invite_artist_to_expo('be000000-0000-0000-0000-000000000047', 'host47');
-rollback to e; release e;
-savepoint e;
-\echo -n '09 居ないハンドルは招けない → '
-select public.invite_artist_to_expo('be000000-0000-0000-0000-000000000047', 'nobody47');
-rollback to e; release e;
+\echo -n '08 自分は招けない: '
+select public.__t47_state($q$select public.invite_artist_to_expo('be000000-0000-0000-0000-000000000047', 'host47');$q$) = 'P0001';
+\echo -n '09 居ないハンドルは招けない: '
+select public.__t47_state($q$select public.invite_artist_to_expo('be000000-0000-0000-0000-000000000047', 'nobody47');$q$) = 'P0001';
 reset role;
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'b3000000-0000-0000-0000-0000000000b3';
-savepoint e;
-\echo -n '10 他人の展示には招待を出せない → '
-select public.invite_artist_to_expo('be000000-0000-0000-0000-000000000047', 'guest47');
-rollback to e; release e;
+\echo -n '10 他人の展示には招待を出せない: '
+select public.__t47_state($q$select public.invite_artist_to_expo('be000000-0000-0000-0000-000000000047', 'guest47');$q$) = 'P0001';
 reset role;
 rollback to s; release s;
 
@@ -103,11 +108,9 @@ select count(*)=1 from public.expo_invites where artist_id='b2000000-0000-0000-0
 \echo -n '12 **下書きの展示の題名が読める**（何に招かれたのか出せる）: '
 select coalesce(bool_and(title='Joint 47'), false) from public.expos
   where id='be000000-0000-0000-0000-000000000047';
-savepoint e;
-\echo -n '13 受諾する前は出せない → '
-insert into public.expo_submissions (expo_id, artwork_id) values
-  ('be000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000042');
-rollback to e; release e;
+\echo -n '13 受諾する前は出せない: '
+select public.__t47_state($q$insert into public.expo_submissions (expo_id, artwork_id) values
+  ('be000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000042');$q$) = '42501';
 \echo -n '14 受諾できる: '
 update public.expo_invites set status='accepted', responded_at=now()
   where expo_id='be000000-0000-0000-0000-000000000047'
@@ -120,11 +123,9 @@ insert into public.expo_submissions (expo_id, artwork_id) values
   ('be000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000042');
 select count(*)=1 from public.expo_submissions
   where expo_id='be000000-0000-0000-0000-000000000047';
-savepoint e;
-\echo -n '16 他人の作品は出せない → '
-insert into public.expo_submissions (expo_id, artwork_id) values
-  ('be000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000044');
-rollback to e; release e;
+\echo -n '16 他人の作品は出せない: '
+select public.__t47_state($q$insert into public.expo_submissions (expo_id, artwork_id) values
+  ('be000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000044');$q$) = '42501';
 reset role;
 
 \echo '--- 主催者に見える範囲（出したものだけ） ---'
@@ -144,16 +145,12 @@ insert into public.placements (gallery_id, artwork_id, slot_index) values
 select count(*)=1 from public.placements
   where gallery_id='ba000000-0000-0000-0000-000000000048';
 -- 21は欠番（旧: 「同じ招待でB室にも掛けられる」。1展示1部屋になったのでB室が無い）。
-savepoint e;
-\echo -n '22 出していない作品は掛けられない → '
-insert into public.placements (gallery_id, artwork_id, slot_index) values
-  ('ba000000-0000-0000-0000-000000000048', 'bc000000-0000-0000-0000-000000000043', 1);
-rollback to e; release e;
-savepoint e;
-\echo -n '23 **通常の部屋には掛けられない**（0037 で塞いだ穴は塞がったまま） → '
-insert into public.placements (gallery_id, artwork_id, slot_index) values
-  ('ba000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000042', 1);
-rollback to e; release e;
+\echo -n '22 出していない作品は掛けられない: '
+select public.__t47_state($q$insert into public.placements (gallery_id, artwork_id, slot_index) values
+  ('ba000000-0000-0000-0000-000000000048', 'bc000000-0000-0000-0000-000000000043', 1);$q$) = '42501';
+\echo -n '23 **通常の部屋には掛けられない**（0037 で塞いだ穴は塞がったまま）: '
+select public.__t47_state($q$insert into public.placements (gallery_id, artwork_id, slot_index) values
+  ('ba000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000042', 1);$q$) = '42501';
 \echo -n '24 主催者自身の作品は今までどおり掛けられる: '
 insert into public.placements (gallery_id, artwork_id, slot_index) values
   ('ba000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000041', 0);
@@ -254,13 +251,11 @@ select count(*)=0 from public.expo_submissions
 \echo -n '33 主催者自身の作品は触られない: '
 select count(*)=1 from public.placements
   where gallery_id='ba000000-0000-0000-0000-000000000047';
-\echo -n '34 辞退後は出し直せない: '
 set local role authenticated;
 set local "request.jwt.claim.sub" = 'b2000000-0000-0000-0000-0000000000b2';
-savepoint e;
-insert into public.expo_submissions (expo_id, artwork_id) values
-  ('be000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000042');
-rollback to e; release e;
+\echo -n '34 辞退後は出し直せない: '
+select public.__t47_state($q$insert into public.expo_submissions (expo_id, artwork_id) values
+  ('be000000-0000-0000-0000-000000000047', 'bc000000-0000-0000-0000-000000000042');$q$) = '42501';
 reset role;
 \echo -n '35 辞退された相手は招き直せる（pending に戻る）: '
 set local role authenticated;

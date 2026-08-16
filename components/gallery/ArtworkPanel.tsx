@@ -191,8 +191,18 @@ export default function ArtworkPanel() {
       </button>
     ) : null
 
+  // 次/前で切り替えたことをスクリーンリーダーへ伝える（U3・2026-08-16）。
+  // フォーカスはボタンに残したまま短く読み上げる ── パネルへフォーカスを飛ばすと
+  // 連打で次々フォーカスが移動して体験が重くなるため（決定はユーザー承認済み）。
+  // **常時マウントされた領域の中身だけを変える**: `aria-hidden`/`inert` が切り替わる
+  // 要素の中に live region を置くと、ATによっては変化に気づけない実装がある。
+  const announce = art
+    ? t('artwork.nowViewing', { no: focusedIndex + 1, count: list.length, title: art.title, artist: art.artist })
+    : ''
+
   return (
     <>
+    <div className="sr-only" aria-live="polite" aria-atomic="true">{announce}</div>
     <aside
       id="panel"
       className={`panel${open ? ' open' : ''}`}
