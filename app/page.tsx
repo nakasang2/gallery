@@ -180,6 +180,61 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* ============ COMPARE ============ */}
+      {/* 仮想敵は「会場を借りて開く個展」（ユーザー選択 2026-08-17）。**実名の競合は出さない**
+          ── 景表法の比較広告は①客観的に実証された事実②正確な引用③公正な方法が要る。実名を
+          出すと相手の条件が変わるたびにこちらの表示が虚偽になり、こちらで管理できない。
+          **金額の行も置いていない** ── 料金はすぐ下の料金セクションが唯一の出どころで、
+          ここに書くと同じ意味の値が2か所になる（【絶対ルール】2026-08-12）。
+          比較データなので本物の <table> にする（読み上げが行と列の対応を伝えられる）。 */}
+      <section className="compare" id="compare">
+        <div className="section-head reveal">
+          <p className="section-eyebrow">{t('lp.compareEyebrow')}</p>
+          <h2 className="section-title">{t('lp.compareTitle')}</h2>
+        </div>
+        <p className="compare-lead reveal">{t('lp.compareLead')}</p>
+        {/* 横送りは**この div** が受ける。`table` 自身に `overflow-x` を効かせるには
+            `display: block` が要り、それをやると PC でも表としての意味が落ちて
+            「どの列のどの行か」が読み上げに伝わらなくなる（別視点レビュー 2026-08-17）。 */}
+        <div className="compare-scroll reveal">
+        <table className="compare-table" role="table">
+          <thead role="rowgroup">
+            <tr role="row">
+              <td role="cell" />
+              <th scope="col" role="columnheader">{t('lp.compareColA')}</th>
+              {/* ブランド名なので訳さない (i18n-ok) */}
+              <th scope="col" role="columnheader" className="compare-ours">Xibit360</th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            {([
+              ['lp.compareR1', 'lp.compareR1a', 'lp.compareR1b'],
+              ['lp.compareR2', 'lp.compareR2a', 'lp.compareR2b'],
+              ['lp.compareR3', 'lp.compareR3a', 'lp.compareR3b'],
+              ['lp.compareR4', 'lp.compareR4a', 'lp.compareR4b'],
+            ] as const).map(([label, a, b]) => (
+              <tr key={label} role="row">
+                <th scope="row" role="rowheader">{t(label)}</th>
+                {/* 列の名前をセルにも持たせる。**電話では表を積み上げて見せる**ので、
+                    見出し行が消えたときにどちらの話か分からなくなるのを防ぐ
+                    （PC では CSS で隠す）。同じキーを2か所で呼んでいるだけなので
+                    文言の出どころは1つのまま。 */}
+                <td role="cell">
+                  <span className="compare-cell-label">{t('lp.compareColA')}</span>
+                  {t(a)}
+                </td>
+                <td role="cell" className="compare-ours">
+                  {/* ブランド名なので訳さない (i18n-ok) */}
+                  <span className="compare-cell-label">Xibit360</span>
+                  {t(b)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+      </section>
+
       {/* ============ PRICING ============ */}
       <section className="pricing" id="pricing">
         <div className="section-head reveal">

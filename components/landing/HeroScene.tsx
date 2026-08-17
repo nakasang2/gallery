@@ -424,10 +424,23 @@ function PanelImage({ src, ratio, z }: { src: string; ratio: [number, number]; z
   const h = rh * fit
   if (!tex) return null
   return (
-    <mesh key={src} position={[-WALL_X + 0.08, ITEM_Y, z]} rotation-y={Math.PI / 2}>
-      <planeGeometry args={[w, h]} />
-      <meshBasicMaterial map={tex} toneMapped={false} />
-    </mesh>
+    <group>
+      <mesh key={src} position={[-WALL_X + 0.08, ITEM_Y, z]} rotation-y={Math.PI / 2}>
+        <planeGeometry args={[w, h]} />
+        <meshBasicMaterial map={tex} toneMapped={false} />
+      </mesh>
+      {/* **光は写真ではなく壁に当てている**（ユーザー選択 2026-08-17）。写真の材質は
+          `meshBasicMaterial` なので、このスポットは写真の見え方を1ミリも変えない ──
+          色は撮ったままで、暗い廊下でも真っ黒にならない性質はそのまま。効くのは周りの
+          壁（`meshStandardMaterial`）だけで、光だまりができることで**写真が壁に貼った
+          ステッカーではなく、その空間に在るもの**に見える。
+          板のスポット（130）より弱く・広くしてあるのは、「照らされた展示物」に見せたく
+          ないため ── ここに写っているのは他所のギャラリーの写真で、この部屋の展示物では
+          ないので、主役として照らすと入れ子になっておかしい。
+          広がりは板のスポット（0.55）と同程度に留める ── 光源から壁まで約3.5mあるので、
+          0.72 まで開くと光だまりが直径6mを超え、間隔5mの**隣のパネルまで照らしてしまう**。 */}
+      <Spot pos={[-WALL_X + 2.6, 4.0, z]} target={[-WALL_X, ITEM_Y, z]} intensity={78} angle={0.62} />
+    </group>
   )
 }
 
