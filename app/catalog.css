@@ -62,7 +62,7 @@
   margin: 0 0 1.4rem;
 }
 .catalog-title {
-  font-family: 'Instrument Serif', Georgia, serif;
+  font-family: var(--serif);
   font-size: clamp(2.4rem, 6vw, 3.8rem);
   line-height: 1.05;
   margin: 0 0 0.8rem;
@@ -120,7 +120,7 @@
   margin: 0 0 0.4rem;
 }
 .catalog-plate-title {
-  font-family: 'Instrument Serif', Georgia, serif;
+  font-family: var(--serif);
   font-size: 1.6rem;
   font-weight: 400;
   margin: 0 0 0.3rem;

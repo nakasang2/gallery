@@ -2,6 +2,7 @@
 import * as THREE from 'three'
 import { renderArtworkCanvas, type ArtworkData } from '@/lib/artworks'
 import { assetUrl } from '@/lib/publicUrl'
+import { serifFont, sansFont } from '@/lib/fonts'
 
 /* ---- Plaster grain (procedural bump map — no external assets needed) ---- */
 
@@ -354,13 +355,13 @@ export function makePlaqueTexture(art: ArtworkData, index: number): THREE.Canvas
   ctx.fillStyle = '#efece4'
   ctx.fillRect(0, 0, 512, 300)
   ctx.fillStyle = '#b3402e'
-  ctx.font = '500 26px "Geist", sans-serif'
+  ctx.font = sansFont(26, { weight: 500 })
   ctx.fillText(`NO. ${String(index + 1).padStart(2, '0')}`, 42, 66)
   ctx.fillStyle = '#22201c'
   // 512 wide, text inset 42 each side. One line while it fits; a long title
   // (i.e. almost any Japanese one) drops to two rather than running off the edge.
   const PLATE_W = 428
-  const titleFont = (px: number) => `400 ${px}px "Instrument Serif", serif`
+  const titleFont = (px: number) => serifFont(px)
   const titlePx = fitOneLine(ctx, art.title, PLATE_W, titleFont, 44, 28)
   if (titlePx !== null) {
     ctx.font = titleFont(titlePx)
@@ -371,12 +372,12 @@ export function makePlaqueTexture(art: ArtworkData, index: number): THREE.Canvas
     wrapLeft(ctx, art.title, PLATE_W, 2).forEach((line, i) => ctx.fillText(line, 42, 118 + i * 36))
   }
   ctx.fillStyle = '#55524b'
-  const byFont = (px: number) => `400 ${px}px "Geist", sans-serif`
+  const byFont = (px: number) => sansFont(px)
   const byline = `${art.artist} / ${art.year}`
   const byPx = fitOneLine(ctx, byline, PLATE_W, byFont, 30, 20)
   ctx.font = byFont(byPx ?? 20)
   ctx.fillText(byPx !== null ? byline : (wrapLeft(ctx, byline, PLATE_W, 1)[0] ?? byline), 42, 190)
-  ctx.font = '300 24px "Geist", sans-serif'
+  ctx.font = sansFont(24, { weight: 300 })
   // The caption line(s): the artist's own text when present, tags otherwise
   const capText = (art.desc || '').trim() || (art.tags || []).join(' · ')
   const capLines = wrapLeft(ctx, capText, 428, 2)
@@ -491,7 +492,7 @@ export function makeTitleTexture(
   // 80px — which silently overflowed the board past ~20 Japanese characters,
   // centred, so it spilled off both sides. Shrink first, then take a second line
   // rather than keep shrinking a title into unreadability.
-  const titleFont = (px: number) => `400 ${px}px "Instrument Serif", serif`
+  const titleFont = (px: number) => serifFont(px)
   let titlePx = fitOneLine(ctx, text.title, maxW, titleFont, 156, 100)
   let titleLines = [text.title]
   if (titlePx === null) {
@@ -545,7 +546,7 @@ export function makeTitleTexture(
       draw: (top) => {
         ctx.fillStyle = ink
         // Had no width check at all — a long display name ran off the board.
-        const nameFont = (px: number) => `400 ${px}px "Instrument Serif", serif`
+        const nameFont = (px: number) => serifFont(px)
         const namePx = fitOneLine(ctx, artist.name, maxW, nameFont, 60, 36)
         ctx.font = nameFont(namePx ?? 36)
         ctx.fillText(
@@ -563,7 +564,7 @@ export function makeTitleTexture(
       h: 56,
       draw: (top) => {
         ctx.fillStyle = gold
-        ctx.font = '400 36px "Geist", sans-serif'
+        ctx.font = sansFont(36)
         ctx.fillText(`@${artist.handle}`, CX, top + 36)
       },
     })

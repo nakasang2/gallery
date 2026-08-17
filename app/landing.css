@@ -13,7 +13,8 @@
  * は `app/layout.tsx` の Google Fonts に無く**一度も読み込まれていない**ので、本文と見出しが
  * OS標準フォント（Times / Helvetica）で描かれていた。決め手は3Dギャラリー自身で、
  * 壁の題箋・作家名を焼く `components/gallery/textures.ts` は 'Instrument Serif' と 'Geist' を
- * 直書きしている ＝ **HUDが自分の壁の文字と食い違っていた**。実測: 本文の宣言の文字幅
+ * 直書きしていた ＝ **HUDが自分の壁の文字と食い違っていた**（その直書きは 2026-08-17 に解消し、
+ * canvas 側は `lib/fonts.ts` 経由で下の `--serif` / `--sans` を読み出す）。実測: 本文の宣言の文字幅
  * 808.8px ＝ 汎用sans と同値・Geist(300) は 713.34px、`document.fonts` 上で Geist 300 が
  * "unloaded"（本文がGeistなら必ず読み込まれるウェイト）。
  */
@@ -25,7 +26,7 @@
   --gold: #d4a24e;
   --hairline: rgba(236, 231, 222, 0.14);
   --glow: rgba(255, 240, 214, 0.06);
-  --serif: 'Instrument Serif', serif;
+  --serif: 'Bodoni Moda', Georgia, serif;
   --sans: 'Geist', sans-serif;
   --mono: 'Geist Mono', monospace;
 

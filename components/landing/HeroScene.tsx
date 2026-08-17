@@ -13,6 +13,7 @@ import { MeshReflectorMaterial } from '@react-three/drei'
 import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
 import { fetchLpHero, fetchLpPanels, LP_HERO_SLOTS, LP_PANEL_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
 import { useT } from '@/components/I18nProvider'
+import { serifFont, sansFont } from '@/lib/fonts'
 
 /** LP hook: the admin-configured images for one face of the LP (null per slot =
  *  nothing configured). Lives here (its only caller) so lib/siteConfig stays
@@ -220,10 +221,10 @@ function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasT
   ctx.fillRect(0, 0, 900, 1180)
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = '#cfc9b6'
-  ctx.font = 'italic 400 320px "Instrument Serif", serif'
+  ctx.font = serifFont(320, { italic: true })
   ctx.fillText(p.n, 70, 372)
   ctx.fillStyle = '#191917'
-  ctx.font = '600 62px "Geist", sans-serif'
+  ctx.font = sansFont(62, { weight: 600 })
   const hy = wrapText(ctx, p.h, 70, 580, PANEL_TEXT_W, 76)
   ctx.fillStyle = '#5a584f'
   // 本文の長さは言語で倍近く変わる（CJKは1字が全角、独語は語が長い）。行数が増えて
@@ -232,7 +233,7 @@ function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasT
   const bodyTop = hy + 96
   const sizes = [38, 34, 30, 26]
   for (const px of sizes) {
-    ctx.font = `400 ${px}px "Geist", sans-serif`
+    ctx.font = sansFont(px)
     const lh = Math.round(px * 1.47)
     const lines = layoutLines(ctx, p.b, PANEL_TEXT_W)
     const last = bodyTop + (lines.length - 1) * lh

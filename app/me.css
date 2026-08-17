@@ -1231,7 +1231,7 @@
 .spotlight { margin: 0 0 2.6rem; }
 .spotlight-head { margin-bottom: 1.1rem; }
 .spotlight-title {
-  font-family: 'Instrument Serif', Georgia, serif;
+  font-family: var(--serif);
   font-size: 1.7rem;
   font-weight: 400;
   margin: 0;

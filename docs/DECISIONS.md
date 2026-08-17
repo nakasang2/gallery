@@ -1,5 +1,15 @@
 # DECISIONS
 
+## 2026-08-17 明朝を Instrument Serif → Bodoni Moda に変更（ユーザー決定）
+
+- **発端**: ユーザーの観察「明朝のアルファベットが細長い」。**実測で裏付けた** ── 同一文字列 `Give your work a place of its own.` を100pxで描いたときの幅は、Instrument Serif が候補6書体中**最も狭い1131px**。候補との比較は Fraunces 1263px(112%)・EB Garamond 1284px(114%)・Newsreader 1504px(133%)・**Bodoni Moda 1532px(136%)**・Libre Baskerville 1728px(153%)。実際のLP文言・実際の色(`#0b0a09`/`#ece7de`/`#d4a24e`)・実サイズで並べた比較ページをブラウザで描画し、6書体すべてが `document.fonts.check` で `true`（フォールバックではなく実書体）であることを確認したうえで選んでもらった。
+- **決定（ユーザー選択）**: **Bodoni Moda**。ディドネ系で、美術館・ファッション的な華やかさが最も強い。`--serif: 'Bodoni Moda', Georgia, serif`。
+  - **Claudeが事前に伝えた懸念（ユーザーは承知のうえで選択）**: ①ヘアラインが極細なので、スマホの3D（`dpr` 上限1.25）で焼いた題箋が消える/ジャギるリスクが候補中いちばん高い ── 2026-08-16 の PR #22 でまさに同じ問題を直したばかり ②暗い背景に明るい文字なので細い線ほど食われる ③幅+36%でヒーローが2行になり、LPの見出し周りの再調整が付いてくる（統計行は PR #15 で11言語ぶんの折り返しを整えた箇所）。
+  - 却下: EB Garamond（Claude推奨・+14%でレイアウト調整が最小）／Newsreader（+33%）／Fraunces（+12%）／Libre Baskerville（+53%でヒーローには重すぎる）。
+- **選定条件（次に書体を変えるときも同じ）**: **Google Fonts にあること**が必須。3Dの題箋・作家名を canvas に焼く処理が `ctx.font` に**書体名を文字列で**渡すため、ハッシュ名になる `next/font` は使えない。
+- **あわせて写しを1か所に寄せた（【絶対ルール】2026-08-12）**: 書体名がこのワークツリーだけで**12か所**に写されていた（CSS 8・canvas 4）。①`app/me.css` / `catalog.css` / `articles.css` の `'Instrument Serif', Georgia, serif` 直書き8か所を `var(--serif)` に②canvas 側は新規 `lib/fonts.ts` の `serifFont()` / `sansFont()` に通し、**`getComputedStyle` で `--serif` / `--sans` を実際に読み出す**形にした（定数を書き写すと CSS と canvas が食い違う ── 2026-08-12 の D-1 で「HUDが自分の壁の文字と違う書体だった」事故が実際に起きている）。値は一度引いたら使い回すが、**空文字は覚えない**（スタイルが当たる前に呼ばれるとフォールバックで固定されてしまうため）。
+- **副作用として意図的に受け入れたもの**: serif に `font-weight: 500` を指定している箇所（`me.css` / `gallery.css` / `auth.css` の計8か所）は、Instrument Serif がウェイト400しか持たないため**これまで500が効いていなかった**。Bodoni Moda は500を持つので、今後は書いたとおりに描かれる。Google Fonts の読み込みにも `500` を足した。
+
 ## 2026-08-15 DBの拒否を、クライアントの入れ直しが迂回していた（実バグ・番人化）
 
 - **見つけ方**: 台帳の「C. コード側の既知の未対応」を順に潰す作業で、まず **R2の孤児ファイル**（DECISIONS 2026-08-12 に「未対応として記録」とあった）を直そうとしてコードを開いたら、**既に直っていた** ── `uploadArtwork` / `uploadVideoArtwork` とも insert 失敗時に `deleteArtworkFiles(id)` を呼んでいる（`756410e`。**件名は `docs:` なのにコードを含む**、2026-07-29 に記録した「コミットの件名を信用しない」の実例）。`/api/storage/delete` は `{uid}/{artworkId}/` を prefix で消すので**行が無くても消せる**ことも確認した。台帳の側が古かった。
