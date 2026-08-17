@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import { getNeutralEnvTexture } from './textures'
+import { useThemeAtmosphere } from './atmosphere'
 import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat } from '@/lib/presets'
 import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, lightModeFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
@@ -121,11 +122,9 @@ export default function GalleryScene() {
     }
   }, [gl, scene])
 
-  // Background and fog (per-theme density gives atmospheric perspective)
-  useEffect(() => {
-    scene.background = new THREE.Color(theme.fog)
-    scene.fog = new THREE.FogExp2(theme.fog, theme.fogDensity)
-  }, [scene, theme])
+  // Background and fog (per-theme density gives atmospheric perspective).
+  // ダッシュボードのテーマプレビューと同じ1か所を通す（./atmosphere）
+  useThemeAtmosphere(theme)
 
   // The scene is static, so re-bake shadows only once when the composition changes.
   // Also force all materials to recompile: when swapping exhibits recreates shadowed

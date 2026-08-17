@@ -54,8 +54,11 @@ function useWallMaps(w: number, h: number, offU: number, offV: number, finish: W
   return maps
 }
 
-/** 壁の一部（切り抜きが無ければ壁そのもの）。位置は親 `Wall` のローカル座標で決める。 */
-function WallPiece({
+/** 壁の一部（切り抜きが無ければ壁そのもの）。位置は親 `Wall` のローカル座標で決める。
+ *  ダッシュボードのテーマプレビュー（`components/Preview3D`）も**この同じ板**を使う
+ *  ── 仕上げ（plaster / concrete）とマップの張り方を写すと、テーマを調整した日に
+ *  プレビューだけ古い見た目のまま残る（【絶対ルール】2026-08-12）。 */
+export function WallPiece({
   w,
   h,
   offU,
@@ -202,10 +205,20 @@ function Bench({ x, z, theme }: { x: number; z: number; theme: ThemeDef }) {
   )
 }
 
-export default function Room({ theme, layout }: { theme: ThemeDef; layout: LayoutDef }) {
-  const { hw, hd } = layout
-  const h = CEIL_H
-
+/** 床。**実際の部屋とダッシュボードのテーマプレビューが同じものを使う**
+ *  ── 反射のパラメータ（下のコメントにある白飛びの経緯を含む）を写すと、片方だけ
+ *  古い設定のまま残る（【絶対ルール】2026-08-12）。 */
+export function ThemedFloor({
+  theme,
+  hw,
+  hd,
+  onClick,
+}: {
+  theme: ThemeDef
+  hw: number
+  hd: number
+  onClick?: (e: ThreeEvent<MouseEvent>) => void
+}) {
   // Floor: keep the plank grain at real scale (about 5.3m x 2.7m per tile)
   const floorTex = useMemo(() => {
     const base = getFloorTextures()
@@ -218,38 +231,8 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
     return out
   }, [hw, hd])
   useEffect(() => () => disposeAll(Object.values(floorTex)), [floorTex])
-
-  const finish: WallFinish = theme.wallFinish ?? 'plaster'
-  const partitionMaps = useWallMaps(8, CEIL_H, 0, 0, finish)
-  // 扉の開口。`RoomPortals` が扉を建てるのと同じ関数なので、穴と扉は必ず同じ場所。
-  // 扉が建たない部屋（他の部屋が無い・どの壁にも収まらない）では `null` / `hole: null`
-  // になり、**壁は切り抜かれない**（穴の向こうに何も無いので開けてはいけない）。
-  const door = useDoorway(layout)
-  const holeU = (id: WallId) => (door?.hole?.wall === id ? door.hole.u : undefined)
-  // The ceiling reuses the plaster normal map: dead-flat white overhead is a big
-  // CG tell once the emissive strips and skylight graze it
-  const ceilingNormal = useMemo(() => {
-    const t = getPlasterNormal().clone()
-    t.repeat.set((hw * 2) / 3.2, (hd * 2) / 3.2)
-    return t
-  }, [hw, hd])
-  useEffect(() => () => disposeAll([ceilingNormal]), [ceilingNormal])
-
-  const onFloorClick = (e: ThreeEvent<MouseEvent>) => {
-    if (e.delta > 10) return // it was a drag (matches WalkControls.TAP_THRESHOLD)
-    walkRef.current?.walkTo(e.point)
-  }
-
-  // Number of ceiling indirect-light strips (based on room depth)
-  const stripZs = useMemo(() => {
-    const n = Math.max(1, Math.floor(hd / 2.5))
-    return Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * 4)
-  }, [hd])
-
   return (
-    <group>
-      {/* Floor */}
-      <mesh rotation-x={-Math.PI / 2} receiveShadow onClick={onFloorClick}>
+      <mesh rotation-x={-Math.PI / 2} receiveShadow onClick={onClick}>
         <planeGeometry args={[hw * 2, hd * 2]} />
         {LOW_POWER ? (
           // Mobile/low-power: the real-time reflection pass is too costly, so keep the
@@ -298,9 +281,21 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
           />
         )}
       </mesh>
+  )
+}
 
-      {/* Ceiling */}
-      <mesh rotation-x={Math.PI / 2} position={[0, h, 0]}>
+/** 天井。床と同じ理由で部品にしてある。 */
+export function ThemedCeiling({ theme, hw, hd }: { theme: ThemeDef; hw: number; hd: number }) {
+  // The ceiling reuses the plaster normal map: dead-flat white overhead is a big
+  // CG tell once the emissive strips and skylight graze it
+  const ceilingNormal = useMemo(() => {
+    const t = getPlasterNormal().clone()
+    t.repeat.set((hw * 2) / 3.2, (hd * 2) / 3.2)
+    return t
+  }, [hw, hd])
+  useEffect(() => () => disposeAll([ceilingNormal]), [ceilingNormal])
+  return (
+      <mesh rotation-x={Math.PI / 2} position={[0, CEIL_H, 0]}>
         <planeGeometry args={[hw * 2, hd * 2]} />
         <meshStandardMaterial
           color={theme.ceiling}
@@ -309,6 +304,75 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
           normalScale={new THREE.Vector2(0.35, 0.35)}
         />
       </mesh>
+  )
+}
+
+/** 天窓（White Cube）。**実際の部屋とダッシュボードのテーマプレビューが同じものを使う。**
+ *  枠は「4本の桟」で組む。一枚板にしない（ユーザー報告 2026-08-13「天井に不自然な
+ *  メッシュがあるんだけど」）── それまで枠は `boxGeometry(w+0.16, 0.06, d+0.16)` を
+ *  `y = +0.005` に置いた**中身の詰まった箱**で、ガラス（`y = 0` の発光面）より 25mm 下に
+ *  底面がある上に footprint も一回り大きいので、下から見ると**ガラスを完全に覆っていた**。
+ *  天窓が光らず、天井の真ん中に「灰色の板が貼ってある」ようにしか見えなかったのがこれ。 */
+export function ThemedSkylight({ theme, hw, hd }: { theme: ThemeDef; hw: number; hd: number }) {
+  if (!theme.skylight) return null
+  const sw = Math.min(7, hw)
+  const sd = Math.min(3.4, hd * 0.8)
+  /** 桟の見付（幅）と厚み。厚みはガラスより下に出さない ── 出すと天井から
+   *  出っ張った箱に見えるので、ガラスと同じ面から上へ伸ばす。 */
+  const bar = 0.09
+  const barH = 0.06
+  return (
+    <group position={[0, CEIL_H - 0.012, 0]}>
+      <mesh rotation-x={Math.PI / 2}>
+        <planeGeometry args={[sw, sd]} />
+        <meshStandardMaterial color={0x000000} emissive={0xf3f6ff} emissiveIntensity={1.5} />
+      </mesh>
+      {/* 4本の桟。ガラスの外側に置き、上へ伸ばす（下から見えるのは桟の底面だけ） */}
+      {(
+        [
+          [sw + bar * 2, bar, 0, (sd + bar) / 2],
+          [sw + bar * 2, bar, 0, -(sd + bar) / 2],
+          [bar, sd, (sw + bar) / 2, 0],
+          [bar, sd, -(sw + bar) / 2, 0],
+        ] as [number, number, number, number][]
+      ).map(([bx, bz, x, z]) => (
+        <mesh key={`sf${x},${z}`} position={[x, barH / 2, z]}>
+          <boxGeometry args={[bx, barH, bz]} />
+          <meshStandardMaterial color={0xdcd8d0} roughness={0.9} />
+        </mesh>
+      ))}
+      <rectAreaLight args={[0xf3f6ff, 3.2, sw, sd]} rotation-x={-Math.PI / 2} />
+    </group>
+  )
+}
+
+export default function Room({ theme, layout }: { theme: ThemeDef; layout: LayoutDef }) {
+  const { hw, hd } = layout
+  const h = CEIL_H
+
+  const finish: WallFinish = theme.wallFinish ?? 'plaster'
+  const partitionMaps = useWallMaps(8, CEIL_H, 0, 0, finish)
+  // 扉の開口。`RoomPortals` が扉を建てるのと同じ関数なので、穴と扉は必ず同じ場所。
+  // 扉が建たない部屋（他の部屋が無い・どの壁にも収まらない）では `null` / `hole: null`
+  // になり、**壁は切り抜かれない**（穴の向こうに何も無いので開けてはいけない）。
+  const door = useDoorway(layout)
+  const holeU = (id: WallId) => (door?.hole?.wall === id ? door.hole.u : undefined)
+  const onFloorClick = (e: ThreeEvent<MouseEvent>) => {
+    if (e.delta > 10) return // it was a drag (matches WalkControls.TAP_THRESHOLD)
+    walkRef.current?.walkTo(e.point)
+  }
+
+  // Number of ceiling indirect-light strips (based on room depth)
+  const stripZs = useMemo(() => {
+    const n = Math.max(1, Math.floor(hd / 2.5))
+    return Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * 4)
+  }, [hd])
+
+  return (
+    <group>
+      <ThemedFloor theme={theme} hw={hw} hd={hd} onClick={onFloorClick} />
+
+      <ThemedCeiling theme={theme} hw={hw} hd={hd} />
 
       {/* Walls (the west face uses the accent color for the title wall) */}
       <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, -hd]} rotationY={0} holeU={holeU('north')} />
@@ -415,53 +479,27 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
         </mesh>
       ))}
 
-      {/* Skylight (white cube): a soft natural-light area light.
-          **枠は「4本の桟」で組む。一枚板にしない。**（ユーザー報告 2026-08-13
-          「天井に不自然なメッシュがあるんだけど」）── それまで枠は
-          `boxGeometry(w+0.16, 0.06, d+0.16)` を `y = +0.005` に置いた**中身の詰まった箱**で、
-          ガラス（`y = 0` の発光面）より **25mm 下に底面がある上に footprint も一回り大きい**
-          ので、下から見ると**ガラスを完全に覆っていた**。天窓が光らず、天井の真ん中に
-          「灰色の板が貼ってある」ようにしか見えなかったのがこれ。 */}
-      {theme.skylight && (() => {
-        const sw = Math.min(7, hw)
-        const sd = Math.min(3.4, hd * 0.8)
-        /** 桟の見付（幅）と厚み。厚みはガラスより下に出さない ── 出すと天井から
-         *  出っ張った箱に見えるので、ガラスと同じ面から上へ伸ばす。 */
-        const bar = 0.09
-        const barH = 0.06
-        return (
-          <group position={[0, h - 0.012, 0]}>
-            <mesh rotation-x={Math.PI / 2}>
-              <planeGeometry args={[sw, sd]} />
-              <meshStandardMaterial color={0x000000} emissive={0xf3f6ff} emissiveIntensity={1.5} />
-            </mesh>
-            {/* 4本の桟。ガラスの外側に置き、上へ伸ばす（下から見えるのは桟の底面だけ） */}
-            {(
-              [
-                [sw + bar * 2, bar, 0, (sd + bar) / 2],
-                [sw + bar * 2, bar, 0, -(sd + bar) / 2],
-                [bar, sd, (sw + bar) / 2, 0],
-                [bar, sd, -(sw + bar) / 2, 0],
-              ] as [number, number, number, number][]
-            ).map(([bx, bz, x, z]) => (
-              <mesh key={`sf${x},${z}`} position={[x, barH / 2, z]}>
-                <boxGeometry args={[bx, barH, bz]} />
-                <meshStandardMaterial color={0xdcd8d0} roughness={0.9} />
-              </mesh>
-            ))}
-            <rectAreaLight args={[0xf3f6ff, 3.2, sw, sd]} rotation-x={-Math.PI / 2} />
-          </group>
-        )
-      })()}
+      <ThemedSkylight theme={theme} hw={hw} hd={hd} />
 
       {/* Benches */}
       {layout.benches.map((b) => (
         <Bench key={`${b.x},${b.z}`} x={b.x} z={b.z} theme={theme} />
       ))}
 
-      {/* Keep ambient light low to bring out shadow and spotlight contrast */}
+      <ThemeLights theme={theme} />
+    </group>
+  )
+}
+
+/** テーマの地明かり。**部屋とダッシュボードのプレビューが同じものを使う**
+ *  ── プレビュー側は長らく `ambientLight 0.45` のベタ書きで、Noir の暗さも
+ *  White Cube の明るさも出ていなかった（【絶対ルール】2026-08-12）。
+ *  Keep ambient light low to bring out shadow and spotlight contrast. */
+export function ThemeLights({ theme }: { theme: ThemeDef }) {
+  return (
+    <>
       <ambientLight color={0xfff4e0} intensity={theme.ambient} />
       <hemisphereLight color={0xfff8ea} groundColor={0x4a4136} intensity={theme.hemi} />
-    </group>
+    </>
   )
 }
