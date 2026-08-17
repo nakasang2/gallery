@@ -188,6 +188,10 @@ export default async function LandingPage() {
           ここに書くと同じ意味の値が2か所になる（【絶対ルール】2026-08-12）。
           比較データなので本物の <table> にする（読み上げが行と列の対応を伝えられる）。 */}
       <section className="compare" id="compare">
+        {/* 中身は**この枠1つ**で最大幅を決める。見出し・リード・表・注記に個別に
+            `max-width` を配ると、`margin: auto` の有無で左端が揃わなくなる
+            （2026-08-17 に実際にずれた。`.concept-inner` と同じ作法に寄せた）。 */}
+        <div className="compare-inner">
         <div className="section-head reveal">
           <p className="section-eyebrow">{t('lp.compareEyebrow')}</p>
           <h2 className="section-title">{t('lp.compareTitle')}</h2>
@@ -238,6 +242,7 @@ export default async function LandingPage() {
             （不実証広告規制）で根拠の提出を求められうる。根拠は docs/EVIDENCE-COMPARE.md に
             調査日・出典URL・為替まで残してある。数字を変えるときはあちらも必ず直す。 */}
         <p className="compare-note reveal">{t('lp.compareNote')}</p>
+        </div>
       </section>
 
       {/* ============ PRICING ============ */}

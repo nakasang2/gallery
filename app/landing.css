@@ -897,18 +897,14 @@ a { color: inherit; }
   background: var(--bg-2);
   padding: 9rem 2.4rem;
 }
-.compare .section-head,
-.compare-lead,
-.compare-scroll,
-.compare-note {
+.compare-inner {
   max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
+  margin: 0 auto;
 }
 .compare-lead {
-  /* 上の一括指定より後に置いて、読みやすい行長（46rem）で上書きする */
+  /* 行長は読みやすさで決める（枠の左端から始まる） */
   max-width: 46rem;
-  margin: -2.5rem auto 3rem 0;
+  margin: -2.5rem 0 3rem;
   color: var(--muted);
   font-size: 0.94rem;
   line-height: 1.9;
@@ -925,7 +921,6 @@ a { color: inherit; }
 .compare-note {
   margin-top: 1.6rem;
   max-width: 46rem;
-  margin-left: 0;
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.85;
@@ -955,8 +950,12 @@ a { color: inherit; }
   color: var(--muted);
   border-bottom-color: var(--ink);
 }
-/* こちら側の列だけ金色にして、どちらの話かを一目で分ける */
-.compare-table .compare-ours { color: var(--ink); }
+/* こちら側の列は色と太さの両方で立てる（ユーザー指示 2026-08-17）。
+   本文が300・表のセルが400なので、500にすると並べたときにはっきり差が出る。 */
+.compare-table .compare-ours {
+  color: var(--ink);
+  font-weight: 500;
+}
 .compare-table thead .compare-ours { color: var(--gold); }
 /* 列の名前をセルにも持たせてある（PCでは隠す。電話で積み上げたときに使う） */
 .compare-cell-label { display: none; }
@@ -1021,10 +1020,21 @@ a { color: inherit; }
   border: 1px solid var(--hairline);
   padding: 3rem 2.6rem;
   position: relative;
+  /* **半透明の暗い敷**（ユーザー指示 2026-08-17）。料金セクションは背景を持たず、
+     後ろで3Dの美術館が動き続けるので、壁の明るい部分に金額と説明が乗ると読みにくい。
+     不透明で塗ると3Dの上に板を置いたようになり、この面の「空間の上に浮かぶ」作りが
+     壊れるので、透過を残したまま沈める。`backdrop-filter` は対応していない環境でも
+     この背景色だけで十分暗くなるように、単体で成立する濃さにしてある。 */
+  background: rgba(8, 8, 10, 0.58);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .price-card--pro {
   border-color: rgba(236, 236, 234, 0.35);
-  background: linear-gradient(160deg, rgba(236, 236, 234, 0.05), transparent 50%);
+  /* 敷の上に、これまでの薄い光沢を重ねる（敷を上書きしない） */
+  background:
+    linear-gradient(160deg, rgba(236, 236, 234, 0.05), transparent 50%),
+    rgba(8, 8, 10, 0.58);
 }
 .price-badge {
   position: absolute;
