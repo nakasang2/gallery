@@ -212,6 +212,7 @@ export default async function LandingPage() {
               ['lp.compareR2', 'lp.compareR2a', 'lp.compareR2b'],
               ['lp.compareR3', 'lp.compareR3a', 'lp.compareR3b'],
               ['lp.compareR4', 'lp.compareR4a', 'lp.compareR4b'],
+              ['lp.compareR5', 'lp.compareR5a', 'lp.compareR5b'],
             ] as const).map(([label, a, b]) => (
               <tr key={label} role="row">
                 <th scope="row" role="rowheader">{t(label)}</th>
@@ -233,6 +234,10 @@ export default async function LandingPage() {
           </tbody>
         </table>
         </div>
+        {/* **この但し書きは削らない。** 他社の相場を数字で書いている以上、景表法7条2項
+            （不実証広告規制）で根拠の提出を求められうる。根拠は docs/EVIDENCE-COMPARE.md に
+            調査日・出典URL・為替まで残してある。数字を変えるときはあちらも必ず直す。 */}
+        <p className="compare-note reveal">{t('lp.compareNote')}</p>
       </section>
 
       {/* ============ PRICING ============ */}

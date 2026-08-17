@@ -903,6 +903,14 @@ a { color: inherit; }
   width: 100%;
   border-collapse: collapse;
 }
+/* 根拠の但し書き（景表法。docs/EVIDENCE-COMPARE.md 参照）。小さくてよいが読める大きさに */
+.compare-note {
+  margin-top: 1.6rem;
+  max-width: 46rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.85;
+}
 .compare-table th,
 .compare-table td {
   padding: 1.15rem 1.2rem;
