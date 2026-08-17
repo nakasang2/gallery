@@ -6,7 +6,7 @@
 //      中間セクション(Concept〜Pricing)のテキストが読める
 //   4. 終盤(Closing)でフォグの奥から「大部屋のギャラリー」が現れる — 廊下を抜けて広間へ
 // カメラ位置に合わせて 2D の見出しをオーバーレイする。
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
@@ -248,16 +248,144 @@ function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasT
   return tex
 }
 
+// ---- スポットライトの共有プール ----
+//
+// **three.js は前方レンダリングなので、シーンに置いた照明はすべて、画面の全ピクセルの
+// シェーダーの中で毎フレーム計算される** ── 霧の向こうにあって1ミリも寄与しないものも
+// 含めて。このLPは照らす場所が17か所あり、画面いっぱいに広がる廊下の壁に対して17個ぶんの
+// ループが回っていた。GPUのある機械では見えないが、これがページで最も重い処理だった。
+//
+// 代わりに**本物の照明は8個だけ**置き、毎フレーム「いまカメラの前にあって近い8か所」へ
+// 割り当て直す。**照明の数が変わらないのが要点** ── `visible` を切り替えたり出し入れして
+// 数を変えると、three.js はその都度すべての材質のシェーダーを作り直すので、スクロールの
+// 途中で数十msの停止が入る（数を固定すれば一度も起きない）。
+//
+// 8で足りる根拠: 同時に見えるのは**大部屋の7か所**（遠壁3＋側壁4）が最大。廊下は
+// スポットの届く距離が13で作品の間隔が5〜6なので、同時に効くのは3〜4か所。
+const SPOT_POOL = 8
+
+/** プールへの登録1件。**位置は数値ではなく空の Object3D 2つで持つ。**
+ *  親の `group` の変換をそのまま受けるので、木のどこに置いても「いま照らしている場所」を
+ *  そのまま引き継げる（座標を手で世界座標に書き直すと、親が回転している箇所で必ず間違える）。 */
+type SpotDef = {
+  from: THREE.Object3D
+  to: THREE.Object3D
+  color: string
+  intensity: number
+  angle: number
+  distance: number
+}
+
+const SpotRegistry = createContext<SpotDef[] | null>(null)
+
+/** 照らす一点。**ここに本物の照明は無い** — 実体は `SpotPool` が持つ8個で、
+ *  この部品は「どこから・どこへ・どんな強さで」を登録するだけ。 */
 function Spot({ pos, target, color = '#ffeed6', intensity = 120, angle = 0.55, distance = 13 }: { pos: [number, number, number]; target: [number, number, number]; color?: string; intensity?: number; angle?: number; distance?: number }) {
-  const light = useRef<THREE.SpotLight>(null!)
-  const tgt = useRef<THREE.Object3D>(null!)
+  const items = useContext(SpotRegistry)
+  const from = useRef<THREE.Object3D>(null!)
+  const to = useRef<THREE.Object3D>(null!)
   useEffect(() => {
-    if (light.current && tgt.current) light.current.target = tgt.current
-  }, [])
+    if (!items || !from.current || !to.current) return
+    const def: SpotDef = { from: from.current, to: to.current, color, intensity, angle, distance }
+    items.push(def)
+    return () => {
+      const i = items.indexOf(def)
+      if (i >= 0) items.splice(i, 1)
+    }
+  }, [items, color, intensity, angle, distance])
   return (
     <>
-      <spotLight ref={light} position={pos} angle={angle} penumbra={0.7} intensity={intensity} distance={distance} decay={1.0} color={color} />
-      <object3D ref={tgt} position={target} />
+      <object3D ref={from} position={pos} />
+      <object3D ref={to} position={target} />
+    </>
+  )
+}
+
+/** 8個の実照明。毎フレーム、登録の中から「カメラの前にあって近い順」に選び直す。
+ *  **カメラの後ろにあるものは外す** ── 後ろの光は、いま見えている面を照らせない。
+ *  これが無いと、大部屋に入った瞬間に手前の通路の照明が近さで勝ってしまい、
+ *  遠壁の作品（到着地点＝いちばん見せたいもの）が暗いままになる。 */
+function SpotPool() {
+  const items = useContext(SpotRegistry)
+  const lights = useRef<(THREE.SpotLight | null)[]>([])
+  const targets = useRef<(THREE.Object3D | null)[]>([])
+  const fwd = useMemo(() => new THREE.Vector3(), [])
+  const v = useMemo(() => new THREE.Vector3(), [])
+  const wp = useMemo(() => new THREE.Vector3(), [])
+  // 毎フレームの確保をしないよう、選抜用の枠は使い回す
+  const best = useMemo(
+    () => Array.from({ length: SPOT_POOL }, () => ({ s: null as SpotDef | null, d: Infinity })),
+    [],
+  )
+
+  useFrame(({ camera }) => {
+    if (!items) return
+    camera.getWorldDirection(fwd)
+    for (let k = 0; k < SPOT_POOL; k++) {
+      best[k].s = null
+      best[k].d = Infinity
+    }
+    for (const s of items) {
+      s.to.getWorldPosition(v)
+      v.sub(camera.position)
+      if (v.dot(fwd) <= 0) continue // カメラの後ろ
+      const d = v.lengthSq()
+      // 近い順に SPOT_POOL 件だけ残す（17件なので挿入のほうが並べ替えより速く、確保もしない）
+      for (let k = 0; k < SPOT_POOL; k++) {
+        if (d < best[k].d) {
+          for (let m = SPOT_POOL - 1; m > k; m--) {
+            best[m].s = best[m - 1].s
+            best[m].d = best[m - 1].d
+          }
+          best[k].s = s
+          best[k].d = d
+          break
+        }
+      }
+    }
+    for (let k = 0; k < SPOT_POOL; k++) {
+      const light = lights.current[k]
+      const tgt = targets.current[k]
+      if (!light || !tgt) continue
+      const s = best[k].s
+      if (!s) {
+        light.intensity = 0
+        continue
+      }
+      s.from.getWorldPosition(wp)
+      light.position.copy(wp)
+      s.to.getWorldPosition(wp)
+      tgt.position.copy(wp)
+      tgt.updateMatrixWorld()
+      light.color.set(s.color)
+      light.intensity = s.intensity
+      light.angle = s.angle
+      light.distance = s.distance
+    }
+  })
+
+  // プールの照明は**シーンの直下に置く**（親の変換が掛かると、上で入れた世界座標がずれる）
+  return (
+    <>
+      {Array.from({ length: SPOT_POOL }, (_, k) => (
+        <Fragment key={k}>
+          <spotLight
+            ref={(el) => {
+              lights.current[k] = el
+              if (el && targets.current[k]) el.target = targets.current[k]!
+            }}
+            intensity={0}
+            penumbra={0.7}
+            decay={1.0}
+          />
+          <object3D
+            ref={(el) => {
+              targets.current[k] = el
+              if (el && lights.current[k]) lights.current[k]!.target = el
+            }}
+          />
+        </Fragment>
+      ))}
     </>
   )
 }
@@ -277,7 +405,18 @@ function Panel({ p }: { p: PanelText }) {
         <planeGeometry args={[w, h]} />
         <meshStandardMaterial map={tex} roughness={0.6} />
       </mesh>
-      <Spot pos={[-WALL_X + 2.6, 4.2, p.z]} target={[-WALL_X, ITEM_Y, p.z]} intensity={130} />
+      {/* **ここにスポットライトは無い（2026-08-17 に撤去）。**
+          以前は `<Spot pos={[-WALL_X + 2.6, 4.2, p.z]} target={[-WALL_X, ITEM_Y, p.z]} intensity={130} />`
+          が置かれていたが、**この座標はこの `group` の中＝ローカル座標として解釈される**
+          （group は `position=[-WALL_X+0.08, ITEM_Y, p.z]`・`rotation-y=π/2`）。three.js で
+          実際に解くと、光源の世界座標は `(p.z - 4.62, 5.8, p.z + 2.1)` ── **板ごとに5ずつ
+          左へずれていき、左壁（x=-4.7）の裏側**に立っていた。板から光源までは
+          01=7.6 / 02=11.9 / 03=16.6 / 04=21.4 / 05=26.3 / **06=31.3**（`distance` は13）。
+          つまり**6枚とも壁の裏から照らしていて、1枚も明るくしていなかった**。それでいて
+          17個ある照明のうち6個ぶんのシェーダー計算は毎フレーム払っていた。
+          ※PR #19〜#21 の「まだ暗い」×3 と、`emissiveMap` で文字を自ら光らせる回避策
+          （その後 `0788372` で撤回）は、すべてこれが原因。**照らし直すかどうかは
+          見た目の判断なのでユーザーに委ねる**（撤去は見た目を1ピクセルも変えない）。 */}
     </group>
   )
 }
@@ -655,9 +794,51 @@ function Rig() {
   return <pointLight ref={fill} intensity={12} distance={9} decay={1.4} color="#efe6d4" />
 }
 
+/** 遠くの区画を、いつシーンへ足すか（0=まだ / 1=通路の作品 / 2=＋大部屋）。
+ *
+ *  **最初の描画では、通路（z=-46 以遠）も大部屋（z=-88 以遠）も一枚も見えない** ──
+ *  霧が `far=38` なので、入口（カメラ z=+7.4）から見えるのは z=-30 あたりまで。
+ *  それなのに、そこにある**14枚の生成アート（720px）を初回描画と同じ時間に焼いていた**。
+ *  いちばん混んでいる時間帯に、見えないもののために100MB近いテクスチャを作っていたことになる。
+ *
+ *  ブラウザが暇になってから2段に分けて足す（14枚を一度に焼くと、その瞬間に長い停止が入る）。
+ *  **スクロールが先に進んだら待たない** ── 再訪や `#pricing` 付きのURLで下から始まる場合、
+ *  暇になるのを待っていると空の空間が見えてしまう。 */
+function useFarSections(): number {
+  const [step, setStep] = useState(0)
+  useEffect(() => {
+    if (step >= 2) return
+    let cancelled = false
+    const bump = () => {
+      if (!cancelled) setStep((n) => Math.max(n, step + 1))
+    }
+    // 既に下まで来ているなら、暇を待たずに全部出す
+    if (window.scrollY > window.innerHeight * 0.5) {
+      setStep(2)
+      return
+    }
+    const onScroll = () => {
+      if (window.scrollY > window.innerHeight * 0.5) setStep(2)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    const ric = typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback : null
+    const id = ric ? ric(bump, { timeout: 2500 }) : window.setTimeout(bump, 900)
+    return () => {
+      cancelled = true
+      window.removeEventListener('scroll', onScroll)
+      if (ric) window.cancelIdleCallback(id as number)
+      else window.clearTimeout(id as number)
+    }
+  }, [step])
+  return step
+}
+
 function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; panelArt: LpHeroSlot[]; panels: PanelText[] }) {
+  // スポットライトの登録簿。`Spot` が積み、`SpotPool` が毎フレーム読む
+  const spots = useMemo<SpotDef[]>(() => [], [])
+  const far = useFarSections()
   return (
-    <>
+    <SpotRegistry.Provider value={spots}>
       {/* ローポリを暗さで隠す: フォグを手前に寄せ、環境光は弱く、スポット主体の陰影に */}
       <fog attach="fog" args={['#070609', 9, 38]} />
       <ambientLight intensity={0.24} />
@@ -714,9 +895,10 @@ function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; pan
           />
         )
       })}
-      {APPROACH_ART.map(([idx, z, side], k) => (
-        <CorridorArt key={`ap${k}`} idx={idx} z={z} side={side} scale={1.15} />
-      ))}
+      {far >= 1 &&
+        APPROACH_ART.map(([idx, z, side], k) => (
+          <CorridorArt key={`ap${k}`} idx={idx} z={z} side={side} scale={1.15} />
+        ))}
       {panels.map((p, k) => {
         const art = panelArt[k]
         // 写真が入っている枠は**写真だけ**にする（ユーザー選択 2026-08-17）。
@@ -733,11 +915,12 @@ function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; pan
           </group>
         )
       })}
-      <Hall />
+      {far >= 2 && <Hall />}
+      <SpotPool />
       <Dust />
       <Rig />
       <ViewAdaptor />
-    </>
+    </SpotRegistry.Provider>
   )
 }
 
