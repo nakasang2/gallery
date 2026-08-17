@@ -883,14 +883,32 @@ a { color: inherit; }
    比較データなので本物の <table>。金額の行は置かない（料金は下の料金セクションが
    唯一の出どころ）。狭い画面では列が潰れるので、表を横に送れるようにする。 */
 .compare {
+  /* **`position` と `z-index` が無いと丸ごと見えない。** 3Dの美術館は `.hero-canvas` が
+     `position: fixed; z-index: 0` で画面に貼り付いたまま残るので、後ろのセクションは
+     自分を上へ持ち上げないとその下に潜る。`.concept` も `.pricing` も同じ理由で
+     `relative` + `z-index: 1` を持っている（2026-08-17 に、ここだけ付け忘れて
+     本番で表示されなかった）。
+     **地の色も要る。** 上へ出しただけだと3Dの廊下が透けて、表の細い罫線と小さな
+     ラベルが壁の明るい部分に負ける。`.flow` と同じ作法で、セクションに色を敷いて
+     中身だけ最大幅にする（背景が1200pxで途切れて帯に見えるのを避ける）。 */
+  position: relative;
+  z-index: 1;
   border-top: 1px solid var(--hairline);
+  background: var(--bg-2);
   padding: 9rem 2.4rem;
+}
+.compare .section-head,
+.compare-lead,
+.compare-scroll,
+.compare-note {
   max-width: 1200px;
-  margin: 0 auto;
+  margin-left: auto;
+  margin-right: auto;
 }
 .compare-lead {
+  /* 上の一括指定より後に置いて、読みやすい行長（46rem）で上書きする */
   max-width: 46rem;
-  margin: -2.5rem 0 3rem;
+  margin: -2.5rem auto 3rem 0;
   color: var(--muted);
   font-size: 0.94rem;
   line-height: 1.9;
@@ -907,6 +925,7 @@ a { color: inherit; }
 .compare-note {
   margin-top: 1.6rem;
   max-width: 46rem;
+  margin-left: 0;
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.85;
