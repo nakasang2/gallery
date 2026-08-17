@@ -216,7 +216,6 @@ export default async function LandingPage() {
               ['lp.compareR2', 'lp.compareR2a', 'lp.compareR2b'],
               ['lp.compareR3', 'lp.compareR3a', 'lp.compareR3b'],
               ['lp.compareR4', 'lp.compareR4a', 'lp.compareR4b'],
-              ['lp.compareR5', 'lp.compareR5a', 'lp.compareR5b'],
             ] as const).map(([label, a, b]) => (
               <tr key={label} role="row">
                 <th scope="row" role="rowheader">{t(label)}</th>
