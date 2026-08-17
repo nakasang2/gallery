@@ -900,11 +900,17 @@ a { color: inherit; }
 .compare-inner {
   max-width: 1200px;
   margin: 0 auto;
+  /* 見出し・リード・注記は中央（ユーザー指示 2026-08-17）。
+     **表のセルだけは左のまま** ── 比較は行ごとに読み比べるので、中央に寄せると
+     行の頭が揃わず目が迷う。`.flow` も「中央の見出し＋左揃えの中身」で同じ形。 */
+  text-align: center;
 }
+.compare-table th,
+.compare-table td { text-align: left; }
 .compare-lead {
-  /* 行長は読みやすさで決める（枠の左端から始まる） */
+  /* 行長は読みやすさで決める。中央に置くので左右は auto */
   max-width: 46rem;
-  margin: -2.5rem 0 3rem;
+  margin: -2.5rem auto 3rem;
   color: var(--muted);
   font-size: 0.94rem;
   line-height: 1.9;
@@ -919,7 +925,7 @@ a { color: inherit; }
 }
 /* 根拠の但し書き（景表法。docs/EVIDENCE-COMPARE.md 参照）。小さくてよいが読める大きさに */
 .compare-note {
-  margin-top: 1.6rem;
+  margin: 1.6rem auto 0;
   max-width: 46rem;
   color: var(--muted);
   font-size: 0.78rem;
@@ -951,10 +957,14 @@ a { color: inherit; }
   border-bottom-color: var(--ink);
 }
 /* こちら側の列は色と太さの両方で立てる（ユーザー指示 2026-08-17）。
-   本文が300・表のセルが400なので、500にすると並べたときにはっきり差が出る。 */
+   **600 である理由（実測）**: 日本語の字は `Geist` に無く OS のフォールバックで描かれる。
+   その書体は太さが2段階しか無く、**500 は 400 と1ドットも変わらない**
+   ── 同じ文字列を canvas に描いてインク量を数えると 400 と 500 がどちらも 158,632、
+   600 で 234,224（+48%）になった。英語（Geist）は 400/500/600 と段階的に増えるので、
+   500 のままだと**英語だけ太く、日本語は変化なし**という状態になる。 */
 .compare-table .compare-ours {
   color: var(--ink);
-  font-weight: 500;
+  font-weight: 600;
 }
 .compare-table thead .compare-ours { color: var(--gold); }
 /* 列の名前をセルにも持たせてある（PCでは隠す。電話で積み上げたときに使う） */
