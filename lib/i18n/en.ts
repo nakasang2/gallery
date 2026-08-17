@@ -519,7 +519,7 @@ export const en = {
     roomGrantWaiting_other: 'You have {count} rooms waiting to be built.',
     shareCover: 'Share cover',
 
-    themeAndLayout: 'Theme & layout',
+    themeAndLayout: 'Room settings',
     theme: 'Theme',
     layout: 'Layout',
     custom: 'Custom',
@@ -560,15 +560,7 @@ export const en = {
     bgmUploadFailed: 'BGM upload failed: {msg}',
     bgmRemoveFailed: 'Could not remove BGM: {msg}',
 
-    designTools: 'Design Tools',
-    wallColour: 'Wall colour',
-    floorColour: 'Floor colour',
-    lightColour: 'Light colour',
-    lightMood: 'Light mood',
     logo: 'Logo',
-    reset: 'Reset',
-    designToolsNote: 'These sit on top of your theme — switching themes later keeps every override here.',
-
     workRemove: 'Remove work',
     workRemoveFailed: 'Could not remove the work: {msg}',
     workSaveFailed: 'Could not save the work details: {msg}',
@@ -667,7 +659,7 @@ export const en = {
     placementMap: 'Room placement map',
     placementEmpty: 'Leave this spot empty',
     placementDone: 'Done',
-    editWork: 'Edit this work', lightFollowRoom: 'Follow the room',
+    editWork: 'Edit this work', lightFollowRoom: 'Default',
     empty: 'Empty',
     premium: 'Premium',
     framed: 'Framed',

@@ -379,7 +379,7 @@ export const zhHans: PartialDictionary = {
     matColor: '衬边颜色',
     placementMap: '展厅平面图',
     placementEmpty: '这个位置留空',
-    placementDone: '完成', editWork: '编辑此作品', lightFollowRoom: '跟随展厅设置',
+    placementDone: '完成', editWork: '编辑此作品', lightFollowRoom: '默认',
     empty: '空着',
     premium: '付费',
     framed: '装框',
@@ -545,7 +545,7 @@ export const zhHans: PartialDictionary = {
     roomGrantWaiting: '你还有 {count} 间展厅尚未建造。',
     roomGrantWaiting_other: '你还有 {count} 间展厅尚未建造。',
 
-    themeAndLayout: '主题与布局', theme: '主题', layout: '布局', custom: '自定义',
+    themeAndLayout: '展厅设置', theme: '主题', layout: '布局', custom: '自定义',
     lighting: '灯光', customSize: '自定义尺寸', centreWall: '中央墙面（多 4 个位置）',
     lightCeiling: '天花板', lightOverhead: '作品正上方',
     placement: '布置',
@@ -573,11 +573,7 @@ export const zhHans: PartialDictionary = {
     saveDesignFailed: '没能保存呈现设置：{msg}', logoUploadFailed: '标志上传失败：{msg}',
     bgmUploadFailed: '背景音上传失败：{msg}', bgmRemoveFailed: '没能删除背景音：{msg}',
 
-    designTools: '呈现工具', wallColour: '墙面颜色', floorColour: '地面颜色',
-    lightColour: '灯光颜色', lightMood: '灯光气氛', logo: '标志', reset: '还原',
-    designToolsNote: '这些叠加在主题之上 — 之后换主题，这里的设置也都保留。',
-
-    workRemove: '删除作品', workRemoveFailed: '没能删除作品：{msg}',
+    logo: '标志', workRemove: '删除作品', workRemoveFailed: '没能删除作品：{msg}',
     workSaveFailed: '没能保存作品信息：{msg}',
     titleAndCaption: '标题与说明', workTitle: '标题', caption: '说明',
     captionHint: '会显示在作品旁的说明牌上。',

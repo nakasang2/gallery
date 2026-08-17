@@ -488,7 +488,7 @@ export const ja: Dictionary = {
     roomGrantWaiting_other: 'まだつくっていない部屋が{count}室あります。',
     shareCover: '共有時の表紙',
 
-    themeAndLayout: 'テーマと間取り',
+    themeAndLayout: '部屋の設定',
     theme: 'テーマ',
     layout: '間取り',
     custom: 'カスタム',
@@ -529,15 +529,7 @@ export const ja: Dictionary = {
     bgmUploadFailed: '音源をアップロードできませんでした：{msg}',
     bgmRemoveFailed: '音源を削除できませんでした：{msg}',
 
-    designTools: 'デザインツール',
-    wallColour: '壁の色',
-    floorColour: '床の色',
-    lightColour: '光の色',
-    lightMood: '光の強さ',
     logo: 'ロゴ',
-    reset: '既定に戻す',
-    designToolsNote: 'ここでの指定はテーマより優先されます。あとからテーマを変えても、この設定は残ります。',
-
     workRemove: '作品を削除',
     workRemoveFailed: '作品を削除できませんでした：{msg}',
     workSaveFailed: '作品の情報を保存できませんでした：{msg}',
@@ -640,7 +632,7 @@ export const ja: Dictionary = {
     placementMap: '部屋の配置図',
     placementEmpty: 'この場所を空けたままにする',
     placementDone: '完了',
-    editWork: 'この作品を編集', lightFollowRoom: '部屋の設定に従う',
+    editWork: 'この作品を編集', lightFollowRoom: '既定のまま',
     empty: '空き',
     premium: '有料',
     framed: '額装あり',

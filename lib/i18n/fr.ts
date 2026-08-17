@@ -378,7 +378,7 @@ export const fr: PartialDictionary = {
     matColor: 'Couleur du passe-partout',
     placementMap: 'Plan d’accrochage de la salle',
     placementEmpty: 'Laisser cette place vide',
-    placementDone: 'Terminé', editWork: 'Modifier cette œuvre', lightFollowRoom: 'Suivre la salle',
+    placementDone: 'Terminé', editWork: 'Modifier cette œuvre', lightFollowRoom: 'Par défaut',
     empty: 'Vide',
     premium: 'Payant',
     framed: 'Encadré',
@@ -544,7 +544,7 @@ export const fr: PartialDictionary = {
     roomGrantWaiting: 'Il vous reste {count} salle à construire.',
     roomGrantWaiting_other: 'Il vous reste {count} salles à construire.',
 
-    themeAndLayout: 'Thème et disposition', theme: 'Thème', layout: 'Disposition', custom: 'Sur mesure',
+    themeAndLayout: 'Réglages de la salle', theme: 'Thème', layout: 'Disposition', custom: 'Sur mesure',
     lighting: 'Éclairage', customSize: 'Dimensions sur mesure', centreWall: 'Mur central (4 emplacements de plus)',
     lightCeiling: 'Plafond', lightOverhead: 'Au-dessus de l’œuvre',
     placement: 'Accrochage',
@@ -572,11 +572,7 @@ export const fr: PartialDictionary = {
     saveDesignFailed: 'La présentation n’a pas pu être enregistrée : {msg}', logoUploadFailed: 'L’import du logo a échoué : {msg}',
     bgmUploadFailed: 'L’import de la musique a échoué : {msg}', bgmRemoveFailed: 'La musique n’a pas pu être retirée : {msg}',
 
-    designTools: 'Outils de présentation', wallColour: 'Couleur des murs', floorColour: 'Couleur du sol',
-    lightColour: 'Couleur de la lumière', lightMood: 'Ambiance lumineuse', logo: 'Logo', reset: 'Réinitialiser',
-    designToolsNote: 'Ceci se pose par-dessus votre thème — changer de thème plus tard conserve tous ces réglages.',
-
-    workRemove: 'Retirer l’œuvre', workRemoveFailed: 'L’œuvre n’a pas pu être retirée : {msg}',
+    logo: 'Logo', workRemove: 'Retirer l’œuvre', workRemoveFailed: 'L’œuvre n’a pas pu être retirée : {msg}',
     workSaveFailed: 'Les informations de l’œuvre n’ont pas pu être enregistrées : {msg}',
     titleAndCaption: 'Titre et cartel', workTitle: 'Titre', caption: 'Cartel',
     captionHint: 'Affiché sur le cartel à côté de l’œuvre.',

@@ -797,6 +797,9 @@
 /* min-width: 0 は必須。中の3Dキャンバスは three.js が px で幅を書き込むので、
    グリッド列の自動最小幅（min-content）がその px を下限にしてしまい、列＝カード＝
    ページが画面より広くなる（下の 720px 以下の 1fr も minmax(0,1fr) にしてある） */
+/* 部屋タブは左のプレビューを撤去して1カラムにした（ユーザー選択 2026-08-17）。
+   2カラムのままだと右半分が空いて、テーマの写真カードが不自然に痩せて見える。 */
+.works-detail--solo { grid-template-columns: minmax(0, 1fr); }
 .works-detail .we-left { position: sticky; top: 1rem; min-width: 0; }
 /* The art preview sits inside the card like the theme preview above it — both inset within
    the card's side padding — so the two 3D views line up (no edge bleed). */

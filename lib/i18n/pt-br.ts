@@ -378,7 +378,7 @@ export const ptBr: PartialDictionary = {
     matColor: 'Cor do passepartout',
     placementMap: 'Planta de montagem da sala',
     placementEmpty: 'Deixar este lugar vazio',
-    placementDone: 'Pronto', editWork: 'Editar esta obra', lightFollowRoom: 'Seguir a sala',
+    placementDone: 'Pronto', editWork: 'Editar esta obra', lightFollowRoom: 'Padrão',
     empty: 'Vazio',
     premium: 'Pago',
     framed: 'Com moldura',
@@ -544,7 +544,7 @@ export const ptBr: PartialDictionary = {
     roomGrantWaiting: 'Você tem {count} sala esperando para ser montada.',
     roomGrantWaiting_other: 'Você tem {count} salas esperando para serem montadas.',
 
-    themeAndLayout: 'Tema e layout', theme: 'Tema', layout: 'Layout', custom: 'Sob medida',
+    themeAndLayout: 'Configurações da sala', theme: 'Tema', layout: 'Layout', custom: 'Sob medida',
     lighting: 'Iluminação', customSize: 'Medidas sob medida', centreWall: 'Parede central (4 lugares a mais)',
     lightCeiling: 'Teto', lightOverhead: 'Sobre a obra',
     placement: 'Montagem',
@@ -572,11 +572,7 @@ export const ptBr: PartialDictionary = {
     saveDesignFailed: 'Não foi possível salvar a apresentação: {msg}', logoUploadFailed: 'O envio do logo falhou: {msg}',
     bgmUploadFailed: 'O envio da música falhou: {msg}', bgmRemoveFailed: 'Não foi possível remover a música: {msg}',
 
-    designTools: 'Ferramentas de apresentação', wallColour: 'Cor da parede', floorColour: 'Cor do piso',
-    lightColour: 'Cor da luz', lightMood: 'Clima da luz', logo: 'Logo', reset: 'Restaurar',
-    designToolsNote: 'Isto fica por cima do seu tema — se depois trocar de tema, tudo daqui continua.',
-
-    workRemove: 'Remover a obra', workRemoveFailed: 'Não foi possível remover a obra: {msg}',
+    logo: 'Logo', workRemove: 'Remover a obra', workRemoveFailed: 'Não foi possível remover a obra: {msg}',
     workSaveFailed: 'Não foi possível salvar os dados da obra: {msg}',
     titleAndCaption: 'Título e ficha', workTitle: 'Título', caption: 'Ficha',
     captionHint: 'Aparece na ficha ao lado da obra.',

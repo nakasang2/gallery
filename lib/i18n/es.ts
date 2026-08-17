@@ -378,7 +378,7 @@ export const es: PartialDictionary = {
     matColor: 'Color del paspartú',
     placementMap: 'Plano de montaje de la sala',
     placementEmpty: 'Dejar este lugar vacío',
-    placementDone: 'Listo', editWork: 'Editar esta obra', lightFollowRoom: 'Seguir la sala',
+    placementDone: 'Listo', editWork: 'Editar esta obra', lightFollowRoom: 'Predeterminado',
     empty: 'Vacío',
     premium: 'De pago',
     framed: 'Con marco',
@@ -544,7 +544,7 @@ export const es: PartialDictionary = {
     roomGrantWaiting: 'Tienes {count} sala pendiente de construir.',
     roomGrantWaiting_other: 'Tienes {count} salas pendientes de construir.',
 
-    themeAndLayout: 'Tema y distribución', theme: 'Tema', layout: 'Distribución', custom: 'A medida',
+    themeAndLayout: 'Ajustes de la sala', theme: 'Tema', layout: 'Distribución', custom: 'A medida',
     lighting: 'Iluminación', customSize: 'Medidas a medida', centreWall: 'Muro central (4 lugares más)',
     lightCeiling: 'Techo', lightOverhead: 'Sobre la obra',
     placement: 'Montaje',
@@ -572,11 +572,7 @@ export const es: PartialDictionary = {
     saveDesignFailed: 'No se pudo guardar la presentación: {msg}', logoUploadFailed: 'No se pudo subir el logo: {msg}',
     bgmUploadFailed: 'No se pudo subir la música: {msg}', bgmRemoveFailed: 'No se pudo quitar la música: {msg}',
 
-    designTools: 'Herramientas de presentación', wallColour: 'Color de la pared', floorColour: 'Color del piso',
-    lightColour: 'Color de la luz', lightMood: 'Ambiente de luz', logo: 'Logo', reset: 'Restablecer',
-    designToolsNote: 'Esto se pone encima de tu tema — si luego cambias de tema, todos estos ajustes se mantienen.',
-
-    workRemove: 'Quitar la obra', workRemoveFailed: 'No se pudo quitar la obra: {msg}',
+    logo: 'Logo', workRemove: 'Quitar la obra', workRemoveFailed: 'No se pudo quitar la obra: {msg}',
     workSaveFailed: 'No se pudieron guardar los datos de la obra: {msg}',
     titleAndCaption: 'Título y ficha', workTitle: 'Título', caption: 'Ficha',
     captionHint: 'Se muestra en la ficha junto a la obra.',

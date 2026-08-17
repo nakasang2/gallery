@@ -206,10 +206,8 @@ function localTimeZoneLabel(): string {
 
 const IMPORT_DISMISS_KEY = 'xibit360.importDismissed.v1'
 
-const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
-
-// Design Tools (paid recolour/light/logo) is hidden for now to keep the settings panel
-// simple — the code stays in place so it's a one-line flip to bring back. Typed `boolean`
+// ロゴの差し込みだけが旗の裏に残っている。**色と光（Design Tools）は 2026-08-17 に撤去した**
+// ので、この旗が隠しているのはロゴだけ。Typed `boolean`
 // (not a literal) so the JSX inside still counts as "used".
 // Titles are drawn onto fixed-size canvases (the name plate and the title wall).
 // They now shrink and wrap to fit, but a title still has to be a title — and one
@@ -217,7 +215,10 @@ const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
 // tighter than it looks (components/gallery/textures.ts).
 const TITLE_MAX = 60
 
-const DESIGN_TOOLS_VISIBLE = false as boolean
+/** ロゴの差し込みはまだ出さない。**もともと `DESIGN_TOOLS_VISIBLE` という名前で、
+ *  壁・床・光の色ごと隠れていた**（＝色の設定は一度も作家に見えていない）。
+ *  2026-08-17 に色は撤去し、この旗が隠しているのはロゴだけになったので改名した。 */
+const LOGO_UPLOAD_VISIBLE = false as boolean
 
 // A field label kept to one or two words, with the "why/how" moved into an info
 // bubble beside it — hover on desktop, tap (focus) on touch. Keeps the form scannable
@@ -1780,25 +1781,14 @@ function GalleryCard({
       <div className="me-card me-subcard">
       {stage === 'room' ? (
         <>
-        {/* The room's editing surface: sticky 3D preview on the left, its design on the right */}
-        <div className="works-detail">
-        <GalleryPreview
-          art={roomArt}
-          src={roomSrc}
-          index={Math.max(0, works.indexOf(roomArt))}
-          themeKey={view.theme}
-          frameKey={view.frame_default}
-          matKey={view.mat_default}
-          hangingKey={view.hanging_default}
-          captionKey={view.caption_default}
-          designOverrides={design}
-          emptyNote={t('me.emptyRoomNote')}
-          mode="room"
-        />
-
+        {/* 部屋タブは**選ぶだけの場所**にした（ユーザー選択 2026-08-17）。3Dの大プレビューは
+            Design Tools（色と光）の結果を映すために置いてあったが、その Design Tools を
+            まるごと外したので、映すべき「連続値」がもう無い。テーマの見た目は写真カードが
+            見せ、実物は「歩いてみる」で確かめる。 */}
+        <div className="works-detail works-detail--solo">
         <div className="we-right">
-          {/* Section 1 — the room's look: theme + layout. The 3D preview on the left
-              recolours live as you switch theme. (Design Tools hidden for now.) */}
+          {/* 部屋の見た目＝テーマ（と BGM）。間取りは配置タブへ、色と光（Design Tools）は
+              撤去済みなので、この群に残っているのはこの2つだけ。 */}
           <div className="wd-group wd-group--flush">
             <div className="wd-title"><span>{t('me.themeAndLayout')}</span></div>
             {/* Templates are a starting point, not a setting: they live in the create
@@ -1846,24 +1836,6 @@ function GalleryCard({
                 2026-08-11: 「配置」の話なので「配置」タブの中で選びたい）。ハンドラは
                 このGalleryCard内で共有のまま（`setSpace`/`editCustom`等）なので、
                 描画位置を動かすだけでロジックは何も変えていない。 */}
-            <div className="wd-row">
-              <span className="wd-label">{t('me.lighting')}</span>
-              <div className="chips">
-                {([
-                  ['ceiling', 'me.lightCeiling'],
-                  ['overhead', 'me.lightOverhead'],
-                ] as const).map(([key, labelKey]) => (
-                  <button
-                    key={key}
-                    className={`chip${(design.lightMode ?? 'ceiling') === key ? ' active' : ''}`}
-                    disabled={busy}
-                    onClick={() => editDesign({ lightMode: key })}
-                  >
-                    {t(labelKey)}
-                  </button>
-                ))}
-              </div>
-            </div>
             <div className="wd-row wd-row-block">
               <span className="wd-label me-field-label">
                 {t('me.ambience')}
@@ -1904,71 +1876,13 @@ function GalleryCard({
             </div>
           </div>
 
-          {DESIGN_TOOLS_VISIBLE && (
+          {LOGO_UPLOAD_VISIBLE && (
           <>
-          {/* Design Tools (§11.5/§11.8) — a buy-once capability layered on top of the
-              theme: recolour walls/floor, tune the light mood, add a small logo mark.
-              Hidden for now via DESIGN_TOOLS_VISIBLE. */}
+          {/* ロゴだけが残った（ユーザー選択 2026-08-17）。壁・床・光の色と光の強さ＝
+              Design Tools は撤去した ── テーマが見た目を決める形にして、部屋タブを
+              「選ぶだけの場所」にするため。ロゴは色ではなく作家の持ち物なので残す。 */}
           <div className="wd-group">
-            <div className="wd-title"><span>{t('me.designTools')}</span></div>
-            {/* Design Tools is free for everyone now (docs/DECISIONS 2026-07-24) */}
-            <>
-                <div className="wd-row">
-                  <span className="wd-label">{t('me.wallColour')}</span>
-                  <div className="design-controls">
-                    <input
-                      type="color"
-                      value={design.wall ?? hex((THEMES[view.theme] ?? THEMES.chic).wall)}
-                      onChange={(e) => editDesign({ wall: e.target.value })}
-                    />
-                    {design.wall && (
-                      <button className="btn-line" onClick={() => editDesign({ wall: null })}>{t('me.reset')}</button>
-                    )}
-                  </div>
-                </div>
-                <div className="wd-row">
-                  <span className="wd-label">{t('me.floorColour')}</span>
-                  <div className="design-controls">
-                    <input
-                      type="color"
-                      value={design.floor ?? hex((THEMES[view.theme] ?? THEMES.chic).floorTint)}
-                      onChange={(e) => editDesign({ floor: e.target.value })}
-                    />
-                    {design.floor && (
-                      <button className="btn-line" onClick={() => editDesign({ floor: null })}>{t('me.reset')}</button>
-                    )}
-                  </div>
-                </div>
-                <div className="wd-row">
-                  <span className="wd-label">{t('me.lightColour')}</span>
-                  <div className="design-controls">
-                    <input
-                      type="color"
-                      value={design.lightColor ?? hex((THEMES[view.theme] ?? THEMES.chic).spotColor)}
-                      onChange={(e) => editDesign({ lightColor: e.target.value })}
-                    />
-                    {design.lightColor && (
-                      <button className="btn-line" onClick={() => editDesign({ lightColor: null })}>{t('me.reset')}</button>
-                    )}
-                  </div>
-                </div>
-                <div className="wd-row">
-                  <span className="wd-label">{t('me.lightMood')}</span>
-                  <div className="design-controls">
-                    <input
-                      type="range"
-                      min={0.5}
-                      max={1.5}
-                      step={0.05}
-                      value={design.lightIntensity ?? 1}
-                      onChange={(e) => editDesign({ lightIntensity: Number(e.target.value) })}
-                    />
-                    <span className="design-value">{Math.round((design.lightIntensity ?? 1) * 100)}%</span>
-                    {design.lightIntensity != null && (
-                      <button className="btn-line" onClick={() => editDesign({ lightIntensity: null })}>{t('me.reset')}</button>
-                    )}
-                  </div>
-                </div>
+            <div className="wd-title"><span>{t('me.logo')}</span></div>
                 <div className="wd-row">
                   <span className="wd-label">{t('me.logo')}</span>
                   <div className="design-controls">
@@ -1994,10 +1908,6 @@ function GalleryCard({
                     )}
                   </div>
                 </div>
-                <p className="me-note" style={{ marginTop: '0.3rem' }}>
-                  {t('me.designToolsNote')}
-                </p>
-              </>
           </div>
           </>
           )}

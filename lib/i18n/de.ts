@@ -378,7 +378,7 @@ export const de: PartialDictionary = {
     matColor: 'Farbe des Passepartouts',
     placementMap: 'Hängeplan des Raums',
     placementEmpty: 'Diesen Platz frei lassen',
-    placementDone: 'Fertig', editWork: 'Dieses Werk bearbeiten', lightFollowRoom: 'Wie der Raum',
+    placementDone: 'Fertig', editWork: 'Dieses Werk bearbeiten', lightFollowRoom: 'Standard',
     empty: 'Frei',
     premium: 'Kostenpflichtig',
     framed: 'Gerahmt',
@@ -544,7 +544,7 @@ export const de: PartialDictionary = {
     roomGrantWaiting: 'Sie haben noch {count} Raum, der eingerichtet werden kann.',
     roomGrantWaiting_other: 'Sie haben noch {count} Räume, die eingerichtet werden können.',
 
-    themeAndLayout: 'Thema und Anordnung', theme: 'Thema', layout: 'Anordnung', custom: 'Eigene',
+    themeAndLayout: 'Raumeinstellungen', theme: 'Thema', layout: 'Anordnung', custom: 'Eigene',
     lighting: 'Licht', customSize: 'Eigene Maße', centreWall: 'Mittelwand (4 Plätze mehr)',
     lightCeiling: 'Decke', lightOverhead: 'Über dem Werk',
     placement: 'Hängung',
@@ -572,11 +572,7 @@ export const de: PartialDictionary = {
     saveDesignFailed: 'Die Darstellung konnte nicht gespeichert werden: {msg}', logoUploadFailed: 'Der Logo-Upload ist fehlgeschlagen: {msg}',
     bgmUploadFailed: 'Der Musik-Upload ist fehlgeschlagen: {msg}', bgmRemoveFailed: 'Die Musik konnte nicht entfernt werden: {msg}',
 
-    designTools: 'Gestaltungswerkzeuge', wallColour: 'Wandfarbe', floorColour: 'Bodenfarbe',
-    lightColour: 'Lichtfarbe', lightMood: 'Lichtstimmung', logo: 'Logo', reset: 'Zurücksetzen',
-    designToolsNote: 'Das legt sich über dein Thema — wechselst du später das Thema, bleibt hier alles erhalten.',
-
-    workRemove: 'Werk entfernen', workRemoveFailed: 'Das Werk konnte nicht entfernt werden: {msg}',
+    logo: 'Logo', workRemove: 'Werk entfernen', workRemoveFailed: 'Das Werk konnte nicht entfernt werden: {msg}',
     workSaveFailed: 'Die Angaben zum Werk konnten nicht gespeichert werden: {msg}',
     titleAndCaption: 'Titel und Schild', workTitle: 'Titel', caption: 'Schild',
     captionHint: 'Steht auf dem Schild neben dem Werk.',

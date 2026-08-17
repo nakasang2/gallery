@@ -378,7 +378,7 @@ export const id: PartialDictionary = {
     matColor: 'Warna mat',
     placementMap: 'Peta penempatan ruang',
     placementEmpty: 'Biarkan tempat ini kosong',
-    placementDone: 'Selesai', editWork: 'Edit karya ini', lightFollowRoom: 'Ikuti ruangan',
+    placementDone: 'Selesai', editWork: 'Edit karya ini', lightFollowRoom: 'Bawaan',
     empty: 'Kosong',
     premium: 'Berbayar',
     framed: 'Berbingkai',
@@ -544,7 +544,7 @@ export const id: PartialDictionary = {
     roomGrantWaiting: 'Ada {count} ruang yang belum Anda bangun.',
     roomGrantWaiting_other: 'Ada {count} ruang yang belum Anda bangun.',
 
-    themeAndLayout: 'Tema dan tata letak', theme: 'Tema', layout: 'Tata letak', custom: 'Atur sendiri',
+    themeAndLayout: 'Pengaturan ruangan', theme: 'Tema', layout: 'Tata letak', custom: 'Atur sendiri',
     lighting: 'Pencahayaan', customSize: 'Ukuran sendiri', centreWall: 'Dinding tengah (tambah 4 tempat)',
     lightCeiling: 'Plafon', lightOverhead: 'Di atas karya',
     placement: 'Penempatan',
@@ -572,11 +572,7 @@ export const id: PartialDictionary = {
     saveDesignFailed: 'Penyajian tidak bisa disimpan: {msg}', logoUploadFailed: 'Unggahan logo gagal: {msg}',
     bgmUploadFailed: 'Unggahan musik gagal: {msg}', bgmRemoveFailed: 'Musiknya tidak bisa dihapus: {msg}',
 
-    designTools: 'Alat penyajian', wallColour: 'Warna dinding', floorColour: 'Warna lantai',
-    lightColour: 'Warna cahaya', lightMood: 'Suasana cahaya', logo: 'Logo', reset: 'Kembalikan',
-    designToolsNote: 'Ini bertumpuk di atas temamu — kalau nanti ganti tema, semua setelan di sini tetap.',
-
-    workRemove: 'Hapus karya', workRemoveFailed: 'Karyanya tidak bisa dihapus: {msg}',
+    logo: 'Logo', workRemove: 'Hapus karya', workRemoveFailed: 'Karyanya tidak bisa dihapus: {msg}',
     workSaveFailed: 'Data karyanya tidak bisa disimpan: {msg}',
     titleAndCaption: 'Judul dan label', workTitle: 'Judul', caption: 'Label',
     captionHint: 'Tampil di label di samping karya.',

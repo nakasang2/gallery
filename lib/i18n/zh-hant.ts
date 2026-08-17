@@ -377,7 +377,7 @@ export const zhHant: PartialDictionary = {
     matColor: '襯邊顏色',
     placementMap: '展場平面圖',
     placementEmpty: '這個位置留空',
-    placementDone: '完成', editWork: '編輯此作品', lightFollowRoom: '跟隨展廳設定',
+    placementDone: '完成', editWork: '編輯此作品', lightFollowRoom: '預設',
     empty: '空著',
     premium: '付費',
     framed: '裝框',
@@ -543,7 +543,7 @@ export const zhHant: PartialDictionary = {
     roomGrantWaiting: '你還有 {count} 間展廳尚未建立。',
     roomGrantWaiting_other: '你還有 {count} 間展廳尚未建立。',
 
-    themeAndLayout: '主題與版面', theme: '主題', layout: '版面', custom: '自訂',
+    themeAndLayout: '展廳設定', theme: '主題', layout: '版面', custom: '自訂',
     lighting: '燈光', customSize: '自訂尺寸', centreWall: '中央牆面（多 4 個位置）',
     lightCeiling: '天花板', lightOverhead: '作品正上方',
     placement: '佈置',
@@ -571,11 +571,7 @@ export const zhHant: PartialDictionary = {
     saveDesignFailed: '沒能儲存呈現設定：{msg}', logoUploadFailed: '標誌上傳失敗：{msg}',
     bgmUploadFailed: '背景音上傳失敗：{msg}', bgmRemoveFailed: '沒能刪除背景音：{msg}',
 
-    designTools: '呈現工具', wallColour: '牆面顏色', floorColour: '地面顏色',
-    lightColour: '燈光顏色', lightMood: '燈光氣氛', logo: '標誌', reset: '還原',
-    designToolsNote: '這些疊加在主題之上 — 之後換主題，這裡的設定也都保留。',
-
-    workRemove: '刪除作品', workRemoveFailed: '沒能刪除作品：{msg}',
+    logo: '標誌', workRemove: '刪除作品', workRemoveFailed: '沒能刪除作品：{msg}',
     workSaveFailed: '沒能儲存作品資訊：{msg}',
     titleAndCaption: '標題與說明', workTitle: '標題', caption: '說明',
     captionHint: '會顯示在作品旁的說明牌上。',

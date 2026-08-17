@@ -379,7 +379,7 @@ export const ko: PartialDictionary = {
     matColor: '매트 색',
     placementMap: '전시장 배치도',
     placementEmpty: '이 자리는 비워 두기',
-    placementDone: '완료', editWork: '이 작품 편집', lightFollowRoom: '전시실 설정에 따름',
+    placementDone: '완료', editWork: '이 작품 편집', lightFollowRoom: '기본값',
     empty: '비어 있음',
     premium: '유료',
     framed: '액자 있음',
@@ -582,7 +582,7 @@ export const ko: PartialDictionary = {
     roomGrantWaiting_other: '아직 만들지 않은 전시실이 {count}개 있습니다.',
     shareCover: '공유 대표 이미지',
 
-    themeAndLayout: '테마와 레이아웃',
+    themeAndLayout: '전시실 설정',
     theme: '테마',
     layout: '레이아웃',
     custom: '직접 설정',
@@ -621,15 +621,7 @@ export const ko: PartialDictionary = {
     bgmUploadFailed: '음원을 올리지 못했습니다: {msg}',
     bgmRemoveFailed: '음원을 삭제하지 못했습니다: {msg}',
 
-    designTools: '연출 도구',
-    wallColour: '벽 색',
-    floorColour: '바닥 색',
-    lightColour: '조명 색',
-    lightMood: '조명 분위기',
     logo: '로고',
-    reset: '되돌리기',
-    designToolsNote: '테마 위에 덧씌워집니다 — 나중에 테마를 바꿔도 여기의 설정은 그대로 남습니다.',
-
     workRemove: '작품 삭제',
     workRemoveFailed: '작품을 삭제하지 못했습니다: {msg}',
     workSaveFailed: '작품 정보를 저장하지 못했습니다: {msg}',

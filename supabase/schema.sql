@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0065 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0066 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -6273,3 +6273,12 @@ drop trigger if exists expo_submissions_unsubmit_notify on public.expo_submissio
 create trigger expo_submissions_unsubmit_notify
   after delete on public.expo_submissions
   for each row execute function public.notify_expo_unsubmit();
+
+-- # 0066_drop_design_colours.sql — Design Tools(色と光の強さ)の保存済みの値を消す(ユーザー決定 2026-08-17)
+-- 画面から撤去したので、残った値は「画面には無いのにDBには入っている」だけになる。
+-- アプリ側は同じ日に `resolveTheme` から色の上書きを外してあるので、当てなくても見た目は
+-- テーマどおりに戻る。logoUrl は色ではなく作家の持ち物なので残す。再実行安全。
+update public.galleries
+set design_overrides = design_overrides - 'wall' - 'floor' - 'lightColor' - 'lightIntensity' - 'lightMode'
+where design_overrides is not null
+  and design_overrides ?| array['wall', 'floor', 'lightColor', 'lightIntensity', 'lightMode'];

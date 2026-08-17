@@ -377,7 +377,7 @@ export const it: PartialDictionary = {
     matColor: 'Colore del passepartout',
     placementMap: 'Pianta di allestimento della sala',
     placementEmpty: 'Lascia questo posto vuoto',
-    placementDone: 'Fatto', editWork: 'Modifica questa opera', lightFollowRoom: 'Segui la sala',
+    placementDone: 'Fatto', editWork: 'Modifica questa opera', lightFollowRoom: 'Predefinito',
     empty: 'Vuoto',
     premium: 'A pagamento',
     framed: 'Con cornice',
@@ -543,7 +543,7 @@ export const it: PartialDictionary = {
     roomGrantWaiting: 'Hai {count} sala ancora da allestire.',
     roomGrantWaiting_other: 'Hai {count} sale ancora da allestire.',
 
-    themeAndLayout: 'Tema e allestimento', theme: 'Tema', layout: 'Allestimento', custom: 'Su misura',
+    themeAndLayout: 'Impostazioni della sala', theme: 'Tema', layout: 'Allestimento', custom: 'Su misura',
     lighting: 'Luci', customSize: 'Misure su misura', centreWall: 'Parete centrale (4 posti in più)',
     lightCeiling: 'Soffitto', lightOverhead: 'Sopra l’opera',
     placement: 'Allestimento',
@@ -571,11 +571,7 @@ export const it: PartialDictionary = {
     saveDesignFailed: 'Non è stato possibile salvare la presentazione: {msg}', logoUploadFailed: 'Caricamento del logo non riuscito: {msg}',
     bgmUploadFailed: 'Caricamento della musica non riuscito: {msg}', bgmRemoveFailed: 'Non è stato possibile togliere la musica: {msg}',
 
-    designTools: 'Strumenti di presentazione', wallColour: 'Colore della parete', floorColour: 'Colore del pavimento',
-    lightColour: 'Colore della luce', lightMood: 'Atmosfera della luce', logo: 'Logo', reset: 'Ripristina',
-    designToolsNote: 'Questo si sovrappone al tema — se poi cambi tema, tutto quello che imposti qui resta.',
-
-    workRemove: 'Togli l’opera', workRemoveFailed: 'Non è stato possibile togliere l’opera: {msg}',
+    logo: 'Logo', workRemove: 'Togli l’opera', workRemoveFailed: 'Non è stato possibile togliere l’opera: {msg}',
     workSaveFailed: 'Non è stato possibile salvare i dati dell’opera: {msg}',
     titleAndCaption: 'Titolo e didascalia', workTitle: 'Titolo', caption: 'Didascalia',
     captionHint: 'Compare sulla didascalia accanto all’opera.',
