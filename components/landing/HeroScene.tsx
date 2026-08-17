@@ -69,14 +69,14 @@ const PANEL_SPOTS: { n: string; z: number; k: string }[] = [
   { n: '05', z: -26, k: 'f5' },
   { n: '06', z: -31, k: 'f6' },
 ]
-/**
- * 管理画面から入れた1点を、板から廊下の奥側へこれだけずらして掛ける。
- *
- * カメラの止まり位置は板の手前（`p.z + 0.9`）で、見る先は板（`p.z`）なので、
- * **視線は -z 側へ傾いている**＝奥側に置いた方が同じ画に入る。板の間隔は5あるので
- * この値では隣のパネルと重ならない。**構図はここだけで決まる**ので、実機で見て
- * 詰めたくなったらこの1つの数字を動かせばよい。 */
-const PANEL_ART_DZ = -1.9
+
+/** 板の代わりに置く写真を収める箱。板（1.7 × 2.23）より一回り大きい ── 板が消えて
+ *  1枚だけになるので、同じ寸法だと空いた壁に負けて小さく見える。
+ *  上限の根拠: 廊下の床は y=0・天井は y=4.35、写真の中心は `ITEM_Y`=1.6 なので、
+ *  高さ2.6なら足元に0.3の余白が残る（2.7を超えると床を突き抜ける）。幅はパネルの
+ *  間隔が5あるので2.8でも隣と重ならない。 */
+const PANEL_IMG_W = 2.8
+const PANEL_IMG_H = 2.6
 
 /** 壁に焼く1枚ぶんの文言（辞書解決済み）＋その位置 */
 type PanelText = { n: string; h: string; b: string; z: number }
@@ -375,6 +375,62 @@ function FramedImage({ src, ratio, position, rotationY = 0, w = 1.5 }: { src: st
   )
 }
 
+/** 板の代わりに壁へ直接掛ける1枚（ユーザー選択 2026-08-17）。
+ *  **額もマットもスポットも付けない** ── 写真そのものが訴求なので、装飾が主役を食う。
+ *  位置は板と同じ `z`（カメラは `PANEL_SPOTS` の z を見に来るので、ずらすと空の壁を見る）。
+ *  材質は `meshBasicMaterial` ＝ **光を要らなくする**。スポットを消したうえで
+ *  `meshStandardMaterial` を使うと、暗い廊下では真っ黒にしか映らない
+ *  （LESSONS「数値を大きくしても直らないときは前提を疑う」と同じ形）。
+ *  `toneMapped={false}` はアップロードした写真の色をそのまま出すため
+ *  （このシーンは ACES ＋ 露出1.3 なので、通すと白っぽく持ち上がる）。 */
+function PanelImage({ src, ratio, z }: { src: string; ratio: [number, number]; z: number }) {
+  // **テクスチャは ref ではなく state で持つ。** ref ＋ 再描画フラグにすると、`src` が
+  // 差し替わったときクリーンアップが古いテクスチャを dispose しても再描画が起きず、
+  // mesh が**破棄済みのテクスチャを掴んだまま**新しい画像の読み込み完了まで残る
+  // （別視点レビュー 2026-08-17）。state なら null に戻した時点で必ず描き直る。
+  const [tex, setTex] = useState<THREE.Texture | null>(null)
+  useEffect(() => {
+    let alive = true
+    setTex(null)
+    const loader = new THREE.TextureLoader()
+    loader.setCrossOrigin('anonymous')
+    let loaded: THREE.Texture | null = null
+    loader.load(
+      src,
+      (t) => {
+        if (!alive) {
+          t.dispose()
+          return
+        }
+        t.colorSpace = THREE.SRGBColorSpace
+        t.anisotropy = 8
+        loaded = t
+        setTex(t)
+      },
+      undefined,
+      () => {
+        /* load/CORS failure — 何も出さない（額が無いので「空の枠」も残らない） */
+      }
+    )
+    return () => {
+      alive = false
+      loaded?.dispose()
+    }
+  }, [src])
+  // 縦横どちらの写真でも同じ「重み」で見えるよう、板より一回り大きい箱に収める
+  const [rw, rh] = ratio
+  const fit = Math.min(PANEL_IMG_W / rw, PANEL_IMG_H / rh)
+  const w = rw * fit
+  const h = rh * fit
+  if (!tex) return null
+  return (
+    <mesh key={src} position={[-WALL_X + 0.08, ITEM_Y, z]} rotation-y={Math.PI / 2}>
+      <planeGeometry args={[w, h]} />
+      <meshBasicMaterial map={tex} toneMapped={false} />
+    </mesh>
+  )
+}
+
 function CorridorArt({ idx, z, side = 'R', scale = 1, src, ratio }: { idx: number; z: number; side?: 'L' | 'R'; scale?: number; src?: string; ratio?: [number, number] }) {
   const x = side === 'L' ? -WALL_X + 0.08 : WALL_X - 0.08
   const ry = side === 'L' ? Math.PI / 2 : -Math.PI / 2
@@ -650,14 +706,16 @@ function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; pan
       ))}
       {panels.map((p, k) => {
         const art = panelArt[k]
+        // 写真が入っている枠は**写真だけ**にする（ユーザー選択 2026-08-17）。
+        // 以前は板と写真が横に並んでいたが、同じことを二度言っている状態だった。
+        // 文言は3D非対応向けの `.corridor-fallback`（app/page.tsx）に本物の見出しとして
+        // 残っているので、クローラーと読み上げからは消えない。
         return (
           <group key={p.n}>
-            <Panel p={p} />
-            {/* 板の隣（廊下の奥側）に、その訴求そのものを写した1点を掛ける。
-                CorridorArt を通すので、額・スポット・壁への貼り付けは入口の
-                主役アートと同じ実装を使う（`src` があれば `idx` は使われない）。 */}
-            {art && (
-              <CorridorArt idx={0} z={p.z + PANEL_ART_DZ} side="L" src={art.url} ratio={[art.w, art.h]} />
+            {art ? (
+              <PanelImage src={art.url} ratio={[art.w, art.h]} z={p.z} />
+            ) : (
+              <Panel p={p} />
             )}
           </group>
         )
