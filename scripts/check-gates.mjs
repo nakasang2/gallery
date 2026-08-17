@@ -1309,6 +1309,76 @@ const pdFiles = ({ pricing = PD_PRICING(), checkout = PD_CHECKOUT(), legal = PD_
 
 const PD = 'check-price-disclosure.mjs'
 
+// ------------------------------------------------- check:theme-images
+// テーマカードの写真（public/themes/*.jpg）が定義と食い違っていないかの番人
+// （2026-08-17 に追加）。写真は「見えているが古い」形で腐るので、画面を見ても
+// 気づけない ── だから機械で見張る。ケースは実際に踏んだ形と、番人を書きながら
+// 想定した抜け道を固定する。
+const TI_THEMES = (extra = '', wall = '0xd8d2c6') => `export const THEMES: Record<string, ThemeDef> = {
+  chic: {
+    label: 'Chic',
+    wall: ${wall},
+    recommends: { frame: 'gold', hanging: 'wire', caption: 'side' },
+  },${extra}
+}
+`
+/** 中身のある写真の代わり（番人はバイト数しか見ないので中身は何でもよい） */
+const TI_SHOT = 'x'.repeat(30000)
+const TI = 'check-theme-images.mjs'
+const tiFiles = ({ themes = TI_THEMES(), shots = { chic: TI_SHOT }, baseline } = {}) => {
+  const files = { 'lib/presets.ts': themes }
+  for (const [k, v] of Object.entries(shots)) files[`public/themes/${k}.jpg`] = v
+  files['scripts/theme-images-baseline.json'] = baseline ?? ''
+  return files
+}
+/** 基準線はハッシュを含むので、番人自身の --update に作らせてから本番を回す */
+const tiSetup = (dir) => {
+  spawnSync(process.execPath, [join(ROOT, 'scripts', TI), '--update'], { cwd: dir })
+  execFileSync('git', ['add', '-A'], { cwd: dir })
+}
+
+gateCase('check:theme-images — 定義と写真がそろっていれば通る（負の対照）', {
+  gate: TI,
+  files: tiFiles(),
+  setup: tiSetup,
+  expectFail: false,
+  contains: ['すべて最新'],
+})
+
+gateCase('check:theme-images — テーマを足して写真を焼き忘れると落ちる', {
+  gate: TI,
+  // 基準線を作ってから**あとで**テーマを足す＝焼き直していない状態そのもの
+  files: tiFiles(),
+  setup: (dir) => {
+    tiSetup(dir)
+    writeFileSync(join(dir, 'lib/presets.ts'), TI_THEMES("\n  sepia: {\n    label: 'Sepia',\n    wall: 0x111111,\n    recommends: { frame: 'gold', hanging: 'wire', caption: 'side' },\n  },"))
+    execFileSync('git', ['add', '-A'], { cwd: dir })
+  },
+  expectFail: true,
+  contains: ['sepia', 'THEMES の定義が変わっています'],
+})
+
+gateCase('check:theme-images — 描き終わる前に焼いた真っ黒な写真を通さない', {
+  gate: TI,
+  files: tiFiles({ shots: { chic: 'x'.repeat(2700) } }),
+  setup: tiSetup,
+  expectFail: true,
+  contains: ['2700 バイト', '真っ黒'],
+})
+
+gateCase('check:theme-images — 未追跡の写真は「ある」と数えない', {
+  gate: TI,
+  files: tiFiles(),
+  // わざと git add しない（AGENTS.md 5.5 の「新規ファイルは未追跡だと検査対象に無い」）。
+  // 定義そのものはディスクから読むので、未追跡でも「写真だけが無い」状態を再現できる。
+  add: false,
+  setup: (dir) => {
+    spawnSync(process.execPath, [join(ROOT, 'scripts', TI), '--update'], { cwd: dir })
+  },
+  expectFail: true,
+  contains: ['git に無い'],
+})
+
 gateCase('check:price-disclosure — 全部そろっていれば通る（負の対照）', {
   gate: PD,
   files: pdFiles(),

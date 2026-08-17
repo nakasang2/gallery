@@ -12,7 +12,8 @@ import { useGallery } from '@/lib/store'
 import { TEMPLATES, THEMES, LAYOUTS, CUSTOM_LAYOUT_RELEASED, normalizeDesignOverrides, normalizeLayoutParams, normalizeArrangement, type DesignOverrides, type CustomLayoutParams } from '@/lib/presets'
 import { setOverride } from '@/lib/exhibition'
 import { SIZE_GROUPS, matchPreset, presetByLabel } from '@/lib/artSizes'
-import { ThemeSwatch, LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
+import { LayoutPlan, TemplateCard, WallPreview } from '@/components/SpacePreviews'
+import { themeCardSrc, THEME_CARD_W, THEME_CARD_H } from '@/lib/themeCards'
 import WorkDesign from '@/components/WorkDesign'
 import PlacementEditor from '@/components/PlacementEditor'
 import { InviteInbox, ParticipantsPanel } from '@/components/me/ExpoInvites'
@@ -1806,22 +1807,36 @@ function GalleryCard({
                 coarser way to change the same two things (ユーザー指示 2026-07-30). */}
             <div className="wd-row">
               <span className="wd-label">{t('me.theme')}</span>
-              <div className="chips">
+              {/* テーマは**実際のレンダラで焼いた写真**で選ぶ（ユーザー選択 2026-08-17）。
+                  ここは値を動かす場所ではなく「選ぶ前に見える」ための場所なので、
+                  ライブの3Dを並べる必要が無い ── 写真なら GPU を一切使わずに実写が出る。
+                  焼き直しは `/theme-capture`、鮮度は `npm run check:theme-images` が見張る。 */}
+              <div className="theme-cards">
                 {unlockedFirst(Object.entries(THEMES), ([key]) => isThemeUnlocked(key, entitlements)).map(([key, def]) => {
                   const unlocked = isThemeUnlocked(key, entitlements)
                   return (
                     <button
                       key={key}
-                      className={`chip chip-visual${key === view.theme ? ' active' : ''}${unlocked ? '' : ' locked'}`}
+                      className={`theme-card${key === view.theme ? ' active' : ''}${unlocked ? '' : ' locked'}`}
                       disabled={busy}
+                      aria-pressed={key === view.theme}
                       onClick={() => {
                         if (!unlocked) { setPurchaseItem({ kind: 'theme', key, label: def.label }); return }
                         setSpace({ theme: key, ...def.recommends, mat: 'auto' })
                       }}
                     >
-                      <ThemeSwatch themeKey={key} />
-                      {def.label}
-                      {!unlocked && <span className="chip-price-tag chip-lock-only" aria-hidden="true"><LockIcon /></span>}
+                      {/* alt は空。すぐ下にテーマ名が文字であるので、読み上げると二重になる */}
+                      <img
+                        className="theme-card-shot"
+                        src={themeCardSrc(key)}
+                        alt=""
+                        width={THEME_CARD_W / 2}
+                        height={THEME_CARD_H / 2}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                      <span className="theme-card-name">{def.label}</span>
+                      {!unlocked && <span className="theme-card-lock" aria-hidden="true"><LockIcon /></span>}
                     </button>
                   )
                 })}

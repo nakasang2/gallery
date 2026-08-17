@@ -51,7 +51,7 @@ function PreviewRoom({ theme, art }: { theme: ThemeDef; art: ArtworkData }) {
   // 下限は**作品が壁に収まる幅**から出す。1.7m のような固定値にすると、縦長のプレビュー枠
   // （幅300 × 高320 など）で下限が勝ち、側壁が画面端の101%＝画角の外へ出て奥行きが消える
   // ── 算数で確かめて見つけた（実測できない3Dの代わりに、見える条件を式で押さえる）。
-  const hw = Math.min(3.1, Math.max(artSize(art.ratio, art).width / 2 + 0.45, 0.82 * dist * tanH))
+  const hw = Math.min(3.1, Math.max(artSize(art.ratio, art).width / 2 + 0.45, 0.66 * dist * tanH))
   // カメラより手前まで床と天井を伸ばす（足りないと足元と頭上で床天井が途切れる）
   const hd = (dist + 2.2) / 2
   const wallOf = (width: number, color: number, position: [number, number, number], rotationY: number) => (
@@ -294,6 +294,7 @@ export default function Preview3D({
   captionKey,
   designOverrides,
   mode = 'work',
+  preserveBuffer = false,
 }: {
   art: ArtworkData
   /** Slot number shown on the name plate (NO. xx) */
@@ -309,6 +310,10 @@ export default function Preview3D({
   /** 'work' = art + human scale figure (default). 'room' = no figure, pulled back to
    *  show the space's atmosphere — used for the theme preview. */
   mode?: 'work' | 'room'
+  /** 描いた絵を canvas に残す。**テーマカードの画像を焼く `/theme-capture` だけが true**
+   *  にする（既定の false だと `toDataURL` が空の画像を返す）。常時 true にはしない
+   *  ── ドライバの最適化が効かなくなるので、見るだけの用途では損しかない。 */
+  preserveBuffer?: boolean
 }) {
   const theme = resolveTheme(themeKey, designOverrides)
   const floor = new THREE.Color(theme.floorTint).multiply(new THREE.Color(0x9a7a55))
@@ -318,6 +323,7 @@ export default function Preview3D({
       shadows
       frameloop="demand"
       dpr={[1, 1.5]}
+      gl={{ preserveDrawingBuffer: preserveBuffer }}
     >
       {!isRoom && <color attach="background" args={[theme.fog]} />}
       <Env />

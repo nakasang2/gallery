@@ -2272,3 +2272,66 @@
   /* 固定した帯のぶん、本文の一番下が隠れないように空ける */
   .me-page { padding-bottom: calc(4.6rem + env(safe-area-inset-bottom)); }
 }
+
+/* ---- テーマ選択（実際のレンダラで焼いた写真のカード。ユーザー選択 2026-08-17） ----
+   ここは「選ぶ前に見える」ための場所で、値を動かす場所ではない（動かすのは隣の
+   Design Tools で、その結果は大プレビューが受け持つ）。テーマは固定の少数なので
+   写真を貼れば GPU を使わずに実写が出せる。写真の焼き直しは `/theme-capture`、
+   鮮度は `npm run check:theme-images` が見張る。 */
+.theme-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+.theme-card {
+  position: relative;
+  display: block;
+  padding: 0;
+  width: 168px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #101010;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  /* `font: inherit` にすると本文の行間 1.8 を継いで背が伸びる（.me-save-all で踏んだ罠） */
+  font-family: var(--sans);
+  line-height: 1.2;
+}
+.theme-card:disabled { cursor: default; }
+.theme-card .theme-card-shot {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* 焼いた写真は 480x300。伸ばさないので比率は固定でよい */
+  aspect-ratio: 8 / 5;
+  object-fit: cover;
+}
+.theme-card-name {
+  display: block;
+  padding: 0.5rem 0.6rem;
+  font-size: var(--label-size);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.theme-card.active { border-color: var(--gold); }
+.theme-card.active .theme-card-name { color: var(--gold); }
+.theme-card:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* 未購入のテーマは写真を落として鍵を重ねる（買えば晴れる、が絵で分かる） */
+.theme-card.locked .theme-card-shot { filter: grayscale(0.7) brightness(0.55); }
+.theme-card-lock {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  display: inline-flex;
+  padding: 0.32em;
+  border-radius: 6px;
+  background: rgba(8, 8, 10, 0.72);
+  color: var(--gold);
+}
+@media (max-width: 720px) {
+  /* 電話では2枚並ぶ幅にする（3枚を横スクロールさせない） */
+  .theme-card { width: calc(50% - 0.35rem); }
+}

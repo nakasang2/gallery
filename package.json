@@ -13,6 +13,7 @@
     "check:insert-retry": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning scripts/check-insert-retry.mts",
     "check:expo": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning scripts/check-expo-pricing.mts",
     "check:price-disclosure": "node scripts/check-price-disclosure.mjs",
+    "check:theme-images": "node scripts/check-theme-images.mjs",
     "test:sql": "bash supabase/tests/run.sh",
     "check:gates": "node scripts/check-gates.mjs",
     "check:ship-ready": "node scripts/check-ship-ready.mjs",
