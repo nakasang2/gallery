@@ -5,6 +5,7 @@
 // - デモセクションのミニ額装
 import { useEffect } from 'react'
 import { ARTWORKS, renderArtworkCanvas } from '@/lib/artworks'
+import { canRunHero3d } from '@/lib/hero3d'
 
 // ヒーローの壁に掛ける作品。少数を大きく、意図的に配置して「壁」に見せる。
 // [作品index, 左%, 上%, 幅px, 奥行き(視差の強さ)]
@@ -18,6 +19,11 @@ const WALL: [number, number, number, number, number][] = [
 export default function LandingEffects() {
   useEffect(() => {
     const cleanups: (() => void)[] = []
+
+    // 3Dが出るかどうかは HeroCanvas と同じ判定を見る（lib/hero3d）。以前はDOMに
+    // canvas が現れたかで見ていたが、それは**スクロールの1回目には間に合わない**
+    // うえ、額装を焼くかどうかの分岐には使えなかった（下の「ヒーローの壁」を参照）
+    const hero3d = canRunHero3d()
 
     const nav = document.getElementById('nav')
     const floatsRoot = document.getElementById('hero-floats')
@@ -36,8 +42,7 @@ export default function LandingEffects() {
       const vh = window.innerHeight
 
       // 3D非対応時のみ、CSSの額装壁を軽く押し込む
-      const hasCanvas = !!document.querySelector('.hero-canvas canvas')
-      if (!hasCanvas && floatsRoot) {
+      if (!hero3d && floatsRoot) {
         const p = Math.min(1, Math.max(0, window.scrollY / (vh * 0.9)))
         floatsRoot.style.transform = `rotateY(${-8 + p * 3}deg) scale(${1 + p * 0.18}) translateY(${p * -32}px)`
         floatsRoot.style.opacity = String(1 - p * 0.92)
@@ -103,12 +108,15 @@ export default function LandingEffects() {
     /* ---- ヒーロー: ギャラリーの壁(美術館グレードの額装) ---- */
     // モバイル(3D非表示)は主役1点を中央に大きく置き、ヒーローの"空き"を埋める。
     // デスクトップは複数を壁に配置して奥行きを出す。
+    // **3Dが出るときは1枚も焼かない**（2026-08-17）── `.has-hero3d .hero-floats` が
+    // `display: none` にする要素のために、生成アートを canvas に描いていた。1枚あたり
+    // 660px 四方の手続き型の絵で、初回描画のいちばん混んでいる時間に走る完全な無駄。
     const isMobile = window.matchMedia('(max-width: 900px)').matches
     const layout: [number, number, number, number, number][] = isMobile
       ? [[0, 50, 20, Math.min(300, Math.round(window.innerWidth * 0.72)), 1.0]]
       : WALL
     const parallaxItems: { el: HTMLDivElement; depth: number }[] = []
-    if (floatsRoot && floatsRoot.childElementCount === 0) {
+    if (!hero3d && floatsRoot && floatsRoot.childElementCount === 0) {
       layout.forEach(([idx, left, top, width, depth], i) => {
         const art = ARTWORKS[idx]
         const el = document.createElement('div')
