@@ -137,6 +137,18 @@ function useTour() {
   }, [tourActive, count])
 }
 
+/** GPU側のリンク完了を待つ上限。超えたら待つのをやめる ── **待ち続けるより開けるほうが
+ *  常に正しい**（下の「失敗しても止めない」）。 */
+const WARMUP_CAP_MS = 4000
+/** 準備完了を見に行く間隔（three の `compileAsync` と同じ刻み）。 */
+const WARMUP_POLL_MS = 10
+
+/** three が材質ごとに控えている情報のうち、ここで読む分だけ。`WebGLProperties.get()` の
+ *  返りは型の上では `unknown` なので、**依存している形を書いてから**読む（`any` で隠さない）。
+ *  `currentProgram` を省略可にしてあるのは、**dispose 済みの材質には空オブジェクトが返る**ため
+ *  ── そこが three の `compileAsync` が落ちる場所（下のコメント）。 */
+type ProgramProps = { currentProgram?: { isReady(): boolean } }
+
 /**
  * シェーダの事前コンパイル。**ロード画面の裏で**シーン中の全マテリアルの GPU プログラムを
  * 作ってしまう。
@@ -144,11 +156,26 @@ function useTour() {
  * WebGL はマテリアルが**初めて画面に映る瞬間**にシェーダをコンパイルする。だから
  * 「入室直後だけ重い」が起きる ── 扉が開いたあと振り向くたび、新しい額縁や壁が視界に
  * 入るたびに数十msの停止が挟まる（ユーザー報告 2026-08-13「ロード直後重い」）。
- * `compileAsync` は `KHR_parallel_shader_compile` があればGPU側で並列に作るので、
- * 同期版よりメインスレッドを止めない。無い環境では同期版に落ちる。
+ * `KHR_parallel_shader_compile` があればGPU側のリンクは並列に進むので、**プログラムを作る
+ * のは同期でやり、リンクが済むのを待つ間だけ待つ**（待っている間メインスレッドは空く）。
  *
  * **失敗しても止めない**: コンパイルは「先にやっておく」だけの最適化で、やらなくても
  * 描画時に作られる。ここで例外を投げてロード画面に閉じ込めるほうがずっと悪い。
+ *
+ * **three の `compileAsync` は使わない**（2026-08-18 実測。理由がこの設計の全部）。中身は
+ * `compile()` で集めた材質を `setTimeout` で 10ms ごとに見に行き、
+ * `properties.get(material).currentProgram.isReady()` を呼ぶループ。見に行く合間にその材質が
+ * dispose されると `properties.get()` が**空オブジェクト**を返し、`currentProgram` が
+ * `undefined` になって throw する ── **`setTimeout` の中なので `.then(finish, finish)` では
+ * 捕まえられず、Promise は永遠に解決しない。** この部屋では dispose がごく普通に起きる
+ * （`WallShadowBaker` が1枚焼き終わるたび、仮の影の板が本物と入れ替わる）ので**毎回踏んで
+ * いた**: `warm` が立たないまま12秒の保険で扉が開き、`gallery_loading_timeout` が「資産は
+ * 3.6秒で揃っていた部屋」に対して誤って飛んでいた（実測ログは LESSONS 2026-08-18）。
+ *
+ * そこで**待つ部分だけ自分で持つ**。`compile()`（同期）が本体の仕事＝プログラム生成で、
+ * `compileAsync` が足しているのは「GPU側のリンクが済んだか」を待つところだけなので、待ちを
+ * 自前にしても速さは変わらない。dispose された材質は「待つ相手が居ない」として外し、
+ * **上限（`WARMUP_CAP_MS`）と try/catch で、どの経路でも必ず `finish()` に着く**ようにする。
  */
 function Warmup({ armed, onDone }: { armed: boolean; onDone: () => void }) {
   const gl = useThree((s) => s.gl)
@@ -161,10 +188,14 @@ function Warmup({ armed, onDone }: { armed: boolean; onDone: () => void }) {
    *  していたため、**完了の通知が捨てられ、扉が12秒のタイムアウトまで開かなかった**
    *  （しかも `gallery_loading_timeout` が誤って飛ぶので、記録の上では壊れて見える）。 */
   const mounted = useRef(true)
+  /** 次の見に行きの予約。**アンマウントのときだけ**打ち消す（下の `armed` の注意書きと同じ
+   *  理由で、`useEffect` の後片付けに置くと `armed` が一度 false へ落ちるたびに待ちが死ぬ）。 */
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => {
     mounted.current = true
     return () => {
       mounted.current = false
+      if (timer.current) clearTimeout(timer.current)
     }
   }, [])
   useEffect(() => {
@@ -175,17 +206,45 @@ function Warmup({ armed, onDone }: { armed: boolean; onDone: () => void }) {
     }
     try {
       // カメラの向きは関係なく、シーンに居るもの全部（視界の外も）を対象にする。
-      gl.compileAsync(scene, camera).then(finish, finish)
+      const pending = gl.compile(scene, camera)
+      const props = gl.properties
+      const deadline = performance.now() + WARMUP_CAP_MS
+      /** リンクが済んだ材質を待ち行列から外していく。**行列が空になっても、上限を
+       *  過ぎても、例外が出ても、行き先は `finish()` だけ。** */
+      const poll = () => {
+        if (!mounted.current) return
+        try {
+          for (const material of pending) {
+            const program = (props.get(material) as ProgramProps | undefined)?.currentProgram
+            // `program` が無いのは**その材質が dispose された**とき。待つ相手が居ないので
+            // 外す ── three 自身はここで `undefined.isReady()` を呼んで落ちる。
+            if (!program || program.isReady()) pending.delete(material)
+          }
+          if (pending.size > 0 && performance.now() < deadline) {
+            timer.current = setTimeout(poll, WARMUP_POLL_MS)
+            return
+          }
+        } catch {
+          // three の内部の形が変わっていたら、待つのをやめるだけ（開けるほうが正しい）。
+        }
+        finish()
+      }
+      poll()
     } catch {
       finish()
     }
+    // **後片付けを返さない。** `armed` は `assetsIdle` を含むので待っている間に false へ
+    // 落ちることがあり（実測: armed から1.4秒後に1回落ちた）、ここで `clearTimeout` すると
+    // **待ちがその場で死んで `warm` が永久に立たない** ── 上の注意書きと同じ罠に、後片付け
+    // という別の入口から入ることになる（2026-08-18 に実際に踏んで実測で見つけた）。
+    // 予約の取り消しは上の `timer` ref がアンマウント時にやる。
   }, [armed, gl, scene, camera, onDone])
   return null
 }
 
 /** 扉を開ける前に、**実際のパイプラインで滑らかに描けること**を確かめる番。
  *
- *  `Warmup` の `compileAsync` が作るのは**シーンの中の材質のシェーダだけ**で、
+ *  `Warmup` が作るのは**シーンの中の材質のシェーダだけ**で、
  *  ポスト処理（N8AO/Bloom/SMAA）・反射床の内部材質・壁の影の焼き直しは**その外側**にある。
  *  何が重いかを個別に列挙するのはやめ、**「連続して速く描けた」ことを合図にする** ──
  *  原因が入れ替わっても効くし、新しい演出を足したときに列挙を忘れる余地が無い。
@@ -484,10 +543,21 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   assetsLoadedRef.current = assetsLoaded
   assetsTotalRef.current = assetsTotal
   const mountedAt = useRef(Date.now())
+  // 同じ理由で ref。**扉が開いたあとは保険を働かせない**（下の理由）。
+  const loadingDoneRef = useRef(false)
+  loadingDoneRef.current = loadingDone
 
   // A stalled or missing asset must never trap a visitor behind the door.
   useEffect(() => {
     const t = setTimeout(() => {
+      // **もう開いているなら何もしない。** この時計は仕掛けたら止まらない（依存が `[]`）
+      // ので、扉が4秒で開いた健全な入場でも12秒後に必ず起きて `gallery_loading_timeout`
+      // を投げていた ── **12秒以上滞在した来場者のほぼ全員が「タイムアウトした」ことに
+      // なる**ので、この指標は読めない数字になっていた（2026-08-18 実測: 扉が開いたのは
+      // 4115ms、それでも 13210ms に発火）。`waitedOut` も、開いた後に立てても意味が無い
+      // （どの門も既に通っている）ばかりか、`gallery_loading_done` の `timed_out` を
+      // 汚す方向にしか働かない。
+      if (loadingDoneRef.current) return
       setWaitedOut(true)
       // We are opening the doors on a room whose assets never finished. Whatever
       // is missing, the visitor is about to see a hole where a work should be.

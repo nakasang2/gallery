@@ -351,6 +351,7 @@ F2（セッション要約）は他が全部落ちても単体で意味を持つ
 - 合成データの一時ページ（検証後に削除）で `AnalyticsProbe` を実駆動: `via` が click / stepper / tour を正しく撃ち分け（**ツアー中の focus はツアーが勝つ**）、dwell は 1500ms 待ちに対し 1505ms、`gallery_session_summary` が `works_focused:3` `max_depth:3` `reached_end:true` `did_like:true` で1件。
 - **hidden時間の除外**を実測: 1秒視聴 → 3秒バックグラウンド → 1秒視聴 で、dwell は 1006ms と 1003ms の2件（計 約2秒）。素朴な実装なら約5000msと報告していた。
 - `/demo` の実ブラウザ走行で `gallery_loading_timeout`（`loaded:8 total:21`）と `gallery_loading_done` が実際に発火することを確認（ヘッドレスはソフトウェアレンダリングのため遅い）。
+  - **訂正（2026-08-18）**: 「両方飛んだ」のはヘッドレスが遅かったからではなく、**バグ2つを見ていた**。①事前コンパイルの待ちが永久に終わらず（three の `compileAsync` が `setTimeout` の中で throw し、`.then` では捕まらない）**扉が12秒の保険まで開かなかった** ②その12秒の時計は**扉が開いても止まらない**ので、4秒で開いた健全な入場でも13秒後に `gallery_loading_timeout` が飛んだ。両方直した（実測: 扉 4.5秒／`gallery_loading_timeout` は飛ばない）。**この指標は 2026-08-18 より前のデータを信用しない** ── 12秒以上滞在した来場者のほぼ全員に付いている。詳細は LESSONS 2026-08-18 の2件。
 
 ### 残（ユーザー作業）
 
