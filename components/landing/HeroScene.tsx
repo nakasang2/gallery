@@ -1063,6 +1063,16 @@ export default function HeroScene() {
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping
           gl.toneMappingExposure = 1.3
+          // **シェーダのエラー検査を本番では切る。**
+          // three は材質のプログラムを初めて使うとき `getProgramInfoLog` と
+          // `getShaderInfoLog`（×2）を呼ぶが、**この問い合わせは GPU がコンパイルと
+          // リンクを終えるまでメインスレッドを同期で止める**。しかも材質ごとに順番に
+          // 待つので、ドライバが並行してコンパイルする能力まで殺している。
+          // 実測（2026-08-18・ユーザーのPCの DevTools Performance）: 入場までの
+          // JavaScript 2,860ms のうち **`getShaderInfoLog` だけで 302ms（自己時間の1位）**。
+          // 切ると、壊れたシェーダがあっても黙って真っ黒になる（コンソールに出ない）ので
+          // **開発では付けたままにする** ── 直すのは開発中で、待たされるのは来場者。
+          gl.debug.checkShaderErrors = process.env.NODE_ENV !== 'production'
         }}
       >
         {fontsReady && <Scene heroImages={heroImages} panelArt={panelArt} panels={panels} />}

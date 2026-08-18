@@ -1,5 +1,15 @@
 # DECISIONS
 
+## 2026-08-18 シェーダのエラー検査を本番では切る（`checkShaderErrors = false`）
+
+- **発端**: ユーザーが自分のPCの Chrome DevTools（Performance）で `/demo` の入場前後を録画。**部屋に入るまで5,933ms、うち JavaScript が 2,860ms**。Rendering 64ms・Painting 93ms しかないので、**平面反射・N8AO・解像度2倍といった「PCだけの重い演出」は入場の遅さの原因ではない**ことが確定した（私が疑っていた側が消えた）。
+- **Bottom-up で自己時間の1位が `getShaderInfoLog`（302.3ms）**。three は材質のプログラムを**初めて使うとき**（`WebGLProgram` の `onFirstUse`）`getProgramInfoLog` と `getShaderInfoLog` を計3回呼ぶ。**この問い合わせは GPU がコンパイルとリンクを終えるまでメインスレッドを同期で止める**うえ、材質ごとに順番に待つので**ドライバが並行してコンパイルする能力まで殺す**。
+- **決定**: `gl.debug.checkShaderErrors = process.env.NODE_ENV !== 'production'` を**展示室（`GalleryApp`）とLP（`HeroScene`）の両方**の `onCreated` に置く。
+  - **three のソースで確認済み**: この分岐が行うのは `self.diagnostics` を組み立てることだけで、実際に必要な処理（`deleteShader`・`cachedUniforms`・`cachedAttributes`）は分岐の**外**にある。切っても機能は落ちない。
+  - **代償**: 壊れたシェーダがあっても黙って真っ黒になる（コンソールに出ない）。だから**開発では付けたまま**にする ── 直すのは開発中で、待たされるのは来場者。
+- **`compileAsync`（`Warmup`）があるのに効かなかった理由**: `compileAsync` は `KHR_parallel_shader_compile` で**コンパイル自体**を非同期にするが、**初回描画時の検証は同期のまま**。だから「事前にコンパイル済み」でも扉が開いたあとに止まる。
+- **見送ったもの**: 入場直後の停止を「滑らかに描けるまで扉を開けない」で吸収する案（枝 `claude/gallery-entry-settle`）は、**効果を証明できなかったのでマージしていない**。今回の計測で、そもそも狙う相手が違っていた可能性が高い。
+
 ## 2026-08-18 展示室（`components/gallery/*`）の軽量化は、実機で重さを確かめてから判断する（ユーザー選択）
 
 - **発端**: ユーザー「この軽量化は実際のギャラリーでもやってくれてるの？」── LPの第2弾（照明プール＋遠くの区画の後回し）は `components/landing/HeroScene.tsx` **だけ**の変更で、来場者が歩く展示室は別実装。
