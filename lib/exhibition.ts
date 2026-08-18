@@ -41,25 +41,86 @@ export function useIsOwnerEditing(): boolean {
   const user = useGallery((s) => s.user)
   const myGallery = useGallery((s) => s.myGallery)
   const visitor = useGallery((s) => s.visitor)
-  return !!user && !!myGallery && !visitor
+  return ownerEditingOf({ user, myGallery, visitor })
 }
 
-/** Effective settings for display: an owner's room drops the demo collection */
-function effectiveForOwner(s: Settings, ownerEditing: boolean): Settings {
+/** The same test over a plain store snapshot, so the hook and the imperative
+ *  (`useGallery.getState()`) call sites can never disagree. */
+function ownerEditingOf(st: { user: unknown; myGallery: unknown; visitor: unknown }): boolean {
+  return !!st.user && !!st.myGallery && !st.visitor
+}
+
+/**
+ * Effective settings for display: an owner's room drops the demo collection.
+ *
+ * **A room the visitor is walking is never allowed to come out EMPTY.** The sample
+ * show has two ways to end up with nothing on the walls, and both of them lock the
+ * visitor out rather than just looking wrong (ユーザー報告 2026-08-18・iPhone
+ * 「照明、額、アート、キャプション全てない。2DUIもBGMしかボタン表示されない」):
+ *
+ *   1. a guest whose stored settings say `showDemo: false` — the checkbox in the
+ *      settings panel writes that, and it persists per device. `/demo` then has no
+ *      works forever, and because the works are gone so are the per-work lights, the
+ *      plaques, the tour button and the stepper. **A signed-out guest has no settings
+ *      button at all** (that one needs `user`), so there is no way back.
+ *   2. a signed-in owner who HAS a room but has not uploaded anything yet — this
+ *      function used to drop the demo for them unconditionally. The comment on
+ *      `useIsOwnerEditing` already argued this case ("otherwise they'd get an empty
+ *      room under a 'ten works' HUD") but only guarded the no-room-row half of it.
+ *
+ * So when nothing of the viewer's own would hang, the demo collection stays — whatever
+ * the stored flag says. That also HEALS a device already stuck in state 1.
+ *
+ * **Visitor mode is left strictly alone.** A published room with no works must render
+ * empty; forcing the demo there would hang ten fictional works in a real artist's
+ * gallery.
+ */
+function effectiveDemo(
+  s: Settings,
+  ownerEditing: boolean,
+  isVisitor: boolean,
+  ownCount: number
+): Settings {
+  if (isVisitor) return s
+  if (ownCount === 0) return s.showDemo ? s : { ...s, showDemo: true }
   return ownerEditing && s.showDemo ? { ...s, showDemo: false } : s
+}
+
+/**
+ * The settings the room is actually drawn under (`effectiveDemo` applied).
+ *
+ * **Everything that asks "which works hang here" has to read THIS**, not
+ * `useSettings()`. The rule above used to be copied inline in `SettingsPanel` twice,
+ * and a copy that drifts makes the panel count works the 3D room does not show
+ * (LESSONS「同じ判断を2か所以上に写して書く」×3).
+ */
+export function useEffectiveSettings(): Settings {
+  const settings = useSettings()
+  const own = useOwnArtworks()
+  const ownerEditing = useIsOwnerEditing()
+  const isVisitor = useGallery((s) => !!s.visitor)
+  return useMemo(
+    () => effectiveDemo(settings, ownerEditing, isVisitor, own.length),
+    [settings, ownerEditing, isVisitor, own.length]
+  )
+}
+
+/** Non-hook form for imperative call sites (`useGallery.getState()` paths). */
+export function effectiveSettingsOf(
+  st: { visitor: unknown; user: unknown; myGallery: unknown },
+  settings: Settings,
+  own: ArtworkData[]
+): Settings {
+  return effectiveDemo(settings, ownerEditingOf(st), !!st.visitor, own.length)
 }
 
 /** Full placement: works in slot order + the physical slot each one hangs on (§11.13).
  *  The scene, minimap and walk controls read `slots` so a work lands on its chosen
  *  wall (and empty slots stay empty); everything else just needs `list`. */
 export function usePlacement(): Placement {
-  const settings = useSettings()
+  const eff = useEffectiveSettings()
   const own = useOwnArtworks()
-  const ownerEditing = useIsOwnerEditing()
-  return useMemo(
-    () => buildPlacement(effectiveForOwner(settings, ownerEditing), own),
-    [settings, own, ownerEditing]
-  )
+  return useMemo(() => buildPlacement(eff, own), [eff, own])
 }
 
 /** The list of currently exhibited works, in slot order (capped at the number of slots) */
