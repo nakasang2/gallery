@@ -198,6 +198,7 @@ export default function WallShadowBaker({
   specs,
   bakeKey,
   onBaked,
+  onAllBaked,
 }: {
   specs: BakeSpec[]
   /** Composition fingerprint — a change restarts the bake from scratch */
@@ -205,6 +206,11 @@ export default function WallShadowBaker({
   /** Called once per work as its tile lands: the room's shared atlas texture and
    *  the rect inside it this work occupies. */
   onBaked: (id: string, baked: BakedShadow) => void
+  /** Fired ONCE, when every work's tile is in the atlas — the only moment the image
+   *  is safe to save. **A half-baked atlas must never be stored**: its fingerprint
+   *  would match, so visitors would trust it, and the room would show shadows on
+   *  some works and none on others (DECISIONS 2026-08-18). */
+  onAllBaked?: (atlas: THREE.WebGLRenderTarget, cols: number, rows: number, tilePx: number) => void
 }) {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
@@ -284,10 +290,11 @@ export default function WallShadowBaker({
   )
 
   // Bake state machine. `queue` restarts whenever the composition changes.
-  const state = useRef<{ key: string; idx: number; stage: 'arm' | 'shoot' }>({
+  const state = useRef<{ key: string; idx: number; stage: 'arm' | 'shoot'; announced: boolean }>({
     key: '',
     idx: 0,
     stage: 'arm',
+    announced: false,
   })
 
   useFrame(() => {
@@ -296,8 +303,17 @@ export default function WallShadowBaker({
       s.key = bakeKey
       s.idx = 0
       s.stage = 'arm'
+      s.announced = false
     }
-    if (s.idx >= specs.length) return
+    if (s.idx >= specs.length) {
+      // Every tile is in. Announce once — `idx` stays at the end, so without the
+      // flag this would fire on every frame for the rest of the visit.
+      if (!s.announced && specs.length > 0) {
+        s.announced = true
+        onAllBaked?.(atlas, grid.cols, grid.rows, TILE)
+      }
+      return
+    }
     if (!gl.shadowMap.enabled) return // low tier: no shadow pipeline, keep fakes
     const spec = specs[s.idx]
 
