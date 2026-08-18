@@ -301,6 +301,19 @@ function Ghost({
     }
   }
 
+  // **速度はあとから届くことがある**（上のとおり既定値で先に立たせているため）。
+  // 生まれた瞬間の値を握ったままだと管理画面の設定が効かなくなるので、
+  // 届いたら移動速度とクリップの再生速度（歩幅）をまとめて入れ替える。
+  // 既定値のままなら計算し直すだけで見た目は変わらない。
+  useEffect(() => {
+    const s = stateRef.current
+    if (!s) return
+    const pace = walkSpeed * (0.92 + Math.random() * 0.16)
+    s.speed = pace
+    s.timeScale = pace / WALK_GROUND_SPEED
+    if (walkAction.current) walkAction.current.timeScale = s.timeScale
+  }, [walkSpeed])
+
   const walkWeight = useRef(0)
 
   useFrame((_, delta) => {
@@ -410,9 +423,17 @@ export default function GhostVisitors() {
     [slots, layout]
   )
 
-  // Admin-tunable walk speeds per model (site_config). Null until fetched — hold the
-  // figures until it resolves so each spawns at the right pace (set once, at mount).
-  const [cfg, setCfg] = useState<GhostConfig | null>(null)
+  // Admin-tunable walk speeds per model (site_config).
+  // **既定値で先に立たせる。人影の登場をネットワークの往復待ちにしない。**
+  // 以前はここが `null` で、`fetchGhostConfig()`（Supabaseへの往復）が返るまで
+  // 人影を1体もシーンに入れていなかった。その結果、**ローディング画面の裏で
+  // シェーダをまとめて作る `Warmup`（`compileAsync`）に間に合わず**、扉が開いた
+  // あとに来場者の目の前でプログラムが組み立てられていた。人影は骨で動く
+  // いちばん複雑な部品で、`!LOW_POWER` ＝ PCにしか出ないため、
+  // **「PCだけ・入場後1〜2秒カクつく」**というユーザー報告と形が一致する
+  // （2026-08-18・DevTools Performance で確認）。
+  // 届いた値は下の `Ghost` が歩幅ごと入れ替えるので、管理画面の設定は効いたまま。
+  const [cfg, setCfg] = useState<GhostConfig>(DEFAULT_GHOST)
   useEffect(() => {
     let alive = true
     fetchGhostConfig()
@@ -423,7 +444,7 @@ export default function GhostVisitors() {
     }
   }, [])
 
-  const count = !LOW_POWER && cfg
+  const count = !LOW_POWER
     ? visitor
       ? ghostCountForVisits(visitor.visitCount)
       : demoMode
@@ -450,7 +471,7 @@ export default function GhostVisitors() {
     return idx
   }, [count])
 
-  if (count === 0 || !cfg) return null
+  if (count === 0) return null
 
   return (
     <Suspense fallback={null}>
