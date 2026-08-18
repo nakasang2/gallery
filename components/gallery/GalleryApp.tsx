@@ -9,7 +9,7 @@ import { useExhibitionList } from '@/lib/exhibition'
 import { demoDesignOverrides } from '@/lib/artworks'
 import { useGallery } from '@/lib/store'
 import { useToast } from '@/lib/toast'
-import { walkRef, canvasRef, QUALITY } from '@/lib/controller'
+import { walkRef, canvasRef, camPose, QUALITY } from '@/lib/controller'
 import { PERF } from '@/lib/perfFlags'
 import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
@@ -219,6 +219,62 @@ function SettleGate({ armed, onSettled }: { armed: boolean; onSettled: () => voi
   return null
 }
 
+/** 歩いている間だけ解像度を落とし、**立ち止まったら最高画質に戻す**（`?perf=adaptive`）。
+ *
+ *  ギャラリーは「歩いて近づき、立ち止まって観る」もの。**観ている瞬間の解像度は落とせない**
+ *  一方、**動いている間のぼやけは動いていること自体に紛れる**。実測（ユーザーのPC・
+ *  2026-08-18）では、演出（反射床・N8AO・後処理）を全部切っても +2.4fps しか戻らず、
+ *  **効くのは画素数だけ**（等倍 33.6fps / 通常 13.8fps）。ならば「いつ画素を使うか」を
+ *  選ぶのが唯一まともな設計になる。
+ *
+ *  動きの判定は `camPose`（`WalkControls` が毎フレーム書くカメラの位置と向き）の差分。
+ *  **戻すのは静止が続いてから**（`STILL_MS`）── 立ち止まった直後に戻すと、歩きながらの
+ *  細かい停止で切り替えが連打される。落とすのは即座でよい（動いているので目立たない）。
+ *
+ *  **既定では無効。** 解像度の切り替えは描画バッファを作り直すため一瞬の引っかかりが
+ *  出うる（このファイルの `PerformanceMonitor` に「行ったり来たりは不快だった」という
+ *  記録がある）。実機で触って良ければ既定にする、というのがこの旗の目的。 */
+const STILL_MS = 400 // 静止がこれだけ続いたら最高画質へ戻す
+const MOVE_POS = 0.004 // 1フレームの移動量（m）がこれを超えたら「動いている」
+const MOVE_YAW = 0.002 // 同・向きの変化（rad）
+
+/** 歩行状態は**コンポーネントの外**に持つ。
+ *  `dpr` を変えると R3F は Canvas を再構成するので、`useRef` に持つと**落とした直後に
+ *  リセットされ、`moving` が false に戻って「戻す」側の条件（`moving && 静止が続いた`）に
+ *  二度と入れない**。実際、落ちたきり戻らない症状が出た（2026-08-18）。
+ *  `camPose` と同じく、React の再描画から独立した入れ物に置く。 */
+const adaptive = { started: false, moving: false, since: 0, x: 0, z: 0, yaw: 0 }
+
+function AdaptiveDpr({ onMoving }: { onMoving: (moving: boolean) => void }) {
+  useFrame(() => {
+    if (!adaptive.started) {
+      adaptive.started = true
+      adaptive.x = camPose.x
+      adaptive.z = camPose.z
+      adaptive.yaw = camPose.yaw
+      return
+    }
+    const dx = camPose.x - adaptive.x
+    const dz = camPose.z - adaptive.z
+    const dyaw = Math.abs(camPose.yaw - adaptive.yaw)
+    adaptive.x = camPose.x
+    adaptive.z = camPose.z
+    adaptive.yaw = camPose.yaw
+    const now = performance.now()
+    if (Math.hypot(dx, dz) > MOVE_POS || dyaw > MOVE_YAW) {
+      adaptive.since = now
+      if (!adaptive.moving) {
+        adaptive.moving = true
+        onMoving(true)
+      }
+    } else if (adaptive.moving && now - adaptive.since > STILL_MS) {
+      adaptive.moving = false
+      onMoving(false)
+    }
+  })
+  return null
+}
+
 export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { onShellReady?: () => void; demoTheme?: string | null; demo?: boolean }) {
   const t = useT()
   const ready = useGallery((s) => s.ready)
@@ -310,6 +366,15 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
       ? [1, 1]
       : QUALITY === 'high' ? [1, 2] : QUALITY === 'medium' ? [1, 1.5] : [1, 1.25]
   )
+  // `?perf=adaptive`: 歩き出したら等倍、止まったら元の上限へ戻す
+  const dprFull = useRef(dpr)
+  const onMoving = useCallback((moving: boolean) => {
+    setDpr(moving ? [1, 1] : dprFull.current)
+    // 診断モードでしか呼ばれない。**いま落ちているのか戻っているのかを外から読めるようにする**
+    // ── 「止まったら戻る」が本当に起きているかは、canvas の実解像度と突き合わせないと
+    // 分からない（プレビューでは描画が止まるので目視では確かめられなかった）。
+    document.body.dataset.perfDpr = moving ? 'low' : 'full'
+  }, [])
   const dprRef = useRef(dpr)
   const entryRef = useRef(
     resolveLayout(useGallery.getState().layout, useGallery.getState().layoutParams).entry
@@ -606,6 +671,8 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
           <Warmup armed={hydrated && (assetsIdle || waitedOut)} onDone={onWarm} />
           {/* 扉を開ける前に、実際のパイプラインが落ち着くのを待つ（上の `SettleGate`） */}
           <SettleGate armed={preOpen && !loadingDone} onSettled={onSettled} />
+          {/* 歩行中だけ解像度を落とす試験（既定は無効。上の `AdaptiveDpr` を参照） */}
+          {PERF.adaptive && loadingDone && <AdaptiveDpr onMoving={onMoving} />}
           <GalleryScene />
         </Canvas>
       )}
