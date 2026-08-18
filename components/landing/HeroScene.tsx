@@ -270,7 +270,10 @@ const SPOT_POOL = 8
 type SpotDef = {
   from: THREE.Object3D
   to: THREE.Object3D
-  color: string
+  /** **解析済みの色を持つ。** 毎フレーム `light.color.set('#ffeed6')` と文字列で渡すと、
+   *  three.js は正規表現で読み直す ── 8個 × 60fps ＝ 毎秒480回。軽くするための仕組みで
+   *  払う費用ではない（別視点レビュー 2026-08-18）。登録後に色は変わらないので1度だけ解く。 */
+  color: THREE.Color
   intensity: number
   angle: number
   distance: number
@@ -286,7 +289,7 @@ function Spot({ pos, target, color = '#ffeed6', intensity = 120, angle = 0.55, d
   const to = useRef<THREE.Object3D>(null!)
   useEffect(() => {
     if (!items || !from.current || !to.current) return
-    const def: SpotDef = { from: from.current, to: to.current, color, intensity, angle, distance }
+    const def: SpotDef = { from: from.current, to: to.current, color: new THREE.Color(color), intensity, angle, distance }
     items.push(def)
     return () => {
       const i = items.indexOf(def)
@@ -357,7 +360,7 @@ function SpotPool() {
       s.to.getWorldPosition(wp)
       tgt.position.copy(wp)
       tgt.updateMatrixWorld()
-      light.color.set(s.color)
+      light.color.copy(s.color)
       light.intensity = s.intensity
       light.angle = s.angle
       light.distance = s.distance
@@ -803,7 +806,34 @@ function Rig() {
  *
  *  ブラウザが暇になってから2段に分けて足す（14枚を一度に焼くと、その瞬間に長い停止が入る）。
  *  **スクロールが先に進んだら待たない** ── 再訪や `#pricing` 付きのURLで下から始まる場合、
- *  暇になるのを待っていると空の空間が見えてしまう。 */
+ *  暇になるのを待っていると空の空間が見えてしまう。
+ *
+ *  **スクロール側のしきい値は段ごとに別に置く。**
+ *  ここを「0.5画面ぶん」のような手前に共通で置くと、**暇になるのを待たずに14枚を一度に
+ *  焼いてしまい、歩き始めたその瞬間にカクつく**（2段に分けた意味が消える。別視点レビュー
+ *  2026-08-18）。逆に遅すぎると、速くスクロールした人に**空の廊下**が見えてしまう。
+ *  境界は霧（`far=38`）から引く:
+ *   - 通路の最初の作品（z=-46）が霧に入るのはカメラが z=-8 を過ぎたあたり ＝ 廊下の
+ *     歩行区間（`corEnd * 0.82`。`buildAnchors` と同じ式）の **約37%**。→ しきい値 35%。
+ *   - 大部屋の入口（z=-88）が霧に入るのはカメラ z=-50 ＝ 廊下を抜けたあと。
+ *     → しきい値は `corEnd` の 90%（そこでカメラは z≈-33 で、入口まで55ありまだ霧の中）。 */
+const FAR_APPROACH_RATIO = 0.35
+const FAR_HALL_RATIO = 0.9
+
+/** いまのスクロール位置が要求する最小の段。`features` がまだ測れない初回描画では、
+ *  画面1つぶんを控えめな代わりにする。 */
+function stepRequiredByScroll(): number {
+  const vh = window.innerHeight || 1
+  const feat = document.getElementById('features')
+  if (!feat) return window.scrollY > vh ? 2 : 0
+  const corEnd = feat.offsetTop + feat.offsetHeight - vh
+  const walkSpan = Math.max(1, corEnd * 0.82)
+  const y = window.scrollY
+  if (y > corEnd * FAR_HALL_RATIO) return 2
+  if (y > walkSpan * FAR_APPROACH_RATIO) return 1
+  return 0
+}
+
 function useFarSections(): number {
   const [step, setStep] = useState(0)
   useEffect(() => {
@@ -812,13 +842,15 @@ function useFarSections(): number {
     const bump = () => {
       if (!cancelled) setStep((n) => Math.max(n, step + 1))
     }
-    // 既に下まで来ているなら、暇を待たずに全部出す
-    if (window.scrollY > window.innerHeight * 0.5) {
-      setStep(2)
+    // スクロールが先に進んでいるなら、暇を待たずにそこまで出す（再訪・`#pricing` 付きのURL）
+    const need = stepRequiredByScroll()
+    if (need > step) {
+      setStep(need)
       return
     }
     const onScroll = () => {
-      if (window.scrollY > window.innerHeight * 0.5) setStep(2)
+      const n = stepRequiredByScroll()
+      if (n > step) setStep(n)
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     const ric = typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback : null
