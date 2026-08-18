@@ -480,7 +480,7 @@ export const en = {
     bakeRunning: 'Baking the light… {done} / {total}',
     bakeWait: 'Please keep this page open — switching tabs pauses it.',
     bakeStale: 'The baked light is out of date.',
-    bakeStaleNote: 'Your show stays visible either way (each visitor\u2019s device works it out on arrival). Updating makes them arrive faster, and brings the shadows back on phones.',
+    bakeStaleNote: 'Baking again gives your visitors an optimised, higher-quality show.',
     bakeUpdate: 'Bake the light again',
     bakeFresh: 'The baked light is up to date.',
     bakeSkipped: 'The baked light could not be saved (not enough storage left). Your show is published.',

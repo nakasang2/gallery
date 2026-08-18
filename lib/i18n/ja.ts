@@ -449,7 +449,7 @@ export const ja: Dictionary = {
     bakeRunning: '光を焼いています… {done} / {total}',
     bakeWait: 'このままお待ちください。ほかのタブに移ると止まります。',
     bakeStale: '光の焼き込みが古くなっています。',
-    bakeStaleNote: '更新しなくても展示はそのまま見られます（来場者の端末で毎回計算されます）。更新すると、来場者の入場が速くなり、スマホでも影が出ます。',
+    bakeStaleNote: '焼き直すと、最適化された高品質な展示を来場者にお届けできます。',
     bakeUpdate: '光を焼き直す',
     bakeFresh: '光の焼き込みは最新です。',
     bakeSkipped: '光の焼き込みを保存できませんでした（容量の空きが足りません）。展示は公開されています。',
