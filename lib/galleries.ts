@@ -1,7 +1,7 @@
 // Gallery CRUD — gallery_id-centric (REQUIREMENTS.md 10.2 / 10.9).
 // The DB row is the source of truth for a signed-in user's space settings;
 // the plan variable caps how many galleries one user can own.
-import { supabase } from './supabase'
+import { supabase, accessToken } from './supabase'
 import { PLAN, effectiveSlotCount, gradeForNewRoom, tallyRooms } from './limits'
 import {
   TEMPLATES,
@@ -513,8 +513,47 @@ export async function updateGalleryDetails(
   if (error) throw error
 }
 
-/** Deletes the gallery (placements cascade; the works themselves stay in the library) */
+/** Remove this room's files from R2 — its BGM, its logo and its baked lighting
+ *  atlases. Must run BEFORE the row is deleted: /api/storage/delete authorizes a
+ *  room by reading `galleries.owner_id`, so once the row is gone there is nothing
+ *  left to prove the id is a room of yours rather than one of your works.
+ *
+ *  Throws unless the files are provably dealt with — 501 means R2 is not
+ *  configured at all (a local build), so there is nothing to strand. */
+async function deleteGalleryFiles(id: string): Promise<void> {
+  // `accessToken()` rather than a bare getSession(): this now GATES the delete, so
+  // a session that merely needed refreshing — routine on a phone whose tab was
+  // frozen — would otherwise turn into "Please sign in again." on a room the
+  // artist is perfectly entitled to remove (docs/LESSONS.md 2026-07-29).
+  const token = await accessToken()
+  if (!token) throw new Error('Please sign in again.')
+
+  const res = await fetch('/api/storage/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ galleryId: id }),
+  })
+  // 404 = no row of ours with this id, which is where a second click lands after
+  // the first one succeeded. Nothing to clean and nothing left to delete, so let
+  // the caller finish quietly rather than report a failure for work already done.
+  if (res.ok || res.status === 501 || res.status === 404) return
+  const detail = (await res.json().catch(() => null)) as { error?: string } | null
+  throw new Error(detail?.error ?? `Could not remove the room's files (${res.status}).`)
+}
+
+/** Deletes the gallery (placements cascade; the works themselves stay in the library)
+ *
+ *  Unlike deleteArtwork — which drops the row first and treats storage cleanup as
+ *  best-effort — the files go FIRST here, and a cleanup failure ABORTS the delete.
+ *  Two reasons, both specific to rooms:
+ *    - the row is what authorizes the cleanup, so it cannot be the second step;
+ *    - the row is also the only remaining handle on those files. Deleting it
+ *      anyway would strand bytes that keep counting against the artist's quota
+ *      (measured from the bucket, docs/DECISIONS.md 2026-07-27) with no way for
+ *      them to ever see or reclaim it. Leaving the room in place instead makes
+ *      the whole operation retryable: press delete again. */
 export async function deleteGallery(id: string): Promise<void> {
+  await deleteGalleryFiles(id)
   const { error } = await supabase!.from('galleries').delete().eq('id', id)
   if (error) throw error
 }
