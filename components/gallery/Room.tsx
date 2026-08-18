@@ -8,7 +8,9 @@ import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { walkRef, LOW_POWER, QUALITY } from '@/lib/controller'
 import { PERF } from '@/lib/perfFlags'
 import { getFloorTextures, getPlasterBump, getPlasterNormal, getConcreteMaps, getBlobShadowTexture, disposeAll } from './textures'
-import { useDoorway, DOOR_W, DOOR_H, type WallId } from './doorway'
+import { useDoorway, DOOR_W, type WallId } from './doorway'
+import { wallPieces, type LitRect } from './lightPlan'
+import type { LightAtlas } from './LightmapBaker'
 import { openExhibitionInfo } from './TitleWall'
 import SpotWithTarget from './SpotWithTarget'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
@@ -67,6 +69,7 @@ export function WallPiece({
   wallWidth,
   color,
   finish,
+  lit,
   onSelect,
 }: {
   w: number
@@ -76,29 +79,61 @@ export function WallPiece({
   wallWidth: number
   color: number
   finish: WallFinish
+  /** 焼いた光（`LightmapBaker`）と、この板が占める区画。**渡されたときだけ**
+   *  「照らされる面」から「もう明るさが決まっている面」に変わる。渡さなければ
+   *  従来どおりの実照明の材質 ── ダッシュボードのテーマプレビューはこちらを使う
+   *  （小さな箱に照明が2つあるだけなので、焼く相手がいない）。 */
+  lit?: { tex: THREE.Texture; rect: LitRect }
   onSelect?: (e: ThreeEvent<MouseEvent>) => void
 }) {
   const gl = useThree((s) => s.gl)
   const { map, normalMap, roughnessMap, normalScale } = useWallMaps(w, h, offU, offV, finish)
+  // 焼いた光は板ごとに違う区画を読むので、**uv とは別の2枚目の uv**（`uv1`）で addressing する。
+  // uv のほうは仕上げのマップ（タイリング）が使っているので、そこへ相乗りはできない。
+  // **依存は区画の4つの数値で持つ**（`lit` の入れ物は毎レンダー作り直されるので、
+  // オブジェクトを依存にすると壁の枚数ぶんのジオメトリを毎フレーム作り直して捨てる）。
+  const u0 = lit?.rect.u0
+  const v0 = lit?.rect.v0
+  const u1 = lit?.rect.u1
+  const v1 = lit?.rect.v1
+  const geo = useMemo(() => {
+    const g = new THREE.PlaneGeometry(w, h)
+    if (u0 === undefined || v0 === undefined || u1 === undefined || v1 === undefined) return g
+    const uv = g.getAttribute('uv') as THREE.BufferAttribute
+    const uv1 = new THREE.Float32BufferAttribute(uv.count * 2, 2)
+    for (let i = 0; i < uv.count; i++) {
+      uv1.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0))
+    }
+    g.setAttribute('uv1', uv1)
+    return g
+  }, [w, h, u0, v0, u1, v1])
+  useEffect(() => () => disposeAll([geo]), [geo])
   return (
     <mesh
       position={[offU + w / 2 - wallWidth / 2, offV + h / 2 - CEIL_H / 2, 0]}
-      receiveShadow
+      geometry={geo}
+      receiveShadow={!lit}
       onClick={onSelect}
       onPointerOver={onSelect ? () => (gl.domElement.style.cursor = 'pointer') : undefined}
       onPointerOut={onSelect ? () => (gl.domElement.style.cursor = '') : undefined}
     >
-      <planeGeometry args={[w, h]} />
-      {/* The normal map catches grazing light and the roughness map gives uneven sheen */}
-      <meshStandardMaterial
-        color={color}
-        map={map}
-        roughness={0.93}
-        normalMap={normalMap}
-        normalScale={new THREE.Vector2(normalScale, normalScale)}
-        roughnessMap={roughnessMap}
-        envMapIntensity={0.25}
-      />
+      {lit ? (
+        // 焼いた面。**照明を1灯も見ない材質**にするのが要点で、`meshStandardMaterial` の
+        // まま lightMap を足すと、シーンに残っている実照明のぶんが二重に乗る
+        // （そして実照明はカメラの近くだけを選び直すので、歩くと壁の明るさが脈打つ）。
+        <meshBasicMaterial color={color} map={map} lightMap={lit.tex} lightMapIntensity={1} />
+      ) : (
+        /* The normal map catches grazing light and the roughness map gives uneven sheen */
+        <meshStandardMaterial
+          color={color}
+          map={map}
+          roughness={0.93}
+          normalMap={normalMap}
+          normalScale={new THREE.Vector2(normalScale, normalScale)}
+          roughnessMap={roughnessMap}
+          envMapIntensity={0.25}
+        />
+      )}
     </mesh>
   )
 }
@@ -108,38 +143,47 @@ export function WallPiece({
  *  `holeU` は壁の左端からの距離で、`./doorway` の `useDoorway` が返す値をそのまま使う
  *  ── 扉を建てる `RoomPortals` と同じ答えなので、穴と扉がずれることがない。 */
 function Wall({
+  id,
   width,
   color,
   finish,
   position,
   rotationY,
   holeU,
+  lightmap,
   onSelect,
 }: {
+  /** 焼いた区画を引く鍵。`lightPlan` の `wall:{id}:{n}` と綴りが一致していること。 */
+  id: WallId
   width: number
   color: number
   finish: WallFinish
   position: [number, number, number]
   rotationY: number
   holeU?: number
+  lightmap?: LightAtlas | null
   /** 渡した壁は押せるようになる（西壁＝タイトルウォールだけ。展示情報を開く） */
   onSelect?: (e: ThreeEvent<MouseEvent>) => void
 }) {
-  const pieces = useMemo(() => {
-    if (holeU === undefined) return [{ w: width, h: CEIL_H, offU: 0, offV: 0 }]
-    const u0 = holeU - DOOR_W / 2
-    const u1 = holeU + DOOR_W / 2
-    return [
-      { w: u0, h: CEIL_H, offU: 0, offV: 0 }, // 開口の左
-      { w: width - u1, h: CEIL_H, offU: u1, offV: 0 }, // 開口の右
-      { w: DOOR_W, h: CEIL_H - DOOR_H, offU: u0, offV: DOOR_H }, // 開口の上（まぐさの上）
-    ].filter((p) => p.w > 1e-4 && p.h > 1e-4)
-  }, [width, holeU])
+  // 割り方は `lightPlan.wallPieces` の1本だけが決める ── 焼く側と貼る側で板の並びが
+  // 1枚でもずれると、**壁に別の壁の光が乗る**（しかも画面は壊れないので気づけない）。
+  const pieces = useMemo(() => wallPieces(width, holeU), [width, holeU])
   return (
     <group position={position} rotation-y={rotationY}>
-      {pieces.map((p) => (
-        <WallPiece key={`${p.offU},${p.offV}`} {...p} wallWidth={width} color={color} finish={finish} onSelect={onSelect} />
-      ))}
+      {pieces.map((p, i) => {
+        const rect = lightmap?.rects[`wall:${id}:${i}`]
+        return (
+          <WallPiece
+            key={`${p.offU},${p.offV}`}
+            {...p}
+            wallWidth={width}
+            color={color}
+            finish={finish}
+            lit={lightmap && rect ? { tex: lightmap.tex, rect } : undefined}
+            onSelect={onSelect}
+          />
+        )
+      })}
     </group>
   )
 }
@@ -351,7 +395,75 @@ export function ThemedSkylight({ theme, hw, hd }: { theme: ThemeDef; hw: number;
   )
 }
 
-export default function Room({ theme, layout }: { theme: ThemeDef; layout: LayoutDef }) {
+/** 自立壁（間仕切り）1枚。箱なので材質は1つしか持てず、**見える5面を1つの `uv1` で
+ *  ライトマップへ割り当てる** ── `BoxGeometry` の頂点は面ごとに4つずつ +X, -X, +Y, -Y,
+ *  +Z, -Z の順に並ぶので、その順で区画を書き込む。底面（-Y）は床に接していて見えないので
+ *  天面と同じ区画を指しておく（外に出すと真っ黒な面が1枚できる）。 */
+function Partition({
+  p,
+  index,
+  theme,
+  maps,
+  lightmap,
+}: {
+  p: { x: number; z: number; w: number; t: number; h: number }
+  index: number
+  theme: ThemeDef
+  maps: ReturnType<typeof useWallMaps>
+  // i18n-ok: 型注釈（画面に出る文言ではない）
+  lightmap?: LightAtlas | null
+}) {
+  const rects = lightmap
+    ? (['px', 'nx', 'py', 'py', 'pz', 'nz'] as const).map((f) => lightmap.rects[`part:${index}:${f}`])
+    : null
+  const lit = rects && rects.every(Boolean) ? { tex: lightmap!.tex, rects: rects as LitRect[] } : null
+  // 依存は**区画そのものを1本の文字列にしたもの**（`WallPiece` と同じ理由: 入れ物の同一性で
+  // 依存を張ると、毎レンダー箱を作り直して捨てる）
+  const litKey = lit ? lit.rects.map((r) => `${r.u0},${r.v0},${r.u1},${r.v1}`).join('|') : ''
+  const geo = useMemo(() => {
+    const g = new THREE.BoxGeometry(p.w, p.h, p.t)
+    if (!litKey) return g
+    const rs = litKey.split('|').map((s) => s.split(',').map(Number))
+    const uv = g.getAttribute('uv') as THREE.BufferAttribute
+    const uv1 = new THREE.Float32BufferAttribute(uv.count * 2, 2)
+    for (let i = 0; i < uv.count; i++) {
+      const [a0, b0, a1, b1] = rs[Math.floor(i / 4)]
+      uv1.setXY(i, a0 + uv.getX(i) * (a1 - a0), b0 + uv.getY(i) * (b1 - b0))
+    }
+    g.setAttribute('uv1', uv1)
+    return g
+  }, [p.w, p.h, p.t, litKey])
+  useEffect(() => () => disposeAll([geo]), [geo])
+  return (
+    <mesh position={[p.x, p.h / 2, p.z]} geometry={geo} castShadow receiveShadow={!lit}>
+      {lit ? (
+        <meshBasicMaterial color={theme.accentWall} map={maps.map} lightMap={lit.tex} lightMapIntensity={1} />
+      ) : (
+        <meshStandardMaterial
+          color={theme.accentWall}
+          map={maps.map}
+          roughness={0.95}
+          normalMap={maps.normalMap}
+          normalScale={new THREE.Vector2(maps.normalScale, maps.normalScale)}
+          roughnessMap={maps.roughnessMap}
+          envMapIntensity={0.25}
+        />
+      )}
+    </mesh>
+  )
+}
+
+export default function Room({
+  theme,
+  layout,
+  lightmap = null,
+}: {
+  theme: ThemeDef
+  layout: LayoutDef
+  /** 焼いた部屋の光（`LightmapBaker`）。焼き上がるまでは null で、その間だけ従来の
+   *  実照明の材質で描く ── 扉が開く前に焼き終わるので、来場者がこの状態を見ることはない。 */
+  lightmap?: LightAtlas | null
+}) {
   const { hw, hd } = layout
   const h = CEIL_H
 
@@ -380,20 +492,22 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
       <ThemedCeiling theme={theme} hw={hw} hd={hd} />
 
       {/* Walls (the west face uses the accent color for the title wall) */}
-      <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, -hd]} rotationY={0} holeU={holeU('north')} />
-      <Wall width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, hd]} rotationY={Math.PI} holeU={holeU('south')} />
-      <Wall width={hd * 2} color={theme.wall} finish={finish} position={[hw, h / 2, 0]} rotationY={-Math.PI / 2} holeU={holeU('east')} />
+      <Wall id="north" width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, -hd]} rotationY={0} holeU={holeU('north')} lightmap={lightmap} />
+      <Wall id="south" width={hw * 2} color={theme.wall} finish={finish} position={[0, h / 2, hd]} rotationY={Math.PI} holeU={holeU('south')} lightmap={lightmap} />
+      <Wall id="east" width={hd * 2} color={theme.wall} finish={finish} position={[hw, h / 2, 0]} rotationY={-Math.PI / 2} holeU={holeU('east')} lightmap={lightmap} />
       {/* 西壁＝タイトルウォール。**壁のどこを押しても展示情報が開く**（ユーザー要望
           2026-08-13「奥の壁を押下したときに表示したい」）。板（`TitleWall`）だけが
           押せた頃は、板の外＝壁の端を押しても何も起きなかった。振る舞いは
           `openExhibitionInfo` の1か所が決めている。 */}
       <Wall
+        id="west"
         width={hd * 2}
         color={theme.accentWall}
         finish={finish}
         position={[-hw, h / 2, 0]}
         rotationY={Math.PI / 2}
         holeU={holeU('west')}
+        lightmap={lightmap}
         onSelect={openExhibitionInfo}
       />
 
@@ -442,18 +556,7 @@ export default function Room({ theme, layout }: { theme: ThemeDef; layout: Layou
       {/* Central free-standing walls (depending on layout) */}
       {layout.partitions.map((p, i) => (
         <group key={i}>
-          <mesh position={[p.x, p.h / 2, p.z]} castShadow receiveShadow>
-            <boxGeometry args={[p.w, p.h, p.t]} />
-            <meshStandardMaterial
-              color={theme.accentWall}
-              map={partitionMaps.map}
-              roughness={0.95}
-              normalMap={partitionMaps.normalMap}
-              normalScale={new THREE.Vector2(partitionMaps.normalScale, partitionMaps.normalScale)}
-              roughnessMap={partitionMaps.roughnessMap}
-              envMapIntensity={0.25}
-            />
-          </mesh>
+          <Partition p={p} index={i} theme={theme} maps={partitionMaps} lightmap={lightmap} />
           <mesh position={[p.x, p.h + 0.03, p.z]}>
             <boxGeometry args={[p.w + 0.06, 0.06, p.t + 0.06]} />
             <meshStandardMaterial color={TRIM_COLOR} roughness={0.6} />
