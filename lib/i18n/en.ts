@@ -475,16 +475,18 @@ export const en = {
     statLikes: 'Likes',
     statGuestNotes: 'Guest notes',
     deleteGallery: 'Delete',
-    // Baked lighting (DECISIONS 2026-08-18). The wait is deliberately in the
-    // foreground, so the words have to say what is happening and that it will end.
-    bakeRunning: 'Baking the light… {done} / {total}',
+    // Updating how a show is displayed (internally: baking the wall shadows).
+    // **Never says "bake" to the artist** (ユーザー指示 2026-08-18: too much jargon).
+    // "Update" alone would imply the edits are not live yet — they are; only the
+    // optimisation is stale — so every string is scoped to the DISPLAY.
+    bakeRunning: 'Updating how your show is displayed… {done} / {total}',
     bakeWait: 'Please keep this page open — switching tabs pauses it.',
-    bakeStale: 'The baked light is out of date.',
-    bakeStaleNote: 'Baking again gives your visitors an optimised, higher-quality show.',
-    bakeUpdate: 'Bake the light again',
-    bakeFresh: 'The baked light is up to date.',
-    bakeSkipped: 'The baked light could not be saved (not enough storage left). Your show is published.',
-    bakeFailed: 'The baked light could not be saved. Your show is published.',
+    bakeStale: 'You can update how your show is displayed.',
+    bakeStaleNote: 'Running this once after editing delivers a higher-quality show to your visitors.',
+    bakeUpdate: 'Update the display',
+    bakeFresh: 'Your show’s display is up to date.',
+    bakeSkipped: 'The display update could not be saved (not enough storage left). Your show is published.',
+    bakeFailed: 'The display update could not be saved. Your show is published.',
     deleteGalleryConfirm: 'Delete “{name}”? Its public page and every placement go with it.',
     saveDetailsFailed: 'Could not save the details: {msg}',
     actionFailed: '{label} failed: {msg}',
