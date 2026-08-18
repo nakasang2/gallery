@@ -820,17 +820,25 @@ function Rig() {
 const FAR_APPROACH_RATIO = 0.35
 const FAR_HALL_RATIO = 0.9
 
-/** いまのスクロール位置が要求する最小の段。`features` がまだ測れない初回描画では、
- *  画面1つぶんを控えめな代わりにする。 */
-function stepRequiredByScroll(): number {
+/** しきい値そのもの（スクロール位置のpx）。**測るのは一度だけ**にする ──
+ *  `offsetTop` / `offsetHeight` はスクロール中に読むと強制同期レイアウトを起こすので、
+ *  スクロールのたびに読むと**いちばんカクついてほしくない場面で自分がカクつかせる**
+ *  （このファイルの `recompute()` が同じ理由でリサイズ時にしか測っていない）。
+ *  `features` がまだ測れない初回描画では、画面1つぶんを控えめな代わりにする。 */
+function measureFarThresholds(): { approach: number; hall: number } {
   const vh = window.innerHeight || 1
   const feat = document.getElementById('features')
-  if (!feat) return window.scrollY > vh ? 2 : 0
+  if (!feat) return { approach: vh, hall: vh }
   const corEnd = feat.offsetTop + feat.offsetHeight - vh
   const walkSpan = Math.max(1, corEnd * 0.82)
+  return { approach: walkSpan * FAR_APPROACH_RATIO, hall: corEnd * FAR_HALL_RATIO }
+}
+
+/** いまのスクロール位置が要求する最小の段。 */
+function stepRequiredByScroll(at: { approach: number; hall: number }): number {
   const y = window.scrollY
-  if (y > corEnd * FAR_HALL_RATIO) return 2
-  if (y > walkSpan * FAR_APPROACH_RATIO) return 1
+  if (y > at.hall) return 2
+  if (y > at.approach) return 1
   return 0
 }
 
@@ -843,21 +851,28 @@ function useFarSections(): number {
       if (!cancelled) setStep((n) => Math.max(n, step + 1))
     }
     // スクロールが先に進んでいるなら、暇を待たずにそこまで出す（再訪・`#pricing` 付きのURL）
-    const need = stepRequiredByScroll()
+    let at = measureFarThresholds()
+    const need = stepRequiredByScroll(at)
     if (need > step) {
       setStep(need)
       return
     }
     const onScroll = () => {
-      const n = stepRequiredByScroll()
+      const n = stepRequiredByScroll(at)
       if (n > step) setStep(n)
     }
+    const onResize = () => {
+      at = measureFarThresholds()
+      onScroll()
+    }
     window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onResize)
     const ric = typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback : null
     const id = ric ? ric(bump, { timeout: 2500 }) : window.setTimeout(bump, 900)
     return () => {
       cancelled = true
       window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onResize)
       if (ric) window.cancelIdleCallback(id as number)
       else window.clearTimeout(id as number)
     }
