@@ -14,6 +14,7 @@ import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll, type TitleWallText } 
 import { walkRef } from '@/lib/controller'
 import { loadImage } from '@/lib/upload'
 import SpotWithTarget from './SpotWithTarget'
+import { PERF } from '@/lib/perfFlags'
 import LightCone from './LightCone'
 import TrackFixture, { fixtureAperture } from './TrackFixture'
 
@@ -141,6 +142,8 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
       </mesh>
       {/* decay 2 = the same physical falloff as the exhibit spots; intensity is
           rebalanced for the ~3.6m throw so the board reads as before */}
+      {/* `?perf=nolights` は測定専用（照明19個が1ピクセルあたりの重さの正体かを測る） */}
+      {PERF.lights && (
       <SpotWithTarget
         position={[-layout.hw + 3.4, CEIL_H - 0.2, 0]}
         targetPosition={[-layout.hw, 2.5, 0]}
@@ -150,6 +153,7 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
         penumbra={0.7}
         decay={2}
       />
+      )}
       <LightCone
         from={fixtureAperture(
           new THREE.Vector3(-layout.hw + 3.4, CEIL_H - 0.2, 0),

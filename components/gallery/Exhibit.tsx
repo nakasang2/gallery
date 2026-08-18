@@ -10,6 +10,7 @@ import { walkRef, QUALITY } from '@/lib/controller'
 import { setFocusIntent } from '@/lib/analytics'
 import { getArtTexture, makePlaqueTexture, getFrameFinish, getSoftShadowTexture, getCanvasWeave, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
+import { PERF } from '@/lib/perfFlags'
 import LightCone from './LightCone'
 import TrackFixture, { fixtureAperture } from './TrackFixture'
 import { useVideoArt } from './VideoArt'
@@ -401,6 +402,8 @@ export default function Exhibit({
           factor rebalances theme.spotIntensity for each throw distance
           (ceiling track ~4m vs picture light's virtual emitter ~1.5m) so the
           exposure at the artwork's centre matches between the two modes. */}
+      {/* `?perf=nolights` は測定専用（照明19個が1ピクセルあたりの重さの正体かを測る） */}
+      {PERF.lights && (
       <SpotWithTarget
         position={[lightPos.x, lightPos.y, lightPos.z]}
         targetPosition={[spotTarget.x, spotTarget.y, spotTarget.z]}
@@ -412,6 +415,7 @@ export default function Exhibit({
         castShadow={castRealShadow}
         shadowMapSize={QUALITY === 'high' ? 2048 : 1024}
       />
+      )}
 
       {/* Fake volumetric shaft — ceiling tracks only. A picture light sits ~0.5m
           from the work: no visible air shaft in reality, and a cone radiating from

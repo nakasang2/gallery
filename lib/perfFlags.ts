@@ -17,7 +17,10 @@
  *   noao   … N8AO（接触陰影）だけ外す
  *   nofx   … 後処理をまるごと外す（AO・Bloom・SMAA・4xマルチサンプル・霧）
  *   norefl … 床の平面反射を外す（ふつうの光沢床にする）
- *   off    … 上の全部
+ *   nolights … **作品ごとのスポットライトを外す（測定専用）**。見た目は暗くなるので出荷用では
+ *              ない。**「1ピクセルあたりの計算の重さは、照明19個のせいか」を答えるためだけ**の旗
+ *              ── ここが大きく戻るなら、ゲームと同じ「照明の焼き込み」が本命になる
+ *   off    … 上の全部（`nolights` は含めない。暗くなりすぎて他の比較ができないため）
  *   adaptive … **歩いている間だけ解像度を落とし、立ち止まったら最高画質に戻す**
  *              （切る話ではなく別方式の試験。下の `adaptive` を参照）
  *
@@ -36,6 +39,14 @@ export type PerfFlags = {
   readonly reflector: boolean
   /** 描画解像度を通常どおりにするか（false なら等倍） */
   readonly fullDpr: boolean
+  /** 作品ごとのスポットライトを出すか（`?perf=nolights` で false。**測定専用**）
+   *
+   *  three は前方レンダリングなので、**シーンにある照明の数だけ、全ピクセルで計算が回る**。
+   *  15点の部屋では19個。ゲームがこの計算を「開発時に焼き込んで絵にしてしまう」のは、
+   *  まさにここが重いから。**この旗は、その仮説を測るためだけにある**（見た目は暗くなる）。
+   *  ※`off` には含めない ── 暗くなりすぎて他の項目と比較できなくなるため。 */
+  readonly lights: boolean
+
   /** 歩行中だけ解像度を落とし、静止したら戻すか（`?perf=adaptive`）
    *
    *  ギャラリーは**歩いて近づき、立ち止まって観る**もの。観ている瞬間の解像度は
@@ -51,7 +62,7 @@ export type PerfFlags = {
 }
 
 function read(): PerfFlags {
-  const none: PerfFlags = { on: false, fx: true, ao: true, reflector: true, fullDpr: true, adaptive: false }
+  const none: PerfFlags = { on: false, fx: true, ao: true, reflector: true, fullDpr: true, lights: true, adaptive: false }
   if (typeof window === 'undefined') return none
   let raw: string | null = null
   try {
@@ -69,6 +80,7 @@ function read(): PerfFlags {
     ao: !(all || set.has('nofx') || set.has('noao')),
     reflector: !(all || set.has('norefl')),
     fullDpr: !(all || set.has('dpr1')),
+    lights: !set.has('nolights'),
     adaptive: set.has('adaptive'),
   }
   // 効いていることが分かるように1行だけ出す（診断モードのときだけ）
@@ -79,6 +91,7 @@ function read(): PerfFlags {
     接触陰影: flags.ao,
     反射床: flags.reflector,
     解像度: flags.adaptive ? '歩行中だけ落とす' : flags.fullDpr ? '通常' : '等倍',
+    作品の照明: flags.lights,
     自動引き下げ: '停止',
   })
   return flags

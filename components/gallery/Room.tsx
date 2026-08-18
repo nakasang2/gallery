@@ -192,6 +192,8 @@ function Bench({ x, z, theme }: { x: number; z: number; theme: ThemeDef }) {
       {/* Downlight directly above the bench (casts a contact shadow). Kept to a
           tight cone — a wide one paints a huge unexplained bright patch across
           the floor in dark themes */}
+      {/* `?perf=nolights` は測定専用（照明19個が1ピクセルあたりの重さの正体かを測る） */}
+      {PERF.lights && (
       <SpotWithTarget
         position={[0, CEIL_H - 0.1, 0]}
         targetPosition={[0, 0, 0]}
@@ -202,6 +204,7 @@ function Bench({ x, z, theme }: { x: number; z: number; theme: ThemeDef }) {
         decay={2}
         castShadow
       />
+      )}
     </group>
   )
 }
