@@ -2,7 +2,7 @@
 // 3D gallery core: R3F Canvas + HUD/panels + guided tour
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { PerformanceMonitor, useProgress } from '@react-three/drei'
 import { resolveLayout, THEMES } from '@/lib/presets'
 import { useExhibitionList } from '@/lib/exhibition'
@@ -182,6 +182,42 @@ function Warmup({ armed, onDone }: { armed: boolean; onDone: () => void }) {
   return null
 }
 
+/** 扉を開ける前に、**実際のパイプラインで滑らかに描けること**を確かめる番。
+ *
+ *  `Warmup` の `compileAsync` が作るのは**シーンの中の材質のシェーダだけ**で、
+ *  ポスト処理（N8AO/Bloom/SMAA）・反射床の内部材質・壁の影の焼き直しは**その外側**にある。
+ *  何が重いかを個別に列挙するのはやめ、**「連続して速く描けた」ことを合図にする** ──
+ *  原因が入れ替わっても効くし、新しい演出を足したときに列挙を忘れる余地が無い。
+ *
+ *  実測（2026-08-18・`/demo`・PC相当）: 扉が開いた直後に **273ms と 245ms の停止が2回**。
+ *  正体は「扉が開いてから設定を2回書き換えていた」ことで、そのたびに `bakeKey` が変わり
+ *  影を全部焼き直していた。書き換えを扉の手前（`preOpen`）へ移し、この番が焼き直しを
+ *  待ってから開ける。
+ *
+ *  **上限を切ってある**ので、遅い機械でロード画面が伸び続けることはない（切れたら開ける）。
+ *  隠れたタブでは rAF が止まって delta が巨大になるので数えない。 */
+const SETTLE_FRAME_MS = 50 // これより遅いフレームは「停止」とみなす（20fps相当）
+const SETTLE_FRAMES = 6 // 連続でこの本数を滑らかに描けたら合格（約100ms）
+const SETTLE_CAP_MS = 1500 // これ以上は待たない
+
+function SettleGate({ armed, onSettled }: { armed: boolean; onSettled: () => void }) {
+  const good = useRef(0)
+  const startedAt = useRef(0)
+  const done = useRef(false)
+  useFrame((_, delta) => {
+    if (!armed || done.current) return
+    if (!startedAt.current) startedAt.current = performance.now()
+    if (document.hidden) return
+    if (delta * 1000 < SETTLE_FRAME_MS) good.current++
+    else good.current = 0
+    if (good.current >= SETTLE_FRAMES || performance.now() - startedAt.current > SETTLE_CAP_MS) {
+      done.current = true
+      onSettled()
+    }
+  })
+  return null
+}
+
 export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { onShellReady?: () => void; demoTheme?: string | null; demo?: boolean }) {
   const t = useT()
   const ready = useGallery((s) => s.ready)
@@ -195,6 +231,12 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
     return () => useGallery.getState().setDemoMode(false)
   }, [demo])
   const [loadingDone, setLoadingDone] = useState(false)
+  // **扉を開ける手前の段。** 設定の書き換え（/demo のテーマと見本の適用）はここで起こす ──
+  // 従来はこの時点で即 `loadingDone` にしていたため、**扉が開いた直後に設定が2回変わり、
+  // そのたびに壁の影を全部焼き直していた**（PCで250msの停止が2回。2026-08-18 実測）。
+  const [preOpen, setPreOpen] = useState(false)
+  // 実際のパイプラインで滑らかに描けたか（`SettleGate`）
+  const [settled, setSettled] = useState(false)
   // 扉を抜けて次の部屋へ向かっている最中（`enterRoom` が立てる）。フルページ遷移の
   // 「新しいドキュメントの取得中は何も描かれない」区間を、いまのページのまま
   // ロード画面で埋める（ユーザー指摘 2026-08-13）。
@@ -213,6 +255,7 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   // `Warmup` がロード画面の裏でまとめて作ってしまう。
   const [warm, setWarm] = useState(false)
   const onWarm = useCallback(() => setWarm(true), [])
+  const onSettled = useCallback(() => setSettled(true), [])
 
   // Settings hydrated + canvas fonts ready. Used to be the whole story, which is
   // why the door opened on a timer while the room was still empty.
@@ -382,16 +425,26 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   // as a beat: assets register in waves (GLBs, then artwork textures), and if a
   // new wave starts this effect re-runs and clears the timer.
   useEffect(() => {
-    if (loadingDone || !hydrated) return
+    if (preOpen || !hydrated) return
     if (!assetsIdle && !waitedOut) return
     // **シェーダを作り終えるまで開けない**（`Warmup`）。ここで待たないと、扉が開いた
     // あとに歩くたびコンパイルの停止が起きる ── 待つと分かっている場所へ costs を移す。
     // WebGL が無い環境（`FlatGallery`）に Canvas は無く `warm` が永久に false なので、
     // その経路では待たない。12秒の保険（`waitedOut`）も効く。
     if (webgl && !warm && !waitedOut) return
-    const t = setTimeout(() => setLoadingDone(true), 400)
+    const t = setTimeout(() => setPreOpen(true), 400)
     return () => clearTimeout(t)
-  }, [loadingDone, hydrated, assetsIdle, waitedOut, webgl, warm])
+  }, [preOpen, hydrated, assetsIdle, waitedOut, webgl, warm])
+
+  // **扉そのものは、実際のパイプラインで滑らかに描けてから開ける**（`SettleGate`）。
+  // `preOpen` で起こした設定の書き換え（/demo のテーマと見本）が影の焼き直しを呼ぶので、
+  // それが終わるまで待つ。同じ番で、ポスト処理や反射床の初回コストも一緒に消化される。
+  // WebGL が無い経路では `settled` が永久に false なので待たない。
+  useEffect(() => {
+    if (loadingDone || !preOpen) return
+    if (webgl && !settled && !waitedOut) return
+    setLoadingDone(true)
+  }, [loadingDone, preOpen, webgl, settled, waitedOut])
 
   // Recover from the browser taking the GPU away — iOS Safari does this on app
   // switch or memory pressure, and there was no handler at all, so the room just
@@ -449,22 +502,26 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   }, [ready, webgl, canvasKey])
 
   // Admin-set demo theme (/admin → Demo look): apply AFTER hydration settles
-  // (loadingDone is set past both hydrate passes) so loadSettings can't clobber it.
+  // (`preOpen` is set past both hydrate passes) so loadSettings can't clobber it.
   // Guest showcase only — never a signed-in owner's room or a real visitor page.
+  // **`loadingDone` ではなく `preOpen` で起こす。** テーマを変えると `bakeKey` が変わって
+  // 壁の影が全部焼き直されるので、扉が開いてからやると来場者の目の前で止まる（実測250ms）。
   useEffect(() => {
-    if (loadingDone && demoTheme && !user && !visitor && THEMES[demoTheme]) {
+    if (preOpen && demoTheme && !user && !visitor && THEMES[demoTheme]) {
       useGallery.getState().updateSettings({ theme: demoTheme })
     }
-  }, [loadingDone, demoTheme, user, visitor])
+  }, [preOpen, demoTheme, user, visitor])
 
   // /demo "sampler": seed a curated per-work look (varied frames/mats/hangings/
   // captions) so walking the showcase shows the range. In-memory only (setState, not
   // updateSettings) so it never persists into a guest's own localStorage settings.
+  // **こちらも `preOpen`。** 額・マット・掛け方・銘板を差し替えるので `bakeKey` が変わる
+  // ＝2度目の焼き直しになる。上のテーマと合わせて、扉の手前で済ませる。
   useEffect(() => {
-    if (demo && loadingDone && !user && !visitor) {
+    if (demo && preOpen && !user && !visitor) {
       useGallery.setState(demoDesignOverrides())
     }
-  }, [demo, loadingDone, user, visitor])
+  }, [demo, preOpen, user, visitor])
 
   return (
     <>
@@ -540,6 +597,8 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
           <AdaptiveFov />
           {/* アセットが揃ったら、扉を開ける前にシェーダを全部作る（下の `Warmup`） */}
           <Warmup armed={hydrated && (assetsIdle || waitedOut)} onDone={onWarm} />
+          {/* 扉を開ける前に、実際のパイプラインが落ち着くのを待つ（上の `SettleGate`） */}
+          <SettleGate armed={preOpen && !loadingDone} onSettled={onSettled} />
           <GalleryScene />
         </Canvas>
       )}
