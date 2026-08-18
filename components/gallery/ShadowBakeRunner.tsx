@@ -18,7 +18,7 @@
 // The input is the PUBLISHED exhibition, not the dashboard's draft. The visitor derives
 // its fingerprint from what the public page serves, so baking from anything else would
 // save a bake that is stale the moment it lands.
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
 import { visitorSettings, buildPlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, lightModeFor } from '@/lib/exhibition'
@@ -53,6 +53,13 @@ export default function ShadowBakeRunner({
   )
   const plan = useMemo(() => buildBakePlan(settings, list, slots, layout), [settings, list, slots, layout])
   const doneRef = useRef(0)
+
+  // 総数は焼き始める前に分かっているので、最初に1回だけ知らせる。**「準備中」のような
+  // 定型句を出さないため** ── 状態を語る文言はその状態を決めている値から導出する
+  // （AGENTS.md 5.3・`check:i18n` が定型句を検出する）。
+  useEffect(() => {
+    onProgress({ done: 0, total: plan.specs.length })
+  }, [onProgress, plan.specs.length])
 
   const onBaked = useCallback(() => {
     doneRef.current += 1

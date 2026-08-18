@@ -69,6 +69,7 @@ import {
   type GalleryRow,
 } from '@/lib/galleries'
 import { getProfile, saveProfile, setUsername, isPlaceholderTitle, USERNAME_RE } from '@/lib/publish'
+import BakeStatus from '@/components/BakeStatus'
 import { SNS_PLATFORMS, normalizeSnsValue, snsDisplayValue, snsMismatch, type CustomLink } from '@/lib/sns'
 import { BRAND_ICONS, GlobeIcon } from '@/components/BrandIcons'
 import {
@@ -2453,6 +2454,14 @@ function GalleryCard({
                   </label>
                   <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? t('me.open') : t('me.private')}</span>
                 </div>
+                {/* 光の焼き込み。公開した瞬間に自動で走り、進捗を前面に出して待たせる
+                    （ユーザー指摘 2026-08-18: 裏で進めると作家は待たない）。公開中の部屋の
+                    構成が変わったら「古い」と出して焼き直しの導線を出す。トグルは触らない。 */}
+                <BakeStatus
+                  slug={row.slug}
+                  username={username}
+                  isPublic={row.is_public}
+                />
               </div>
             ) : (
               /* No username means no public URL, so there is nothing for the switch to

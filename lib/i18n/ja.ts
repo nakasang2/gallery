@@ -444,6 +444,16 @@ export const ja: Dictionary = {
     statLikes: 'いいね',
     statGuestNotes: '記帳',
     deleteGallery: '削除',
+    // 光の焼き込み（DECISIONS 2026-08-18）。**進捗を前面に出して待たせる**ので、
+    // 文言は「いま何が起きていて、待てば終わる」ことが分かる形にする。
+    bakeRunning: '光を焼いています… {done} / {total}',
+    bakeWait: 'このままお待ちください。ほかのタブに移ると止まります。',
+    bakeStale: '光の焼き込みが古くなっています。',
+    bakeStaleNote: '更新しなくても展示はそのまま見られます（来場者の端末で毎回計算されます）。更新すると、来場者の入場が速くなり、スマホでも影が出ます。',
+    bakeUpdate: '光を焼き直す',
+    bakeFresh: '光の焼き込みは最新です。',
+    bakeSkipped: '光の焼き込みを保存できませんでした（容量の空きが足りません）。展示は公開されています。',
+    bakeFailed: '光の焼き込みに失敗しました。展示は公開されています。',
     deleteGalleryConfirm: '「{name}」を削除しますか。公開ページと配置もすべて消えます。',
     saveDetailsFailed: '保存できませんでした：{msg}',
     actionFailed: '{label}に失敗しました：{msg}',

@@ -426,6 +426,24 @@
 .hako-url-row { display: flex; flex-direction: column; align-items: flex-start; gap: 0.55rem; margin-top: 0.6rem; }
 .hako-url-line { display: flex; align-items: center; gap: 0.3rem; min-width: 0; max-width: 100%; }
 .hako-state-line { display: flex; align-items: center; gap: 0.6rem; }
+
+/* 光の焼き込みの状態と進捗（components/BakeStatus.tsx）。
+   **進捗は前面で待たせるもの**なので、控えめな注記ではなく1行として読める大きさにする
+   （ユーザー指摘 2026-08-18: 裏で進めると作家は待たない＝画像アップロードと同じ扱いに）。 */
+.bake-status { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
+.bake-line { margin: 0; font-size: 0.9rem; color: var(--ink); }
+.bake-note { margin: 0; font-size: 0.78rem; line-height: 1.5; color: var(--ink-3); max-width: 44rem; }
+.bake-btn {
+  align-self: flex-start;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.82rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.bake-btn:hover { border-color: var(--ink-3); }
 .hako-url {
   font-size: 0.8rem;
   color: var(--gold);

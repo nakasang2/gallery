@@ -475,6 +475,16 @@ export const en = {
     statLikes: 'Likes',
     statGuestNotes: 'Guest notes',
     deleteGallery: 'Delete',
+    // Baked lighting (DECISIONS 2026-08-18). The wait is deliberately in the
+    // foreground, so the words have to say what is happening and that it will end.
+    bakeRunning: 'Baking the light… {done} / {total}',
+    bakeWait: 'Please keep this page open — switching tabs pauses it.',
+    bakeStale: 'The baked light is out of date.',
+    bakeStaleNote: 'Your show stays visible either way (each visitor\u2019s device works it out on arrival). Updating makes them arrive faster, and brings the shadows back on phones.',
+    bakeUpdate: 'Bake the light again',
+    bakeFresh: 'The baked light is up to date.',
+    bakeSkipped: 'The baked light could not be saved (not enough storage left). Your show is published.',
+    bakeFailed: 'The baked light could not be saved. Your show is published.',
     deleteGalleryConfirm: 'Delete “{name}”? Its public page and every placement go with it.',
     saveDetailsFailed: 'Could not save the details: {msg}',
     actionFailed: '{label} failed: {msg}',
