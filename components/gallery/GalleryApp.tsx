@@ -246,6 +246,15 @@ const MOVE_YAW = 0.002 // 同・向きの変化（rad）
 const adaptive = { started: false, moving: false, since: 0, x: 0, z: 0, yaw: 0 }
 
 function AdaptiveDpr({ onMoving }: { onMoving: (moving: boolean) => void }) {
+  // 部屋を切り替えると `GalleryApp` は作り直されるが、上の入れ物はモジュールに居るので
+  // **前の部屋の座標と「歩いている」状態が持ち越される**。持ち越すと、次に歩き出しても
+  // `!adaptive.moving` の門で弾かれて1回ぶん効かない（別視点レビュー 2026-08-18）。
+  // マウントのたびに真っさらに戻す ── `dpr` の変更でこの部品が作り直されることは無い
+  // （`adaptiveOn && loadingDone` の要素の同一性は保たれる）ので、消えて困る状態も無い。
+  useEffect(() => {
+    adaptive.started = false
+    adaptive.moving = false
+  }, [])
   useFrame(() => {
     if (!adaptive.started) {
       adaptive.started = true
@@ -366,16 +375,32 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
       ? [1, 1]
       : QUALITY === 'high' ? [1, 2] : QUALITY === 'medium' ? [1, 1.5] : [1, 1.25]
   )
-  // `?perf=adaptive`: 歩き出したら等倍、止まったら元の上限へ戻す
+  // **観ているときは最高画質、歩いている間だけ落とす**（2026-08-18・ユーザー実測で決定）。
+  //
+  // ユーザーのPCで測った実数（同じウィンドウ幅・FPSメーター）:
+  //   何もしない 13.8 / 解像度を等倍 33.6 / 接触陰影を外す 16.8 / 後処理を外す 17.4 /
+  //   床の反射を外す 12.6（誤差） / 全部外す 36.0 / **作品の照明を外す 30以上**
+  // ＝ **効くのは画素数と照明の数だけ**で、反射床や後処理を削っても割に合わない。
+  // 照明の根本対策（焼き込み）は別途大きな仕事になるので、それまでの緩和策がこれ。
+  //
+  // **今より悪くなる人は誰もいない**のが要点。遅いと判定された機械は、これまで
+  // `PerformanceMonitor` が解像度を**落としたまま固定**していた ＝ 立ち止まって作品を
+  // 観ているときもぼやけたままだった。そこを「歩いている間だけ落とす」に差し替える。
+  // 速い機械では今までどおり一度も落ちない（＝ぼやけを見る人は増えない）。
+  //
+  // 「ギャラリーは**みるためのアプリ**」というユーザーの言葉が設計を決めた ──
+  // 観ている瞬間の解像度は落とせない／動いている間のぼやけは動きに紛れる。
   const dprFull = useRef(dpr)
+  // 歩行中に使う上限。低FPSが続くほど下がる（2 → 1.5 → 1.25 → 1）
+  const dprWalk = useRef<number>(PERF.adaptive ? 1 : dpr[1])
+  const [adaptiveOn, setAdaptiveOn] = useState(PERF.adaptive)
   const onMoving = useCallback((moving: boolean) => {
-    setDpr(moving ? [1, 1] : dprFull.current)
+    setDpr(moving ? [1, dprWalk.current] : dprFull.current)
     // 診断モードでしか呼ばれない。**いま落ちているのか戻っているのかを外から読めるようにする**
     // ── 「止まったら戻る」が本当に起きているかは、canvas の実解像度と突き合わせないと
     // 分からない（プレビューでは描画が止まるので目視では確かめられなかった）。
     document.body.dataset.perfDpr = moving ? 'low' : 'full'
   }, [])
-  const dprRef = useRef(dpr)
   const entryRef = useRef(
     resolveLayout(useGallery.getState().layout, useGallery.getState().layoutParams).entry
   )
@@ -653,15 +678,19 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
                 // Read through a ref and track outside the updater: a state
                 // updater must stay pure (StrictMode invokes it twice in dev,
                 // which would double-count the event).
-                const from = dprRef.current[1]
-                const next: [number, number] = from > 1.5 ? [1, 1.5] : [1, 1.25] // 2 → 1.5 → 1.25
-                dprRef.current = next
-                setDpr(next)
+                //
+                // **落としたまま固定するのはやめ、「歩行中だけ落とす」に切り替える**
+                // （2026-08-18）。下げるのは**歩行中の上限だけ**で、立ち止まったときは
+                // 最高画質に戻す ── 観ている瞬間がぼやけたままなのがいちばん困る。
+                const from = dprWalk.current
+                const next = from > 1.5 ? 1.5 : from > 1.25 ? 1.25 : 1 // 2 → 1.5 → 1.25 → 1
+                dprWalk.current = next
+                setAdaptiveOn(true)
                 track('gallery_perf_downgrade', {
                   surface,
                   gallery_id: galleryId,
                   from_dpr: from,
-                  to_dpr: next[1],
+                  to_dpr: next,
                 })
               }}
             />
@@ -672,7 +701,7 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
           {/* 扉を開ける前に、実際のパイプラインが落ち着くのを待つ（上の `SettleGate`） */}
           <SettleGate armed={preOpen && !loadingDone} onSettled={onSettled} />
           {/* 歩行中だけ解像度を落とす試験（既定は無効。上の `AdaptiveDpr` を参照） */}
-          {PERF.adaptive && loadingDone && <AdaptiveDpr onMoving={onMoving} />}
+          {adaptiveOn && loadingDone && <AdaptiveDpr onMoving={onMoving} />}
           <GalleryScene />
         </Canvas>
       )}
