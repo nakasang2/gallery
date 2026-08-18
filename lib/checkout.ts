@@ -4,7 +4,7 @@
 // (no STRIPE_SECRET_KEY on the server, no Supabase, signed out) the caller
 // falls back to the same honest "not live yet" note as before — a missing
 // key must never look like a broken buy button.
-import { supabase } from './supabase'
+import { supabase, accessToken } from './supabase'
 import type { PaidKind, Sku } from './pricing'
 
 export interface PurchaseIntent {
@@ -24,23 +24,6 @@ export type CheckoutStart =
    *  value, so a lapsed sign-in told the buyer the feature did not exist yet
    *  (docs/LESSONS 2026-07-29). */
   | { kind: 'signed-out' }
-
-/**
- * The bearer token for /api/checkout, refreshing a stale session once.
- *
- * `getSession()` reports a failed refresh through `error` while still resolving
- * with no session, so reading only `data` silently turned "your sign-in lapsed"
- * into "no token". The explicit retry matters on phones: a backgrounded tab is
- * frozen, so the automatic refresh timer may simply not have run.
- */
-async function accessToken(): Promise<string | null> {
-  const { data, error } = await supabase!.auth.getSession()
-  if (data.session?.access_token) return data.session.access_token
-  if (error) console.warn('checkout: no usable session —', error.message)
-  const { data: retried, error: retryErr } = await supabase!.auth.refreshSession()
-  if (retryErr) console.warn('checkout: session refresh failed —', retryErr.message)
-  return retried.session?.access_token ?? null
-}
 
 /** Map the modal's selection to the server's SKU vocabulary (lib/pricing). */
 export function resolveSku(intent: PurchaseIntent): { sku: Sku; itemKey: string } {
