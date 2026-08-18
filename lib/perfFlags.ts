@@ -18,6 +18,8 @@
  *   nofx   … 後処理をまるごと外す（AO・Bloom・SMAA・4xマルチサンプル・霧）
  *   norefl … 床の平面反射を外す（ふつうの光沢床にする）
  *   off    … 上の全部
+ *   adaptive … **歩いている間だけ解像度を落とし、立ち止まったら最高画質に戻す**
+ *              （切る話ではなく別方式の試験。下の `adaptive` を参照）
  *
  * **どれかが指定されたら、解像度の自動引き下げも止める。** 測っている最中に
  * `PerformanceMonitor` が dpr を下げると、前後の数字が比べられなくなるため。
@@ -34,10 +36,22 @@ export type PerfFlags = {
   readonly reflector: boolean
   /** 描画解像度を通常どおりにするか（false なら等倍） */
   readonly fullDpr: boolean
+  /** 歩行中だけ解像度を落とし、静止したら戻すか（`?perf=adaptive`）
+   *
+   *  ギャラリーは**歩いて近づき、立ち止まって観る**もの。観ている瞬間の解像度は
+   *  落とせない一方、**動いている間のぼやけは動いていること自体に紛れる**。
+   *  実測（ユーザーのPC・2026-08-18）: 等倍 33.6fps / 通常 13.8fps ── 演出を全部
+   *  切っても 36.0fps なので、**効くのは画素数だけ**。ならば「いつ画素を使うか」を
+   *  選ぶのが唯一まともな設計になる。
+   *
+   *  **既定では無効**。解像度の切り替えは描画バッファを作り直すので一瞬の引っかかりが
+   *  出うる（このコードには「行ったり来たりは不快だった」という記録がある）。
+   *  実機で触って良ければ既定にする、というのがこの旗の目的。 */
+  readonly adaptive: boolean
 }
 
 function read(): PerfFlags {
-  const none: PerfFlags = { on: false, fx: true, ao: true, reflector: true, fullDpr: true }
+  const none: PerfFlags = { on: false, fx: true, ao: true, reflector: true, fullDpr: true, adaptive: false }
   if (typeof window === 'undefined') return none
   let raw: string | null = null
   try {
@@ -55,6 +69,7 @@ function read(): PerfFlags {
     ao: !(all || set.has('nofx') || set.has('noao')),
     reflector: !(all || set.has('norefl')),
     fullDpr: !(all || set.has('dpr1')),
+    adaptive: set.has('adaptive'),
   }
   // 効いていることが分かるように1行だけ出す（診断モードのときだけ）
   // eslint-disable-next-line no-console
@@ -63,7 +78,7 @@ function read(): PerfFlags {
     後処理: flags.fx,
     接触陰影: flags.ao,
     反射床: flags.reflector,
-    解像度: flags.fullDpr ? '通常' : '等倍',
+    解像度: flags.adaptive ? '歩行中だけ落とす' : flags.fullDpr ? '通常' : '等倍',
     自動引き下げ: '停止',
   })
   return flags
