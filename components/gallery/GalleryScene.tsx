@@ -7,12 +7,13 @@ import { getNeutralEnvTexture } from './textures'
 import { useThemeAtmosphere } from './atmosphere'
 import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat } from '@/lib/presets'
 import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, lightModeFor } from '@/lib/exhibition'
-import { useSettings } from '@/lib/store'
+import { useGallery, useSettings } from '@/lib/store'
+import { bakeMatches } from '@/lib/shadowBake'
 import { LOW_POWER, QUALITY } from '@/lib/controller'
 import { PERF } from '@/lib/perfFlags'
 import Room from './Room'
 import Exhibit, { exhibitExtents, exhibitLightRig, shadowPatch } from './Exhibit'
-import WallShadowBaker, { type BakeSpec, type BakedShadow } from './WallShadowBaker'
+import WallShadowBaker, { tileUvOf, type BakeSpec, type BakedShadow } from './WallShadowBaker'
 import TitleWall from './TitleWall'
 import RoomPortals from './RoomPortals'
 import Dust from './Dust'
@@ -107,6 +108,14 @@ export default function GalleryScene() {
   )
   // id → the room's bake atlas plus the tile inside it that holds this work's
   // shadow. Every entry points at the SAME texture (one image per room).
+  // 出展時に焼いて保存しておいたアトラス（migration 0067）。**指紋が今の構成と一致すれば、
+  // 来場者は焼かずにこの1枚を読むだけ** ── 入場が速くなり、焼けない端末（`QUALITY === 'low'`）
+  // にも初めて本物の影が出る（DECISIONS 2026-08-18 ①）。一致しなければ今までどおり焼く。
+  const savedBake = useGallery((s) => s.visitor?.shadowBake ?? null)
+  const useSaved = useMemo(
+    () => bakeMatches(savedBake, bakeKey, bakeSpecs.map((sp) => sp.id)),
+    [savedBake, bakeKey, bakeSpecs]
+  )
   const [bakedShadows, setBakedShadows] = useState<Record<string, BakedShadow>>({})
   // Cleared during render, not in an effect: the baker drops the old atlas the
   // moment the work count changes, and an effect would leave the exhibits holding
@@ -116,6 +125,40 @@ export default function GalleryScene() {
     shownKey.current = bakeKey
     setBakedShadows({}) // composition changed → draw no shadow while re-baking
   }
+
+  // 保存済みアトラスの読み込み。**焼く器と同じ `tileUvOf` を通す** ── 区画の出し方が
+  // 少しでも違うと、どの作品も隣の影を薄く覗かせる。
+  useEffect(() => {
+    if (!useSaved || !savedBake) return
+    let alive = true
+    const loader = new THREE.TextureLoader()
+    loader.setCrossOrigin('anonymous') // CDN は読み取りを `*` で許可している（DECISIONS 2026-07-27）
+    const tex = loader.load(
+      savedBake.url,
+      () => {
+        if (!alive) return
+        const next: Record<string, BakedShadow> = {}
+        savedBake.ids.forEach((id, i) => {
+          next[id] = { tex, tile: tileUvOf(i, savedBake.cols, savedBake.rows, savedBake.tile) }
+        })
+        setBakedShadows(next)
+      },
+      // 読めなかったら何もしない = 影なしのまま。焼き直しに落とさないのは、
+      // 「一致しているのに読めない」は一時的な事故（CDN・回線）で、次の入場で直るため。
+      () => {}
+    )
+    // レンダーターゲットと同じ扱いに揃える: ミップマップを作らせない。
+    // 作ると縮小レベルで**隣の区画と混ざり**、遠くの作品の影に別の作品の輪郭が滲む。
+    tex.generateMipmaps = false
+    tex.minFilter = THREE.LinearFilter
+    tex.magFilter = THREE.LinearFilter
+    tex.wrapS = THREE.ClampToEdgeWrapping
+    tex.wrapT = THREE.ClampToEdgeWrapping
+    return () => {
+      alive = false
+      tex.dispose()
+    }
+  }, [useSaved, savedBake])
 
   // Environment map: faint room light reflects in the floor sheen and metal frame parts
   useEffect(() => {
@@ -172,8 +215,9 @@ export default function GalleryScene() {
           lightMode={lightModeFor(settings, art)}
         />
       ))}
-      {/* medium tier bakes too (its shadow pipeline is on); only low skips */}
-      {QUALITY !== 'low' && (
+      {/* 保存済みのアトラスがあるなら焼かない（それが保存の目的）。
+          medium tier bakes too (its shadow pipeline is on); only low skips */}
+      {!useSaved && QUALITY !== 'low' && (
         <WallShadowBaker
           specs={bakeSpecs}
           bakeKey={bakeKey}

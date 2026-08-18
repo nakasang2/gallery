@@ -80,12 +80,18 @@ export function atlasGrid(n: number): { cols: number; rows: number } {
 
 /** The tile's uv rect, inset by half a texel so linear filtering at the plane's
  *  edge samples the border texel's CENTRE and can never reach the neighbouring
- *  work's tile. Half a texel is ~7mm on a 3.4m-wide patch. */
-function tileUv(index: number, cols: number, rows: number): BakedTile {
+ *  work's tile. Half a texel is ~7mm on a 3.4m-wide patch.
+ *
+ *  **Exported because the SAVED atlas has to be read with the same formula.** A room
+ *  baked at publish time arrives as a PNG plus a grid, and if the reader derived tile
+ *  rects even slightly differently every work would show a sliver of its neighbour.
+ *  `tilePx` is a parameter for the same reason — the manifest stores the tile size it
+ *  was written with instead of assuming today's constant. */
+export function tileUvOf(index: number, cols: number, rows: number, tilePx: number): BakedTile {
   const col = index % cols
   const row = Math.floor(index / cols)
-  const du = 0.5 / (cols * TILE)
-  const dv = 0.5 / (rows * TILE)
+  const du = 0.5 / (cols * tilePx)
+  const dv = 0.5 / (rows * tilePx)
   return {
     u0: col / cols + du,
     v0: row / rows + dv,
@@ -357,7 +363,7 @@ export default function WallShadowBaker({
     // the app ever clears the canvas again (every frame smears onto the last).
     const prevRT = gl.getRenderTarget()
     const prevAutoClear = gl.autoClear
-    const tile = tileUv(s.idx, grid.cols, grid.rows)
+    const tile = tileUvOf(s.idx, grid.cols, grid.rows, TILE)
     try {
       atlas.viewport.set((s.idx % grid.cols) * TILE, Math.floor(s.idx / grid.cols) * TILE, TILE, TILE)
       gl.setRenderTarget(atlas)

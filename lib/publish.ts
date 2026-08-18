@@ -17,6 +17,7 @@ import { mainRoomOf } from './galleries'
 // SNS links (known platforms + custom) live in lib/sns.ts so both server code
 // (this file, seo.ts) and client components can share them.
 import { readSns, EMPTY_SNS, type SnsLinks, sanitizeSns } from './sns'
+import { parseShadowBake, type ShadowBake } from './shadowBake'
 export { EMPTY_SNS, snsUrl, type SnsLinks } from './sns'
 
 // Does this error mean migration 0035 (light_override) is missing? Gate the
@@ -30,6 +31,28 @@ function missingLightColumn(e: { code?: string; message?: string } | null): bool
  *  （PGRST204）と Postgres の undefined_column（42703）の両方。 */
 function missingColumn(e: { code?: string; message?: string } | null): boolean {
   return !!e && (e.code === 'PGRST204' || e.code === '42703')
+}
+
+/**
+ * 焼いた壁の影の控え（migration 0067）。**列の一覧に混ぜず、単独で読む。**
+ *
+ * 公開ページの `galleries` の select は「新しい列を落としながら何度も引き直す」
+ * 段構えになっている（0027 → 0014 → 0013 …）。ここに1列足すと**その段を全部
+ * 書き足す**ことになり、書き漏らした段に当たった環境では**公開ページが丸ごと
+ * 404 になる**（列が無いだけで select 全体が落ちるため）。焼き込みは「あれば速い」
+ * だけの飾りなので、失敗しても null を返す1本の問い合わせに分けるほうが釣り合う。
+ * 主キー1件の追加往復ぶんだけ遅くなる。
+ *
+ * 0067 がどの環境にも行き渡ったら、上の一覧に入れてこれを消してよい。
+ */
+async function readShadowBake(galleryId: string): Promise<ShadowBake | null> {
+  const { data, error } = await supabase!
+    .from('galleries')
+    .select('shadow_bake')
+    .eq('id', galleryId)
+    .maybeSingle()
+  if (error || !data) return null // 0067 未適用・行が見えない → 来場者側が今までどおり焼く
+  return parseShadowBake((data as { shadow_bake?: unknown }).shadow_bake)
 }
 
 /** `cv` は migration 0060 で足した列。**まだ当てていない環境では select が丸ごと落ちる**
@@ -135,6 +158,10 @@ export interface PublicExhibition {
   /** False when the artist has closed the guestbook (migration 0033). Defaults to
    *  true so rooms on a DB without 0033 behave exactly as before. */
   guestbookEnabled: boolean
+  /** 出展時に焼いておいた壁の影（migration 0067）。null なら来場者のブラウザが焼く
+   *  ── つまりこれが埋まっているかどうかで**入場の速さと、焼けない端末に影が出るか**
+   *  が変わる。構成が変わっていれば来場者側が指紋の不一致で捨てる。 */
+  shadowBake: ShadowBake | null
   frameOverrides: Record<string, string>
   matOverrides: Record<string, string>
   hangingOverrides: Record<string, string>
@@ -570,6 +597,9 @@ async function buildExhibition(
   // 合同展示のときは**入口が集めた会期の部屋をそのまま使う**。ここで引き直さないのは、
   // 隣の部屋の条件が違うから: 合同展示の部屋は `is_public` を持てない（0045）ので
   // 下の問い合わせでは1室も取れず、扉が消える。
+  // 焼いておいた影（あれば来場者は焼かずに済む）。失敗は非致命 — readShadowBake が null を返す。
+  const shadowBake = await readShadowBake(gallery.id)
+
   let rooms: SiblingRoom[] = expo ? expo.rooms : [{ slug, title: gallery.title, isMain: true }]
   if (!expo) {
     try {
@@ -628,6 +658,7 @@ async function buildExhibition(
     bgmUrl: gallery.bgm_url ?? null,
     // Absent column (pre-0033) means the guestbook was always open — keep that.
     guestbookEnabled: gallery.guestbook_enabled !== false,
+    shadowBake,
     workCap: gallery.work_cap ?? PLAN.worksPerGallery,
     designOverrides: normalizeDesignOverrides(gallery.design_overrides),
     arrangement,
@@ -962,6 +993,7 @@ export async function fetchOwnExhibition(expectedUsername: string): Promise<Publ
       bgmUrl: gallery.bgm_url ?? null,
       // Absent column (pre-0033) means the guestbook was always open — keep that.
       guestbookEnabled: gallery.guestbook_enabled !== false,
+      shadowBake: await readShadowBake(gallery.id),
       workCap: gallery.work_cap ?? PLAN.worksPerGallery,
       designOverrides: normalizeDesignOverrides(gallery.design_overrides),
       arrangement,
