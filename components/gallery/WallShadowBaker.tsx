@@ -80,12 +80,18 @@ export function atlasGrid(n: number): { cols: number; rows: number } {
 
 /** The tile's uv rect, inset by half a texel so linear filtering at the plane's
  *  edge samples the border texel's CENTRE and can never reach the neighbouring
- *  work's tile. Half a texel is ~7mm on a 3.4m-wide patch. */
-function tileUv(index: number, cols: number, rows: number): BakedTile {
+ *  work's tile. Half a texel is ~7mm on a 3.4m-wide patch.
+ *
+ *  **Exported because the SAVED atlas has to be read with the same formula.** A room
+ *  baked at publish time arrives as a PNG plus a grid, and if the reader derived tile
+ *  rects even slightly differently every work would show a sliver of its neighbour.
+ *  `tilePx` is a parameter for the same reason — the manifest stores the tile size it
+ *  was written with instead of assuming today's constant. */
+export function tileUvOf(index: number, cols: number, rows: number, tilePx: number): BakedTile {
   const col = index % cols
   const row = Math.floor(index / cols)
-  const du = 0.5 / (cols * TILE)
-  const dv = 0.5 / (rows * TILE)
+  const du = 0.5 / (cols * tilePx)
+  const dv = 0.5 / (rows * tilePx)
   return {
     u0: col / cols + du,
     v0: row / rows + dv,
@@ -192,6 +198,7 @@ export default function WallShadowBaker({
   specs,
   bakeKey,
   onBaked,
+  onAllBaked,
 }: {
   specs: BakeSpec[]
   /** Composition fingerprint — a change restarts the bake from scratch */
@@ -199,6 +206,11 @@ export default function WallShadowBaker({
   /** Called once per work as its tile lands: the room's shared atlas texture and
    *  the rect inside it this work occupies. */
   onBaked: (id: string, baked: BakedShadow) => void
+  /** Fired ONCE, when every work's tile is in the atlas — the only moment the image
+   *  is safe to save. **A half-baked atlas must never be stored**: its fingerprint
+   *  would match, so visitors would trust it, and the room would show shadows on
+   *  some works and none on others (DECISIONS 2026-08-18). */
+  onAllBaked?: (atlas: THREE.WebGLRenderTarget, cols: number, rows: number, tilePx: number) => void
 }) {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
@@ -278,10 +290,11 @@ export default function WallShadowBaker({
   )
 
   // Bake state machine. `queue` restarts whenever the composition changes.
-  const state = useRef<{ key: string; idx: number; stage: 'arm' | 'shoot' }>({
+  const state = useRef<{ key: string; idx: number; stage: 'arm' | 'shoot'; announced: boolean }>({
     key: '',
     idx: 0,
     stage: 'arm',
+    announced: false,
   })
 
   useFrame(() => {
@@ -290,8 +303,17 @@ export default function WallShadowBaker({
       s.key = bakeKey
       s.idx = 0
       s.stage = 'arm'
+      s.announced = false
     }
-    if (s.idx >= specs.length) return
+    if (s.idx >= specs.length) {
+      // Every tile is in. Announce once — `idx` stays at the end, so without the
+      // flag this would fire on every frame for the rest of the visit.
+      if (!s.announced && specs.length > 0) {
+        s.announced = true
+        onAllBaked?.(atlas, grid.cols, grid.rows, TILE)
+      }
+      return
+    }
     if (!gl.shadowMap.enabled) return // low tier: no shadow pipeline, keep fakes
     const spec = specs[s.idx]
 
@@ -357,7 +379,7 @@ export default function WallShadowBaker({
     // the app ever clears the canvas again (every frame smears onto the last).
     const prevRT = gl.getRenderTarget()
     const prevAutoClear = gl.autoClear
-    const tile = tileUv(s.idx, grid.cols, grid.rows)
+    const tile = tileUvOf(s.idx, grid.cols, grid.rows, TILE)
     try {
       atlas.viewport.set((s.idx % grid.cols) * TILE, Math.floor(s.idx / grid.cols) * TILE, TILE, TILE)
       gl.setRenderTarget(atlas)

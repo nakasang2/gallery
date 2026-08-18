@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0066 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0067 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -6282,3 +6282,39 @@ update public.galleries
 set design_overrides = design_overrides - 'wall' - 'floor' - 'lightColor' - 'lightIntensity' - 'lightMode'
 where design_overrides is not null
   and design_overrides ?| array['wall', 'floor', 'lightColor', 'lightIntensity', 'lightMode'];
+
+-- # 0067_gallery_shadow_bake.sql — 焼いた壁の影(アトラス1枚)の保存先を galleries に足す(DECISIONS 2026-08-18)
+-- 0067: 焼いた壁の影（アトラス1枚）の保存先を galleries に足す。
+--
+-- 背景: 照明の焼き込み（DECISIONS 2026-08-18）の ①。**今は来場者全員のブラウザが
+-- 入場のたびに影を焼いている**（保存の仕組みが無い）。出展時に1回だけ焼いて保存
+-- すれば ①来場者は小さな画像を1枚受け取るだけ ②入場も速くなる ③**焼けない低スペック
+-- 端末にも同じ絵が届く**（今は焼かずに影なしで妥協している）。
+--
+-- 列は1つ。中身は「画像1枚ぶんの控え」で、アプリ側が読むのは次の形（`lib/publish.ts`
+-- の `ShadowBake`）:
+--   {
+--     "v": 1,                       -- タイルの並べ方の版。上げると古い控えは無視される
+--     "key": "<bakeKey そのもの>",   -- 構成の指紋。今の構成と一致しなければ焼き直す
+--     "url": "https://…/bake-….png",
+--     "cols": 4, "rows": 3, "tile": 256,
+--     "ids": ["<artwork id>", …]     -- 並び順がタイル番号（0 が左下）
+--   }
+--
+-- **なぜ指紋を丸ごと入れるか**: ハッシュにすると「一致するのに絵が違う」衝突を
+-- デバッグできない。指紋は10作品で550字程度・16枠でも1KB未満なので、jsonb に
+-- そのまま置いて**文字列の完全一致で判定する**ほうが安い。
+--
+-- **なぜ `ids` と格子を控えるか**: クライアントは同じ順序・同じ格子を計算できるが、
+-- 計算式を将来変えたときに「古い画像＋新しい式」で作品と影がずれる。画像と並べ方は
+-- 一緒に保存し、`v` で世代を切る。
+--
+-- 容量: この画像は **`{uid}/{galleryId}/` の下に置くので、作家のプラン容量に
+-- カウントされる**（ユーザー決定 2026-08-18）。`/api/upload-url` が「全用途を例外なく
+-- カウントする」と決めているのと同じ扱いで、除外リストは作らない。
+--
+-- 再実行安全（`if not exists`）。列を足すだけなので begin/commit で囲まない。
+alter table public.galleries add column if not exists shadow_bake jsonb;
+
+comment on column public.galleries.shadow_bake is
+  '焼いた壁の影（アトラス1枚）の控え: {v,key,url,cols,rows,tile,ids}。key は構成の指紋で、一致しなければ来場者側が焼き直す。DECISIONS 2026-08-18。';

@@ -7,12 +7,14 @@ import { getNeutralEnvTexture } from './textures'
 import { useThemeAtmosphere } from './atmosphere'
 import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat } from '@/lib/presets'
 import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, lightModeFor } from '@/lib/exhibition'
-import { useSettings } from '@/lib/store'
+import { useGallery, useSettings } from '@/lib/store'
+import { bakeMatches } from '@/lib/shadowBake'
 import { LOW_POWER, QUALITY } from '@/lib/controller'
 import { PERF } from '@/lib/perfFlags'
 import Room from './Room'
-import Exhibit, { exhibitExtents, exhibitLightRig, shadowPatch } from './Exhibit'
-import WallShadowBaker, { type BakeSpec, type BakedShadow } from './WallShadowBaker'
+import Exhibit from './Exhibit'
+import WallShadowBaker, { tileUvOf, type BakedShadow } from './WallShadowBaker'
+import { buildBakePlan } from './bakePlan'
 import TitleWall from './TitleWall'
 import RoomPortals from './RoomPortals'
 import Dust from './Dust'
@@ -59,54 +61,26 @@ export default function GalleryScene() {
     () => list.map((art) => applyMat(frameDefFor(frameKeyFor(settings, art)), matKeyFor(settings, art))),
     [list, settings]
   )
-  // Per-work lighting (DECISIONS 2026-07-30): each exhibit already owns one spot,
-  // so "per work" is just resolving the mode per art instead of once for the room.
-  const bakeSpecs = useMemo<BakeSpec[]>(
-    () =>
-      list.map((art, i) => {
-        const slot = layout.slots[slots[i]]
-        const lightMode = lightModeFor(settings, art)
-        const { halfW, halfH } = exhibitExtents(art, frameDefs[i])
-        const rig = exhibitLightRig(slot, lightMode, halfH, halfW)
-        const patch = shadowPatch(halfW, halfH)
-        return {
-          id: art.id,
-          slotX: slot.x,
-          slotZ: slot.z,
-          rotY: slot.rotY,
-          patchW: patch.w,
-          patchH: patch.h,
-          patchOffsetY: patch.offsetY,
-          lightPos: rig.position,
-          target: rig.target,
-          angle: rig.angle,
-          penumbra: rig.penumbra,
-          // The picture light's virtual emitter sits ~1.2m from its casters
-          // (rig pulls it back off the lamp head) — still closer than the track
-          near: lightMode === 'overhead' ? 0.1 : 0.5,
-          // A close light throws a broader penumbra than a distant track
-          softPx: lightMode === 'overhead' ? 12 : 9,
-          // …and its pool still falls off faster, so the ambient floor sits a
-          // bit lower or the shadow below the frame washes out
-          ambient: lightMode === 'overhead' ? 0.22 : 0.35,
-        }
-      }),
-    [list, slots, layout, frameDefs, settings]
+  // 焼く対象と指紋は **`buildBakePlan` の1本だけ**が決める。出展時に焼く側
+  // （`ShadowBakeRunner`）が同じ関数を通るので、保存した控えが必ずここと一致する
+  // ── 別々に導出すると、作家が焼いた控えを来場者が毎回「古い」と捨てる。
+  const plan = useMemo(
+    () => buildBakePlan(settings, list, slots, layout),
+    [settings, list, slots, layout]
   )
-  // Fingerprint of everything that changes a baked silhouette: geometry/slot via
-  // the spec numbers, PLUS hanging (ledge shelf casts) and caption (plaque casts).
-  const bakeKey = useMemo(
-    () =>
-      bakeSpecs
-        .map((s, i) => {
-          const art = list[i]
-          return `${s.id}:${s.slotX.toFixed(2)},${s.slotZ.toFixed(2)},${s.rotY.toFixed(3)},${s.patchW.toFixed(2)},${s.patchH.toFixed(2)},${s.angle},${hangingKeyFor(settings, art)},${captionKeyFor(settings, art)},${lightModeFor(settings, art)}`
-        })
-        .join('|'),
-    [bakeSpecs, list, settings]
-  )
+  const bakeSpecs = plan.specs
+  const bakeKey = plan.key
+
   // id → the room's bake atlas plus the tile inside it that holds this work's
   // shadow. Every entry points at the SAME texture (one image per room).
+  // 出展時に焼いて保存しておいたアトラス（migration 0067）。**指紋が今の構成と一致すれば、
+  // 来場者は焼かずにこの1枚を読むだけ** ── 入場が速くなり、焼けない端末（`QUALITY === 'low'`）
+  // にも初めて本物の影が出る（DECISIONS 2026-08-18 ①）。一致しなければ今までどおり焼く。
+  const savedBake = useGallery((s) => s.visitor?.shadowBake ?? null)
+  const useSaved = useMemo(
+    () => bakeMatches(savedBake, bakeKey, bakeSpecs.map((sp) => sp.id)),
+    [savedBake, bakeKey, bakeSpecs]
+  )
   const [bakedShadows, setBakedShadows] = useState<Record<string, BakedShadow>>({})
   // Cleared during render, not in an effect: the baker drops the old atlas the
   // moment the work count changes, and an effect would leave the exhibits holding
@@ -116,6 +90,47 @@ export default function GalleryScene() {
     shownKey.current = bakeKey
     setBakedShadows({}) // composition changed → draw no shadow while re-baking
   }
+
+  // 保存済みアトラスの読み込み。**焼く器と同じ `tileUvOf` を通す** ── 区画の出し方が
+  // 少しでも違うと、どの作品も隣の影を薄く覗かせる。
+  useEffect(() => {
+    if (!useSaved || !savedBake) return
+    let alive = true
+    const loader = new THREE.TextureLoader()
+    loader.setCrossOrigin('anonymous') // CDN は読み取りを `*` で許可している（DECISIONS 2026-07-27）
+    const tex = loader.load(
+      savedBake.url,
+      () => {
+        if (!alive) return
+        const next: Record<string, BakedShadow> = {}
+        savedBake.ids.forEach((id, i) => {
+          next[id] = { tex, tile: tileUvOf(i, savedBake.cols, savedBake.rows, savedBake.tile) }
+        })
+        setBakedShadows(next)
+      },
+      // 読めなかったら何もしない = 影なしのまま。焼き直しに落とさないのは、
+      // 「一致しているのに読めない」は一時的な事故（CDN・回線）で、次の入場で直るため。
+      () => {}
+    )
+    // **上下を反転させない。** ここが焼き込みで一番間違いやすい。焼いた画像は
+    // `readRenderTargetPixels` の順（GLの下から上）そのままで書き出してあり、
+    // レンダーターゲットのテクスチャは `flipY` を無視する（`isRenderTargetTexture`）。
+    // 一方、画像から読んだテクスチャは既定で `flipY = true` ＝**アップロード時に上下を
+    // 返す**ので、そのままだと**影が上下逆に貼られる**（額の上に影が落ちる絵になる）。
+    // 焼いた側と同じ向きにするために明示的に false にする。
+    tex.flipY = false
+    // レンダーターゲットと同じ扱いに揃える: ミップマップを作らせない。
+    // 作ると縮小レベルで**隣の区画と混ざり**、遠くの作品の影に別の作品の輪郭が滲む。
+    tex.generateMipmaps = false
+    tex.minFilter = THREE.LinearFilter
+    tex.magFilter = THREE.LinearFilter
+    tex.wrapS = THREE.ClampToEdgeWrapping
+    tex.wrapT = THREE.ClampToEdgeWrapping
+    return () => {
+      alive = false
+      tex.dispose()
+    }
+  }, [useSaved, savedBake])
 
   // Environment map: faint room light reflects in the floor sheen and metal frame parts
   useEffect(() => {
@@ -172,8 +187,9 @@ export default function GalleryScene() {
           lightMode={lightModeFor(settings, art)}
         />
       ))}
-      {/* medium tier bakes too (its shadow pipeline is on); only low skips */}
-      {QUALITY !== 'low' && (
+      {/* 保存済みのアトラスがあるなら焼かない（それが保存の目的）。
+          medium tier bakes too (its shadow pipeline is on); only low skips */}
+      {!useSaved && QUALITY !== 'low' && (
         <WallShadowBaker
           specs={bakeSpecs}
           bakeKey={bakeKey}
