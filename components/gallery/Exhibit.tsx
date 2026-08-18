@@ -229,7 +229,7 @@ export default function Exhibit({
   return (
     <>
       <group position={[slot.x, 1.62, slot.z]} rotation-y={slot.rotY}>
-        {bakedShadow ? (
+        {bakedShadow && shadowGeo ? (
           // Baked wall shadow: the work's REAL silhouette (frame, wires, plaque),
           // rendered once from this exhibit's own light by WallShadowBaker. The
           // texture carries occlusion in its alpha channel.
@@ -237,7 +237,7 @@ export default function Exhibit({
             const patch = shadowPatch(halfW, halfH)
             return (
               <>
-                <mesh position={[0, patch.offsetY, 0.006]} geometry={shadowGeo!}>
+                <mesh position={[0, patch.offsetY, 0.006]} geometry={shadowGeo}>
                   <meshBasicMaterial
                     map={bakedShadow.tex}
                     color={0x000000} // alpha carries the shadow; rgb holds debug data
