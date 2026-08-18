@@ -1,5 +1,14 @@
 # DECISIONS
 
+## 2026-08-18 main へのマージ（＝本番デプロイ）は Claude が行う（ユーザー決定）
+
+- **決定**: 検証（tsc・番人一式・本番ビルド・別視点レビュー2巡）が全部通っていれば、**push の流れでそのまま `gh pr merge --merge` までやる**。ユーザーに毎回 GitHub を開かせない。
+- **例外（必ず事前に一言確認する）**: **DBスキーマの破壊的変更やデータ移行を含む場合**。何が起きるかを説明してから判断を仰ぐ。
+- **`--squash` は使わない**（`--merge` 固定）。squash は main に別コミットを作るので作業ブランチが main の祖先でなくなり、次の push が `non-fast-forward` で拒否される。その状態で `gh pr create` すると**マージ前の古い内容でPRができる**。復旧に要る force push は分類器に拒否される。
+- **マージ後は作業ブランチを main に追随させる**（`git merge --ff-only origin/main`）。次の作業が古い基点から始まるのを防ぐ。
+- **反映確認まで Claude の仕事**: `gh api repos/<owner>/<repo>/deployments` の最新 Production の `statuses` が `success` になるまで見る。`vercel` CLI のリンク（`.vercel`）は不要 ── GitHub 側の記録で足りる。
+- **記録の経緯**: これまでは「マージはユーザー作業」で運用していた（PR #38・#39）。ship スキルは元々「マージまで自分で行う」と書いてあり、**過去に `gh pr merge` が分類器に拒否されたのはこのリポジトリの制約ではなかった** ── PR #40 で実行して成功した。
+
 ## 2026-08-18 部屋を削除したらR2のファイルも消す ── 順序を「ファイル → 行」にする
 
 - **背景**: `lib/galleries.ts` の `deleteGallery(id)` は `galleries` の行を delete するだけで、その部屋がR2に持っているファイルを一切消していなかった。孤児になるのは `{uid}/{部屋id}/bgm`・`{uid}/{部屋id}-logo.jpg`、そして DECISIONS 2026-08-18「焼き込みの保存」で足す `{uid}/{部屋id}/bake-*.png`。
