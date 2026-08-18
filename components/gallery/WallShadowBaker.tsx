@@ -11,7 +11,13 @@
 //   frame N   — move the bake light to the work's light rig, castShadow on,
 //               shadowMap.needsUpdate (three renders the 2048px depth map)
 //   frame N+1 — render the wall patch in UV space, sampling that depth map with
-//               a 16-tap PCF, into the work's 256px occlusion texture; light off
+//               a 16-tap PCF, into the work's 256px TILE of the room's single
+//               atlas texture (viewport-scoped render, autoClear off); light off
+//
+// One atlas rather than one texture per work: the whole point of baking is that
+// the result is a small image we can SAVE at publish time and hand to every
+// visitor (decision 2026-08-18 ①). A room is one file, one request, one texture
+// unit — and re-baking a single work rewrites one tile of it.
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -42,8 +48,51 @@ export interface BakeSpec {
   ambient: number
 }
 
-const BAKE_SIZE = 256
+/** One work's tile, in pixels. Also the atlas grid's cell size. */
+const TILE = 256
 const SHADOW_MAP_SIZE = 2048
+
+/** Where one work's tile sits inside the atlas, in texture coordinates. Exhibit
+ *  writes these straight into the shadow plane's uv attribute. */
+export interface BakedTile {
+  u0: number
+  v0: number
+  u1: number
+  v1: number
+}
+
+/** A baked wall shadow, as a consumer needs it: the room's atlas AND the rect of
+ *  it that belongs to this work. **One value, not two props** — hand over the
+ *  texture without the rect and the shadow plane maps the whole grid (every work's
+ *  shadow) onto one wall patch. */
+export interface BakedShadow {
+  tex: THREE.Texture
+  tile: BakedTile
+}
+
+/** Squarest grid that holds `n` tiles. Sized per room rather than fixed at 4x4 so
+ *  a three-work show allocates 512x512 instead of 1024x1024, and a layout that
+ *  grows past 16 slots keeps working instead of writing outside the atlas. */
+export function atlasGrid(n: number): { cols: number; rows: number } {
+  const cols = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, n))))
+  return { cols, rows: Math.max(1, Math.ceil(Math.max(1, n) / cols)) }
+}
+
+/** The tile's uv rect, inset by half a texel so linear filtering at the plane's
+ *  edge samples the border texel's CENTRE and can never reach the neighbouring
+ *  work's tile. Half a texel is ~7mm on a 3.4m-wide patch. */
+function tileUv(index: number, cols: number, rows: number): BakedTile {
+  const col = index % cols
+  const row = Math.floor(index / cols)
+  const du = 0.5 / (cols * TILE)
+  const dv = 0.5 / (rows * TILE)
+  return {
+    u0: col / cols + du,
+    v0: row / rows + dv,
+    u1: (col + 1) / cols - du,
+    v1: (row + 1) / rows - dv,
+  }
+}
 
 // GLSL3: the shadow map is read through the render target's DEPTH texture with a
 // hardware compare sampler (sampler2DShadow) — in three r185 the colour attachment
@@ -134,7 +183,7 @@ const bakeFrag = /* glsl */ `
     // the widened penumbra above already carries the "soft with distance" cue.
     float density = mix(1.0, 0.92, farFrac);
     // rgb = debug channels (occlusion / ratio / farFrac) — the display material is
-    // black so they are invisible; readable via __bakedRTs pixel readback
+    // black so they are invisible; readable via __bakeAtlas pixel readback
     outColor = vec4(occ, ratio, farFrac, occ * ratio * density);
   }
 `
@@ -147,7 +196,9 @@ export default function WallShadowBaker({
   specs: BakeSpec[]
   /** Composition fingerprint — a change restarts the bake from scratch */
   bakeKey: string
-  onBaked: (id: string, tex: THREE.Texture) => void
+  /** Called once per work as its tile lands: the room's shared atlas texture and
+   *  the rect inside it this work occupies. */
+  onBaked: (id: string, baked: BakedShadow) => void
 }) {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
@@ -201,14 +252,27 @@ export default function WallShadowBaker({
     return { scene, mat, camera }
   }, [])
 
-  // Render targets by work id — replaced on re-bake, freed on unmount
-  const rts = useRef(new Map<string, THREE.WebGLRenderTarget>())
+  // One atlas for the whole room. Re-created only when the grid changes size (a
+  // work added or removed); a re-bake of the same composition rewrites its tiles
+  // in place, so the previous image stays on screen until the new one lands.
+  const grid = useMemo(() => atlasGrid(specs.length), [specs.length])
+  const atlas = useMemo(
+    () =>
+      new THREE.WebGLRenderTarget(grid.cols * TILE, grid.rows * TILE, {
+        depthBuffer: false,
+        stencilBuffer: false,
+      }),
+    [grid]
+  )
+  useEffect(() => {
+    // Prototype debugging (matches GalleryScene's __scene/__gl exposure)
+    ;(window as unknown as Record<string, unknown>).__bakeAtlas = atlas
+    return () => atlas.dispose()
+  }, [atlas])
   useEffect(
     () => () => {
       bake.mat.dispose()
       light.shadow.dispose()
-      for (const rt of rts.current.values()) rt.dispose()
-      rts.current.clear()
     },
     [bake, light]
   )
@@ -251,14 +315,6 @@ export default function WallShadowBaker({
       // Shadow pass hasn't run yet (e.g. tab was hidden); try again next frame
       return
     }
-    rts.current.get(spec.id)?.dispose()
-    const rt = new THREE.WebGLRenderTarget(BAKE_SIZE, BAKE_SIZE, {
-      depthBuffer: false,
-      stencilBuffer: false,
-    })
-    rts.current.set(spec.id, rt)
-    // Prototype debugging (matches GalleryScene's __scene/__gl exposure)
-    ;(window as unknown as Record<string, unknown>).__bakedRTs = rts.current
     const u = bake.mat.uniforms
     // The DEPTH attachment (compareFunction=LessEqual): sampled with sampler2DShadow
     u.uShadowMap.value = light.shadow.map.depthTexture
@@ -286,13 +342,34 @@ export default function WallShadowBaker({
     u.uRefDist.value = spec.lightPos.distanceTo(spec.target)
     u.uWallNormal.value.copy(normal)
 
+    // Draw into this work's tile only.
+    //  - the viewport goes on the TARGET, not the renderer: `gl.setViewport()`
+    //    writes the value used for the CANVAS (and gets multiplied by the device
+    //    pixel ratio), while `setRenderTarget` overwrites the live viewport with
+    //    `renderTarget.viewport` — so on a retina screen the renderer form would
+    //    have scaled the tile by 2 and written over its neighbours.
+    //  - autoClear off, or `render()` wipes the whole atlas (every tile baked on
+    //    an earlier frame) before drawing this one.
+    // Restoring the viewport is `setRenderTarget`'s job, so there is nothing to
+    // put back beyond the target itself.
+    // `finally`, because both of these are RENDERER-WIDE state: a throw in between
+    // would leave `autoClear` off for the rest of the session, and then nothing in
+    // the app ever clears the canvas again (every frame smears onto the last).
     const prevRT = gl.getRenderTarget()
-    gl.setRenderTarget(rt)
-    gl.render(bake.scene, bake.camera)
-    gl.setRenderTarget(prevRT)
+    const prevAutoClear = gl.autoClear
+    const tile = tileUv(s.idx, grid.cols, grid.rows)
+    try {
+      atlas.viewport.set((s.idx % grid.cols) * TILE, Math.floor(s.idx / grid.cols) * TILE, TILE, TILE)
+      gl.setRenderTarget(atlas)
+      gl.autoClear = false
+      gl.render(bake.scene, bake.camera)
+    } finally {
+      gl.setRenderTarget(prevRT)
+      gl.autoClear = prevAutoClear
+    }
 
     light.castShadow = false
-    onBaked(spec.id, rt.texture)
+    onBaked(spec.id, { tex: atlas.texture, tile })
     s.idx++
     s.stage = 'arm'
   })

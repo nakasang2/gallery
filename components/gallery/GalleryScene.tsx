@@ -1,6 +1,6 @@
 'use client'
 // Assembles the whole scene (applies theme/layout/exhibit list and bakes static shadows)
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import { getNeutralEnvTexture } from './textures'
@@ -12,7 +12,7 @@ import { LOW_POWER, QUALITY } from '@/lib/controller'
 import { PERF } from '@/lib/perfFlags'
 import Room from './Room'
 import Exhibit, { exhibitExtents, exhibitLightRig, shadowPatch } from './Exhibit'
-import WallShadowBaker, { type BakeSpec } from './WallShadowBaker'
+import WallShadowBaker, { type BakeSpec, type BakedShadow } from './WallShadowBaker'
 import TitleWall from './TitleWall'
 import RoomPortals from './RoomPortals'
 import Dust from './Dust'
@@ -105,8 +105,17 @@ export default function GalleryScene() {
         .join('|'),
     [bakeSpecs, list, settings]
   )
-  const [bakedShadows, setBakedShadows] = useState<Record<string, THREE.Texture>>({})
-  useEffect(() => setBakedShadows({}), [bakeKey]) // composition changed → fall back to fakes while re-baking
+  // id → the room's bake atlas plus the tile inside it that holds this work's
+  // shadow. Every entry points at the SAME texture (one image per room).
+  const [bakedShadows, setBakedShadows] = useState<Record<string, BakedShadow>>({})
+  // Cleared during render, not in an effect: the baker drops the old atlas the
+  // moment the work count changes, and an effect would leave the exhibits holding
+  // a disposed texture for one frame.
+  const shownKey = useRef(bakeKey)
+  if (shownKey.current !== bakeKey) {
+    shownKey.current = bakeKey
+    setBakedShadows({}) // composition changed → draw no shadow while re-baking
+  }
 
   // Environment map: faint room light reflects in the floor sheen and metal frame parts
   useEffect(() => {
@@ -168,7 +177,7 @@ export default function GalleryScene() {
         <WallShadowBaker
           specs={bakeSpecs}
           bakeKey={bakeKey}
-          onBaked={(id, tex) => setBakedShadows((prev) => ({ ...prev, [id]: tex }))}
+          onBaked={(id, baked) => setBakedShadows((prev) => ({ ...prev, [id]: baked }))}
         />
       )}
       <TitleWall theme={theme} layout={layout} />

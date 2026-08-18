@@ -4,7 +4,15 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { THEMES, LAYOUTS, FRAMES, MATS, HANGINGS, CAPTIONS, TEMPLATES, CUSTOM_LAYOUT_RELEASED } from '@/lib/presets'
-import { buildPlacement, overflowCount, slotCount, useOwnArtworks, useIsOwnerEditing } from '@/lib/exhibition'
+import {
+  buildPlacement,
+  overflowCount,
+  slotCount,
+  useOwnArtworks,
+  useIsOwnerEditing,
+  useEffectiveSettings,
+  effectiveSettingsOf,
+} from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { showToast } from '@/lib/toast'
 import { fileToDataUrl, loadImage, loadImageFile, newArtworkEntry, videoFileMeta, VIDEO_MAX_BYTES } from '@/lib/upload'
@@ -238,6 +246,8 @@ export default function SettingsPanel() {
   const ownArtworks = useOwnArtworks()
   // Signed-in owners edit their real room — the demo collection isn't part of it
   const ownerEditing = useIsOwnerEditing()
+  // 「どの作品が掛かるか」を決める1本（lib/exhibition.effectiveDemo）。3D の部屋と同じ値。
+  const effectiveSettings = useEffectiveSettings()
   const owned = usePurchasedIds(user?.id ?? null)
   const entitlements = getEntitlements(user?.id ?? null, owned)
 
@@ -256,8 +266,10 @@ export default function SettingsPanel() {
   function revealNew(prevIds: Set<string>) {
     const st = useGallery.getState()
     const own = st.user ? st.cloudArtworks : st.artworks
-    const eff = ownerEditing && settings.showDemo ? { ...settings, showDemo: false } : settings
-    const idx = buildPlacement(eff, own).list.findIndex((a) => !prevIds.has(a.id))
+    // 3D の部屋と同じ1本を通す（写して書くと、パネルだけ別の作品数を数える）
+    const idx = buildPlacement(effectiveSettingsOf(st, settings, own), own).list.findIndex(
+      (a) => !prevIds.has(a.id)
+    )
     if (idx < 0) return // it landed beyond the visible slots
     setOpen(false)
     walkRef.current?.focusExhibit(idx)
@@ -431,10 +443,7 @@ export default function SettingsPanel() {
 
   const reorder = useGallery((s) => s.reorderOwnArtworks)
 
-  const over = overflowCount(
-    ownerEditing && settings.showDemo ? { ...settings, showDemo: false } : settings,
-    ownArtworks.length
-  )
+  const over = overflowCount(effectiveSettings, ownArtworks.length)
 
   // Template/theme/global picks reset per-work overrides — never silently
   function confirmOverrideReset(...maps: Record<string, string>[]): boolean {
@@ -573,8 +582,13 @@ export default function SettingsPanel() {
           <label className="toggle">
             <input
               type="checkbox"
-              checked={settings.showDemo}
+              checked={effectiveSettings.showDemo}
               onChange={(e) => updateSettings({ showDemo: e.target.checked })}
+              /* 自分の作品が1点も無いなら、これを外すと部屋が完全に空になり、
+                 戻すための設定パネルへの入口ごと消える（ゲストに設定ボタンは無い）。
+                 表示は残したまま、その状態を作れないようにする
+                 ── ユーザー決定 2026-08-18「残すが空にならないようにする」。 */
+              disabled={ownArtworks.length === 0}
             />
             {t('panel.showDemo')}
           </label>
