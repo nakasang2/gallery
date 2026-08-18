@@ -121,7 +121,15 @@ export default function BakeStatus({
       {phase === 'baking' ? (
         <>
           <p className="bake-line" role="status" aria-live="polite">
-            {t('me.bakeRunning', { done: progress.done, total: progress.total })}
+            {/* 待ち時間の大半は**焼く前の準備**（3Dの読み込み・部屋のテクスチャ作り・
+                作品画像の取得・シェーダのコンパイル）で、焼く処理自体は1作品2フレーム＝
+                10作品で0.35秒しかない（実測 21フレーム）。数字だけ出すと「0 / 10 のまま
+                固まって、最後に一気に飛ぶ」進捗になるので、**1枚目が焼けるまでは待ちの
+                文言に差し替える**（ユーザー選択A 2026-08-18）。文言は入場画面と同じものを使う
+                ── 作家が既に見たことのある言い方に揃える。 */}
+            {progress.done === 0
+              ? t('loading.preparing')
+              : t('me.bakeRunning', { done: progress.done, total: progress.total })}
           </p>
           <p className="bake-note">{t('me.bakeWait')}</p>
         </>

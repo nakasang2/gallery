@@ -83,10 +83,11 @@ export async function POST(req: NextRequest) {
     // `{uid}/{roomId}-logo.jpg` — so the trailing slash that protects the artwork
     // case has to be dropped for a second pass.
     //
-    // ⚠️ The baked lighting atlases (DECISIONS 2026-08-18) are covered by the
-    // first prefix ONLY IF they are keyed under `{uid}/{roomId}/`. That is not
-    // settled yet — docs/STATE.md still records the opposite intent — so whoever
-    // lands that feature must land here too if the key goes anywhere else.
+    // The baked lighting atlases (DECISIONS 2026-08-18) ARE covered by the first
+    // prefix: they land at `{uid}/{roomId}/bake-<hash>.png` (app/api/bake). That was
+    // still open when this comment was first written — the earlier intent was to keep
+    // them out of `{uid}/` so they would not count against the artist's quota — but the
+    // user decided the opposite (count them), which put them in this room's own folder.
     //
     // `{uid}/{roomId}-` rather than the one literal key: it sweeps up whatever
     // else is ever hung off this id, which is exactly the kind of file that went
