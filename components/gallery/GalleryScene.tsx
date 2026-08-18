@@ -12,7 +12,7 @@ import { LOW_POWER, QUALITY } from '@/lib/controller'
 import { PERF } from '@/lib/perfFlags'
 import Room from './Room'
 import Exhibit, { exhibitExtents, exhibitLightRig, shadowPatch } from './Exhibit'
-import WallShadowBaker, { type BakeSpec, type BakedTile } from './WallShadowBaker'
+import WallShadowBaker, { type BakeSpec, type BakedShadow } from './WallShadowBaker'
 import TitleWall from './TitleWall'
 import RoomPortals from './RoomPortals'
 import Dust from './Dust'
@@ -107,9 +107,7 @@ export default function GalleryScene() {
   )
   // id → the room's bake atlas plus the tile inside it that holds this work's
   // shadow. Every entry points at the SAME texture (one image per room).
-  const [bakedShadows, setBakedShadows] = useState<
-    Record<string, { tex: THREE.Texture; tile: BakedTile }>
-  >({})
+  const [bakedShadows, setBakedShadows] = useState<Record<string, BakedShadow>>({})
   // Cleared during render, not in an effect: the baker drops the old atlas the
   // moment the work count changes, and an effect would leave the exhibits holding
   // a disposed texture for one frame.
@@ -167,8 +165,7 @@ export default function GalleryScene() {
           slot={layout.slots[slots[i]]}
           theme={theme}
           castRealShadow={false}
-          bakedShadow={bakedShadows[art.id]?.tex ?? null}
-          bakedTile={bakedShadows[art.id]?.tile ?? null}
+          bakedShadow={bakedShadows[art.id] ?? null}
           frameDef={frameDefs[i]}
           hangingDef={HANGINGS[hangingKeyFor(settings, art)] ?? HANGINGS.wire}
           captionDef={CAPTIONS[captionKeyFor(settings, art)] ?? CAPTIONS.side}
@@ -180,7 +177,7 @@ export default function GalleryScene() {
         <WallShadowBaker
           specs={bakeSpecs}
           bakeKey={bakeKey}
-          onBaked={(id, tex, tile) => setBakedShadows((prev) => ({ ...prev, [id]: { tex, tile } }))}
+          onBaked={(id, baked) => setBakedShadows((prev) => ({ ...prev, [id]: baked }))}
         />
       )}
       <TitleWall theme={theme} layout={layout} />

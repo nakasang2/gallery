@@ -61,6 +61,15 @@ export interface BakedTile {
   v1: number
 }
 
+/** A baked wall shadow, as a consumer needs it: the room's atlas AND the rect of
+ *  it that belongs to this work. **One value, not two props** — hand over the
+ *  texture without the rect and the shadow plane maps the whole grid (every work's
+ *  shadow) onto one wall patch. */
+export interface BakedShadow {
+  tex: THREE.Texture
+  tile: BakedTile
+}
+
 /** Squarest grid that holds `n` tiles. Sized per room rather than fixed at 4x4 so
  *  a three-work show allocates 512x512 instead of 1024x1024, and a layout that
  *  grows past 16 slots keeps working instead of writing outside the atlas. */
@@ -189,7 +198,7 @@ export default function WallShadowBaker({
   bakeKey: string
   /** Called once per work as its tile lands: the room's shared atlas texture and
    *  the rect inside it this work occupies. */
-  onBaked: (id: string, tex: THREE.Texture, tile: BakedTile) => void
+  onBaked: (id: string, baked: BakedShadow) => void
 }) {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
@@ -343,18 +352,24 @@ export default function WallShadowBaker({
     //    an earlier frame) before drawing this one.
     // Restoring the viewport is `setRenderTarget`'s job, so there is nothing to
     // put back beyond the target itself.
+    // `finally`, because both of these are RENDERER-WIDE state: a throw in between
+    // would leave `autoClear` off for the rest of the session, and then nothing in
+    // the app ever clears the canvas again (every frame smears onto the last).
     const prevRT = gl.getRenderTarget()
     const prevAutoClear = gl.autoClear
     const tile = tileUv(s.idx, grid.cols, grid.rows)
-    atlas.viewport.set((s.idx % grid.cols) * TILE, Math.floor(s.idx / grid.cols) * TILE, TILE, TILE)
-    gl.setRenderTarget(atlas)
-    gl.autoClear = false
-    gl.render(bake.scene, bake.camera)
-    gl.setRenderTarget(prevRT)
-    gl.autoClear = prevAutoClear
+    try {
+      atlas.viewport.set((s.idx % grid.cols) * TILE, Math.floor(s.idx / grid.cols) * TILE, TILE, TILE)
+      gl.setRenderTarget(atlas)
+      gl.autoClear = false
+      gl.render(bake.scene, bake.camera)
+    } finally {
+      gl.setRenderTarget(prevRT)
+      gl.autoClear = prevAutoClear
+    }
 
     light.castShadow = false
-    onBaked(spec.id, atlas.texture, tile)
+    onBaked(spec.id, { tex: atlas.texture, tile })
     s.idx++
     s.stage = 'arm'
   })

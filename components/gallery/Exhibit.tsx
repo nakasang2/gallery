@@ -14,7 +14,7 @@ import { PERF } from '@/lib/perfFlags'
 import LightCone from './LightCone'
 import TrackFixture, { fixtureAperture } from './TrackFixture'
 import { useVideoArt } from './VideoArt'
-import type { BakedTile } from './WallShadowBaker'
+import type { BakedShadow } from './WallShadowBaker'
 
 /* Shared exhibit geometry math — exported so WallShadowBaker positions its bake
    light/patch EXACTLY like the visual rig (single source of truth). */
@@ -115,7 +115,6 @@ export default function Exhibit({
   lightMode,
   castRealShadow,
   bakedShadow = null,
-  bakedTile = null,
 }: {
   art: ArtworkData
   index: number
@@ -128,12 +127,10 @@ export default function Exhibit({
   lightMode: 'ceiling' | 'overhead'
   /** Whether this work's spot renders a real shadow map (see GalleryScene's budget) */
   castRealShadow: boolean
-  /** Which tile of the room's bake atlas holds this work's shadow. Null means the
-   *  texture is this work's alone (the whole 0..1 uv square). */
-  bakedTile?: BakedTile | null
-  /** Baked wall-shadow texture (WallShadowBaker). When present it replaces the
-   *  procedural drop-shadow planes with the work's real silhouette shadow. */
-  bakedShadow?: THREE.Texture | null
+  /** Baked wall shadow (WallShadowBaker): the room's atlas plus this work's tile
+   *  of it. When present it replaces the procedural drop-shadow planes with the
+   *  work's real silhouette shadow. */
+  bakedShadow?: BakedShadow | null
 }) {
   const gl = useThree((s) => s.gl)
   const { width, height, frameless, halfW, halfH } = exhibitExtents(art, frameDef)
@@ -201,21 +198,16 @@ export default function Exhibit({
   // to upload its (null) image instead of reusing what it just rendered into.
   const shadowGeo = useMemo(() => {
     if (!bakedShadow) return null
+    const { u0, v0, u1, v1 } = bakedShadow.tile
     const patch = shadowPatch(halfW, halfH)
     const g = new THREE.PlaneGeometry(patch.w, patch.h)
-    if (bakedTile) {
-      const uv = g.getAttribute('uv') as THREE.BufferAttribute
-      for (let i = 0; i < uv.count; i++) {
-        uv.setXY(
-          i,
-          bakedTile.u0 + uv.getX(i) * (bakedTile.u1 - bakedTile.u0),
-          bakedTile.v0 + uv.getY(i) * (bakedTile.v1 - bakedTile.v0)
-        )
-      }
-      uv.needsUpdate = true
+    const uv = g.getAttribute('uv') as THREE.BufferAttribute
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0))
     }
+    uv.needsUpdate = true
     return g
-  }, [bakedShadow, bakedTile, halfW, halfH])
+  }, [bakedShadow, halfW, halfH])
   useEffect(() => () => disposeAll([shadowGeo]), [shadowGeo])
 
   const onClick = (e: ThreeEvent<MouseEvent>) => {
@@ -247,7 +239,7 @@ export default function Exhibit({
               <>
                 <mesh position={[0, patch.offsetY, 0.006]} geometry={shadowGeo!}>
                   <meshBasicMaterial
-                    map={bakedShadow}
+                    map={bakedShadow.tex}
                     color={0x000000} // alpha carries the shadow; rgb holds debug data
                     transparent
                     opacity={lightMode === 'overhead' ? 0.75 : 0.78}
