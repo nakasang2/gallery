@@ -2461,6 +2461,7 @@ function GalleryCard({
                   slug={row.slug}
                   username={username}
                   isPublic={row.is_public}
+                  busy={busy}
                 />
               </div>
             ) : (

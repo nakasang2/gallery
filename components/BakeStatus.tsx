@@ -34,10 +34,15 @@ export default function BakeStatus({
   slug,
   username,
   isPublic,
+  busy,
 }: {
   slug: string
   username: string | null
   isPublic: boolean
+  /** ダッシュボードの保存中フラグ。**true → false の瞬間に見直す** ── 作家が公開中の
+   *  部屋を触ったあと「古くなっています」がすぐ出るために要る。下書きの変化そのものを
+   *  見張ると打鍵ごとに問い合わせてしまうので、**保存が終わった合図**に乗る。 */
+  busy: boolean
 }) {
   const t = useT()
   const [phase, setPhase] = useState<Phase>('unknown')
@@ -50,7 +55,7 @@ export default function BakeStatus({
   /** 公開されている中身を読み、保存済みの控えが今の構成のものかを見る。
    *  **判定は来場者と同じ材料で行う** ── 下書きから作ると、来場者が見ている部屋とは
    *  別のものについて「最新です」と言うことになる。 */
-  const check = useCallback(async (): Promise<PublicExhibition | null> => {
+  const check = useCallback(async (): Promise<{ ex: PublicExhibition; total: number } | null> => {
     if (!username || !isPublic) return null
     const ex = await fetchPublicExhibition(username, slug)
     if (!ex) return null
@@ -58,7 +63,7 @@ export default function BakeStatus({
     const { list, slots } = buildPlacement(settings, ex.artworks)
     const plan = buildBakePlan(settings, list, slots, resolveLayout(settings.layout, settings.layoutParams))
     setPhase(plan.specs.length === 0 || bakeMatches(ex.shadowBake, plan.key, plan.ids) ? 'fresh' : 'stale')
-    return ex
+    return { ex, total: plan.specs.length }
   }, [username, slug, isPublic])
 
   useEffect(() => {
@@ -70,12 +75,14 @@ export default function BakeStatus({
       setTarget(null)
       return
     }
-    void check().then((ex) => {
-      if (!alive || !ex) return
+    void check().then((r) => {
+      if (!alive || !r) return
       // 公開した直後だけは、そのまま焼きに入る（作家に押させない）
       if (justPublished) {
-        setProgress({ done: 0, total: 0 })
-        setTarget(ex)
+        // **総数は焼く前から分かっている**ので先に入れる。0 のままにすると、3Dの読み込みが
+        // 終わるまで「0 / 0」と出て、進んでいないように見える。
+        setProgress({ done: 0, total: r.total })
+        setTarget(r.ex)
         setPhase('baking')
       }
     })
@@ -84,11 +91,20 @@ export default function BakeStatus({
     }
   }, [isPublic, check])
 
+  // 保存が終わった瞬間（busy: true → false）に見直す。これが無いと、公開中の部屋を
+  // 触っても「古くなっています」がタブを開き直すまで出てこない。
+  const wasBusy = useRef(busy)
+  useEffect(() => {
+    const settled = wasBusy.current && !busy
+    wasBusy.current = busy
+    if (settled && isPublic && phase !== 'baking') void check()
+  }, [busy, isPublic, phase, check])
+
   const startBake = async () => {
-    const ex = await check()
-    if (!ex) return
-    setProgress({ done: 0, total: 0 })
-    setTarget(ex)
+    const r = await check()
+    if (!r) return
+    setProgress({ done: 0, total: r.total })
+    setTarget(r.ex)
     setPhase('baking')
   }
 
