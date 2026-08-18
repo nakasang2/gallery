@@ -6,6 +6,7 @@ import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { walkRef, LOW_POWER, QUALITY } from '@/lib/controller'
+import { PERF } from '@/lib/perfFlags'
 import { getFloorTextures, getPlasterBump, getPlasterNormal, getConcreteMaps, getBlobShadowTexture, disposeAll } from './textures'
 import { useDoorway, DOOR_W, DOOR_H, type WallId } from './doorway'
 import { openExhibitionInfo } from './TitleWall'
@@ -234,7 +235,8 @@ export function ThemedFloor({
   return (
       <mesh rotation-x={-Math.PI / 2} receiveShadow onClick={onClick}>
         <planeGeometry args={[hw * 2, hd * 2]} />
-        {LOW_POWER ? (
+        {/* 診断スイッチ `?perf=norefl` でも光沢床側に落とせる（既定は従来どおり） */}
+        {LOW_POWER || !PERF.reflector ? (
           // Mobile/low-power: the real-time reflection pass is too costly, so keep the
           // cheap clearcoat sheen.
           <meshPhysicalMaterial
