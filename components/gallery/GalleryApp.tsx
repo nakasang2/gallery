@@ -10,6 +10,7 @@ import { demoDesignOverrides } from '@/lib/artworks'
 import { useGallery } from '@/lib/store'
 import { useToast } from '@/lib/toast'
 import { walkRef, canvasRef, QUALITY } from '@/lib/controller'
+import { PERF } from '@/lib/perfFlags'
 import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
 import { unlockVideoAudio, suspendVideoAudio } from '@/lib/videohub'
@@ -302,8 +303,12 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   const flatMode = webgl === false || forceFlat
   // Render resolution per quality tier. The high tier starts at native retina and
   // steps down when PerformanceMonitor sees sustained low FPS (weak iGPU laptops).
+  // 診断モード（`?perf=...`）では**解像度を固定する**。測っている最中に下の
+  // `PerformanceMonitor` が dpr を下げると、前後の数字が比べられなくなるため。
   const [dpr, setDpr] = useState<[number, number]>(
-    QUALITY === 'high' ? [1, 2] : QUALITY === 'medium' ? [1, 1.5] : [1, 1.25]
+    !PERF.fullDpr
+      ? [1, 1]
+      : QUALITY === 'high' ? [1, 2] : QUALITY === 'medium' ? [1, 1.5] : [1, 1.25]
   )
   const dprRef = useRef(dpr)
   const entryRef = useRef(
@@ -572,8 +577,10 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
               (no onIncline restore — flipping back and forth is more jarring).
               Armed only after the loading screen so the shadow-bake/texture-load dip
               can't trigger it, and ignored while the tab is hidden (rAF throttling
-              reads as low FPS there). */}
-          {QUALITY === 'high' && loadingDone && (
+              reads as low FPS there).
+              **診断モード（`?perf=...`）では止める** ── 測っている最中に解像度が
+              変わると、切った/切らないの数字が比べられなくなる。 */}
+          {QUALITY === 'high' && loadingDone && !PERF.on && (
             <PerformanceMonitor
               flipflops={2}
               onDecline={() => {

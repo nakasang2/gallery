@@ -9,6 +9,7 @@ import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat 
 import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, lightModeFor } from '@/lib/exhibition'
 import { useSettings } from '@/lib/store'
 import { LOW_POWER, QUALITY } from '@/lib/controller'
+import { PERF } from '@/lib/perfFlags'
 import Room from './Room'
 import Exhibit, { exhibitExtents, exhibitLightRig, shadowPatch } from './Exhibit'
 import WallShadowBaker, { type BakeSpec } from './WallShadowBaker'
@@ -178,7 +179,8 @@ export default function GalleryScene() {
       <WalkControls layout={layout} list={list} slots={slots} />
       <GhostVisitors />
       <VideoPlaybackManager />
-      {!LOW_POWER && <Effects theme={theme} />}
+      {/* 診断スイッチ `?perf=nofx` で後処理をまるごと外せる（既定は出す） */}
+      {!LOW_POWER && PERF.fx && <Effects theme={theme} />}
     </>
   )
 }
