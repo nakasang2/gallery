@@ -415,3 +415,7 @@
   - **【ユーザー判断待ち・繰越】3Dなしのヒーローは、スマホ幅で文字と絵が重なる**（既存のCSS。GooglebotとPSIが見る画面）。
   - **【運用】会場費の数字を変えるときは `docs/EVIDENCE-COMPARE.md` も必ず直す。**
   - **【測り方・次に測る人へ】ブラウザペインは `document.hidden === true` のままで、`useFrame` が回らない。扉が開くまでの時間を測るなら `playwright` の `channel:'chrome'` を `headless:false` で立てる。**
+
+## STATE.md の完了ログから押し出された分（2026-08-19 に移動）
+
+- 2026-08-17: **【ship済・PR #24としてmainへマージ済み】LPの3Dを、GPUの無い環境では出さないようにした**（マージコミット `404a841`）。PageSpeed Insights が本番LPで `Target closed`（＝測定中にタブごと死んだ）を返してスコアを出せなかった件。PSIとGooglebotのマシンにはGPUが無く、WebGLはSwiftShader（CPUで1ピクセルずつ描く）に落ちる。そこへLPは照明30個・テクスチャ23枚（約150MB）・止まらない描画ループを渡していた。`lib/hero3d.ts` の `canRunHero3d()` にレンダラー名の判定を足し（UAは見ない＝cloakingになるため）、あわせて**3Dが出ているときはCSS額装の生成アートを1枚も焼かない**ようにした。**ユーザーがPSIを再実行してエラーの解消を確認済み。**
