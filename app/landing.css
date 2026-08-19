@@ -26,8 +26,22 @@
   --gold: #d4a24e;
   --hairline: rgba(236, 231, 222, 0.14);
   --glow: rgba(255, 240, 214, 0.06);
-  --serif: 'Bodoni Moda', Georgia, serif;
-  --sans: 'Geist', sans-serif;
+  /* 明朝は Vollkorn（ユーザー決定 2026-08-19）。Bodoni Moda は縦の太い軸と横の細い線の差が
+     23.9倍あり、3Dの題箋（テクスチャ512px幅がスマホ画面では71px幅＝7.2倍に縮む）で細い線が
+     0.03px＝濃さ3%まで落ちて消え、文字が縦棒の列に崩れていた。Vollkorn は同2.0倍・細い線0.32px
+     ＝濃さ32%。実測の全文は DECISIONS 2026-08-19。**次に書体を変えるときも Google Fonts に
+     あることが必須**（canvas が ctx.font に書体名を文字列で渡すので next/font は使えない）。
+
+     **日本語を足したのはユーザー決定 2026-08-19**（明朝 Zen Old Mincho / ゴシック Zen Kaku Gothic New）。
+     それまで日本語はOS標準の書体で描かれていて、**明朝を持たない端末ではゴシックになる**＝「見出しは明朝」
+     という設計意図が端末によって黙って崩れていた。読むウェイトは**明朝400のみ・ゴシック400と700だけ**で、
+     CSSの照合により 300と500は400へ・600は700へ落ちる（実測で確認）。1ウェイト増やすごとに
+     LP初期表示で明朝158KB・ゴシック90KB 増えるので、埋まるなら増やさない。
+     **canvas に焼く文字は `lib/fonts.ts` の `useCanvasFontsReady` を必ず通す** ── 日本語は
+     unicode-range で約120枚に分けて配信され、canvas は自分では取ってこないので、通さないと
+     題箋だけ黙ってOS標準に落ちる。 */
+  --serif: 'Vollkorn', 'Zen Old Mincho', Georgia, serif;
+  --sans: 'Geist', 'Zen Kaku Gothic New', sans-serif;
   --mono: 'Geist Mono', monospace;
 
   /* ---- 小見出し・ラベルの字（ユーザー指摘 2026-08-13「デザインの平仄が揃っていない」） ----

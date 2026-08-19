@@ -13,7 +13,7 @@ import { MeshReflectorMaterial } from '@react-three/drei'
 import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
 import { fetchLpHero, fetchLpPanels, LP_HERO_SLOTS, LP_PANEL_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
 import { useT } from '@/components/I18nProvider'
-import { serifFont, sansFont } from '@/lib/fonts'
+import { serifFont, sansFont, useCanvasFontsReady } from '@/lib/fonts'
 
 /** LP hook: the admin-configured images for one face of the LP (null per slot =
  *  nothing configured). Lives here (its only caller) so lib/siteConfig stays
@@ -43,19 +43,44 @@ const HALL_MOUTH = -88 // 大部屋の入口
 const HALL_HALF = 18 // 大部屋の半幅
 
 // 入口・右壁の主役アート [作品index, z]
+// z はカメラの止まり位置(anchor)も決める。**間隔は入口ビューに3枚とも入る条件で決まっている**
+// ── 詳細は下の HERO_SLOTS のコメント。
 const HERO_ART: [number, number][] = [
   [0, 6],
-  [5, 1],
+  [5, 2.5],
 ]
 
 // 入口に見える3点(中央/左/右)。最初のビューで右側が空いて見えるのを埋める“3点目”を
 // 含む。管理画面(0018)で画像を設定するとこの枠が差し替わる(未設定はデモ作品に
-// フォールバック)。中央/左は HERO_ART と同じ位置で、右(z=9.2)は主役より手前に置くと
-// 画面の右へ寄る。HERO_ART はカメラの止まり位置(anchor)も兼ねるので描画用は別で持つ。
+// フォールバック)。中央/左は HERO_ART と同じ位置。HERO_ART はカメラの止まり位置(anchor)
+// も兼ねるので描画用は別で持つ。
+//
+// **間隔(z)は「入口ビューにスマホでも3枚とも入る」条件で決めている**（ユーザー要望
+// 2026-08-19「スマホでも3枚とも入れたい。両サイドは見切れてもいい」）。実装値から
+// カメラ投影を解いて確定させた:
+//   - 縦画面の横画角は 33°、横画面は 71° と**2倍以上違う**ので、1つのカメラで両方を
+//     埋めることはできない。左1/右9.2 では縦画面で左の1枚が完全に画面外だった。
+//   - ユーザー案の「カメラを斜めに振る」は、Rig が縦画面で視線方向に 2.4 引くため
+//     **カメラが左の壁(x=-4.7)の外へ出てしまう**ので採らなかった。間隔を詰めれば
+//     カメラを動かさずに同じ結果になる。
+//   - **間隔は「額の外形」で数える。** `Framed` の外箱は **1.18w + 0.12** で、絵より24%大きい
+//     （中央は絵2.03m に対し額2.51m）。**絵の幅で数えると間隔を倍に見誤る** ── 実際にやって
+//     「すき間1.0m」と書いた値が本当は0.49mで、ユーザーに「寄せすぎじゃない？」と指摘された。
+//   - **スマホで3枚とも残る窓は狭い**（左は z<2 で完全に画面外、右は z>9.5 で消える）。
+//     その中で**額のすき間が左右そろう**値を採った ── 左0.99m / 右1.03m。
+//   - この値での実測（額の外形・ペインの実描画と一致）: PC1280 で 81〜354 / 474〜815 /
+//     973〜1393、**すき間 120px / 158px**（額幅の35% / 46%）。右端は画面外へ見切れる。
+//     スマホ375 では 左27%・中100%・右11% が見えている＝3枚ともフレーム内（両サイドは見切れ）。
+//
+// **比率は3枚そろえる**（ユーザー指摘 2026-08-19「右端のだけ縦長でアンバランス」）。
+// 元は右が idx 6 "Quiet Heat" = 3:4 の**縦長**で、中央4:3・左3:2 の横長に対して
+// 背が高く「サイズが大きい」ように見えていた（幅ではなく高さの話。`Framed` は幅を
+// `1.5 × scale` に固定し、高さを作品の比率から出す）。横長の idx 4 に差し替えた。
+// ※管理画面から縦長の画像を入れると同じ崩れが戻る ── 差し替えるなら横長を選ぶ。
 const HERO_SLOTS: { idx: number; z: number; scale: number }[] = [
-  { idx: 0, z: 6, scale: 1.35 }, // center
-  { idx: 5, z: 1, scale: 1.35 }, // left
-  { idx: 6, z: 9.2, scale: 1.3 }, // right
+  { idx: 0, z: 6, scale: 1.35 }, // center — 4:3
+  { idx: 5, z: 2.5, scale: 1.35 }, // left — 3:2
+  { idx: 4, z: 9.5, scale: 1.3 }, // right — 4:3（縦長だった idx 6 から差し替え）
 ]
 
 // 左壁の機能パネル 01〜06。ここに持つのは番号と位置だけで、文言は辞書から引く
@@ -397,7 +422,11 @@ function SpotPool() {
 }
 
 function Panel({ p }: { p: PanelText }) {
-  const tex = useMemo(() => makePanelTexture(p), [p])
+  // 題箋と同じ理由で、書体が届いたら焼き直す（lib/fonts.ts の説明）。ここは板の番号を
+  // 320px の斜体で焼くので、フォールバックに落ちると一番目立つ。
+  // 斜体（320pxの番号）と太字（62px/600の見出し）を焼くのはここだけ ── 使う指定だけを頼む
+  const panelFonts = useCanvasFontsReady(`${p.n}${p.h}${p.b}`, { italic: true, bold: true })
+  const tex = useMemo(() => makePanelTexture(p), [p, panelFonts])
   useEffect(() => () => tex.dispose(), [tex])
   const w = 1.7
   const h = w * (1180 / 900)
