@@ -19,6 +19,7 @@
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
+import { PERF } from '@/lib/perfFlags'
 
 /** 実照明の数。**作品15点でも15灯は要らない** ── ここが出すのは全体の `POOL_MIX` ぶん
  *  （既定 25%）なので、選ばれなかった作品も焼いたぶんで正しい明るさに見える。選ばれた
@@ -76,6 +77,12 @@ export function useRegisterSpot(def: Omit<PooledSpot, 'from' | 'to'>, from: THRE
 
 function SpotPool() {
   const items = useContext(Registry)
+  // `?perf=nolights` は「照明を全部外したときの上限」を測るための診断スイッチ
+  // （DECISIONS 2026-08-18）。**プールがここを見ていないと、外したはずの作品スポットが
+  // `POOL_MIX` の強さで6灯残る** ── その状態で測った数字を上限だと思って `POOL_MIX` を
+  // 決めることになる。登録（`useRegisterSpot`）はそのままでよく、実体を出さなければ
+  // シーンの照明数はちゃんと0になる。
+  const enabled = PERF.lights
   const lights = useRef<(THREE.SpotLight | null)[]>([])
   const targets = useRef<(THREE.Object3D | null)[]>([])
   const fwd = useMemo(() => new THREE.Vector3(), [])
@@ -88,7 +95,7 @@ function SpotPool() {
   )
 
   useFrame(({ camera }) => {
-    if (!items) return
+    if (!items || !enabled) return
     camera.getWorldDirection(fwd)
     for (let k = 0; k < SPOT_POOL; k++) {
       best[k].s = null
@@ -134,6 +141,7 @@ function SpotPool() {
     }
   })
 
+  if (!enabled) return null
   // プールの照明は**シーンの直下に置く**（親の変換が掛かると、上で入れた世界座標がずれる）
   return (
     <>

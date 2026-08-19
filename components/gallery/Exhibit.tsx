@@ -11,7 +11,7 @@ import { setFocusIntent } from '@/lib/analytics'
 import { getArtTexture, makePlaqueTexture, getFrameFinish, getSoftShadowTexture, getCanvasWeave, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
 import { useRegisterSpot, useHasSpotPool } from './SpotPool'
-import { POOL_MIX } from './lightPlan'
+import { POOL_MIX } from './lightMix'
 import { PERF } from '@/lib/perfFlags'
 import LightCone from './LightCone'
 import TrackFixture, { fixtureAperture } from './TrackFixture'
@@ -280,6 +280,11 @@ export default function Exhibit({
   }, [pooled, rig, slot.rotY, fullIntensity, spotColor])
   /** 下敷きを「その材質の色」に掛けたもの。地の色が濃い部品ほど控えめに光る。 */
   const fillOf = (base: number) => new THREE.Color(base).multiply(bakedFill)
+  /** 作品の面の自発光。**動画作品にも下敷きを足す** ── 動画は元から `emissive 0xffffff ×
+   *  0.7` で自発光しているが、それは画面の明るさであって照明ではない。下敷きを外すと、
+   *  プールから外れた動画作品だけが拡散反射のぶんを 25% しか受け取らず、隣の静止画より
+   *  暗く沈む（ビデオパスは売り物なので、そこだけ劣化させない）。 */
+  const artEmissive = videoArt.texture ? new THREE.Color(0.7, 0.7, 0.7).add(bakedFill) : bakedFill
 
   return (
     <>
@@ -363,10 +368,9 @@ export default function Exhibit({
               shadowSide={THREE.DoubleSide}
               // 焼いたぶんの下敷きは `emissiveMap` に作品そのものを入れて出す
               // （素の色で足すと、暗い作品も明るい作品も同じ量だけ持ち上がってしまう）。
-              // 動画作品は既に自発光しているので、そちらを優先する。
               emissiveMap={artTex}
-              emissive={videoArt.texture ? 0xffffff : bakedFill}
-              emissiveIntensity={videoArt.texture ? 0.7 : 1}
+              emissive={artEmissive}
+              emissiveIntensity={1}
             />
             <meshStandardMaterial
               attach="material-5"
@@ -421,16 +425,14 @@ export default function Exhibit({
                 shadowSide={THREE.DoubleSide}
                 // 焼いたぶんの下敷き（理由は上の額装なし版と同じ）
                 emissiveMap={artTex}
-                emissive={videoArt.texture ? 0xffffff : bakedFill}
-                emissiveIntensity={videoArt.texture ? 0.7 : 1}
+                emissive={artEmissive}
+                emissiveIntensity={1}
               />
             </mesh>
           </>
         )}
 
-        {/* 焼いたぶんの下敷き（`bakedFill`）は上の各材質の `emissive` に入れてある。
-          ここでは実照明の登録だけを行う（実体はシーンに6灯だけある共有プール）。 */}
-      {/* Spatial audio for video artworks (louder as you get closer) */}
+          {/* Spatial audio for video artworks (louder as you get closer) */}
         {videoArt.audio && <primitive object={videoArt.audio} position={[0, 0, 0.1]} />}
 
         {/* Name plate — beside the work, below it, or hidden */}

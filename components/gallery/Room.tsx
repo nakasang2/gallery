@@ -1,6 +1,6 @@
 'use client'
 // Room (floor, ceiling, walls, baseboards, crown molding, central walls, light strips, benches, overall lighting)
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
@@ -57,6 +57,28 @@ function useWallMaps(w: number, h: number, offU: number, offV: number, finish: W
   return maps
 }
 
+/** 焼いた光を後から挿したときに、材質のシェーダーを組み直させる。
+ *
+ *  **これが無いと焼いた光が画面に出ない。** three.js は `USE_LIGHTMAP` を材質の
+ *  `version`（＝`needsUpdate` を立てた回数）が変わったときにしか見直さず、
+ *  react-three-fiber は材質のプロパティを差し替えても `needsUpdate` を立てない。
+ *  壁は最初 `lightMap` 無しで作られ、焼き上がった1フレーム後に**同じ材質へ**テクスチャが
+ *  入るので、ここで明示的に立てないと古いシェーダーのまま＝壁が 25% の暗さで固定される。
+ *  （いまは `GalleryScene` の別の効果がたまたま全材質の `needsUpdate` を立てていて動いて
+ *  いたが、順序が変わると黙って暗くなる。偶然に頼らない。） */
+function useLightMapRecompile(tex: THREE.Texture | undefined) {
+  const mat = useRef<THREE.Material | null>(null)
+  useEffect(() => {
+    if (mat.current) mat.current.needsUpdate = true
+  }, [tex])
+  // **コールバック ref を返す。** `RefObject<Material>` だと、材質の型が違う枝
+  //（反射床＝`MeshReflectorMaterial`）へ渡せない。引数を広い型で受ける関数は
+  // 狭い型の ref として使えるので、1本で床の2通りにも壁にも挿せる。
+  return useCallback((m: THREE.Material | null) => {
+    mat.current = m
+  }, [])
+}
+
 /** 壁の一部（切り抜きが無ければ壁そのもの）。位置は親 `Wall` のローカル座標で決める。
  *  ダッシュボードのテーマプレビュー（`components/Preview3D`）も**この同じ板**を使う
  *  ── 仕上げ（plaster / concrete）とマップの張り方を写すと、テーマを調整した日に
@@ -108,6 +130,7 @@ export function WallPiece({
     return g
   }, [w, h, u0, v0, u1, v1])
   useEffect(() => () => disposeAll([geo]), [geo])
+  const matRef = useLightMapRecompile(lit?.tex)
   return (
     <mesh
       position={[offU + w / 2 - wallWidth / 2, offV + h / 2 - CEIL_H / 2, 0]}
@@ -119,6 +142,7 @@ export function WallPiece({
     >
       {/* The normal map catches grazing light and the roughness map gives uneven sheen */}
       <meshStandardMaterial
+        ref={matRef}
         color={color}
         map={map}
         roughness={0.93}
@@ -295,6 +319,9 @@ export function ThemedFloor({
     return g
   }, [hw, hd, fu0, fv0, fu1, fv1])
   useEffect(() => () => disposeAll([floorGeo]), [floorGeo])
+  // 床は端末で材質が2通りに分かれる（反射床 / 低スペック向けの光沢床）。**同時に
+  // 出るのは片方だけ**なので、参照は1本で足りる。
+  const matRef = useLightMapRecompile(lit?.tex)
   return (
       <mesh rotation-x={-Math.PI / 2} geometry={floorGeo} receiveShadow onClick={onClick}>
         {/* 診断スイッチ `?perf=norefl` でも光沢床側に落とせる（既定は従来どおり） */}
@@ -302,6 +329,7 @@ export function ThemedFloor({
           // Mobile/low-power: the real-time reflection pass is too costly, so keep the
           // cheap clearcoat sheen.
           <meshPhysicalMaterial
+            ref={matRef}
             {...floorTex}
             color={theme.floorTint}
             bumpScale={0.5}
@@ -321,6 +349,7 @@ export function ThemedFloor({
           // it blows out into white patches exactly where the mirrored ray travels far
           // (the artless stretches of wall; user-reported, not reproducible here).
           <MeshReflectorMaterial
+            ref={matRef}
             map={floorTex.map}
             roughnessMap={floorTex.roughnessMap}
             bumpMap={floorTex.bumpMap}
@@ -453,9 +482,11 @@ function Partition({
     return g
   }, [p.w, p.h, p.t, litKey])
   useEffect(() => () => disposeAll([geo]), [geo])
+  const matRef = useLightMapRecompile(lit?.tex)
   return (
     <mesh position={[p.x, p.h / 2, p.z]} geometry={geo} castShadow receiveShadow>
       <meshStandardMaterial
+        ref={matRef}
         color={theme.accentWall}
         map={maps.map}
         roughness={0.95}

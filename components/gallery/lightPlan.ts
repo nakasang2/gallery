@@ -17,6 +17,7 @@ import type { Settings } from '@/lib/store'
 import type { ArtworkData } from '@/lib/artworks'
 import { exhibitExtents, exhibitLightRig } from './Exhibit'
 import { DOOR_W, DOOR_H, type DoorPlacement, type WallId } from './doorway'
+import { POOL_MIX } from './lightMix'
 
 /** 焼く面1枚。世界座標の長方形。texel の位置 = `origin + axisU * u + axisV * v`（u,v は 0..1）。
  *  **`id` は貼る側が自分の区画を引くための鍵**なので、面の作り方を変えたら id も変える。 */
@@ -55,17 +56,8 @@ export interface LightPlan {
   key: string
 }
 
-/** 明るさを「焼いたぶん」と「近くだけ実照明」に分ける比（DECISIONS 2026-08-19 ③）。
- *
- *  部屋のどの面にも同じ比で効かせるのが要点。焼いたライトマップは作品スポットの
- *  `1 - POOL_MIX` を運び、シーンに残る共有プールの実照明が残りの `POOL_MIX` を出す。
- *  **地明かり（ambient / hemi）と環境マップは焼かない** ── 壁も床も実照明を見る材質の
- *  ままなので、今までどおり実物が効く。写して焼くと同じ値が2か所に増えるだけになる。
- *
- *  - `0` にすると全部焼く（照明 17個 → 2個・最速。ただし額の金属のハイライトが消える）
- *  - `1` にすると今日と同じ（焼き込みが効かない）
- *  見た目と速さの取引をこの1か所に集めてあるので、実機で見て決められる。 */
-export const POOL_MIX = 0.25
+// 焼くぶんと実照明の比は葉のモジュールが持つ（循環 import を避けるため）。
+// 使う側は `./lightMix` から直接読むこと。
 
 /** 壁1枚を、扉の開口で左・右・まぐさ上の3枚に割る。**`Room` の `Wall` と
  *  `buildLightPlan` の両方がここを通る** ── 割り方がずれると、貼る面と焼いた面が
