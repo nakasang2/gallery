@@ -42,11 +42,27 @@ export function sansFont(px: number, { italic = false, weight = 400 }: FontOpts 
 
 /* ---- canvas に焼く前に、その文字列に必要な書体を取り寄せる ---- */
 
-/** canvas に焼くときに実際に使う指定の一覧（`px` は face の選択に影響しないので代表値でよい）。
- *  ウェイトは 400 と 700 の2本だけ引く ── 実測（2026-08-19）で、300/500 の指定も
- *  400 を読み込めば `check` が true になることを確認した（CSSの照合が近い方へ落ちる）。 */
-function canvasFontSpecs(): string[] {
-  return [serifFont(44), serifFont(44, { italic: true }), sansFont(44), sansFont(44, { weight: 700 })]
+/** その焼き手が実際に使う書体指定（`px` は face の選択に影響しないので代表値でよい）。
+ *
+ *  **ウェイトは 400 と 700 の2本しか引かない** ── 実測（2026-08-19）で、300/500 の指定も
+ *  400 を読み込めば `check` が true になることを確認した（CSSの照合が近い方へ落ちる）。
+ *
+ *  **使わない指定を混ぜてはいけない。** 混ぜると `check` が永久に false のままになり
+ *  （斜体のCJKフェイスは存在しない・斜体はDOMのどこからも要求されない）、**毎回「足りない」
+ *  判定になって焼き直しが必ず1回走る**。題箋(512×300)×作品数 ＋ 壁(2048×1024) が丸ごと
+ *  無駄になるうえ、要らないスライスまで落とす。既定は「立体の明朝＋ゴシック」だけ。 */
+type CanvasFontNeed = {
+  /** 斜体の明朝を焼くか（LP廊下パネルの大きな番号だけ） */
+  italic?: boolean
+  /** 太字のゴシックを焼くか（600以上の指定。LP廊下パネルの見出しだけ） */
+  bold?: boolean
+}
+
+function canvasFontSpecs({ italic = false, bold = false }: CanvasFontNeed): string[] {
+  const specs = [serifFont(44), sansFont(44)]
+  if (italic) specs.push(serifFont(44, { italic: true }))
+  if (bold) specs.push(sansFont(44, { weight: 700 }))
+  return specs
 }
 
 function canLoad(spec: string, text: string): boolean {
@@ -69,9 +85,9 @@ function canLoad(spec: string, text: string): boolean {
  *
  * 何も足りていなければ `null` を返す（＝呼び手は焼き直さない）。
  */
-export function ensureCanvasFonts(text: string): Promise<unknown> | null {
+export function ensureCanvasFonts(text: string, need: CanvasFontNeed = {}): Promise<unknown> | null {
   if (typeof document === 'undefined' || !text.trim()) return null
-  const specs = canvasFontSpecs().filter((spec) => canLoad(spec, text))
+  const specs = canvasFontSpecs(need).filter((spec) => canLoad(spec, text))
   if (specs.length === 0) return null
   return Promise.all(specs.map((spec) => document.fonts.load(spec, text).catch(() => undefined)))
 }
@@ -83,10 +99,12 @@ export function ensureCanvasFonts(text: string): Promise<unknown> | null {
  * 焼く場所は3つ（題箋・壁の展示タイトル・LP廊下のパネル）あり、同じ手当てを写して
  * 書かないためにここに置いている（【絶対ルール】2026-08-12）。
  */
-export function useCanvasFontsReady(text: string): number {
+export function useCanvasFontsReady(text: string, need: CanvasFontNeed = {}): number {
   const [tick, setTick] = useState(0)
+  const italic = need.italic ?? false
+  const bold = need.bold ?? false
   useEffect(() => {
-    const pending = ensureCanvasFonts(text)
+    const pending = ensureCanvasFonts(text, { italic, bold })
     if (!pending) return
     let alive = true
     pending.then(() => {
@@ -95,6 +113,8 @@ export function useCanvasFontsReady(text: string): number {
     return () => {
       alive = false
     }
-  }, [text])
+    // `need` はオブジェクトなので毎レンダー新しくなる。**中身を展開して依存にする**
+    // （オブジェクトをそのまま入れると毎レンダー再実行になる）。
+  }, [text, italic, bold])
   return tick
 }

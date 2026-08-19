@@ -424,7 +424,8 @@ function SpotPool() {
 function Panel({ p }: { p: PanelText }) {
   // 題箋と同じ理由で、書体が届いたら焼き直す（lib/fonts.ts の説明）。ここは板の番号を
   // 320px の斜体で焼くので、フォールバックに落ちると一番目立つ。
-  const panelFonts = useCanvasFontsReady(`${p.n}${p.h}${p.b}`)
+  // 斜体（320pxの番号）と太字（62px/600の見出し）を焼くのはここだけ ── 使う指定だけを頼む
+  const panelFonts = useCanvasFontsReady(`${p.n}${p.h}${p.b}`, { italic: true, bold: true })
   const tex = useMemo(() => makePanelTexture(p), [p, panelFonts])
   useEffect(() => () => tex.dispose(), [tex])
   const w = 1.7

@@ -474,10 +474,16 @@ function drawRows(rows: BoardRow[], areaTop: number, areaH: number) {
 }
 
 /** 壁の展示タイトルが実際に描く文字ぜんぶ（`plaqueTextOf` と同じ役割）。
- *  **`makeTitleTexture` が描くものを変えたらここも変える。** */
+ *  **`makeTitleTexture` が描くものを変えたらここも変える。**
+ *
+ *  **`subtitle` / `statement` / `bio` は入れない** ── いまの板は「展示名 → 作家名 → @handle」
+ *  だけを描き、statement と bio は情報パネル（DOM）へ移っている（下の関数のコメント参照）。
+ *  ここに入れると、**壁に一切焼かれない文字のスライスまで取り寄せてしまう** ── 日本語は
+ *  unicode-range で約120枚に分割配信されるので、長い statement を書いた作家の部屋で
+ *  数百KBの woff2 を余分に落とすことになる（実測: 固有720字で45枚・明朝だけで約745KB）。 */
 export function titleWallTextOf(text: TitleWallText): string {
   const a = text.artist
-  return [text.title, text.subtitle, text.statement, a?.name, a?.handle, a?.bio].filter(Boolean).join('')
+  return [text.title, a?.name, a?.handle].filter(Boolean).join('')
 }
 
 export function makeTitleTexture(
