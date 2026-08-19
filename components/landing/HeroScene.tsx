@@ -13,7 +13,7 @@ import { MeshReflectorMaterial } from '@react-three/drei'
 import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
 import { fetchLpHero, fetchLpPanels, LP_HERO_SLOTS, LP_PANEL_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
 import { useT } from '@/components/I18nProvider'
-import { serifFont, sansFont } from '@/lib/fonts'
+import { serifFont, sansFont, useCanvasFontsReady } from '@/lib/fonts'
 
 /** LP hook: the admin-configured images for one face of the LP (null per slot =
  *  nothing configured). Lives here (its only caller) so lib/siteConfig stays
@@ -397,7 +397,10 @@ function SpotPool() {
 }
 
 function Panel({ p }: { p: PanelText }) {
-  const tex = useMemo(() => makePanelTexture(p), [p])
+  // 題箋と同じ理由で、書体が届いたら焼き直す（lib/fonts.ts の説明）。ここは板の番号を
+  // 320px の斜体で焼くので、フォールバックに落ちると一番目立つ。
+  const panelFonts = useCanvasFontsReady(`${p.n}${p.h}${p.b}`)
+  const tex = useMemo(() => makePanelTexture(p), [p, panelFonts])
   useEffect(() => () => tex.dispose(), [tex])
   const w = 1.7
   const h = w * (1180 / 900)

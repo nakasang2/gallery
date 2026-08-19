@@ -8,7 +8,8 @@ import { CEIL_H, type CaptionDef, type FrameDef, type HangingDef, type SlotDef, 
 import { artSize } from '@/lib/exhibition'
 import { walkRef, QUALITY } from '@/lib/controller'
 import { setFocusIntent } from '@/lib/analytics'
-import { getArtTexture, makePlaqueTexture, getFrameFinish, getSoftShadowTexture, getCanvasWeave, disposeAll } from './textures'
+import { getArtTexture, makePlaqueTexture, plaqueTextOf, getFrameFinish, getSoftShadowTexture, getCanvasWeave, disposeAll } from './textures'
+import { useCanvasFontsReady } from '@/lib/fonts'
 import SpotWithTarget from './SpotWithTarget'
 import { useRegisterSpot, useHasSpotPool } from './SpotPool'
 import { POOL_MIX } from './lightMix'
@@ -192,7 +193,11 @@ export default function Exhibit({
     }
   }, [artTex, art.ratio, art.cropAlign, width, height])
 
-  const plaqueTex = useMemo(() => makePlaqueTexture(art, index), [art, index])
+  // 焼く文字に必要な書体が届いたら焼き直す（日本語は unicode-range で細切れに配信され、
+  // canvas は自分では取ってこない ── lib/fonts.ts の説明）。`makePlaqueTexture` は
+  // `fitOneLine` で幅を測って字の大きさを決めるので、フォールバックで焼くと大きさまでずれる。
+  const plaqueFonts = useCanvasFontsReady(plaqueTextOf(art))
+  const plaqueTex = useMemo(() => makePlaqueTexture(art, index), [art, index, plaqueFonts])
   useEffect(() => () => disposeAll([plaqueTex]), [plaqueTex])
 
   // Linen-weave bump on the paint surface (image works only — video stays glossy).

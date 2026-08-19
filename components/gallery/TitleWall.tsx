@@ -10,7 +10,8 @@ import { CEIL_H, type LayoutDef, type ThemeDef } from '@/lib/presets'
 import { useGallery, useSettings } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
 import { roomExhibitor, titleWallWidth } from '@/lib/roomPlan'
-import { makeTitleTexture, DEFAULT_TITLE_TEXT, disposeAll, type TitleWallText } from './textures'
+import { makeTitleTexture, titleWallTextOf, DEFAULT_TITLE_TEXT, disposeAll, type TitleWallText } from './textures'
+import { useCanvasFontsReady } from '@/lib/fonts'
 import { walkRef } from '@/lib/controller'
 import { loadImage } from '@/lib/upload'
 import SpotWithTarget from './SpotWithTarget'
@@ -115,9 +116,11 @@ export default function TitleWall({ theme, layout }: { theme: ThemeDef; layout: 
     }
   }, [logoUrl])
 
+  // 題箋と同じ理由で、書体が届いたら焼き直す（lib/fonts.ts の説明）
+  const titleFonts = useCanvasFontsReady(titleWallTextOf(text))
   const tex = useMemo(
     () => makeTitleTexture(theme.titleInk === 'dark', text, avatarImg, logoImg),
-    [theme.titleInk, text, avatarImg, logoImg]
+    [theme.titleInk, text, avatarImg, logoImg, titleFonts]
   )
   useEffect(() => () => disposeAll([tex]), [tex])
 

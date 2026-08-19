@@ -347,6 +347,14 @@ export function getArtTexture(art: ArtworkData): THREE.Texture {
 
 /* ---- Plaque ---- */
 
+/** 題箋が実際に描く文字ぜんぶ。**`makePlaqueTexture` が描くものを変えたらここも変える**
+ *  ── `lib/fonts.ts` の `useCanvasFontsReady` に渡して、その字を含む書体のスライスを
+ *  取り寄せるのに使う（渡し漏れた字はOS標準の書体で描かれる）。 */
+export function plaqueTextOf(art: ArtworkData): string {
+  const caption = (art.desc || '').trim() || (art.tags || []).join(' · ')
+  return `${art.title}${art.artist}${art.year}${caption}`
+}
+
 export function makePlaqueTexture(art: ArtworkData, index: number): THREE.CanvasTexture {
   const c = document.createElement('canvas')
   c.width = 512
@@ -463,6 +471,13 @@ function drawRows(rows: BoardRow[], areaTop: number, areaH: number) {
     row.draw(y)
     y += row.h
   }
+}
+
+/** 壁の展示タイトルが実際に描く文字ぜんぶ（`plaqueTextOf` と同じ役割）。
+ *  **`makeTitleTexture` が描くものを変えたらここも変える。** */
+export function titleWallTextOf(text: TitleWallText): string {
+  const a = text.artist
+  return [text.title, text.subtitle, text.statement, a?.name, a?.handle, a?.bio].filter(Boolean).join('')
 }
 
 export function makeTitleTexture(
