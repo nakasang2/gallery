@@ -851,6 +851,8 @@ export const id: PartialDictionary = {
     endTour: 'Akhiri pemanduan',
     bgmOn: 'Musik menyala',
     bgmOff: 'Musik mati',
+    smoothOn: 'Gerakan halus aktif',
+    smoothOff: 'Gerakan halus nonaktif',
     share: 'Bagikan',
     guestbook: 'Buku tamu',
     editSpace: 'Ubah ruang',

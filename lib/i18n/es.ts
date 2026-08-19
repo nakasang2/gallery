@@ -851,6 +851,8 @@ export const es: PartialDictionary = {
     endTour: 'Terminar recorrido',
     bgmOn: 'Música activada',
     bgmOff: 'Música apagada',
+    smoothOn: 'Movimiento fluido activado',
+    smoothOff: 'Movimiento fluido desactivado',
     share: 'Compartir',
     guestbook: 'Libro de visitas',
     editSpace: 'Editar el espacio',

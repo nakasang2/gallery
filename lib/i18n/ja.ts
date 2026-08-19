@@ -60,6 +60,8 @@ export const ja: Dictionary = {
     endTour: '順路を終える',
     bgmOn: 'BGM オン',
     bgmOff: 'BGM オフ',
+    smoothOn: 'なめらかさ優先 オン',
+    smoothOff: 'なめらかさ優先 オフ',
     share: '共有',
     guestbook: '芳名帳',
     editSpace: '空間を編集',

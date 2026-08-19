@@ -84,6 +84,8 @@ export const en = {
     endTour: 'End tour',
     bgmOn: 'BGM on',
     bgmOff: 'BGM off',
+    smoothOn: 'Smooth motion on',
+    smoothOff: 'Smooth motion off',
     share: 'Share',
     guestbook: 'Guestbook',
     editSpace: 'Edit space',

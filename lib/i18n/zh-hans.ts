@@ -849,6 +849,8 @@ export const zhHans: PartialDictionary = {
     endTour: '结束导览',
     bgmOn: '开启音乐',
     bgmOff: '关闭音乐',
+    smoothOn: '流畅优先 开',
+    smoothOff: '流畅优先 关',
     share: '分享',
     guestbook: '留言簿',
     editSpace: '编辑空间',

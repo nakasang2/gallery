@@ -11,6 +11,7 @@ import { useGallery } from '@/lib/store'
 import { useToast } from '@/lib/toast'
 import { walkRef, canvasRef, camPose, QUALITY } from '@/lib/controller'
 import { PERF } from '@/lib/perfFlags'
+import { useSmoothMotion } from '@/lib/renderPref'
 import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
 import { unlockVideoAudio, suspendVideoAudio } from '@/lib/videohub'
@@ -452,14 +453,34 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
   const dprFull = useRef(dpr)
   // 歩行中に使う上限。低FPSが続くほど下がる（2 → 1.5 → 1.25 → 1）
   const dprWalk = useRef<number>(PERF.adaptive ? 1 : dpr[1])
-  const [adaptiveOn, setAdaptiveOn] = useState(PERF.adaptive)
+  const [declined, setDeclined] = useState(false)
+  // 来場者が自分で選んだ「なめらかさ優先」（HUDのその他メニュー・DECISIONS 2026-08-19）。
+  // **既定は切**で、遅い機械はこれまでどおり `PerformanceMonitor` が自動で下げる。
+  // 手動で入にした人は、自動の判定を待たずに歩行中を等倍にする。
+  const smooth = useSmoothMotion()
+  const adaptiveOn = PERF.adaptive || declined || smooth
+  // 歩行中の上限。手動で選んだ人は等倍（いちばん効く設定）、自動で下がった人は
+  // 段階的に落ちた値。**両方を持つ** ── 手動を切っても、自動で助かっていたぶんは戻さない。
+  const walkDpr = useCallback(() => (smooth ? 1 : dprWalk.current), [smooth])
   const onMoving = useCallback((moving: boolean) => {
-    setDpr(moving ? [1, dprWalk.current] : dprFull.current)
+    setDpr(moving ? [1, walkDpr()] : dprFull.current)
     // 診断モードでしか呼ばれない。**いま落ちているのか戻っているのかを外から読めるようにする**
     // ── 「止まったら戻る」が本当に起きているかは、canvas の実解像度と突き合わせないと
     // 分からない（プレビューでは描画が止まるので目視では確かめられなかった）。
     document.body.dataset.perfDpr = moving ? 'low' : 'full'
-  }, [])
+  }, [walkDpr])
+  // **切替の直後に、いまの歩行状態へ合わせ直す。** `AdaptiveDpr` は「動き出した／止まった」
+  // 変わり目でしか呼ばないので、これが無いと ①歩いている最中に「なめらかさ優先」を切ると
+  // **等倍のまま二度と戻らない**（部品ごと外れて誰も戻さない）②歩いている最中に入にしても
+  // 次に止まって歩き出すまで効かない、という2つが起きる。
+  useEffect(() => {
+    if (!adaptiveOn) {
+      setDpr(dprFull.current)
+      document.body.dataset.perfDpr = 'full'
+      return
+    }
+    setDpr(adaptive.moving ? [1, walkDpr()] : dprFull.current)
+  }, [adaptiveOn, walkDpr])
   const entryRef = useRef(
     resolveLayout(useGallery.getState().layout, useGallery.getState().layoutParams).entry
   )
@@ -755,7 +776,7 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
                 const from = dprWalk.current
                 const next = from > 1.5 ? 1.5 : from > 1.25 ? 1.25 : 1 // 2 → 1.5 → 1.25 → 1
                 dprWalk.current = next
-                setAdaptiveOn(true)
+                setDeclined(true)
                 track('gallery_perf_downgrade', {
                   surface,
                   gallery_id: galleryId,
