@@ -193,25 +193,27 @@ export default function LightmapBaker({
       ;(u.uDistance.value as number[])[i] = s.distance
     }
 
-    // レンダラー全体の状態なので `finally` で必ず戻す（`WallShadowBaker` と同じ理由:
-    // 途中で投げると `autoClear` が切れたままになり、以後キャンバスが一度も消えなくなる）。
+    // 描画先・`autoClear`・消去色は**どれもレンダラー全体の状態なので、3つとも
+    // `finally` で戻す**（`WallShadowBaker` と同じ理由: 途中で投げると `autoClear` が
+    // 切れたままになり、以後キャンバスが一度も消えなくなる）。**消去色だけ `try` の中で
+    // 戻す形を一度作りかけた** ── その手前で投げると黒のまま残り、以後キャンバスが
+    // 真っ黒に消され続ける。
     const prevRT = gl.getRenderTarget()
     const prevAutoClear = gl.autoClear
     const prevClear = new THREE.Color()
+    gl.getClearColor(prevClear)
+    const prevClearAlpha = gl.getClearAlpha()
     try {
       // **面ごとに区画へ描く前に、1度だけ全面を消す。** 消さないと、焼き直したときに
       // 前の構成の光が区画の外に残る（アトラスの詰め方は構成で変わる）。
       // 消す色は**明示的に黒**にする ── `gl.clear()` はレンダラー全体の消去色を使うので、
       // 後処理や他の描画がそれを触っていると、区画の外に一定の光が残る器になる。
-      gl.getClearColor(prevClear)
-      const prevClearAlpha = gl.getClearAlpha()
       gl.setClearColor(0x000000, 0)
       target.viewport.set(0, 0, layout.size, layout.size)
       target.scissor.set(0, 0, layout.size, layout.size)
       gl.setRenderTarget(target)
       gl.autoClear = false
       gl.clear(true, false, false)
-      gl.setClearColor(prevClear, prevClearAlpha)
       for (const s of plan.surfaces) {
         const px = layout.px[s.id]
         if (!px) continue
@@ -226,6 +228,7 @@ export default function LightmapBaker({
     } finally {
       gl.setRenderTarget(prevRT)
       gl.autoClear = prevAutoClear
+      gl.setClearColor(prevClear, prevClearAlpha)
     }
 
     done.current = plan.key
