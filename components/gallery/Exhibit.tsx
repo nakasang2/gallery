@@ -10,6 +10,8 @@ import { walkRef, QUALITY } from '@/lib/controller'
 import { setFocusIntent } from '@/lib/analytics'
 import { getArtTexture, makePlaqueTexture, getFrameFinish, getSoftShadowTexture, getCanvasWeave, disposeAll } from './textures'
 import SpotWithTarget from './SpotWithTarget'
+import { useRegisterSpot, useHasSpotPool } from './SpotPool'
+import { POOL_MIX } from './lightMix'
 import { PERF } from '@/lib/perfFlags'
 import LightCone from './LightCone'
 import TrackFixture, { fixtureAperture } from './TrackFixture'
@@ -66,6 +68,23 @@ export function exhibitLightRig(
     penumbra = 0.65
   }
   return { position, target, angle, penumbra }
+}
+
+/** このスポットが作品の中心に落としていた照度（`getSpotLightInfo` と同じ式の、円錐の
+ *  真ん中での値）。**焼いたぶん（`1 - POOL_MIX`）を作品と額に下敷きとして戻すために使う**
+ *  ── 実照明はカメラの近くの数点しか照らさないので、これが無いと遠くの作品が暗くなる
+ *  （DECISIONS 2026-08-19 ③）。 */
+export function exhibitCenterIrradiance(
+  rig: { position: THREE.Vector3; target: THREE.Vector3 },
+  slotRotY: number,
+  fullIntensity: number
+): number {
+  const normal = new THREE.Vector3(Math.sin(slotRotY), 0, Math.cos(slotRotY))
+  const toLight = rig.position.clone().sub(rig.target)
+  const d = Math.max(toLight.length(), 1e-4)
+  toLight.divideScalar(d)
+  // 円錐の中心なので減衰は 1。あとは入射角と逆二乗だけ。
+  return (fullIntensity * Math.max(toLight.dot(normal), 0)) / (d * d)
 }
 
 /** Wall region the baked shadow texture covers (local to the exhibit group).
@@ -125,7 +144,8 @@ export default function Exhibit({
   captionDef: CaptionDef
   /** Spotlight placement: 'ceiling' track angled at the work, or 'overhead' straight down */
   lightMode: 'ceiling' | 'overhead'
-  /** Whether this work's spot renders a real shadow map (see GalleryScene's budget) */
+  /** Whether this work's spot renders a real shadow map. 共有プールが無い小さなシーン
+   *  （テーマプレビュー・影の焼き込み）でだけ意味を持つ。 */
   castRealShadow: boolean
   /** Baked wall shadow (WallShadowBaker): the room's atlas plus this work's tile
    *  of it. When present it replaces the procedural drop-shadow planes with the
@@ -225,6 +245,46 @@ export default function Exhibit({
   const lightPos = rig.position
   const spotAngle = rig.angle
   const spotPenumbra = rig.penumbra
+  const fullIntensity = theme.spotIntensity * (lightMode === 'overhead' ? 0.5 : 2.6)
+
+  // 共有プールへの登録（照明の焼き込み ③）。**位置は数値ではなく空の Object3D 2つ**で
+  // 持つ ── プール側が世界座標を読むので、親の変換をそのまま引き継げる。
+  const spotFrom = useMemo(() => new THREE.Object3D(), [])
+  const spotTo = useMemo(() => new THREE.Object3D(), [])
+  spotFrom.position.copy(lightPos)
+  spotTo.position.copy(spotTarget)
+  const spotColor = useMemo(() => new THREE.Color(theme.spotColor), [theme.spotColor])
+  const pooled = useHasSpotPool()
+  useRegisterSpot(
+    {
+      color: spotColor,
+      intensity: fullIntensity * POOL_MIX,
+      angle: spotAngle,
+      penumbra: spotPenumbra,
+      decay: 2,
+    },
+    spotFrom,
+    spotTo
+  )
+
+  // 焼いたぶんの下敷き。**プールに選ばれなかった作品が暗くならないためのもの。**
+  // 壁と床は `LightmapBaker` の1枚が運ぶが、作品・マット・額・銘板は立体なので
+  // ライトマップを貼れない ── 円錐の真ん中の照度を1つの値として求め、材質の
+  // `emissive` に載せる（`meshStandardMaterial` は `emissive` を素の色として足すので、
+  // 拡散反射と同じ見え方にするには albedo と円周率で割ったぶんを掛ける）。
+  const bakedFill = useMemo(() => {
+    // プールが無いシーンでは実照明が満額で当たっているので、下敷きを足すと二重になる。
+    if (!pooled) return new THREE.Color(0, 0, 0)
+    const e = exhibitCenterIrradiance(rig, slot.rotY, fullIntensity) * (1 - POOL_MIX)
+    return spotColor.clone().multiplyScalar(e / Math.PI)
+  }, [pooled, rig, slot.rotY, fullIntensity, spotColor])
+  /** 下敷きを「その材質の色」に掛けたもの。地の色が濃い部品ほど控えめに光る。 */
+  const fillOf = (base: number) => new THREE.Color(base).multiply(bakedFill)
+  /** 作品の面の自発光。**動画作品にも下敷きを足す** ── 動画は元から `emissive 0xffffff ×
+   *  0.7` で自発光しているが、それは画面の明るさであって照明ではない。下敷きを外すと、
+   *  プールから外れた動画作品だけが拡散反射のぶんを 25% しか受け取らず、隣の静止画より
+   *  暗く沈む（ビデオパスは売り物なので、そこだけ劣化させない）。 */
+  const artEmissive = videoArt.texture ? new THREE.Color(0.7, 0.7, 0.7).add(bakedFill) : bakedFill
 
   return (
     <>
@@ -288,10 +348,16 @@ export default function Exhibit({
                 box's BACK face (3.8cm off the wall) whose depth separation is too
                 thin for reliable comparison — the front face (8.8cm) must win */}
             <boxGeometry args={[width, height, 0.05]} />
-            <meshStandardMaterial attach="material-0" color={0x28241f} roughness={0.8} shadowSide={THREE.DoubleSide} />
-            <meshStandardMaterial attach="material-1" color={0x28241f} roughness={0.8} shadowSide={THREE.DoubleSide} />
-            <meshStandardMaterial attach="material-2" color={0x28241f} roughness={0.8} shadowSide={THREE.DoubleSide} />
-            <meshStandardMaterial attach="material-3" color={0x28241f} roughness={0.8} shadowSide={THREE.DoubleSide} />
+            {[0, 1, 2, 3].map((i) => (
+              <meshStandardMaterial
+                key={i}
+                attach={`material-${i}`}
+                color={0x28241f}
+                roughness={0.8}
+                shadowSide={THREE.DoubleSide}
+                emissive={fillOf(0x28241f)}
+              />
+            ))}
             <meshStandardMaterial
               attach="material-4"
               map={artTex}
@@ -300,11 +366,19 @@ export default function Exhibit({
               bumpMap={weaveTex}
               bumpScale={0.35}
               shadowSide={THREE.DoubleSide}
-              emissiveMap={videoArt.texture ? artTex : null}
-              emissive={videoArt.texture ? 0xffffff : 0x000000}
-              emissiveIntensity={videoArt.texture ? 0.7 : 0}
+              // 焼いたぶんの下敷きは `emissiveMap` に作品そのものを入れて出す
+              // （素の色で足すと、暗い作品も明るい作品も同じ量だけ持ち上がってしまう）。
+              emissiveMap={artTex}
+              emissive={artEmissive}
+              emissiveIntensity={1}
             />
-            <meshStandardMaterial attach="material-5" color={0x1a1713} roughness={0.9} shadowSide={THREE.DoubleSide} />
+            <meshStandardMaterial
+              attach="material-5"
+              color={0x1a1713}
+              roughness={0.9}
+              shadowSide={THREE.DoubleSide}
+              emissive={fillOf(0x1a1713)}
+            />
           </mesh>
         ) : (
           <>
@@ -320,6 +394,7 @@ export default function Exhibit({
                 envMapIntensity={0.9}
                 {...(frameDef.finish ? getFrameFinish(frameDef.finish) : {})}
                 bumpScale={0.35}
+                emissive={fillOf(frameDef.color!)}
               />
             </mesh>
             {/* Mat board (gap 0 = "no mat": the work sits right against the frame).
@@ -331,7 +406,12 @@ export default function Exhibit({
             {frameDef.gap! > 0 && (
               <mesh position={[0, 0, 0.11]} castShadow>
                 <planeGeometry args={[width + frameDef.gap! * 2 + 0.02, height + frameDef.gap! * 2 + 0.02]} />
-                <meshStandardMaterial color={frameDef.mat!} roughness={0.9} shadowSide={THREE.DoubleSide} />
+                <meshStandardMaterial
+                  color={frameDef.mat!}
+                  roughness={0.9}
+                  shadowSide={THREE.DoubleSide}
+                  emissive={fillOf(frameDef.mat!)}
+                />
               </mesh>
             )}
             <mesh position={[0, 0, 0.115]} castShadow onClick={onClick} onPointerOver={onOver} onPointerOut={onOut}>
@@ -343,15 +423,16 @@ export default function Exhibit({
                 bumpMap={weaveTex}
                 bumpScale={0.35}
                 shadowSide={THREE.DoubleSide}
-                emissiveMap={videoArt.texture ? artTex : null}
-                emissive={videoArt.texture ? 0xffffff : 0x000000}
-                emissiveIntensity={videoArt.texture ? 0.7 : 0}
+                // 焼いたぶんの下敷き（理由は上の額装なし版と同じ）
+                emissiveMap={artTex}
+                emissive={artEmissive}
+                emissiveIntensity={1}
               />
             </mesh>
           </>
         )}
 
-        {/* Spatial audio for video artworks (louder as you get closer) */}
+          {/* Spatial audio for video artworks (louder as you get closer) */}
         {videoArt.audio && <primitive object={videoArt.audio} position={[0, 0, 0.1]} />}
 
         {/* Name plate — beside the work, below it, or hidden */}
@@ -382,12 +463,21 @@ export default function Exhibit({
             )}
             <mesh castShadow>
               <boxGeometry args={[0.42, 0.246, 0.014]} />
-              <meshStandardMaterial attach="material-0" color={0xd8d3c7} roughness={0.85} />
-              <meshStandardMaterial attach="material-1" color={0xd8d3c7} roughness={0.85} />
-              <meshStandardMaterial attach="material-2" color={0xe4dfd4} roughness={0.85} />
-              <meshStandardMaterial attach="material-3" color={0xc9c4b8} roughness={0.85} />
-              <meshStandardMaterial attach="material-4" map={plaqueTex} roughness={0.82} />
-              <meshStandardMaterial attach="material-5" color={0xd8d3c7} roughness={0.85} />
+              {([0xd8d3c7, 0xd8d3c7, 0xe4dfd4, 0xc9c4b8, 0xd8d3c7, 0xd8d3c7] as const).map((c, i) =>
+                i === 4 ? (
+                  <meshStandardMaterial
+                    key={i}
+                    attach="material-4"
+                    map={plaqueTex}
+                    roughness={0.82}
+                    emissiveMap={plaqueTex}
+                    emissive={bakedFill}
+                    emissiveIntensity={1}
+                  />
+                ) : (
+                  <meshStandardMaterial key={i} attach={`material-${i}`} color={c} roughness={0.85} emissive={fillOf(c)} />
+                )
+              )}
             </mesh>
           </group>
         )}
@@ -411,7 +501,7 @@ export default function Exhibit({
         {hangingDef.kind === 'ledge' && (
           <mesh position={[0, -halfH - 0.02, 0.135]} castShadow>
             <boxGeometry args={[halfW * 2 + 0.12, 0.035, 0.16]} />
-            <meshStandardMaterial color={0x1c1916} roughness={0.5} metalness={0.3} />
+            <meshStandardMaterial color={0x1c1916} roughness={0.5} metalness={0.3} emissive={fillOf(0x1c1916)} />
           </mesh>
         )}
       </group>
@@ -422,20 +512,30 @@ export default function Exhibit({
           factor rebalances theme.spotIntensity for each throw distance
           (ceiling track ~4m vs picture light's virtual emitter ~1.5m) so the
           exposure at the artwork's centre matches between the two modes. */}
-      {/* `?perf=nolights` は測定専用（照明19個が1ピクセルあたりの重さの正体かを測る） */}
-      {PERF.lights && (
-      <SpotWithTarget
-        position={[lightPos.x, lightPos.y, lightPos.z]}
-        targetPosition={[spotTarget.x, spotTarget.y, spotTarget.z]}
-        color={theme.spotColor}
-        intensity={theme.spotIntensity * (lightMode === 'overhead' ? 0.5 : 2.6)}
-        angle={spotAngle}
-        penumbra={spotPenumbra}
-        decay={2}
-        castShadow={castRealShadow}
-        shadowMapSize={QUALITY === 'high' ? 2048 : 1024}
-      />
-      )}
+      {/* 実照明は**共有プールに登録するだけ**（照明の焼き込み ③）。位置と的は空の
+          `object3D` 2つで持ち、実体はシーン直下の6灯が近い順に借りていく。
+          強さは `POOL_MIX` ぶんだけ ── 残りは焼いたライトマップと、上の材質に入れた
+          `emissive` の下敷きが出している。
+          `?perf=nolights` は測定専用（照明が1ピクセルあたりの重さの正体かを測る）。 */}
+      {PERF.lights &&
+        (pooled ? (
+          <>
+            <primitive object={spotFrom} />
+            <primitive object={spotTo} />
+          </>
+        ) : (
+          <SpotWithTarget
+            position={[lightPos.x, lightPos.y, lightPos.z]}
+            targetPosition={[spotTarget.x, spotTarget.y, spotTarget.z]}
+            color={theme.spotColor}
+            intensity={fullIntensity}
+            angle={spotAngle}
+            penumbra={spotPenumbra}
+            decay={2}
+            castShadow={castRealShadow}
+            shadowMapSize={QUALITY === 'high' ? 2048 : 1024}
+          />
+        ))}
 
       {/* Fake volumetric shaft — ceiling tracks only. A picture light sits ~0.5m
           from the work: no visible air shaft in reality, and a cone radiating from

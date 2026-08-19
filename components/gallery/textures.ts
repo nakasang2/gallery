@@ -738,6 +738,18 @@ export function getSoftShadowTexture(): THREE.CanvasTexture {
    gradient is uniform around the Y axis: light from above, dark below, no window.
    Frames/metals still get their vertical sheen; nothing in the room has a side. */
 let neutralEnv: THREE.CanvasTexture | null = null
+/** 環境マップの縦の勾配（上＝天井の照り返し / 下＝床）。**焼き込み側もここを読む**
+ *  ── 壁をライトマップ1枚で描くようになったので、`envMapIntensity` が壁に足していた
+ *  地明かりを焼き込みに含める必要があり、その計算はこの色から出す
+ *  （`components/gallery/lightPlan.ts` の `envIrradiance`）。数値を2か所に写すと、
+ *  勾配を触った日に**壁だけ明るさが変わらない**という気づけない食い違いになる。 */
+export const NEUTRAL_ENV_STOPS: [number, string][] = [
+  [0, '#e8d9bd'], // ceiling glow — warm gallery light from above
+  [0.42, '#9a9184'],
+  [0.58, '#736a5e'], // horizon band
+  [1, '#25211c'], // floor: dark
+]
+
 export function getNeutralEnvTexture(): THREE.CanvasTexture {
   if (neutralEnv) return neutralEnv
   const c = document.createElement('canvas')
@@ -746,10 +758,7 @@ export function getNeutralEnvTexture(): THREE.CanvasTexture {
   const ctx = c.getContext('2d')!
   // Bright enough that metals (gold/silver frames live on env light) still shine
   const g = ctx.createLinearGradient(0, 0, 0, 64)
-  g.addColorStop(0, '#e8d9bd') // ceiling glow — warm gallery light from above
-  g.addColorStop(0.42, '#9a9184')
-  g.addColorStop(0.58, '#736a5e') // horizon band
-  g.addColorStop(1, '#25211c') // floor: dark
+  for (const [at, hex] of NEUTRAL_ENV_STOPS) g.addColorStop(at, hex)
   ctx.fillStyle = g
   ctx.fillRect(0, 0, 64, 64)
   neutralEnv = new THREE.CanvasTexture(c)

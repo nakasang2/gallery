@@ -14,7 +14,11 @@ import { PERF } from '@/lib/perfFlags'
 import Room from './Room'
 import Exhibit from './Exhibit'
 import WallShadowBaker, { tileUvOf, type BakedShadow } from './WallShadowBaker'
+import LightmapBaker, { type LightAtlas } from './LightmapBaker'
+import { SpotPoolProvider } from './SpotPool'
 import { buildBakePlan } from './bakePlan'
+import { buildLightPlan } from './lightPlan'
+import { useDoorway } from './doorway'
 import TitleWall from './TitleWall'
 import RoomPortals from './RoomPortals'
 import Dust from './Dust'
@@ -81,6 +85,23 @@ export default function GalleryScene() {
     () => bakeMatches(savedBake, bakeKey, bakeSpecs.map((sp) => sp.id)),
     [savedBake, bakeKey, bakeSpecs]
   )
+  // 部屋の光の焼き込み（照明の焼き込み ②・DECISIONS 2026-08-19）。壁・床・間仕切りは
+  // これ1枚で明るさが決まるようになる。**影と違って保存しない**（1フレームで焼けるので、
+  // 保存の仕組みを増やす理由が無い。`LightmapBaker` の冒頭に理由を書いた）。
+  const door = useDoorway(layout)
+  const lightPlan = useMemo(
+    () => buildLightPlan(theme, layout, door, settings, list, slots),
+    [theme, layout, door, settings, list, slots]
+  )
+  const [lightmap, setLightmap] = useState<LightAtlas | null>(null)
+  // 焼き直しの合図。**古い1枚を貼ったままにしない** ── 構成が変わると面の詰め方も変わるので、
+  // 前の区画を読み続けると壁に別の壁の光が乗る（画面は壊れないので気づけない）。
+  const shownLightKey = useRef(lightPlan.key)
+  if (shownLightKey.current !== lightPlan.key) {
+    shownLightKey.current = lightPlan.key
+    setLightmap(null)
+  }
+
   const [bakedShadows, setBakedShadows] = useState<Record<string, BakedShadow>>({})
   // Cleared during render, not in an effect: the baker drops the old atlas the
   // moment the work count changes, and an effect would leave the exhibits holding
@@ -170,8 +191,12 @@ export default function GalleryScene() {
   }, [gl, scene, settings.theme, settings.layout, settings.layoutParams, settings.frame, settings.mat, settings.hanging, settings.caption, settings.frameOverrides, settings.matOverrides, settings.hangingOverrides, settings.captionOverrides, settings.lightOverrides, settings.designOverrides, list])
 
   return (
-    <>
-      <Room theme={theme} layout={layout} />
+    // 作品スポットは実体を持たず、共有プール（シーン直下の6灯）を近い順に借りる。
+    // **`Exhibit` を囲っていないとプールが見つからず、各作品が自前の実照明を出す**
+    // （テーマプレビュー用の逃げ道がそのまま効いてしまい、照明が減らない）。
+    <SpotPoolProvider>
+      <Room theme={theme} layout={layout} lightmap={lightmap} />
+      <LightmapBaker plan={lightPlan} onBaked={setLightmap} />
       {list.map((art, i) => (
         <Exhibit
           key={art.id}
@@ -206,6 +231,6 @@ export default function GalleryScene() {
       <VideoPlaybackManager />
       {/* 診断スイッチ `?perf=nofx` で後処理をまるごと外せる（既定は出す） */}
       {!LOW_POWER && PERF.fx && <Effects theme={theme} />}
-    </>
+    </SpotPoolProvider>
   )
 }
