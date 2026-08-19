@@ -76,7 +76,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Loaded at runtime rather than via next/font because these fonts are also used for canvas textures (name plates, etc.) */}
         {/* 書体名を変えるときは app/landing.css の `--serif` / `--sans` と必ず揃える（lib/fonts.ts がそこを読む） */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,400;0,500;1,400&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
       </head>

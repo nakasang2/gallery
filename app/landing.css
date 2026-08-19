@@ -26,7 +26,12 @@
   --gold: #d4a24e;
   --hairline: rgba(236, 231, 222, 0.14);
   --glow: rgba(255, 240, 214, 0.06);
-  --serif: 'Bodoni Moda', Georgia, serif;
+  /* 明朝は Vollkorn（ユーザー決定 2026-08-19）。Bodoni Moda は縦の太い軸と横の細い線の差が
+     23.9倍あり、3Dの題箋（テクスチャ512px幅がスマホ画面では71px幅＝7.2倍に縮む）で細い線が
+     0.03px＝濃さ3%まで落ちて消え、文字が縦棒の列に崩れていた。Vollkorn は同2.0倍・細い線0.32px
+     ＝濃さ32%。実測の全文は DECISIONS 2026-08-19。**次に書体を変えるときも Google Fonts に
+     あることが必須**（canvas が ctx.font に書体名を文字列で渡すので next/font は使えない）。 */
+  --serif: 'Vollkorn', Georgia, serif;
   --sans: 'Geist', sans-serif;
   --mono: 'Geist Mono', monospace;
 

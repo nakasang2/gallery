@@ -28,7 +28,7 @@ function cssFamily(token: '--serif' | '--sans', fallback: string): string {
 
 type FontOpts = { italic?: boolean; weight?: number }
 
-/** 例: serifFont(44) → `400 44px 'Bodoni Moda', Georgia, serif` */
+/** 例: serifFont(44) → `400 44px 'Vollkorn', Georgia, serif` */
 export function serifFont(px: number, { italic = false, weight = 400 }: FontOpts = {}): string {
   return `${italic ? 'italic ' : ''}${weight} ${px}px ${cssFamily('--serif', FALLBACK_SERIF)}`
 }
