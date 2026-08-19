@@ -847,6 +847,8 @@ export const zhHant: PartialDictionary = {
     endTour: '結束導覽',
     bgmOn: '開啟音樂',
     bgmOff: '關閉音樂',
+    smoothOn: '流暢優先 開',
+    smoothOff: '流暢優先 關',
     share: '分享',
     guestbook: '留言簿',
     editSpace: '編輯空間',

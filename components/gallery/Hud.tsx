@@ -11,6 +11,7 @@ import { galleryAudio } from '@/lib/audio'
 import { audioGuide } from '@/lib/guide'
 import { showToast } from '@/lib/toast'
 import { sessionFlags, setFocusIntent, track } from '@/lib/analytics'
+import { renderPref, useSmoothMotion } from '@/lib/renderPref'
 import { SendIcon, DoorIcon } from '@/components/icons'
 import { useWalkRecorder } from './RecordButton'
 import { LocaleLink, useT } from '@/components/I18nProvider'
@@ -159,6 +160,9 @@ export function HudActions() {
   const embed = useGallery((s) => s.embed)
   const hasWorks = useExhibitionList().length > 0
   const [audioOn, setAudioOn] = useState(galleryAudio.enabled)
+  // 「なめらかさ優先」（DECISIONS 2026-08-19）。**その他メニューに置く** ── 基本の列は
+  // スマホの狭い幅で既にいっぱいで、増やすとミニマップやページャーと重なる（2026-08-15）。
+  const smooth = useSmoothMotion()
   const [othersOpen, setOthersOpen] = useState(false)
   const recorder = useWalkRecorder()
 
@@ -206,7 +210,9 @@ export function HudActions() {
 
   // Others: Report (public galleries only) + Record (wherever the browser can capture)
   const hasReport = !!visitor
-  const showOthers = hasReport || recorder.available
+  // 「なめらかさ優先」は誰にでも出す（作家の下見でも来場者でも意味がある）ので、
+  // その他メニューは常に開く。
+  const showOthers = true
 
   return (
     <div
@@ -275,6 +281,20 @@ export function HudActions() {
                 <span className="hud-action-icon" aria-hidden="true">⚑</span>
               </Link>
             )}
+            {/* なめらかさ優先: 歩いている間だけ解像度を落とし、止まると最高画質に戻す。
+                **作品を眺めている瞬間の画質はどちらでも下がらない**ので、選んで損をする人がいない。 */}
+            <button
+              className={`hud-action${smooth ? ' active' : ''}`}
+              role="menuitem"
+              aria-pressed={smooth}
+              onClick={() => {
+                const on = renderPref.toggle()
+                track('gallery_smooth_toggle', { gallery_id: visitor?.galleryId, on })
+              }}
+            >
+              <span className="hud-action-label">{smooth ? t('hud.smoothOn') : t('hud.smoothOff')}</span>
+              <span className="hud-action-icon" aria-hidden="true">{smooth ? '◗' : '◯'}</span>
+            </button>
             {recorder.available && (
               <button
                 className={`hud-action${recorder.recording ? ' active' : ''}`}

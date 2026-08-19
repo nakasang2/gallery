@@ -909,6 +909,8 @@ export const ko: PartialDictionary = {
     endTour: '관람 종료',
     bgmOn: '음악 켜기',
     bgmOff: '음악 끄기',
+    smoothOn: '부드러운 움직임 켜기',
+    smoothOff: '부드러운 움직임 끄기',
     share: '공유',
     guestbook: '방명록',
     editSpace: '공간 편집',

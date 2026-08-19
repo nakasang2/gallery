@@ -851,6 +851,8 @@ export const de: PartialDictionary = {
     endTour: 'Führung beenden',
     bgmOn: 'Musik an',
     bgmOff: 'Musik aus',
+    smoothOn: 'Flüssige Bewegung an',
+    smoothOff: 'Flüssige Bewegung aus',
     share: 'Teilen',
     guestbook: 'Gästebuch',
     editSpace: 'Raum bearbeiten',

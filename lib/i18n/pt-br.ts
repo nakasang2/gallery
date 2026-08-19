@@ -851,6 +851,8 @@ export const ptBr: PartialDictionary = {
     endTour: 'Encerrar a visita',
     bgmOn: 'Música ligada',
     bgmOff: 'Música desligada',
+    smoothOn: 'Movimento suave ativado',
+    smoothOff: 'Movimento suave desativado',
     share: 'Compartilhar',
     guestbook: 'Livro de visitas',
     editSpace: 'Editar o espaço',
