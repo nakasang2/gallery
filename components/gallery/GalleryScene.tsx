@@ -15,6 +15,7 @@ import Room from './Room'
 import Exhibit from './Exhibit'
 import WallShadowBaker, { tileUvOf, type BakedShadow } from './WallShadowBaker'
 import LightmapBaker, { type LightAtlas } from './LightmapBaker'
+import { SpotPoolProvider } from './SpotPool'
 import { buildBakePlan } from './bakePlan'
 import { buildLightPlan } from './lightPlan'
 import { useDoorway } from './doorway'
@@ -190,7 +191,10 @@ export default function GalleryScene() {
   }, [gl, scene, settings.theme, settings.layout, settings.layoutParams, settings.frame, settings.mat, settings.hanging, settings.caption, settings.frameOverrides, settings.matOverrides, settings.hangingOverrides, settings.captionOverrides, settings.lightOverrides, settings.designOverrides, list])
 
   return (
-    <>
+    // 作品スポットは実体を持たず、共有プール（シーン直下の6灯）を近い順に借りる。
+    // **`Exhibit` を囲っていないとプールが見つからず、各作品が自前の実照明を出す**
+    // （テーマプレビュー用の逃げ道がそのまま効いてしまい、照明が減らない）。
+    <SpotPoolProvider>
       <Room theme={theme} layout={layout} lightmap={lightmap} />
       <LightmapBaker plan={lightPlan} onBaked={setLightmap} />
       {list.map((art, i) => (
@@ -227,6 +231,6 @@ export default function GalleryScene() {
       <VideoPlaybackManager />
       {/* 診断スイッチ `?perf=nofx` で後処理をまるごと外せる（既定は出す） */}
       {!LOW_POWER && PERF.fx && <Effects theme={theme} />}
-    </>
+    </SpotPoolProvider>
   )
 }

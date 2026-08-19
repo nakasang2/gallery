@@ -79,10 +79,10 @@ export function WallPiece({
   wallWidth: number
   color: number
   finish: WallFinish
-  /** 焼いた光（`LightmapBaker`）と、この板が占める区画。**渡されたときだけ**
-   *  「照らされる面」から「もう明るさが決まっている面」に変わる。渡さなければ
-   *  従来どおりの実照明の材質 ── ダッシュボードのテーマプレビューはこちらを使う
-   *  （小さな箱に照明が2つあるだけなので、焼く相手がいない）。 */
+  /** 焼いた光（`LightmapBaker`）と、この板が占める区画。材質は**実照明を見るまま**で、
+   *  焼いたぶん（作品スポットの `1 - POOL_MIX`）をライトマップとして足すだけ
+   *  ── だから地明かり・環境マップ・ノーマルマップの陰影は今までどおり効く。
+   *  渡さなければ従来と1ピクセルも変わらない（ダッシュボードのテーマプレビューはこちら）。 */
   lit?: { tex: THREE.Texture; rect: LitRect }
   onSelect?: (e: ThreeEvent<MouseEvent>) => void
 }) {
@@ -112,28 +112,23 @@ export function WallPiece({
     <mesh
       position={[offU + w / 2 - wallWidth / 2, offV + h / 2 - CEIL_H / 2, 0]}
       geometry={geo}
-      receiveShadow={!lit}
+      receiveShadow
       onClick={onSelect}
       onPointerOver={onSelect ? () => (gl.domElement.style.cursor = 'pointer') : undefined}
       onPointerOut={onSelect ? () => (gl.domElement.style.cursor = '') : undefined}
     >
-      {lit ? (
-        // 焼いた面。**照明を1灯も見ない材質**にするのが要点で、`meshStandardMaterial` の
-        // まま lightMap を足すと、シーンに残っている実照明のぶんが二重に乗る
-        // （そして実照明はカメラの近くだけを選び直すので、歩くと壁の明るさが脈打つ）。
-        <meshBasicMaterial color={color} map={map} lightMap={lit.tex} lightMapIntensity={1} />
-      ) : (
-        /* The normal map catches grazing light and the roughness map gives uneven sheen */
-        <meshStandardMaterial
-          color={color}
-          map={map}
-          roughness={0.93}
-          normalMap={normalMap}
-          normalScale={new THREE.Vector2(normalScale, normalScale)}
-          roughnessMap={roughnessMap}
-          envMapIntensity={0.25}
-        />
-      )}
+      {/* The normal map catches grazing light and the roughness map gives uneven sheen */}
+      <meshStandardMaterial
+        color={color}
+        map={map}
+        roughness={0.93}
+        normalMap={normalMap}
+        normalScale={new THREE.Vector2(normalScale, normalScale)}
+        roughnessMap={roughnessMap}
+        envMapIntensity={0.25}
+        lightMap={lit?.tex}
+        lightMapIntensity={1}
+      />
     </mesh>
   )
 }
@@ -260,11 +255,14 @@ export function ThemedFloor({
   theme,
   hw,
   hd,
+  lit,
   onClick,
 }: {
   theme: ThemeDef
   hw: number
   hd: number
+  /** 焼いた光と、床が占める区画（`WallPiece` と同じ扱い）。無ければ従来どおり。 */
+  lit?: { tex: THREE.Texture; rect: LitRect }
   onClick?: (e: ThreeEvent<MouseEvent>) => void
 }) {
   // Floor: keep the plank grain at real scale (about 5.3m x 2.7m per tile)
@@ -279,9 +277,26 @@ export function ThemedFloor({
     return out
   }, [hw, hd])
   useEffect(() => () => disposeAll(Object.values(floorTex)), [floorTex])
+  // 焼いた光を読むための2枚目の uv。`rotation-x={-PI/2}` の板なので、板の uv(0,0) は
+  // 世界の (-hw, 0, +hd) ＝ `lightPlan` が床の面の原点に取った角と一致する。
+  const fu0 = lit?.rect.u0
+  const fv0 = lit?.rect.v0
+  const fu1 = lit?.rect.u1
+  const fv1 = lit?.rect.v1
+  const floorGeo = useMemo(() => {
+    const g = new THREE.PlaneGeometry(hw * 2, hd * 2)
+    if (fu0 === undefined || fv0 === undefined || fu1 === undefined || fv1 === undefined) return g
+    const uv = g.getAttribute('uv') as THREE.BufferAttribute
+    const uv1 = new THREE.Float32BufferAttribute(uv.count * 2, 2)
+    for (let i = 0; i < uv.count; i++) {
+      uv1.setXY(i, fu0 + uv.getX(i) * (fu1 - fu0), fv0 + uv.getY(i) * (fv1 - fv0))
+    }
+    g.setAttribute('uv1', uv1)
+    return g
+  }, [hw, hd, fu0, fv0, fu1, fv1])
+  useEffect(() => () => disposeAll([floorGeo]), [floorGeo])
   return (
-      <mesh rotation-x={-Math.PI / 2} receiveShadow onClick={onClick}>
-        <planeGeometry args={[hw * 2, hd * 2]} />
+      <mesh rotation-x={-Math.PI / 2} geometry={floorGeo} receiveShadow onClick={onClick}>
         {/* 診断スイッチ `?perf=norefl` でも光沢床側に落とせる（既定は従来どおり） */}
         {LOW_POWER || !PERF.reflector ? (
           // Mobile/low-power: the real-time reflection pass is too costly, so keep the
@@ -294,6 +309,8 @@ export function ThemedFloor({
             clearcoat={0.25}
             clearcoatRoughness={0.55}
             envMapIntensity={0.6}
+            lightMap={lit?.tex}
+            lightMapIntensity={1}
           />
         ) : (
           // Desktop: a polished floor that softly reflects the works and room (planar
@@ -327,6 +344,8 @@ export function ThemedFloor({
             roughness={0.93}
             metalness={0}
             envMapIntensity={0.5}
+            lightMap={lit?.tex}
+            lightMapIntensity={1}
           />
         )}
       </mesh>
@@ -435,20 +454,18 @@ function Partition({
   }, [p.w, p.h, p.t, litKey])
   useEffect(() => () => disposeAll([geo]), [geo])
   return (
-    <mesh position={[p.x, p.h / 2, p.z]} geometry={geo} castShadow receiveShadow={!lit}>
-      {lit ? (
-        <meshBasicMaterial color={theme.accentWall} map={maps.map} lightMap={lit.tex} lightMapIntensity={1} />
-      ) : (
-        <meshStandardMaterial
-          color={theme.accentWall}
-          map={maps.map}
-          roughness={0.95}
-          normalMap={maps.normalMap}
-          normalScale={new THREE.Vector2(maps.normalScale, maps.normalScale)}
-          roughnessMap={maps.roughnessMap}
-          envMapIntensity={0.25}
-        />
-      )}
+    <mesh position={[p.x, p.h / 2, p.z]} geometry={geo} castShadow receiveShadow>
+      <meshStandardMaterial
+        color={theme.accentWall}
+        map={maps.map}
+        roughness={0.95}
+        normalMap={maps.normalMap}
+        normalScale={new THREE.Vector2(maps.normalScale, maps.normalScale)}
+        roughnessMap={maps.roughnessMap}
+        envMapIntensity={0.25}
+        lightMap={lit?.tex}
+        lightMapIntensity={1}
+      />
     </mesh>
   )
 }
@@ -487,7 +504,13 @@ export default function Room({
 
   return (
     <group>
-      <ThemedFloor theme={theme} hw={hw} hd={hd} onClick={onFloorClick} />
+      <ThemedFloor
+        theme={theme}
+        hw={hw}
+        hd={hd}
+        lit={lightmap && lightmap.rects.floor ? { tex: lightmap.tex, rect: lightmap.rects.floor } : undefined}
+        onClick={onFloorClick}
+      />
 
       <ThemedCeiling theme={theme} hw={hw} hd={hd} />
 

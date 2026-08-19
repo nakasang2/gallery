@@ -44,10 +44,6 @@ const frag = /* glsl */ `
   uniform vec3 uAxisU;
   uniform vec3 uAxisV;
   uniform vec3 uNormal;
-  uniform vec3 uAmbient;
-  uniform vec3 uHemiSky;
-  uniform vec3 uHemiGround;
-  uniform vec3 uEnv;
   uniform int uCount;
   uniform vec3 uPos[${MAX_SPOTS}];
   uniform vec3 uDir[${MAX_SPOTS}];
@@ -70,12 +66,10 @@ const frag = /* glsl */ `
 
   void main() {
     vec3 world = uOrigin + uAxisU * vUv.x + uAxisV * vUv.y;
-    // 地明かり（ambientLight + hemisphereLight）。焼いた面はライトマップ1枚で明るさが
-    // 決まるので、実照明として残さずここに含める。
-    // 地明かり（ambientLight + hemisphereLight）と、環境マップが足していたぶん。
-    // 焼いた面はライトマップ1枚で明るさが決まるので、実照明としても環境マップとしても
-    // 二度と参照されない ── ここに全部入れておかないと、その面だけ暗くなる。
-    vec3 irradiance = uAmbient + mix(uHemiGround, uHemiSky, 0.5 * uNormal.y + 0.5) + uEnv;
+    // 地明かりと環境マップは焼かない。壁も床も実照明を見る材質のままなので、
+    // ambientLight / hemisphereLight / scene.environment は今までどおり実物が効く。
+    // ここで焼くのは作品スポットの (1 - POOL_MIX) ぶんだけ。
+    vec3 irradiance = vec3(0.0);
     for (int i = 0; i < ${MAX_SPOTS}; i++) {
       if (i >= uCount) break;
       vec3 lv = uPos[i] - world;
@@ -142,10 +136,6 @@ export default function LightmapBaker({
       uAxisU: { value: new THREE.Vector3() },
       uAxisV: { value: new THREE.Vector3() },
       uNormal: { value: new THREE.Vector3() },
-      uAmbient: { value: new THREE.Color() },
-      uHemiSky: { value: new THREE.Color() },
-      uHemiGround: { value: new THREE.Color() },
-      uEnv: { value: new THREE.Color() },
       uCount: { value: 0 },
       uPos: { value: Array.from({ length: MAX_SPOTS }, () => new THREE.Vector3()) },
       uDir: { value: Array.from({ length: MAX_SPOTS }, () => new THREE.Vector3()) },
@@ -175,9 +165,6 @@ export default function LightmapBaker({
     done.current = plan.key
 
     const u = bake.mat.uniforms
-    ;(u.uAmbient.value as THREE.Color).copy(plan.ambient)
-    ;(u.uHemiSky.value as THREE.Color).copy(plan.hemiSky)
-    ;(u.uHemiGround.value as THREE.Color).copy(plan.hemiGround)
     const n = Math.min(plan.spots.length, MAX_SPOTS)
     u.uCount.value = n
     const dir = new THREE.Vector3()
@@ -216,7 +203,6 @@ export default function LightmapBaker({
         ;(u.uAxisU.value as THREE.Vector3).copy(s.axisU)
         ;(u.uAxisV.value as THREE.Vector3).copy(s.axisV)
         ;(u.uNormal.value as THREE.Vector3).copy(s.normal)
-        ;(u.uEnv.value as THREE.Color).copy(s.env)
         target.viewport.set(px.x, px.y, px.w, px.h)
         gl.setRenderTarget(target)
         gl.render(bake.scene, bake.camera)

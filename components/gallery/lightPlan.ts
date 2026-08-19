@@ -16,7 +16,6 @@ import { frameKeyFor, matKeyFor, lightModeFor } from '@/lib/exhibition'
 import type { Settings } from '@/lib/store'
 import type { ArtworkData } from '@/lib/artworks'
 import { exhibitExtents, exhibitLightRig } from './Exhibit'
-import { NEUTRAL_ENV_STOPS } from './textures'
 import { DOOR_W, DOOR_H, type DoorPlacement, type WallId } from './doorway'
 
 /** 焼く面1枚。世界座標の長方形。texel の位置 = `origin + axisU * u + axisV * v`（u,v は 0..1）。
@@ -33,10 +32,6 @@ export interface LitSurface {
   h: number
   /** この面に割く画素密度（画素/m）。低周波な床は粗くてよい。 */
   ppm: number
-  /** 環境マップ（`scene.environment`）がこの向きの面に足していた照度。
-   *  `meshStandardMaterial` の `envMapIntensity` ぶんで、焼いた面は実照明も環境マップも
-   *  見なくなるので、ここに含めておかないと**壁だけ 3割ほど暗くなる**（実測）。 */
-  env: THREE.Color
 }
 
 /** 焼く照明1灯。three.js の `SpotLight` と同じ意味の値だけを持つ（シェーダー側で
@@ -56,13 +51,21 @@ export interface LitSpot {
 export interface LightPlan {
   surfaces: LitSurface[]
   spots: LitSpot[]
-  /** 地明かり。壁は焼いた1枚だけで明るさが決まるので、これも焼き込む。 */
-  ambient: THREE.Color
-  hemiSky: THREE.Color
-  hemiGround: THREE.Color
   /** 焼き直しの要否を決める指紋 */
   key: string
 }
+
+/** 明るさを「焼いたぶん」と「近くだけ実照明」に分ける比（DECISIONS 2026-08-19 ③）。
+ *
+ *  部屋のどの面にも同じ比で効かせるのが要点。焼いたライトマップは作品スポットの
+ *  `1 - POOL_MIX` を運び、シーンに残る共有プールの実照明が残りの `POOL_MIX` を出す。
+ *  **地明かり（ambient / hemi）と環境マップは焼かない** ── 壁も床も実照明を見る材質の
+ *  ままなので、今までどおり実物が効く。写して焼くと同じ値が2か所に増えるだけになる。
+ *
+ *  - `0` にすると全部焼く（照明 17個 → 2個・最速。ただし額の金属のハイライトが消える）
+ *  - `1` にすると今日と同じ（焼き込みが効かない）
+ *  見た目と速さの取引をこの1か所に集めてあるので、実機で見て決められる。 */
+export const POOL_MIX = 0.25
 
 /** 壁1枚を、扉の開口で左・右・まぐさ上の3枚に割る。**`Room` の `Wall` と
  *  `buildLightPlan` の両方がここを通る** ── 割り方がずれると、貼る面と焼いた面が
@@ -92,76 +95,6 @@ const WALLS: { id: WallId; rotY: number }[] = [
   { id: 'west', rotY: Math.PI / 2 },
 ]
 
-/** `Room` の材質が使っている `envMapIntensity`。**同じ値を写す先が増えたら片方が腐る**ので、
- *  ここを触るときは `WallPiece` / `Partition` / `ThemedFloor` を必ず一緒に見る。 */
-const WALL_ENV_INTENSITY = 0.25
-const FLOOR_ENV_INTENSITY = 0.5
-
-/** 環境マップの照度は**面の向きだけで決まる**（勾配が仰角だけの関数なので、水平な法線は
- *  どれも同じ値）。積分は 64x64 回すので、向きと強さで覚えておく ── `buildLightPlan` は
- *  毎レンダー走るため、覚えないとこの積分だけで毎フレーム数万回の計算になる。 */
-const envCache = new Map<string, THREE.Color>()
-function cachedEnvIrradiance(normal: THREE.Vector3, intensity: number): THREE.Color {
-  const key = `${normal.y.toFixed(3)}|${intensity}`
-  let c = envCache.get(key)
-  if (!c) {
-    c = envIrradiance(normal, intensity)
-    envCache.set(key, c)
-  }
-  return c
-}
-
-/** 環境マップがこの法線の面に落とす照度を数値積分で出す。
- *
- *  three.js は `irradiance += PI * textureCubeUV(envMap, N, 1.0) * envMapIntensity` を足し、
- *  最大ラフネスの段は**コサイン重み付きの平均放射輝度**（＝照度 / PI）なので、
- *  ここで求めるのは `∫ L(ω) cosθ dω`。環境マップは**仰角だけの勾配**（`NEUTRAL_ENV_STOPS`）
- *  なので、方位角は解析的に落ちて仰角の1重積分になる ── 焼く前に1回だけ回す軽い計算。
- *
- *  **水平な法線（＝壁）はどれも同じ値になる**（勾配が上下対称ではないが、方位に依らないため）。 */
-export function envIrradiance(normal: THREE.Vector3, intensity: number): THREE.Color {
-  const stops = NEUTRAL_ENV_STOPS.map(([at, hex]) => [at, new THREE.Color(hex)] as const)
-  // 勾配の色（v = 0 が真上、v = 1 が真下）。canvas の線形勾配と同じ補間だが、
-  // `THREE.Color` は作業色空間（線形）なので、混ぜるのも線形で正しい。
-  const sample = (v: number, out: THREE.Color) => {
-    for (let i = 1; i < stops.length; i++) {
-      const [a0, c0] = stops[i - 1]
-      const [a1, c1] = stops[i]
-      if (v <= a1 || i === stops.length - 1) {
-        const t = a1 === a0 ? 0 : THREE.MathUtils.clamp((v - a0) / (a1 - a0), 0, 1)
-        return out.copy(c0).lerp(c1, t)
-      }
-    }
-    return out.copy(stops[stops.length - 1][1])
-  }
-  // 半球の積分。θ = 天頂角、φ = 方位角。dω = sinθ dθ dφ。
-  const acc = new THREE.Color(0, 0, 0)
-  const c = new THREE.Color()
-  const dir = new THREE.Vector3()
-  const NT = 64
-  const NP = 64
-  let weight = 0
-  for (let i = 0; i < NT; i++) {
-    const theta = ((i + 0.5) / NT) * Math.PI
-    const sinT = Math.sin(theta)
-    const cosT = Math.cos(theta)
-    sample(theta / Math.PI, c)
-    for (let j = 0; j < NP; j++) {
-      const phi = ((j + 0.5) / NP) * 2 * Math.PI
-      dir.set(sinT * Math.cos(phi), cosT, sinT * Math.sin(phi))
-      const ndl = dir.dot(normal)
-      if (ndl <= 0) continue
-      const dw = sinT * (Math.PI / NT) * ((2 * Math.PI) / NP)
-      acc.r += c.r * ndl * dw
-      acc.g += c.g * ndl * dw
-      acc.b += c.b * ndl * dw
-      weight += ndl * dw
-    }
-  }
-  void weight
-  return acc.multiplyScalar(intensity)
-}
-
 function rectSurface(
   id: string,
   center: THREE.Vector3,
@@ -169,8 +102,7 @@ function rectSurface(
   up: THREE.Vector3,
   w: number,
   h: number,
-  ppm: number,
-  envIntensity: number = WALL_ENV_INTENSITY
+  ppm: number
 ): LitSurface {
   const axisU = tangent.clone().multiplyScalar(w)
   const axisV = up.clone().multiplyScalar(h)
@@ -186,7 +118,6 @@ function rectSurface(
     w,
     h,
     ppm,
-    env: cachedEnvIrradiance(normal, envIntensity),
   }
 }
 
@@ -237,8 +168,7 @@ export function buildLightPlan(
       new THREE.Vector3(0, 0, -1),
       hw * 2,
       hd * 2,
-      FLOOR_PPM,
-      FLOOR_ENV_INTENSITY
+      FLOOR_PPM
     )
   )
 
@@ -273,8 +203,9 @@ export function buildLightPlan(
       pos: rig.position,
       target: rig.target,
       color: spotColor,
-      // `Exhibit` の `<SpotWithTarget intensity>` と同じ係数
-      intensity: theme.spotIntensity * (lightMode === 'overhead' ? 0.5 : 2.6),
+      // `Exhibit` の `<SpotWithTarget intensity>` と同じ係数。**焼くのは `1 - POOL_MIX` ぶん**
+      // ── 残りは共有プールの実照明が出すので、ここで全部焼くと近くの面だけ二重に明るくなる。
+      intensity: theme.spotIntensity * (lightMode === 'overhead' ? 0.5 : 2.6) * (1 - POOL_MIX),
       angle: rig.angle,
       penumbra: rig.penumbra,
       decay: 2,
@@ -282,30 +213,11 @@ export function buildLightPlan(
     }
   })
 
-  // ---- 照明: ベンチのダウンライト（`Room` の `Bench` と同じ値） ----
-  // **実照明としてもシーンに残る**（ベンチの接地影を落としているのはこの2灯だけ）。
-  // 焼いた面は照明を1灯も見ないので二重には乗らない ── 逆に、ここに入れておかないと
-  // ベンチ周りの壁と床だけが今までより暗くなる。
-  for (const b of layout.benches) {
-    spots.push({
-      pos: new THREE.Vector3(b.x, CEIL_H - 0.1, b.z),
-      target: new THREE.Vector3(b.x, 0, b.z),
-      color: spotColor,
-      intensity: 22,
-      angle: 0.62,
-      penumbra: 0.9,
-      decay: 2,
-      distance: 0,
-    })
-  }
-
   const key = [
     layout.label,
     hw,
     hd,
     door?.hole ? `${door.hole.wall}:${door.hole.u.toFixed(2)}` : 'nohole',
-    theme.ambient,
-    theme.hemi,
     theme.spotIntensity,
     theme.spotColor,
     ...spots.map(
@@ -314,14 +226,7 @@ export function buildLightPlan(
     ),
   ].join('|')
 
-  return {
-    surfaces,
-    spots,
-    ambient: new THREE.Color(0xfff4e0).multiplyScalar(theme.ambient),
-    hemiSky: new THREE.Color(0xfff8ea).multiplyScalar(theme.hemi),
-    hemiGround: new THREE.Color(0x4a4136).multiplyScalar(theme.hemi),
-    key,
-  }
+  return { surfaces, spots, key }
 }
 
 /** アトラスの区画。貼る側は uv1 をこの矩形へ写す。 */
