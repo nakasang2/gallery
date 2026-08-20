@@ -1,5 +1,12 @@
 'use client'
-// 「光の焼き込み」の状態と、焼き直しの導線。公開ステージに1行で置く。
+// 「光の焼き込み」の状態と、焼き直しの導線。
+//
+// **判定と実行はこのファイルの `useBakeFreshness` だけが持つ**（2026-08-19）。見せ方は2つ
+// ある ── 公開ステージの1行（`BakeStatus`）と、部屋の見出しの保存ボタン（保存が済んで
+// 古くなっていると「表示を更新する」に切り替わる。ユーザー案 2026-08-19）。**同じ判断を
+// 2か所に写して書かない**ため、フックを部屋の高さで1回呼び、結果を両方へ渡す
+// （【絶対ルール】2026-08-12）。焼く実体（`runner`）も部屋の高さに置く ── 公開タブから
+// 離れても焼き込みが止まらないようにするため。
 //
 // なぜ前面で待たせるのか（ユーザー指摘 2026-08-18・DECISIONS 同日）:
 // **裏で黙って進めると作家は待つ理由が分からず離脱する。画像アップロード中に離脱する
@@ -14,7 +21,7 @@
 // 来場者側が指紋で必ず捨てる（＝間違った影は出ない。結果は「焼き込みが無い状態」に
 // 戻るだけ）。自動でOFFにすると、額を一つ変えただけで展示が閉まり、作家が気づかない
 // うちに公開URLが404になる。
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import { useT } from '@/components/I18nProvider'
 import { fetchPublicExhibition, type PublicExhibition } from '@/lib/publish'
@@ -28,9 +35,16 @@ import type { BakeProgress } from '@/components/gallery/ShadowBakeRunner'
 // three とシーン一式は、焼くと決めた瞬間まで読み込まない（ダッシュボードを重くしない）
 const ShadowBakeRunner = dynamic(() => import('@/components/gallery/ShadowBakeRunner'), { ssr: false })
 
-type Phase = 'unknown' | 'fresh' | 'stale' | 'baking' | 'saved' | 'skipped' | 'failed'
+export type BakePhase = 'unknown' | 'fresh' | 'stale' | 'baking' | 'saved' | 'skipped' | 'failed'
 
-export default function BakeStatus({
+/**
+ * 焼き込みの状態を1つだけ持ち、焼く実体をぶら下げる。**部屋の高さで1回だけ呼ぶ。**
+ *
+ * 返す `runner` は必ずどこかに描くこと ── これが焼き込みの本体で、公開タブの外に置いて
+ * あるからタブを移っても止まらない（ただしタブを**ブラウザごと**裏に回すと描画が止まる
+ * ので、それは文言で伝えている）。
+ */
+export function useBakeFreshness({
   slug,
   username,
   isPublic,
@@ -43,9 +57,8 @@ export default function BakeStatus({
    *  部屋を触ったあと「古くなっています」がすぐ出るために要る。下書きの変化そのものを
    *  見張ると打鍵ごとに問い合わせてしまうので、**保存が終わった合図**に乗る。 */
   busy: boolean
-}) {
-  const t = useT()
-  const [phase, setPhase] = useState<Phase>('unknown')
+}): { phase: BakePhase; progress: BakeProgress; start: () => void; runner: ReactNode } {
+  const [phase, setPhase] = useState<BakePhase>('unknown')
   const [progress, setProgress] = useState<BakeProgress>({ done: 0, total: 0 })
   const [target, setTarget] = useState<PublicExhibition | null>(null)
   /** 公開トグルが false → true に変わった瞬間だけ自動で焼く。初回マウントでは焼かない
@@ -100,21 +113,44 @@ export default function BakeStatus({
     if (settled && isPublic && phase !== 'baking') void check()
   }, [busy, isPublic, phase, check])
 
-  const startBake = async () => {
-    const r = await check()
-    if (!r) return
-    setProgress({ done: 0, total: r.total })
-    setTarget(r.ex)
-    setPhase('baking')
-  }
+  const start = useCallback(() => {
+    void (async () => {
+      const r = await check()
+      if (!r) return
+      setProgress({ done: 0, total: r.total })
+      setTarget(r.ex)
+      setPhase('baking')
+    })()
+  }, [check])
 
-  const onFinished = (r: SaveShadowBakeResult) => {
+  const onFinished = useCallback((r: SaveShadowBakeResult) => {
     setTarget(null)
     if (r.ok) setPhase('saved')
     else setPhase(r.skipped ? 'skipped' : 'failed')
-  }
+  }, [])
 
-  if (!isPublic || phase === 'unknown') return null
+  return {
+    phase,
+    progress,
+    start,
+    runner: target ? (
+      <ShadowBakeRunner exhibition={target} onProgress={setProgress} onFinished={onFinished} />
+    ) : null,
+  }
+}
+
+/** 公開ステージに出す1行。状態は `useBakeFreshness` が持ち、ここは見せるだけ。 */
+export default function BakeStatus({
+  phase,
+  progress,
+  onStart,
+}: {
+  phase: BakePhase
+  progress: BakeProgress
+  onStart: () => void
+}) {
+  const t = useT()
+  if (phase === 'unknown') return null
 
   return (
     <div className="bake-status">
@@ -136,7 +172,7 @@ export default function BakeStatus({
       ) : phase === 'stale' ? (
         <>
           <p className="bake-line">{t('me.bakeStale')}</p>
-          <button type="button" className="bake-btn" onClick={() => void startBake()}>
+          <button type="button" className="bake-btn" onClick={onStart}>
             {t('me.bakeUpdate')}
           </button>
           <p className="bake-note">{t('me.bakeStaleNote')}</p>
@@ -146,16 +182,12 @@ export default function BakeStatus({
       ) : phase === 'failed' ? (
         <>
           <p className="bake-line">{t('me.bakeFailed')}</p>
-          <button type="button" className="bake-btn" onClick={() => void startBake()}>
+          <button type="button" className="bake-btn" onClick={onStart}>
             {t('me.bakeUpdate')}
           </button>
         </>
       ) : (
         <p className="bake-note">{t('me.bakeFresh')}</p>
-      )}
-
-      {target && (
-        <ShadowBakeRunner exhibition={target} onProgress={setProgress} onFinished={onFinished} />
       )}
     </div>
   )
