@@ -791,6 +791,7 @@ export const ptBr: PartialDictionary = {
     moveUp: 'Subir', moveDown: 'Descer', remove: 'Remover',
 
     lpHero: 'Página inicial 3D ① Primeira vista (entrada)',
+    demoDefault: 'Demonstração padrão', clear: 'Limpar',
     slotCenter: 'Centro', slotLeft: 'Esquerda', slotRight: 'Direita', upload: 'Enviar', replace: 'Substituir', saved: 'Salvo',
     uploadFailed: 'O envio falhou: {msg}', saveFailed: 'Não foi possível salvar: {msg}',
 

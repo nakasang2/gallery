@@ -792,6 +792,7 @@ export const zhHans: PartialDictionary = {
     moveUp: '上移', moveDown: '下移', remove: '移除',
 
     lpHero: '首页 3D ① 第一屏（入口）',
+    demoDefault: '默认示例', clear: '清除',
     slotCenter: '中间', slotLeft: '左侧', slotRight: '右侧', upload: '上传', replace: '替换', saved: '已保存',
     uploadFailed: '上传失败：{msg}', saveFailed: '没能保存：{msg}',
 

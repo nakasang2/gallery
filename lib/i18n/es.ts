@@ -791,6 +791,7 @@ export const es: PartialDictionary = {
     moveUp: 'Subir', moveDown: 'Bajar', remove: 'Quitar',
 
     lpHero: 'Página de inicio 3D ① Primera vista (entrada)',
+    demoDefault: 'Muestra por defecto', clear: 'Borrar',
     slotCenter: 'Centro', slotLeft: 'Izquierda', slotRight: 'Derecha', upload: 'Subir', replace: 'Reemplazar', saved: 'Guardado',
     uploadFailed: 'No se pudo subir: {msg}', saveFailed: 'No se pudo guardar: {msg}',
 
