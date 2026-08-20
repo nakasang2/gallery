@@ -114,7 +114,11 @@ const RULES: Record<Purpose, Rule> = {
   // so this cannot be used to create unbounded objects.
   'lp-image': {
     key: (u, _id, slot) => {
-      if (!Number.isInteger(slot) || slot < 0 || slot > 20) throw new Error('Invalid slot.')
+      // The LP's 3D museum has 23 frames across five faces, and lib/siteConfig
+      // gives each face its own band of ten slot numbers (hero 0-, panels 10-,
+      // approach 20-, hall front 30-, hall sides 40-). 49 is that last band's end;
+      // raise it here AND add the band in lib/siteConfig if a sixth face appears.
+      if (!Number.isInteger(slot) || slot < 0 || slot > 49) throw new Error('Invalid slot.')
       return `${u}/lp/${slot}.jpg`
     },
     maxBytes: IMAGE_MAX_BYTES,
