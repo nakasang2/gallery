@@ -730,7 +730,16 @@ function GalleryCard({
    *  そのタブを開かない作家は「古くなっている」ことに永久に気づけない（保存ボタンの
    *  切り替えに使うため上へ持ち上げた。ユーザー案 2026-08-19）。`bake.runner` も
    *  ここに置く ── 公開タブから離れても焼き込みが止まらないようにするため。 */
-  const bake = useBakeFreshness({ slug: row.slug, username, isPublic: row.is_public, busy })
+  // **自分の部屋のときだけ判定する**（別視点レビューで検出 2026-08-19）。他人の部屋には
+  // DB側に書き込みポリシーが1つも無い（migration 0062・0064）ので、焼いても保存は必ず
+  // 失敗する ── 判定を走らせると、主催者が参加作家の部屋を開いただけで無駄な問い合わせが
+  // 飛び、`is_public` が false→true に変わった瞬間には three 一式まで読み込んでしまう。
+  const bake = useBakeFreshness({
+    slug: row.slug,
+    username,
+    isPublic: isMyRoom && row.is_public,
+    busy,
+  })
   /** 保存ボタンを「表示を更新する」に切り替えるか。**押せるのは古いときだけ**で、
    *  未保存があるときは保存が優先される（→ 保存の入口が消える瞬間を作らない）。 */
   const bakeStale = bake.phase === 'stale'
