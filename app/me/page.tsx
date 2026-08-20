@@ -1748,8 +1748,9 @@ function GalleryCard({
         ) : bake.phase === 'stale' ? (
           /* 未保存の「変更があります」と対にする（ユーザー指摘 2026-08-19: 保存のときだけ
              断り書きが出るので、更新のときも出す）。**一拍の待ちには合わせない** ── 断り書き
-             は読むもので、押し間違いを誘発しないため。ボタンだけが遅れて赤くなる。 */
-          <span className="me-save-note">{t('me.bakeStaleShort')}</span>
+             は読むもので、押し間違いを誘発しないため。ボタンだけが遅れて赤くなる。
+             色はボタンと同系の赤（`is-bake`。ユーザー指定 2026-08-19）。 */
+          <span className="me-save-note is-bake">{t('me.bakeStaleShort')}</span>
         ) : null}
         <SaveAllButton bake={bake} />
       </div>
@@ -2486,10 +2487,11 @@ function GalleryCard({
                   </label>
                   <span className={`hako-state${row.is_public ? ' open' : ''}`}>{row.is_public ? t('me.open') : t('me.private')}</span>
                 </div>
-                {/* 光の焼き込み。公開した瞬間に自動で走り、進捗を前面に出して待たせる
-                    （ユーザー指摘 2026-08-18: 裏で進めると作家は待たない）。公開中の部屋の
-                    構成が変わったら「古い」と出して焼き直しの導線を出す。トグルは触らない。 */}
-                <BakeStatus phase={bake.phase} progress={bake.progress} onStart={bake.start} />
+                {/* 光の焼き込み。**ここに残っているのは「失敗した」ときだけ**
+                    （ユーザー指摘 2026-08-19）── 古い/更新中/最新は上帯の保存ボタンが
+                    引き受けたので、同じことを2か所で言わない。公開した瞬間に自動で走る
+                    のは変わらず、公開トグルは触らない。 */}
+                <BakeStatus phase={bake.phase} onStart={bake.start} />
               </div>
             ) : (
               /* No username means no public URL, so there is nothing for the switch to

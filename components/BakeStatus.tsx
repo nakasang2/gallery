@@ -142,55 +142,38 @@ export function useBakeFreshness({
   }
 }
 
-/** 公開ステージに出す1行。状態は `useBakeFreshness` が持ち、ここは見せるだけ。 */
+/**
+ * 公開ステージに出す1行。**いまは失敗したときだけ出す**（ユーザー指摘 2026-08-19
+ * 「公開タブのこの部分は一切不要です」）。
+ *
+ * 「古くなっています → 表示を更新する」「更新中… n / 総数」「最新です」は**保存ボタンが
+ * 全部引き受けた**ので、ここに置くと同じことを2か所で言うことになる。
+ * **失敗と容量不足だけは残す** ── ボタンは「押していない用事」しか出さないので、
+ * 失敗したことと、その理由（容量が足りない）を伝える面が他に無い。ここを消すと
+ * 黙って失敗する。次に部屋を開けば判定が走り直してボタンが再び赤くなるので、
+ * 押し直す入口はここと合わせて2つある。
+ */
 export default function BakeStatus({
   phase,
-  progress,
   onStart,
 }: {
   phase: BakePhase
-  progress: BakeProgress
   onStart: () => void
 }) {
   const t = useT()
-  if (phase === 'unknown') return null
+  if (phase !== 'failed' && phase !== 'skipped') return null
 
   return (
     <div className="bake-status">
-      {phase === 'baking' ? (
-        <>
-          <p className="bake-line" role="status" aria-live="polite">
-            {/* 待ち時間の大半は**焼く前の準備**（3Dの読み込み・部屋のテクスチャ作り・
-                作品画像の取得・シェーダのコンパイル）で、焼く処理自体は1作品2フレーム＝
-                10作品で0.35秒しかない（実測 21フレーム）。数字だけ出すと「0 / 10 のまま
-                固まって、最後に一気に飛ぶ」進捗になるので、**1枚目が焼けるまでは待ちの
-                文言に差し替える**（ユーザー選択A 2026-08-18）。文言は入場画面と同じものを使う
-                ── 作家が既に見たことのある言い方に揃える。 */}
-            {progress.done === 0
-              ? t('loading.preparing')
-              : t('me.bakeRunning', { done: progress.done, total: progress.total })}
-          </p>
-          <p className="bake-note">{t('me.bakeWait')}</p>
-        </>
-      ) : phase === 'stale' ? (
-        <>
-          <p className="bake-line">{t('me.bakeStale')}</p>
-          <button type="button" className="bake-btn" onClick={onStart}>
-            {t('me.bakeUpdate')}
-          </button>
-          <p className="bake-note">{t('me.bakeStaleNote')}</p>
-        </>
-      ) : phase === 'skipped' ? (
+      {phase === 'skipped' ? (
         <p className="bake-line">{t('me.bakeSkipped')}</p>
-      ) : phase === 'failed' ? (
+      ) : (
         <>
           <p className="bake-line">{t('me.bakeFailed')}</p>
           <button type="button" className="bake-btn" onClick={onStart}>
             {t('me.bakeUpdate')}
           </button>
         </>
-      ) : (
-        <p className="bake-note">{t('me.bakeFresh')}</p>
       )}
     </div>
   )

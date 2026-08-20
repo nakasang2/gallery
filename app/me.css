@@ -139,6 +139,11 @@
 .me-save-all.is-bake:hover:not(:disabled) { filter: brightness(1.12); }
 /* 点の既定色(#1a1611)は金地の上を想定した暗色。赤地では沈むので文字と同じ明色にする */
 .me-save-all.is-bake .me-save-dot { background: #f7efe6; }
+/* 「3D環境の更新があります」はボタンと同じ赤の系統にする（ユーザー指定 2026-08-19）。
+   **ボタンの塗り #b3402e をそのまま文字色にはしない** ── 背景 #0b0a09 に対して
+   コントラスト 3.48:1 で WCAG AA（4.5:1）を割る（金 #d4a24e は 8.55:1）。同じ色相で
+   明度を上げた #cf5a45 は 4.90:1 で基準を満たす（実測して選んだ）。 */
+.me-save-note.is-bake { color: #cf5a45; }
 .me-save-all:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 /* 未保存の点。文字だけだと「保存」と「保存済み」の区別が一瞬で読めない */
 .me-save-dot {
@@ -443,12 +448,12 @@
 .hako-url-line { display: flex; align-items: center; gap: 0.3rem; min-width: 0; max-width: 100%; }
 .hako-state-line { display: flex; align-items: center; gap: 0.6rem; }
 
-/* 光の焼き込みの状態と進捗（components/BakeStatus.tsx）。
-   **進捗は前面で待たせるもの**なので、控えめな注記ではなく1行として読める大きさにする
-   （ユーザー指摘 2026-08-18: 裏で進めると作家は待たない＝画像アップロードと同じ扱いに）。 */
+/* 光の焼き込みの面（components/BakeStatus.tsx）。**いまここに出るのは「失敗した」ときだけ**
+   （ユーザー指摘 2026-08-19: 古い/更新中/最新は上帯の保存ボタンが引き受けた）。
+   `.bake-note`（控えめな注記）は説明文ごと無くなったので消した ── 残すと check:css が
+   「マークアップに無いクラス」として拾う。 */
 .bake-status { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
 .bake-line { margin: 0; font-size: 0.9rem; color: var(--ink); }
-.bake-note { margin: 0; font-size: 0.78rem; line-height: 1.5; color: var(--ink-3); max-width: 44rem; }
 .bake-btn {
   align-self: flex-start;
   padding: 0.3rem 0.9rem;

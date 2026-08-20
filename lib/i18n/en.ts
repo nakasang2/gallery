@@ -481,15 +481,10 @@ export const en = {
     // **Never says "bake" to the artist** (ユーザー指示 2026-08-18: too much jargon).
     // "Update" alone would imply the edits are not live yet — they are; only the
     // optimisation is stale — so every string is scoped to the DISPLAY.
-    bakeRunning: 'Updating how your show is displayed… {done} / {total}',
-    bakeWait: 'Please keep this page open — switching tabs pauses it.',
-    bakeStale: 'You can update how your show is displayed.',
-    bakeStaleNote: 'Running this once after editing delivers a higher-quality show to your visitors.',
     bakeUpdate: 'Update the display',
     bakeUpdating: 'Updating…',
     bakeKeepOpen: 'Keep this tab open',
     bakeStaleShort: 'You can update the 3D view',
-    bakeFresh: 'Your show’s display is up to date.',
     bakeSkipped: 'The display update could not be saved (not enough storage left). Your show is published.',
     bakeFailed: 'The display update could not be saved. Your show is published.',
     deleteGalleryConfirm: 'Delete “{name}”? Its public page and every placement go with it.',
