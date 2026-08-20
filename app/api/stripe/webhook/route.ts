@@ -52,13 +52,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature.' }, { status: 400 })
   }
 
-  if (event.type !== 'checkout.session.completed') {
+  if (event.type === 'checkout.session.async_payment_failed') {
+    // Slow payment method (bank transfer, konbini, etc. — whatever the Dashboard's
+    // payment method settings allow) never completed. Nothing to grant; nothing was
+    // recorded for this session in the first place, so there's nothing to undo.
+    const failed = event.data.object as Stripe.Checkout.Session
+    console.error('webhook: async payment failed', failed.id, failed.metadata?.sku)
+    return NextResponse.json({ received: true })
+  }
+  if (event.type !== 'checkout.session.completed' && event.type !== 'checkout.session.async_payment_succeeded') {
     return NextResponse.json({ received: true })
   }
   const session = event.data.object as Stripe.Checkout.Session
   if (session.payment_status !== 'paid') {
-    // async payment methods land later via checkout.session.async_payment_succeeded;
-    // card payments (our case) are always 'paid' here
+    // Slow payment methods deliver `checkout.session.completed` while still
+    // `unpaid` — the grant below runs once `checkout.session.async_payment_succeeded`
+    // (which always carries payment_status:'paid') arrives, not here.
     return NextResponse.json({ received: true })
   }
 
@@ -88,7 +97,14 @@ export async function POST(req: NextRequest) {
         const kind = meta.item_kind === 'layout' || meta.item_kind === 'frame' ? meta.item_kind : 'theme'
         const itemKey = meta.item_key ?? ''
         if (!itemKey) break
-        await insertPurchase(db, { user_id: userId, kind, item_key: itemKey, sku, amount_jpy: amount, currency })
+        const result = await insertPurchase(db, { user_id: userId, kind, item_key: itemKey, sku, amount_jpy: amount, currency })
+        if (result === 'duplicate') {
+          // The checkout route checks ownership before charging, but two
+          // overlapping requests (double-click, two tabs) can both pass that
+          // check and both charge — this session's charge is real but the
+          // ledger already has the row, so it's otherwise unreconcilable.
+          console.error('webhook: paid but already owned — refund candidate', session.id, kind, itemKey)
+        }
         break
       }
       case 'theme_collection': {
@@ -121,7 +137,10 @@ export async function POST(req: NextRequest) {
       case 'video_pass': {
         // Flat one-time unlock: a single ledger row (kind='video_pass', item_key='')
         // flips videoEnabled on. Idempotent via the (user_id, kind, item_key) unique key.
-        await insertPurchase(db, { user_id: userId, kind: 'video_pass', item_key: '', sku, amount_jpy: amount, currency })
+        const result = await insertPurchase(db, { user_id: userId, kind: 'video_pass', item_key: '', sku, amount_jpy: amount, currency })
+        if (result === 'duplicate') {
+          console.error('webhook: paid but already owned — refund candidate', session.id, 'video_pass')
+        }
         break
       }
       case 'room': {
@@ -168,6 +187,12 @@ export async function POST(req: NextRequest) {
           // Charge IS recorded; the room is just gone. Retrying won't help, so
           // ack (200) and log for manual reconciliation instead of looping.
           console.error('webhook: capacity paid but no matching gallery to raise', session.id, galleryId)
+        } else if (result === 'partial') {
+          // Charge IS recorded; the room was already near the 15-slot ceiling (a
+          // concurrent purchase likely got there first) so fewer slots landed than
+          // were paid for. Not retryable — ack and flag for manual reconciliation
+          // (grant the shortfall elsewhere, or refund it).
+          console.error('webhook: capacity paid but only partially applied (room near cap)', session.id, galleryId, slots)
         }
         break
       }

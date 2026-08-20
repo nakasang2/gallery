@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0069 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0070 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -6408,3 +6408,65 @@ alter table public.purchases drop constraint if exists purchases_user_id_fkey;
 alter table public.purchases
   add constraint purchases_user_id_fkey
   foreign key (user_id) references auth.users (id) on delete set null;
+
+-- # 0070_capacity_purchase_delta.sql — 容量購入がクランプされて一部しか反映されなくても'applied'を返していた穴を塞ぐ(リリース前監査で発見・2026-08-20)
+-- `record_capacity_purchase`（0019→0028→0031）は「行が更新されたか」しか見ておらず、
+-- work_cap=13の部屋にほぼ同時に2件のcapacity_addonが届くと、2件目は実増分0でも
+-- 'applied'を返していた。更新前のwork_capを`for no key update`で行ロックしながら読み、
+-- 実際の増分と要求量を比較して'partial'を返せるようにする（`for update`ではなく
+-- `for no key update`なのは、`artworks`等のFK insertが取る`for key share`と衝突しない
+-- ようにするため）。
+
+create or replace function public.record_capacity_purchase(
+  p_session text,
+  p_user uuid,
+  p_gallery uuid,
+  p_amount int,
+  p_amount_jpy int,
+  p_currency text
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_old_cap int;
+  v_new_cap int;
+begin
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'record_capacity_purchase: amount must be positive';
+  end if;
+
+  insert into public.purchases (user_id, kind, item_key, sku, amount_jpy, currency)
+  values (p_user, 'capacity', p_session, 'capacity_addon', p_amount_jpy,
+          coalesce(nullif(lower(trim(p_currency)), ''), 'usd'))
+  on conflict (user_id, kind, item_key) do nothing;
+
+  if not found then
+    return 'duplicate';
+  end if;
+
+  select work_cap into v_old_cap
+    from public.galleries
+   where id = p_gallery and owner_id = p_user
+   for no key update;
+
+  if v_old_cap is null then
+    return 'no_gallery';
+  end if;
+
+  v_new_cap := least(v_old_cap + p_amount, 15);
+  update public.galleries set work_cap = v_new_cap where id = p_gallery;
+
+  if v_new_cap - v_old_cap < p_amount then
+    return 'partial';
+  end if;
+  return 'applied';
+end;
+$$;
+
+revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) from public;
+revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) from anon;
+revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) from authenticated;
+grant execute on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) to service_role;
