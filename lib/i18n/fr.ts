@@ -791,6 +791,7 @@ export const fr: PartialDictionary = {
     moveUp: 'Monter', moveDown: 'Descendre', remove: 'Retirer',
 
     lpHero: 'Page d’accueil 3D ① Première vue (entrée)',
+    demoDefault: 'Démo par défaut', clear: 'Effacer',
     slotCenter: 'Centre', slotLeft: 'Gauche', slotRight: 'Droite', upload: 'Importer', replace: 'Remplacer', saved: 'Enregistré',
     uploadFailed: 'L’import a échoué : {msg}', saveFailed: 'Enregistrement impossible : {msg}',
 

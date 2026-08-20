@@ -852,6 +852,7 @@ export const ko: PartialDictionary = {
     moveUp: '위로', moveDown: '아래로', remove: '빼기',
 
     lpHero: '첫 화면 3D ① 첫 장면(입구)',
+    demoDefault: '기본 데모', clear: '지우기',
     slotCenter: '가운데', slotLeft: '왼쪽', slotRight: '오른쪽', upload: '업로드', replace: '교체', saved: '저장했습니다',
     uploadFailed: '올리지 못했습니다: {msg}', saveFailed: '저장하지 못했습니다: {msg}',
 

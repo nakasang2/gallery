@@ -790,6 +790,7 @@ export const zhHant: PartialDictionary = {
     moveUp: '上移', moveDown: '下移', remove: '移除',
 
     lpHero: '首頁 3D ① 第一屏（入口）',
+    demoDefault: '預設範例', clear: '清除',
     slotCenter: '中間', slotLeft: '左側', slotRight: '右側', upload: '上傳', replace: '更換', saved: '已儲存',
     uploadFailed: '上傳失敗：{msg}', saveFailed: '沒能儲存：{msg}',
 

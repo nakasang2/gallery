@@ -107,14 +107,35 @@ export function useBakeFreshness({
     }
   }, [isPublic, check])
 
+  /** 焼いている最中に保存が終わったか。**焼き込みは「始めた時点の中身」を焼く**
+   *  （`start` が `check` で取ってきた `PublicExhibition` を `ShadowBakeRunner` に渡し、
+   *  そこから動かない）ので、その最中に保存された変更はそのまま**古い控え**になる。
+   *  焼き終わってから見直すために、印だけ残しておく。 */
+  const savedWhileBaking = useRef(false)
+
   // 保存が終わった瞬間（busy: true → false）に見直す。これが無いと、公開中の部屋を
   // 触っても「古くなっています」がタブを開き直すまで出てこない。
   const wasBusy = useRef(busy)
   useEffect(() => {
     const settled = wasBusy.current && !busy
     wasBusy.current = busy
-    if (settled && isPublic && phase !== 'baking') void check()
+    if (!settled || !isPublic) return
+    // **焼いている最中はその場で見直せない** ── `check` が `phase` を `fresh`/`stale` へ
+    // 上書きしてしまい、進捗の表示も二重起動の抑止（ボタンの `disabled`）も消える。
+    // 保存ボタンは**未保存を焼き込みの進捗より優先する**設計（`SaveAllButton`。別視点
+    // レビュー 2026-08-19）なので、**焼いている最中の保存は実際に起こせる**。
+    // 印を立てて `onFinished` で見直す（2026-08-20・別視点レビュー）。
+    if (phase === 'baking') savedWhileBaking.current = true
+    else void check()
   }, [busy, isPublic, phase, check])
+
+  /** 焼き終わった時点の `check`。**`onFinished` の同一性を変えないため** ref 越しに読む
+   *  ── `onFinished` は `ShadowBakeRunner` へ渡す prop で、差し替わると向こうの
+   *  `useCallback`（`allBaked`）が作り直される。 */
+  const checkRef = useRef(check)
+  useEffect(() => {
+    checkRef.current = check
+  }, [check])
 
   const start = useCallback(() => {
     void (async () => {
@@ -128,8 +149,21 @@ export function useBakeFreshness({
 
   const onFinished = useCallback((r: SaveShadowBakeResult) => {
     setTarget(null)
-    if (r.ok) setPhase('saved')
-    else setPhase(r.skipped ? 'skipped' : 'failed')
+    const staleWhileBaking = savedWhileBaking.current
+    savedWhileBaking.current = false
+    if (!r.ok) {
+      // 失敗・容量不足はそのまま出す。**ここで見直さない** ── `failed` は保存ボタンを
+      // 赤く出す（`showBake` に入っている）ので押し直す入口は既にあり、`stale` で
+      // 上書きするとパネルの「失敗しました」だけが消える。
+      setPhase(r.skipped ? 'skipped' : 'failed')
+      return
+    }
+    setPhase('saved')
+    // **焼いている最中に保存が終わっていたら、焼けたのは1つ前の中身。** 見直して
+    // 「古くなっています」を出し直す ── これが無いと、控えは来場者側の指紋照合で
+    // 捨てられる（＝影の無い展示に戻る）のに、作家のボタンは灰色の「保存」に戻って
+    // しまい、押し直す入口がタブを開き直すまで無い。
+    if (staleWhileBaking) void checkRef.current()
   }, [])
 
   return {

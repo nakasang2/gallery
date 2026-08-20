@@ -790,6 +790,7 @@ export const it: PartialDictionary = {
     moveUp: 'Sposta su', moveDown: 'Sposta giù', remove: 'Togli',
 
     lpHero: 'Home 3D ① Prima vista (ingresso)',
+    demoDefault: 'Demo predefinita', clear: 'Svuota',
     slotCenter: 'Centro', slotLeft: 'Sinistra', slotRight: 'Destra', upload: 'Carica', replace: 'Sostituisci', saved: 'Salvato',
     uploadFailed: 'Caricamento non riuscito: {msg}', saveFailed: 'Non è stato possibile salvare: {msg}',
 

@@ -791,6 +791,7 @@ export const id: PartialDictionary = {
     moveUp: 'Naikkan', moveDown: 'Turunkan', remove: 'Hapus',
 
     lpHero: 'Halaman depan 3D ① Tampilan pertama (pintu masuk)',
+    demoDefault: 'Contoh bawaan', clear: 'Kosongkan',
     slotCenter: 'Tengah', slotLeft: 'Kiri', slotRight: 'Kanan', upload: 'Unggah', replace: 'Ganti', saved: 'Tersimpan',
     uploadFailed: 'Gagal mengunggah: {msg}', saveFailed: 'Tidak bisa disimpan: {msg}',
 
