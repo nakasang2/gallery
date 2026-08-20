@@ -1744,7 +1744,10 @@ function GalleryCard({
         {dirty ? (
           <span className="me-save-note">{t('me.unsavedNote')}</span>
         ) : bake.phase === 'baking' ? (
-          <span className="me-save-note">{t('me.bakeKeepOpen')}</span>
+          /* 焼いている間もボタンは赤なので、注記も同じ赤にする（ユーザー指摘 2026-08-19:
+             ここだけ金のまま残っていた）。**注記の色はボタンの色と必ず対にする** ──
+             金は「保存」、赤は「表示の更新」の合図として使い分けている。 */
+          <span className="me-save-note is-bake">{t('me.bakeKeepOpen')}</span>
         ) : bake.phase === 'stale' || bake.phase === 'failed' ? (
           /* 未保存の「変更があります」と対にする（ユーザー指摘 2026-08-19: 保存のときだけ
              断り書きが出るので、更新のときも出す）。**一拍の待ちには合わせない** ── 断り書き
