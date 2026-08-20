@@ -65,6 +65,12 @@ export async function POST(req: NextRequest) {
   const { data: userData, error: userErr } = await asAnon.auth.getUser(token)
   const user = userData?.user
   if (userErr || !user) return NextResponse.json({ error: 'Sign in to purchase.' }, { status: 401 })
+  // Acting as the caller (RLS-scoped to their own rows) for every read below —
+  // one client, reused, instead of a fresh one per check.
+  const asUser = createClient(supabaseUrl, anonKey, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  })
 
   let body: CheckoutBody
   try {
@@ -92,6 +98,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Refuse to re-sell something already owned. Without this, a stale tab or a
+  // double-click creates a second Checkout Session and charges the card again —
+  // the webhook's ledger insert then silently no-ops on the (user_id, kind,
+  // item_key) unique key ('duplicate'), so the second charge is real but never
+  // recorded anywhere reconcilable (found in the pre-release audit).
+  if (sku === 'single_item' || sku === 'video_pass') {
+    const ownedQuery =
+      sku === 'single_item'
+        ? asUser.from('purchases').select('id').eq('kind', itemKind).eq('item_key', itemKey).limit(1)
+        : asUser.from('purchases').select('id').eq('kind', 'video_pass').limit(1)
+    const { data: owned, error: ownedErr } = await ownedQuery.maybeSingle()
+    // Fail closed: a DB hiccup here must not silently fall through to "not
+    // owned, charge them" — that's exactly the case this check exists for.
+    if (ownedErr) {
+      console.error('checkout: could not verify existing ownership', ownedErr.message)
+      return NextResponse.json({ error: 'Could not verify your purchases — please try again.' }, { status: 503 })
+    }
+    if (owned) {
+      return NextResponse.json({ error: 'You already own this.' }, { status: 409 })
+    }
+  }
+
   // Capacity add-ons target one specific room — make sure it's the buyer's, and
   // clamp the quantity so work_cap can never exceed the room's physical max
   // (the webhook re-verifies ownership via the owner-scoped RPC).
@@ -99,10 +127,6 @@ export async function POST(req: NextRequest) {
   let quantity = 1
   if (sku === 'capacity_addon') {
     if (!galleryId) return NextResponse.json({ error: 'This purchase needs a gallery id.' }, { status: 400 })
-    const asUser = createClient(supabaseUrl, anonKey, {
-      auth: { persistSession: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    })
     const { data: g } = await asUser
       .from('galleries')
       .select('id, owner_id, work_cap')
@@ -134,10 +158,6 @@ export async function POST(req: NextRequest) {
     if (!expoId) {
       return NextResponse.json({ error: 'This purchase needs an exhibition id.' }, { status: 400 })
     }
-    const asUser = createClient(supabaseUrl, anonKey, {
-      auth: { persistSession: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    })
     const { data: x } = await asUser
       .from('expos')
       .select('id, owner_id, starts_at, ends_at')
