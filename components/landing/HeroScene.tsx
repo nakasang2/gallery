@@ -485,9 +485,15 @@ function Framed({ idx, position, rotationY = 0, w = 1.5, y }: { idx: number; pos
         <planeGeometry args={[w + mat * 2, h + mat * 2]} />
         <meshStandardMaterial color="#e9e6dd" roughness={0.92} />
       </mesh>
+      {/* **絵の面は `FramedImage` と同じく ACES を迂回する**（2026-08-20・3度目の修正）。
+          この面は「あちらは飛んでいない」という当てずっぽうの前提で今まで手を付けて
+          いなかったが、それは**入口(スポット110)でしか確かめていなかった**ため。
+          大部屋の遠壁・側壁は `340`／`240`（入口の2〜3倍）と桁が違い、admin の写真を
+          まだ入れていない廊下・大部屋（＝この `Framed` が実際に出る場所）で
+          ユーザーが白飛びを報告した。`FramedImage` に入れた解と揃える。 */}
       <mesh position={[0, 0, 0.03]}>
         <planeGeometry args={[w, h]} />
-        <meshStandardMaterial map={tex} roughness={0.55} />
+        <meshBasicMaterial map={tex} toneMapped={false} />
       </mesh>
     </group>
   )
