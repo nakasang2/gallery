@@ -1744,7 +1744,10 @@ function GalleryCard({
         {dirty ? (
           <span className="me-save-note">{t('me.unsavedNote')}</span>
         ) : bake.phase === 'baking' ? (
-          <span className="me-save-note">{t('me.bakeKeepOpen')}</span>
+          /* 焼いている間もボタンは赤なので、注記も同じ赤にする（ユーザー指摘 2026-08-19:
+             ここだけ金のまま残っていた）。**注記の色はボタンの色と必ず対にする** ──
+             金は「保存」、赤は「表示の更新」の合図として使い分けている。 */
+          <span className="me-save-note is-bake">{t('me.bakeKeepOpen')}</span>
         ) : bake.phase === 'stale' || bake.phase === 'failed' ? (
           /* 未保存の「変更があります」と対にする（ユーザー指摘 2026-08-19: 保存のときだけ
              断り書きが出るので、更新のときも出す）。**一拍の待ちには合わせない** ── 断り書き
@@ -3041,36 +3044,45 @@ function SaveAllButton({ bake }: { bake?: BakeControls }) {
    *  （ユーザー指摘 2026-08-19）。押せなくして二重起動を防ぐ。 */
   const baking = bake?.phase === 'baking'
 
-  // **焼いている間は「保存しました」より進捗を優先する。** 公開トグルをONにすると
-  // 自動で焼き始めるが、その直前に保存していると `justSaved`（2600ms）が勝って、
-  // 走っているのに何も動いていないように見えた。
+  // **順番がそのまま優先順位。** 未保存 → 焼き込みの進捗 → 保存しました → 焼き直せる。
+  // ①**未保存は焼き込みより先**（別視点レビューで検出 2026-08-19）── 焼き込みは他のタブでも
+  //   走り続ける設計なので、その最中に作家は編集できる。進捗を優先すると**未保存があるのに
+  //   保存ボタンが押せない**状態が数十秒続き、隣に「変更があります」と出ているのに保存する
+  //   手段が無くなる（この機能を入れる前は `!dirty || saving` で、未保存なら必ず押せた）。
+  //   焼き込みは裏で走り続けるので、進捗が数十秒見えないだけで済む。
+  // ②**焼き込みの進捗は「保存しました」より先**。公開トグルをONにすると自動で焼き始めるが、
+  //   その直前に保存していると `justSaved`（2600ms）が勝って、走っているのに何も動いて
+  //   いないように見えた。
   const label = saving
     ? t('common.saving')
-    : baking
-      ? // 数字は訳の要らない部分なので文言に足すだけにする（1枚目が焼けるまでは総数だけ
-        // 出しても「0 / 10 で固まっている」ように見えるので、数字は done>0 から出す）
-        // i18n-ok: 数字と区切り
-        `${t('me.bakeUpdating')}${bake.progress.done > 0 ? ` ${bake.progress.done} / ${bake.progress.total}` : ''}`
-      : justSaved && !dirty
-        ? t('common.saved')
-        : showBake
-          ? t('me.bakeUpdate')
-          : t('me.saveAll')
+    : dirty
+      ? t('me.saveAll')
+      : baking
+        ? // 数字は訳の要らない部分なので文言に足すだけにする（1枚目が焼けるまでは総数だけ
+          // 出しても「0 / 10 で固まっている」ように見えるので、数字は done>0 から出す）
+          // i18n-ok: 数字と区切り
+          `${t('me.bakeUpdating')}${bake.progress.done > 0 ? ` ${bake.progress.done} / ${bake.progress.total}` : ''}`
+        : justSaved
+          ? t('common.saved')
+          : showBake
+            ? t('me.bakeUpdate')
+            : t('me.saveAll')
   return (
     <button
       type="button"
-      className={`me-save-all${dirty ? ' is-dirty' : ''}${showBake || baking ? ' is-bake' : ''}`}
-      disabled={baking ? true : showBake ? false : !dirty || saving}
+      /* 色も上と同じ優先順位（未保存の金 → 表示の更新の赤）。**注記の色と必ず対にする** */
+      className={`me-save-all${dirty ? ' is-dirty' : ''}${!dirty && (showBake || baking) ? ' is-bake' : ''}`}
+      disabled={saving ? true : dirty ? false : baking ? true : showBake ? false : true}
       /* 読み上げ用の名前。**`aria-live` はここに付けない** ── 進捗は公開ステージのパネルが
          `role="status"` で読み上げており、両方に付けると二重に読まれ、しかも目盛りが
          進むたびに割り込む。 */
       aria-label={
-        baking
-          ? t('me.bakeUpdating')
-          : showBake
-            ? t('me.bakeUpdate')
-            : dirty
-              ? `${t('me.saveAll')}（${t('me.unsavedMark')}）`
+        dirty
+          ? `${t('me.saveAll')}（${t('me.unsavedMark')}）`
+          : baking
+            ? t('me.bakeUpdating')
+            : showBake
+              ? t('me.bakeUpdate')
               : t('me.saveAll')
       }
       onClick={() => {
