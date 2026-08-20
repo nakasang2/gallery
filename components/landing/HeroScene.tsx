@@ -11,28 +11,30 @@ import * as THREE from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { MeshReflectorMaterial } from '@react-three/drei'
 import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
-import { fetchLpHero, fetchLpPanels, LP_HERO_SLOTS, LP_PANEL_SLOTS, type LpHeroSlot } from '@/lib/siteConfig'
+import { fetchLpFaces, emptyLpFaces, type LpFaces, type LpHeroSlot } from '@/lib/siteConfig'
 import { useT } from '@/components/I18nProvider'
 import { serifFont, sansFont, useCanvasFontsReady } from '@/lib/fonts'
 
-/** LP hook: the admin-configured images for one face of the LP (null per slot =
- *  nothing configured). Lives here (its only caller) so lib/siteConfig stays
- *  hook-free and server-importable. Both faces — the entrance works and the six
- *  corridor panels — load the same way, so they share this one loader. */
-function useLpSlots(load: () => Promise<LpHeroSlot[]>, count: number): LpHeroSlot[] {
-  // Start with all-empty slots (the same shape the fetch resolves to) so the first
-  // paint falls back to the demo art rather than briefly indexing undefined.
-  const [slots, setSlots] = useState<LpHeroSlot[]>(() => Array(count).fill(null))
+/** LP hook: the admin-configured images for every face of the LP's 3D museum
+ *  (null per slot = nothing configured, so that frame keeps its built-in demo art
+ *  — except the corridor panels, which then show the text board instead).
+ *  Lives here (its only caller) so lib/siteConfig stays hook-free and
+ *  server-importable. **One request for all five faces** — see fetchLpFaces. */
+function useLpFaces(): LpFaces {
+
+  // Start all-empty (the same shape the fetch resolves to) so the first paint falls
+  // back to the demo art rather than briefly indexing undefined.
+  const [faces, setFaces] = useState<LpFaces>(emptyLpFaces)
   useEffect(() => {
     let alive = true
-    load()
-      .then((s) => alive && setSlots(s))
+    fetchLpFaces()
+      .then((f) => alive && setFaces(f))
       .catch(() => {})
     return () => {
       alive = false
     }
-  }, [load, count])
-  return slots
+  }, [])
+  return faces
 }
 
 const WALL_X = 4.7
@@ -51,7 +53,7 @@ const HERO_ART: [number, number][] = [
 ]
 
 // 入口に見える3点(中央/左/右)。最初のビューで右側が空いて見えるのを埋める“3点目”を
-// 含む。管理画面(0018)で画像を設定するとこの枠が差し替わる(未設定はデモ作品に
+// 含む。管理画面の「① 1st View」で画像を設定するとこの枠が差し替わる(未設定はデモ作品に
 // フォールバック)。中央/左は HERO_ART と同じ位置。HERO_ART はカメラの止まり位置(anchor)
 // も兼ねるので描画用は別で持つ。
 //
@@ -106,7 +108,9 @@ const PANEL_IMG_H = 2.6
 /** 壁に焼く1枚ぶんの文言（辞書解決済み）＋その位置 */
 type PanelText = { n: string; h: string; b: string; z: number }
 
-// 大部屋の作品配置
+// 大部屋の作品配置。**並びは管理画面の枠と1対1**（lib/siteConfig の
+// `LP_HALL_FRONT_SLOT_LABEL_KEYS` / `LP_HALL_SIDE_SLOT_LABEL_KEYS`）── 順番を入れ替えたら
+// ラベルも直す。`idx` は枠が空のときに出る内蔵のデモ作品。
 // 遠壁(camera を向く +z 面) [idx, x, y, w]
 const HALL_FRONT: [number, number, number, number][] = [
   [0, 0, 6.4, 7.2],
@@ -492,7 +496,7 @@ function Framed({ idx, position, rotationY = 0, w = 1.5, y }: { idx: number; pos
 // Admin-configured hero image (migration 0018). Loaded as a texture at runtime;
 // until it arrives (or if it fails / CORS-blocks) the frame shows a neutral mat so
 // nothing looks broken. Same shape as Framed otherwise.
-function FramedImage({ src, ratio, position, rotationY = 0, w = 1.5 }: { src: string; ratio: [number, number]; position: [number, number, number]; rotationY?: number; w?: number }) {
+function FramedImage({ src, ratio, position, rotationY = 0, w = 1.5, maxH }: { src: string; ratio: [number, number]; position: [number, number, number]; rotationY?: number; w?: number; maxH?: number }) {
   const texRef = useRef<THREE.Texture | null>(null)
   const [, bump] = useState(0)
   useEffect(() => {
@@ -525,16 +529,29 @@ function FramedImage({ src, ratio, position, rotationY = 0, w = 1.5 }: { src: st
   }, [src])
   const tex = texRef.current
   const [rw, rh] = ratio
-  const h = (w * rh) / rw
-  const mat = 0.09 * w
+  // **幅ではなく高さで頭を打つ。** `Framed` は幅を決めて高さを比率から出すので、縦長の
+  // 写真を上げると額が縦に伸びて床を突き抜ける（廊下は天井 4.35 に対し中心 1.6 なので
+  // 3:4 でぎりぎり、2:3 で床に着く）。呼び手が「この壁で許せる高さ」を渡し、超えたぶんは
+  // 幅を縮めて収める ── 掛かる位置は変わらないので、構図の重心はそのまま。
+  //
+  // **収めるのは絵ではなく額の外形**（下の箱＝絵 ＋ マット `0.09w` ×2 ＋ 枠 0.12）。
+  // 絵の高さで測ると額がその1〜2割はみ出す ── 大部屋の中央枠（幅7.2・中心 y=6.4）に
+  // 1:2 の縦長を入れると、絵は収まっても**額の下辺が床を 0.2m 抜ける**計算だった
+  // （別視点レビュー 2026-08-20）。マットは幅に比例するので、縮小率は解いて求める。
+  const natural = (w * rh) / rw
+  const outer = natural + 0.18 * w + 0.12
+  const shrink = maxH && outer > maxH ? Math.max(0.05, (maxH - 0.12) / (natural + 0.18 * w)) : 1
+  const fw = w * shrink
+  const h = natural * shrink
+  const mat = 0.09 * fw
   return (
     <group position={position} rotation-y={rotationY}>
       <mesh position={[0, 0, -0.05]}>
-        <boxGeometry args={[w + mat * 2 + 0.12, h + mat * 2 + 0.12, 0.08]} />
+        <boxGeometry args={[fw + mat * 2 + 0.12, h + mat * 2 + 0.12, 0.08]} />
         <meshStandardMaterial color="#141416" roughness={0.45} metalness={0.25} />
       </mesh>
       <mesh position={[0, 0, 0.012]}>
-        <planeGeometry args={[w + mat * 2, h + mat * 2]} />
+        <planeGeometry args={[fw + mat * 2, h + mat * 2]} />
         <meshStandardMaterial color="#e9e6dd" roughness={0.92} />
       </mesh>
       {/* Mount the art plane only once the texture exists, so its material compiles
@@ -543,7 +560,7 @@ function FramedImage({ src, ratio, position, rotationY = 0, w = 1.5 }: { src: st
           the `key` forces a fresh material per source instead. */}
       {tex && (
         <mesh key={src} position={[0, 0, 0.03]}>
-          <planeGeometry args={[w, h]} />
+          <planeGeometry args={[fw, h]} />
           <meshStandardMaterial map={tex} roughness={0.55} />
         </mesh>
       )}
@@ -620,6 +637,10 @@ function PanelImage({ src, ratio, z }: { src: string; ratio: [number, number]; z
   )
 }
 
+/** 廊下・通路で額が収まる高さの上限。床は y=0・天井は y=4.35・作品の中心は
+ *  `ITEM_Y`=1.6 なので、足元に 0.25 残す 2.7 が上限（`PANEL_IMG_H` と同じ考え方）。 */
+const CORRIDOR_MAX_H = 2.7
+
 function CorridorArt({ idx, z, side = 'R', scale = 1, src, ratio }: { idx: number; z: number; side?: 'L' | 'R'; scale?: number; src?: string; ratio?: [number, number] }) {
   const x = side === 'L' ? -WALL_X + 0.08 : WALL_X - 0.08
   const ry = side === 'L' ? Math.PI / 2 : -Math.PI / 2
@@ -628,7 +649,7 @@ function CorridorArt({ idx, z, side = 'R', scale = 1, src, ratio }: { idx: numbe
   return (
     <group>
       {src && ratio ? (
-        <FramedImage src={src} ratio={ratio} position={[x, ITEM_Y, z]} rotationY={ry} w={1.5 * scale} />
+        <FramedImage src={src} ratio={ratio} position={[x, ITEM_Y, z]} rotationY={ry} w={1.5 * scale} maxH={CORRIDOR_MAX_H} />
       ) : (
         <Framed idx={idx} position={[x, ITEM_Y, z]} rotationY={ry} w={1.5 * scale} />
       )}
@@ -637,7 +658,9 @@ function CorridorArt({ idx, z, side = 'R', scale = 1, src, ratio }: { idx: numbe
   )
 }
 
-// 大部屋までの「アートが並ぶ通路」 [作品index, z, 壁] — 中間セクションの背景になる
+// 大部屋までの「アートが並ぶ通路」 [作品index, z, 壁] — 中間セクションの背景になる。
+// **並びは管理画面の枠と1対1**（lib/siteConfig の `LP_APPROACH_SLOT_LABEL_KEYS` が
+// 「01 右壁」…「07 右壁」と呼ぶ順序）。`idx` は枠が空のときに出る内蔵のデモ作品。
 const APPROACH_ART: [number, number, 'L' | 'R'][] = [
   [1, -46, 'R'],
   [4, -52, 'L'],
@@ -648,8 +671,13 @@ const APPROACH_ART: [number, number, 'L' | 'R'][] = [
   [3, -82, 'R'],
 ]
 
-// 大部屋
-function Hall() {
+/** 大部屋で額が収まる高さの上限。床は y=0・天井は y=13.6 なので、掛ける高さ `y` から
+ *  「足元に 0.4 残す」「天井に 0.6 残す」の両方を満たす値を出す。縦長の写真を上げた
+ *  ときだけ効く（横長は元の幅のまま）。 */
+const hallMaxH = (y: number) => Math.min(2 * (y - 0.4), 2 * (13.0 - y))
+
+// 大部屋 — 正面3枚・左右4枚は管理画面から差し替え、空の枠は内蔵のデモ作品のまま
+function Hall({ front, sides }: { front: LpHeroSlot[]; sides: LpHeroSlot[] }) {
   return (
     <group>
       {/* 床(廊下から続く長い反射床) */}
@@ -683,20 +711,32 @@ function Hall() {
       </mesh>
 
       {/* 遠壁の作品 — 到着地点なので明るくきれいに見せる */}
-      {HALL_FRONT.map(([idx, x, y, w], i) => (
-        <group key={`hf${i}`}>
-          <Framed idx={idx} position={[x, y, HALL_FAR + 0.1]} rotationY={0} w={w} />
-          <Spot pos={[x, 12.6, HALL_FAR + 5.5]} target={[x, y, HALL_FAR]} intensity={340} angle={0.52} distance={26} />
-        </group>
-      ))}
+      {HALL_FRONT.map(([idx, x, y, w], i) => {
+        const img = front[i]
+        return (
+          <group key={`hf${i}`}>
+            {img ? (
+              <FramedImage src={img.url} ratio={[img.w, img.h]} position={[x, y, HALL_FAR + 0.1]} rotationY={0} w={w} maxH={hallMaxH(y)} />
+            ) : (
+              <Framed idx={idx} position={[x, y, HALL_FAR + 0.1]} rotationY={0} w={w} />
+            )}
+            <Spot pos={[x, 12.6, HALL_FAR + 5.5]} target={[x, y, HALL_FAR]} intensity={340} angle={0.52} distance={26} />
+          </group>
+        )
+      })}
       {/* 側壁の作品 */}
       {HALL_SIDES.map(([idx, z, w, side], i) => {
         const x = side === 'L' ? -HALL_HALF + 0.1 : HALL_HALF - 0.1
         const ry = side === 'L' ? Math.PI / 2 : -Math.PI / 2
         const sx = side === 'L' ? -HALL_HALF + 3 : HALL_HALF - 3
+        const img = sides[i]
         return (
           <group key={`hs${i}`}>
-            <Framed idx={idx} position={[x, 5.4, z]} rotationY={ry} w={w} />
+            {img ? (
+              <FramedImage src={img.url} ratio={[img.w, img.h]} position={[x, 5.4, z]} rotationY={ry} w={w} maxH={hallMaxH(5.4)} />
+            ) : (
+              <Framed idx={idx} position={[x, 5.4, z]} rotationY={ry} w={w} />
+            )}
             <Spot pos={[sx, 12, z]} target={[side === 'L' ? -HALL_HALF : HALL_HALF, 5.4, z]} intensity={240} angle={0.5} distance={22} />
           </group>
         )
@@ -914,7 +954,7 @@ function useFarSections(): number {
   return step
 }
 
-function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; panelArt: LpHeroSlot[]; panels: PanelText[] }) {
+function Scene({ faces, panels }: { faces: LpFaces; panels: PanelText[] }) {
   // スポットライトの登録簿。`Spot` が積み、`SpotPool` が毎フレーム読む
   const spots = useMemo<SpotDef[]>(() => [], [])
   const far = useFarSections()
@@ -964,7 +1004,7 @@ function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; pan
       </mesh>
 
       {HERO_SLOTS.map((s, k) => {
-        const img = heroImages[k]
+        const img = faces.hero[k]
         return (
           <CorridorArt
             key={`h${k}`}
@@ -977,11 +1017,22 @@ function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; pan
         )
       })}
       {far >= 1 &&
-        APPROACH_ART.map(([idx, z, side], k) => (
-          <CorridorArt key={`ap${k}`} idx={idx} z={z} side={side} scale={1.15} />
-        ))}
+        APPROACH_ART.map(([idx, z, side], k) => {
+          const img = faces.approach[k]
+          return (
+            <CorridorArt
+              key={`ap${k}`}
+              idx={idx}
+              z={z}
+              side={side}
+              scale={1.15}
+              src={img?.url}
+              ratio={img ? [img.w, img.h] : undefined}
+            />
+          )
+        })}
       {panels.map((p, k) => {
-        const art = panelArt[k]
+        const art = faces.panels[k]
         // 写真が入っている枠は**写真だけ**にする（ユーザー選択 2026-08-17）。
         // 以前は板と写真が横に並んでいたが、同じことを二度言っている状態だった。
         // 文言は3D非対応向けの `.corridor-fallback`（app/page.tsx）に本物の見出しとして
@@ -996,7 +1047,7 @@ function Scene({ heroImages, panelArt, panels }: { heroImages: LpHeroSlot[]; pan
           </group>
         )
       })}
-      {far >= 2 && <Hall />}
+      {far >= 2 && <Hall front={faces.hallFront} sides={faces.hallSides} />}
       <SpotPool />
       <Dust />
       <Rig />
@@ -1013,10 +1064,9 @@ export default function HeroScene() {
   // Wall/label textures bake fonts into canvases once — wait for the webfonts
   // (with a cap) so museum labels don't ship in a fallback serif forever
   const [fontsReady, setFontsReady] = useState(false)
-  // Admin-configured hero images (migration 0018); nulls fall back to the demo art
-  const heroImages = useLpSlots(fetchLpHero, LP_HERO_SLOTS)
-  // パネルの隣に掛かる1点（管理画面から差し替え。未設定の枠は板だけが掛かる）
-  const panelArt = useLpSlots(fetchLpPanels, LP_PANEL_SLOTS)
+  // Admin-configured art for all five faces (migration 0018); nulls fall back to the
+  // demo art — except the corridor panels, where an empty slot leaves the text board
+  const faces = useLpFaces()
   // 文言は辞書から。壁のテクスチャは1枚ずつ canvas に焼くので、配列そのものを
   // memo して同一性を保つ（スクロールごとの再描画で焼き直させない）。
   const t = useT()
@@ -1094,7 +1144,7 @@ export default function HeroScene() {
           gl.toneMappingExposure = 1.3
         }}
       >
-        {fontsReady && <Scene heroImages={heroImages} panelArt={panelArt} panels={panels} />}
+        {fontsReady && <Scene faces={faces} panels={panels} />}
       </Canvas>
       <div className="hero-grade" aria-hidden="true" />
       <div className={`journey-hud${hudOn ? ' on' : ''}`}>

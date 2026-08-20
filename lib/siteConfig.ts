@@ -1,8 +1,9 @@
-// Site-wide config (migration 0018). Currently: which images the landing-page hero
-// shows, and the Explore spotlight. The admin console writes it; the public pages
-// read it (anon key, world-readable row). Hook-free on purpose so server components
-// (e.g. /explore) can import the fetchers — the one hook (useLpHero) lives in its
-// only consumer, components/landing/HeroScene.
+// Site-wide config (migration 0018). Currently: which images the LP's 3D museum
+// shows (all 23 frames — entrance / corridor / final hall), and the Explore
+// spotlight. The admin console writes it; the public pages read it (anon key,
+// world-readable rows). Hook-free on purpose so server components (e.g. /explore)
+// can import the fetchers — the one hook (useLpFaces) lives in its only consumer,
+// components/landing/HeroScene.
 import { supabase } from './supabase'
 
 export interface LpHeroImage {
@@ -12,6 +13,18 @@ export interface LpHeroImage {
   h: number
 }
 export type LpHeroSlot = LpHeroImage | null
+
+// ---- LPの3D美術館に掛かる絵（全23枠） ----
+//
+// カメラの旅路は「入口 → 廊下 → 通路 → 最後の部屋」で進む（components/landing/HeroScene）。
+// 管理画面は**その体感と同じ3節**に分け、性質の違う枠は節の中で帯に分ける
+// （ユーザー選択 2026-08-20 A案）:
+//   ① 1st View（入口）      … lp_hero        3枠
+//   ② 廊下                  … lp_panels      6枠（訴求パネルの絵）
+//                            + lp_approach   7枠（通路の作品）
+//   ③ 最後の部屋            … lp_hall_front  3枠（正面の壁）
+//                            + lp_hall_sides 4枠（左右の壁）
+// **1帯＝site_config の1行**にしてある（帯ごとに保存が独立し、正規化も枠数だけで済む）。
 
 // center / left / right — the three works visible at the LP entrance
 export const LP_HERO_SLOTS = 3
@@ -30,14 +43,51 @@ export const LP_PANEL_SLOTS = 6
 /** パネルの枠に添えるラベルは、そのパネルの見出しをそのまま使う。専用の辞書キーを
  *  作ると、パネルの文言を変えたときに管理画面のラベルだけ古いまま残る。 */
 export const LP_PANEL_SLOT_LABEL_KEYS = ['lp.f1Title', 'lp.f2Title', 'lp.f3Title', 'lp.f4Title', 'lp.f5Title', 'lp.f6Title'] as const
+
+// 廊下を抜けた先の暗い通路に、両壁へ交互に掛かる7枚（Concept〜Pricing の背景）。
+// ラベルの左右は HeroScene の `APPROACH_ART` の並びと同じ順序。**片方だけ足すと
+// 番号と壁がずれる**ので、増減するときは必ず両方を直す。
+export const LP_APPROACH_SLOTS = 7
+export const LP_APPROACH_SLOT_LABEL_KEYS = [
+  'adminUi.lpApproach1',
+  'adminUi.lpApproach2',
+  'adminUi.lpApproach3',
+  'adminUi.lpApproach4',
+  'adminUi.lpApproach5',
+  'adminUi.lpApproach6',
+  'adminUi.lpApproach7',
+] as const
+
+// 最後の大部屋。正面の壁（到着地点。中央が一番大きい）と、左右の壁の4枚。
+// 節は1つだが**行は2つ**に分けてある ── 正面は「着いた先の主役」、左右は「歩きながら
+// 見る脇の作品」で、差し替える動機が別なので保存も分ける。
+export const LP_HALL_FRONT_SLOTS = 3
+export const LP_HALL_FRONT_SLOT_LABEL_KEYS = [
+  'adminUi.lpHallFrontCenter',
+  'adminUi.lpHallFrontLeft',
+  'adminUi.lpHallFrontRight',
+] as const
+export const LP_HALL_SIDE_SLOTS = 4
+export const LP_HALL_SIDE_SLOT_LABEL_KEYS = [
+  'adminUi.lpHallSideLeftNear',
+  'adminUi.lpHallSideLeftFar',
+  'adminUi.lpHallSideRightNear',
+  'adminUi.lpHallSideRightFar',
+] as const
+
 /**
  * `lp-image` のアップロードは口座ごとに `{uid}/lp/{slot}.jpg` を上書きする
- * （app/api/upload-url の 'lp-image'。枠番号は 0〜20 まで）。ヒーローが 0〜2 を
- * 使っているので、パネルは 10 から始めて**同じファイルを取り合わない**ようにする。
+ * （app/api/upload-url の 'lp-image'。枠番号の上限はそこで決まる）。**面ごとに10の帯を
+ * 使い、同じファイルを取り合わないようにする** ── 帯の中で枠数が増えても隣の面に
+ * ぶつからない。枠番号を変えると、既に上がっている画像は前の番号のファイルに残る
+ * （site_config が指すURLはそのままなので表示は壊れないが、上書きの相手が変わる）。
  */
 export const LP_PANEL_SLOT_OFFSET = 10
+export const LP_APPROACH_SLOT_OFFSET = 20
+export const LP_HALL_FRONT_SLOT_OFFSET = 30
+export const LP_HALL_SIDE_SLOT_OFFSET = 40
 
-// 保存の形（`{ slots: [...] }`）も検算も、ヒーローとパネルで同一。**同じ意味の
+// 保存の形（`{ slots: [...] }`）も検算も、どの面でも同一。**同じ意味の
 // 処理を2か所に書かない**（DECISIONS 2026-08-12 の絶対ルール）ため、キーと枠数
 // だけを引数に取る1つの実装に通す。
 function normalize(value: unknown, count: number): LpHeroSlot[] {
@@ -81,10 +131,61 @@ export const fetchLpHero = (): Promise<LpHeroSlot[]> => fetchSlots('lp_hero', LP
 export const saveLpHero = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_hero', slots)
 export const fetchLpPanels = (): Promise<LpHeroSlot[]> => fetchSlots('lp_panels', LP_PANEL_SLOTS)
 export const saveLpPanels = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_panels', slots)
+export const fetchLpApproach = (): Promise<LpHeroSlot[]> => fetchSlots('lp_approach', LP_APPROACH_SLOTS)
+export const saveLpApproach = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_approach', slots)
+export const fetchLpHallFront = (): Promise<LpHeroSlot[]> => fetchSlots('lp_hall_front', LP_HALL_FRONT_SLOTS)
+export const saveLpHallFront = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_hall_front', slots)
+export const fetchLpHallSides = (): Promise<LpHeroSlot[]> => fetchSlots('lp_hall_sides', LP_HALL_SIDE_SLOTS)
+export const saveLpHallSides = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_hall_sides', slots)
+
+/** LPの3Dが必要な5面ぶんをまとめたもの */
+export interface LpFaces {
+  hero: LpHeroSlot[]
+  panels: LpHeroSlot[]
+  approach: LpHeroSlot[]
+  hallFront: LpHeroSlot[]
+  hallSides: LpHeroSlot[]
+}
+
+const LP_FACE_SPECS = [
+  ['hero', 'lp_hero', LP_HERO_SLOTS],
+  ['panels', 'lp_panels', LP_PANEL_SLOTS],
+  ['approach', 'lp_approach', LP_APPROACH_SLOTS],
+  ['hallFront', 'lp_hall_front', LP_HALL_FRONT_SLOTS],
+  ['hallSides', 'lp_hall_sides', LP_HALL_SIDE_SLOTS],
+] as const satisfies readonly (readonly [keyof LpFaces, string, number])[]
+
+/** 何も設定されていない状態（全枠 null）。LP側の初期値にも使う ── 「まだ読めていない」
+ *  と「設定が無い」を同じ形にしておけば、最初の1フレームからデモ作品で描ける。 */
+export const emptyLpFaces = (): LpFaces =>
+  Object.fromEntries(LP_FACE_SPECS.map(([f, , n]) => [f, normalize(null, n)])) as unknown as LpFaces
+
+/**
+ * LPが読む側の入口。**5面を1リクエストで取る** ── 面ごとに `fetchLpHero()` を呼ぶと、
+ * 来場者の最初の1画面で site_config への往復が5回になる（面を足すたびに増える）。
+ * 管理画面は面ごとの fetch/save をそのまま使う（そこは1面ずつ編集して保存するので、
+ * まとめて取る意味がない）。
+ */
+export async function fetchLpFaces(): Promise<LpFaces> {
+  if (!supabase) return emptyLpFaces()
+  try {
+    const { data, error } = await supabase
+      .from('site_config')
+      .select('key, value')
+      .in('key', LP_FACE_SPECS.map(([, k]) => k))
+    if (error || !data) return emptyLpFaces() // 0018 not applied / unset — demo defaults
+    const byKey = new Map(data.map((r) => [r.key as string, r.value]))
+    return Object.fromEntries(
+      LP_FACE_SPECS.map(([face, key, count]) => [face, normalize(byKey.get(key) ?? null, count)])
+    ) as unknown as LpFaces
+  } catch {
+    return emptyLpFaces()
+  }
+}
 
 // ---- Explore spotlight (企画展 / 特集) — a curated row on /explore, admin-managed ----
 
-// NOTE: the LP hero hook `useLpHero` intentionally lives in HeroScene.tsx (its
+// NOTE: the LP art hook `useLpFaces` intentionally lives in HeroScene.tsx (its
 // only caller) so this module stays hook-free and server-importable.
 
 export interface SpotlightRef {
