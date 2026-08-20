@@ -320,6 +320,9 @@ F2（セッション要約）は他が全部落ちても単体で意味を持つ
 **ビジター（ギャラリー内）** — `components/gallery/AnalyticsProbe.tsx` がストア購読で出すものが中心
 `gallery_arrive` / `gallery_loading_done` / `gallery_loading_timeout` / `gallery_webgl_unsupported` / `gallery_context_lost` / `gallery_context_restored` / `gallery_perf_downgrade` / `gallery_move_first` / `gallery_move_sample` / `gallery_stuck` / `gallery_work_focus` / `gallery_work_dwell` / `gallery_work_preview3d` / `gallery_work_preview3d_close` / `gallery_work_buy_click` / `gallery_like` / `gallery_share` / `gallery_tour_start` / `gallery_tour_end` / `gallery_guestbook_open` / `gallery_guestbook_submit` / `gallery_info_open` / `gallery_bgm_toggle` / `gallery_report_click` / `gallery_signup_cta` / `gallery_session_summary` / `embed_open_full`
 
+**LP（ランディングページ）**
+`lp_context_lost`（`components/landing/HeroScene.tsx`。ヒーロー3DのWebGLコンテキスト喪失。`mobile`パラメータあり。ギャラリー側の`gallery_context_lost`と違い復帰は試みないため対の`_restored`は無い）
+
 **出展者**
 `me_stage_view` / `me_work_upload_start` / `me_work_upload_done` / `me_work_upload_error` / `me_work_limit_hit` / `me_publish_on` / `me_publish_off` / `me_publish_blocked` / `checkout_modal_open` / `checkout_start` / `checkout_redirect` / `checkout_return` / `checkout_blocked` / `checkout_error` / `room_created`
 

@@ -34,7 +34,9 @@ export interface AdminUserRow {
 }
 
 export interface AdminPurchaseRow {
-  userId: string
+  /** null once the buyer's account is deleted — the row is anonymized, not removed
+   *  (migration 0069), to keep the revenue record while honoring account deletion. */
+  userId: string | null
   kind: string
   itemKey: string
   sku: string | null
@@ -265,7 +267,7 @@ type ReportRaw = {
 }
 
 type PurchaseRaw = {
-  user_id: string
+  user_id: string | null
   kind: string
   item_key: string
   sku: string | null
@@ -315,6 +317,7 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
 
   const packagesByUser = new Map<string, string[]>()
   for (const pu of purchases) {
+    if (!pu.user_id) continue // anonymized (buyer's account was deleted, migration 0069) — can't attribute to a current owner
     const label = pu.kind === 'theme' || pu.kind === 'layout' ? `${pu.kind}:${pu.item_key}` : pu.kind
     const list = packagesByUser.get(pu.user_id) ?? []
     list.push(label)

@@ -23,6 +23,7 @@ import { showToast } from './toast'
 import { visitorSettings } from './roomPlan'
 import { listMyArtworks, reorderArtworks } from './cloud'
 import { PLAN } from './limits'
+import { FREE_DEFAULT_THEME_ID, FREE_DEFAULT_LAYOUT_ID } from './entitlements'
 import type { PublicExhibition } from './publish'
 import {
   getMyGalleryRow,
@@ -87,8 +88,11 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: 'chic',
-  layout: 'hall',
+  // Free-tier values (lib/entitlements) — not 'chic'/'hall'. Those are paid, and a
+  // fallback that silently writes a paid value now gets rejected server-side by the
+  // galleries_guard_theme_layout trigger (migration 0068) unless it's already owned.
+  theme: FREE_DEFAULT_THEME_ID,
+  layout: FREE_DEFAULT_LAYOUT_ID,
   layoutParams: CUSTOM_LAYOUT_DEFAULTS,
   frame: 'black',
   mat: 'auto',
