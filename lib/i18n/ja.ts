@@ -458,6 +458,7 @@ export const ja: Dictionary = {
     bakeUpdate: '表示を更新する',
     bakeUpdating: '更新中…',
     bakeKeepOpen: 'このタブは開いたままで',
+    bakeStaleShort: '3D環境の更新があります',
     bakeFresh: '展示の表示は最新です。',
     bakeSkipped: '表示の更新を保存できませんでした（容量の空きが足りません）。展示は公開されています。',
     bakeFailed: '表示の更新に失敗しました。展示は公開されています。',

@@ -1745,6 +1745,11 @@ function GalleryCard({
           <span className="me-save-note">{t('me.unsavedNote')}</span>
         ) : bake.phase === 'baking' ? (
           <span className="me-save-note">{t('me.bakeKeepOpen')}</span>
+        ) : bake.phase === 'stale' ? (
+          /* 未保存の「変更があります」と対にする（ユーザー指摘 2026-08-19: 保存のときだけ
+             断り書きが出るので、更新のときも出す）。**一拍の待ちには合わせない** ── 断り書き
+             は読むもので、押し間違いを誘発しないため。ボタンだけが遅れて赤くなる。 */
+          <span className="me-save-note">{t('me.bakeStaleShort')}</span>
         ) : null}
         <SaveAllButton bake={bake} />
       </div>
@@ -3072,7 +3077,10 @@ function SaveAllButton({ bake }: { bake?: BakeControls }) {
       }}
     >
       {label}
-      {dirty && <span className="me-save-dot" aria-hidden="true" />}
+      {/* 「用事がある」合図の点。未保存のときと、焼き直せるときの両方で出す
+          （ユーザー指摘 2026-08-19）。焼いている**間**は出さない ── 用事は既に
+          進んでいるので、点は「まだ押していない」の意味だけに保つ。 */}
+      {(dirty || showBake) && <span className="me-save-dot" aria-hidden="true" />}
     </button>
   )
 }
