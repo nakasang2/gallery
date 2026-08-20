@@ -123,6 +123,15 @@
   font-weight: 600;
 }
 .me-save-all.is-dirty:hover { filter: brightness(1.08); }
+/* 「表示を更新する」に化けたとき。**未保存の金地(.is-dirty)とは別物に見せる** ──
+   同じ見た目にすると「保存されていないのかもしれない」と読めてしまう。こちらは
+   保存は済んでいて、来場者に届く表示を焼き直すだけなので、枠だけの金にする。 */
+.me-save-all.is-bake {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: transparent;
+}
+.me-save-all.is-bake:hover { background: rgba(212, 162, 78, 0.12); }
 .me-save-all:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 /* 未保存の点。文字だけだと「保存」と「保存済み」の区別が一瞬で読めない */
 .me-save-dot {

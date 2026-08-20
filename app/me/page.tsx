@@ -69,7 +69,7 @@ import {
   type GalleryRow,
 } from '@/lib/galleries'
 import { getProfile, saveProfile, setUsername, isPlaceholderTitle, USERNAME_RE } from '@/lib/publish'
-import BakeStatus from '@/components/BakeStatus'
+import BakeStatus, { useBakeFreshness } from '@/components/BakeStatus'
 import { SNS_PLATFORMS, normalizeSnsValue, snsDisplayValue, snsMismatch, type CustomLink } from '@/lib/sns'
 import { BRAND_ICONS, GlobeIcon } from '@/components/BrandIcons'
 import {
@@ -726,6 +726,14 @@ function GalleryCard({
   // `stage`/`setStage`は今はpropで受け取る（上のprops型コメント参照。部屋切替を
   // 跨いで持続させるためページ側に持たせた）。ローカルのuseStateは持たない。
   const setStage = onStageChange
+  /** 光の焼き込み。**部屋の高さで1回だけ呼ぶ** ── 判定を公開ステージの中で持つと、
+   *  そのタブを開かない作家は「古くなっている」ことに永久に気づけない（保存ボタンの
+   *  切り替えに使うため上へ持ち上げた。ユーザー案 2026-08-19）。`bake.runner` も
+   *  ここに置く ── 公開タブから離れても焼き込みが止まらないようにするため。 */
+  const bake = useBakeFreshness({ slug: row.slug, username, isPublic: row.is_public, busy })
+  /** 保存ボタンを「表示を更新する」に切り替えるか。**押せるのは古いときだけ**で、
+   *  未保存があるときは保存が優先される（→ 保存の入口が消える瞬間を作らない）。 */
+  const bakeStale = bake.phase === 'stale'
   // この部屋が属する展示（合同展示の部屋のときだけ）。会期・題名を「公開」ステージで
   // 出すため。通常展示の部屋では常に null。
   const [expo, setExpo] = useState<Expo | null>(null)
@@ -1722,7 +1730,15 @@ function GalleryCard({
     {isMyRoom && (
       <div className="me-save-slot">
         {dirty && <span className="me-save-note">{t('me.unsavedNote')}</span>}
-        <SaveAllButton />
+        <SaveAllButton
+          bakeStale={bakeStale}
+          onBake={() => {
+            // 進捗と「ほかのタブに移ると止まります」は公開ステージの1行が持っている。
+            // ボタンから始めたときはそこへ連れて行く（同じ表示を2か所に作らない）。
+            setStage('publish')
+            bake.start()
+          }}
+        />
       </div>
     )}
     </div>
@@ -1755,6 +1771,9 @@ function GalleryCard({
         {roomAdd}
       </div>
     )}
+    {/* 焼き込みの実体。**公開ステージの外に置く** ── ボタンから始めた焼き込みが、
+        タブを移った瞬間に消えないようにするため（`useBakeFreshness` のコメント参照）。 */}
+    {bake.runner}
     {/* One next step at a time toward publishing — not shown on the housekeeping stages */}
     {(() => {
       if (stage === 'profile') return null
@@ -2457,12 +2476,7 @@ function GalleryCard({
                 {/* 光の焼き込み。公開した瞬間に自動で走り、進捗を前面に出して待たせる
                     （ユーザー指摘 2026-08-18: 裏で進めると作家は待たない）。公開中の部屋の
                     構成が変わったら「古い」と出して焼き直しの導線を出す。トグルは触らない。 */}
-                <BakeStatus
-                  slug={row.slug}
-                  username={username}
-                  isPublic={row.is_public}
-                  busy={busy}
-                />
+                <BakeStatus phase={bake.phase} progress={bake.progress} onStart={bake.start} />
               </div>
             ) : (
               /* No username means no public URL, so there is nothing for the switch to
@@ -2965,7 +2979,14 @@ function useLeaveGuard() {
  * 未保存が無いときも**出したままにする**（押せない状態で）── 現れたり消えたりするボタンは、
  * 押そうとした瞬間に位置が変わる。
  */
-function SaveAllButton() {
+/** 保存が済んで焼き込みが古くなったら「表示を更新する」に切り替わるまでの待ち。
+ *  **「保存しました」(2600ms) を出し切ってから、さらに一拍おく**（ユーザー指定
+ *  2026-08-19「保存の後に一拍おいて、その後にそのボタンが切り替わる」）── 保存できた
+ *  確認を奪わないため、そして**保存直後の連打で意図せず焼き込みを始めないため**
+ *  （同じ位置のボタンの意味が変わるので、指が止まる時間を作る）。 */
+const BAKE_MORPH_HOLD_MS = 3400
+
+function SaveAllButton({ bakeStale = false, onBake }: { bakeStale?: boolean; onBake?: () => void }) {
   const t = useT()
   const dirty = useHasPending()
   const saving = usePending((s) => s.saving)
@@ -2980,15 +3001,40 @@ function SaveAllButton() {
     const id = setTimeout(() => setJustSaved(false), 2600)
     return () => clearTimeout(id)
   }, [savedAt])
+  // 保存の直後は切り替えを待つ（上の定数のコメント）
+  const [holding, setHolding] = useState(false)
+  useEffect(() => {
+    if (!savedAt) return
+    setHolding(true)
+    const id = setTimeout(() => setHolding(false), BAKE_MORPH_HOLD_MS)
+    return () => clearTimeout(id)
+  }, [savedAt])
 
-  const label = saving ? t('common.saving') : justSaved && !dirty ? t('common.saved') : t('me.saveAll')
+  /** 「表示を更新する」に化けるか。**未保存があるときは絶対に化けない** ── 保存の入口が
+   *  消える瞬間を作らないため。文字だけの修正では焼き込みの指紋が変わらないので
+   *  （`components/gallery/bakePlan.ts` の key に文字は入っていない）ここは反応しない。 */
+  const showBake = !!onBake && bakeStale && !dirty && !saving && !holding
+
+  const label = saving
+    ? t('common.saving')
+    : justSaved && !dirty
+      ? t('common.saved')
+      : showBake
+        ? t('me.bakeUpdate')
+        : t('me.saveAll')
   return (
     <button
       type="button"
-      className={`me-save-all${dirty ? ' is-dirty' : ''}`}
-      disabled={!dirty || saving}
-      aria-label={dirty ? `${t('me.saveAll')}（${t('me.unsavedMark')}）` : t('me.saveAll')}
+      className={`me-save-all${dirty ? ' is-dirty' : ''}${showBake ? ' is-bake' : ''}`}
+      disabled={showBake ? false : !dirty || saving}
+      aria-label={
+        showBake ? t('me.bakeUpdate') : dirty ? `${t('me.saveAll')}（${t('me.unsavedMark')}）` : t('me.saveAll')
+      }
       onClick={() => {
+        if (showBake) {
+          onBake?.()
+          return
+        }
         void (async () => {
           const r = await saveAll()
           if (r.ok) toast()
