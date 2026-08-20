@@ -14,6 +14,7 @@ import { renderArtworkCanvas, ARTWORKS, mulberry32 } from '@/lib/artworks'
 import { fetchLpFaces, emptyLpFaces, type LpFaces, type LpHeroSlot } from '@/lib/siteConfig'
 import { useT } from '@/components/I18nProvider'
 import { serifFont, sansFont, useCanvasFontsReady } from '@/lib/fonts'
+import { track } from '@/lib/analytics'
 
 /** LP hook: the admin-configured images for every face of the LP's 3D museum
  *  (null per slot = nothing configured, so that frame keeps its built-in demo art
@@ -1071,7 +1072,7 @@ function Scene({ faces, panels }: { faces: LpFaces; panels: PanelText[] }) {
   )
 }
 
-export default function HeroScene() {
+export default function HeroScene({ onContextLost }: { onContextLost: () => void }) {
   const [hud, setHud] = useState<Hud | null>(null)
   const [hudOn, setHudOn] = useState(false)
   // Stop the render loop entirely while the tab is hidden (battery)
@@ -1157,6 +1158,24 @@ export default function HeroScene() {
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping
           gl.toneMappingExposure = 1.3
+          // iOS Safari drops the WebGL context on app-switch/memory pressure. three's
+          // own WebGLRenderer already calls preventDefault() here and will attempt to
+          // reinitialize on `webglcontextrestored` (re-uploading every texture) — we
+          // can't rely on that being suppressed. So instead of trying to rebuild in
+          // place like the gallery (GalleryApp.tsx), we unmount immediately: the
+          // parent (HeroCanvas) disposes this Canvas on the next render, which tears
+          // the renderer down before any restore-driven reinitialization can matter,
+          // and falls back to the static CSS art instead of re-decoding ~150MB of
+          // hero textures right as memory is already under pressure.
+          gl.domElement.addEventListener(
+            'webglcontextlost',
+            (e) => {
+              e.preventDefault()
+              track('lp_context_lost', { mobile: SMALL_SCREEN })
+              onContextLost()
+            },
+            { once: true }
+          )
         }}
       >
         {fontsReady && <Scene faces={faces} panels={panels} />}

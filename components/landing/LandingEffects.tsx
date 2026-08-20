@@ -23,7 +23,10 @@ export default function LandingEffects() {
     // 3Dが出るかどうかは HeroCanvas と同じ判定を見る（lib/hero3d）。以前はDOMに
     // canvas が現れたかで見ていたが、それは**スクロールの1回目には間に合わない**
     // うえ、額装を焼くかどうかの分岐には使えなかった（下の「ヒーローの壁」を参照）
-    const hero3d = canRunHero3d()
+    // let, not const: flipped to false once `hero3d-lost` fires, so the scroll-driven
+    // push/fade below (line ~45) also applies to floats baked after a later WebGL
+    // context loss, not just to floats baked because 3D was never available.
+    let hero3d = canRunHero3d()
 
     const nav = document.getElementById('nav')
     const floatsRoot = document.getElementById('hero-floats')
@@ -111,12 +114,19 @@ export default function LandingEffects() {
     // **3Dが出るときは1枚も焼かない**（2026-08-17）── `.has-hero3d .hero-floats` が
     // `display: none` にする要素のために、生成アートを canvas に描いていた。1枚あたり
     // 660px 四方の手続き型の絵で、初回描画のいちばん混んでいる時間に走る完全な無駄。
-    const isMobile = window.matchMedia('(max-width: 900px)').matches
-    const layout: [number, number, number, number, number][] = isMobile
-      ? [[0, 50, 20, Math.min(300, Math.round(window.innerWidth * 0.72)), 1.0]]
-      : WALL
-    const parallaxItems: { el: HTMLDivElement; depth: number }[] = []
-    if (!hero3d && floatsRoot && floatsRoot.childElementCount === 0) {
+    //
+    // 関数にしてあるのは、3Dが後から落ちた場合（HeroCanvas.tsx の WebGLコンテキスト
+    // 喪失）にも同じものを焼けるようにするため（監査で発見・別視点レビュー
+    // 2026-08-20）。喪失時は `has-hero3d` が外れて `.hero-floats` の `display:none` は
+    // 解けるが、そもそも中身を1枚も焼いていなければ空のまま ── HeroCanvas が
+    // `hero3d-lost` を投げたときにもこの関数を呼ぶ。
+    const buildHeroFloats = () => {
+      if (!floatsRoot || floatsRoot.childElementCount > 0) return
+      const isMobile = window.matchMedia('(max-width: 900px)').matches
+      const layout: [number, number, number, number, number][] = isMobile
+        ? [[0, 50, 20, Math.min(300, Math.round(window.innerWidth * 0.72)), 1.0]]
+        : WALL
+      const parallaxItems: { el: HTMLDivElement; depth: number }[] = []
       layout.forEach(([idx, left, top, width, depth], i) => {
         const art = ARTWORKS[idx]
         const el = document.createElement('div')
@@ -179,6 +189,14 @@ export default function LandingEffects() {
         floatsRoot.replaceChildren()
       })
     }
+
+    if (!hero3d) buildHeroFloats()
+    const onHero3dLost = () => {
+      hero3d = false
+      buildHeroFloats()
+    }
+    window.addEventListener('hero3d-lost', onHero3dLost)
+    cleanups.push(() => window.removeEventListener('hero3d-lost', onHero3dLost))
 
     /* ---- デモセクションのミニ額装(ヒーローと同じ額装システム) ---- */
     const demoArt = document.getElementById('demo-art')

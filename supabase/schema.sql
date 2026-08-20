@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0067 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0069 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -6318,3 +6318,93 @@ alter table public.galleries add column if not exists shadow_bake jsonb;
 
 comment on column public.galleries.shadow_bake is
   '焼いた壁の影（アトラス1枚）の控え: {v,key,url,cols,rows,tile,ids}。key は構成の指紋で、一致しなければ来場者側が焼き直す。DECISIONS 2026-08-18。';
+
+-- # 0068_guard_theme_layout.sql — 有料テーマ/レイアウトを購入なしで設定できてしまう穴を塞ぐ(別視点レビュー 2026-08-20・監査で発見)
+-- `galleries_owner_all`（0001）は owner_id しか見ておらず、theme/layout に何を書き込むかを
+-- 検査しない。work_cap（0036）・slots_included（0038）・expo_id（0050）と同じ形の、列専用の
+-- ガードトリガをここで追加する。「購入済み」または、新規作成(INSERT)に限り「自分の別の
+-- 部屋に既にその値がある」（2室目以降はメイン部屋の見た目をコピーする設計・ユーザー決定
+-- 2026-08-09。新たに何かを解禁するわけではない）なら通す。UPDATEにこの例外を効かせると
+-- 未購入の値を他の全部屋へ複製できてしまうため、INSERTだけに限定する（別視点レビューで
+-- 実測・発見）。副作用で見つかった不整合として、列DEFAULT（0001）が有料値（chic/hall）
+-- だったのを無料値に揃える（アプリは常に明示指定するため実害は無かったが、直接insertする
+-- 経路があると地雷だった）。
+
+alter table public.galleries alter column theme set default 'whitecube';
+alter table public.galleries alter column layout set default 'corridor';
+
+create or replace function public.guard_theme_layout_change()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  theme_changed boolean;
+  layout_changed boolean;
+begin
+  if current_user not in ('authenticated', 'anon') then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    theme_changed := true;
+    layout_changed := true;
+  else
+    theme_changed := new.theme is distinct from old.theme;
+    layout_changed := new.layout is distinct from old.layout;
+  end if;
+
+  if theme_changed and new.theme <> 'whitecube'
+     and not exists (
+       select 1 from public.purchases
+        where user_id = new.owner_id and kind = 'theme' and item_key = new.theme
+     )
+     and not (
+       tg_op = 'INSERT' and exists (
+         select 1 from public.galleries
+          where owner_id = new.owner_id and theme = new.theme
+       )
+     )
+  then
+    raise exception 'theme is unlocked by purchase only: %', new.theme
+      using errcode = 'check_violation';
+  end if;
+
+  if layout_changed and new.layout <> 'corridor'
+     and not exists (
+       select 1 from public.purchases
+        where user_id = new.owner_id and kind = 'layout' and item_key = new.layout
+     )
+     and not (
+       tg_op = 'INSERT' and exists (
+         select 1 from public.galleries
+          where owner_id = new.owner_id and layout = new.layout
+       )
+     )
+  then
+    raise exception 'layout is unlocked by purchase only: %', new.layout
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists galleries_guard_theme_layout on public.galleries;
+create trigger galleries_guard_theme_layout
+  before insert or update of theme, layout on public.galleries
+  for each row execute function public.guard_theme_layout_change();
+
+-- # 0069_purchases_retain_on_delete.sql — アカウント削除で購入台帳を巻き添えにせず、法務ポリシーどおり保持する(別視点レビュー 2026-08-20・監査で発見)
+-- purchases.user_id（0016）は on delete cascade。delete_my_account()（0007）が auth.users
+-- を消すと購入履歴も全消去され、/privacy §6（購入記録は削除後も税務・会計上必要な期間保持）
+-- と矛盾していた。artworks.gallery_id（0062）と同じ形で、個人識別子だけを外して行は残す
+-- （匿名化）。保持期間そのものは要弁護士確認。
+
+alter table public.purchases alter column user_id drop not null;
+
+alter table public.purchases drop constraint if exists purchases_user_id_fkey;
+alter table public.purchases
+  add constraint purchases_user_id_fkey
+  foreign key (user_id) references auth.users (id) on delete set null;

@@ -86,6 +86,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
   const purchasesByUser = useMemo(() => {
     const m = new Map<string, AdminOverview['purchases']>()
     for (const p of data.purchases) {
+      if (!p.userId) continue // anonymized (buyer's account was deleted, migration 0069) — no user to group it under
       const list = m.get(p.userId) ?? []
       list.push(p)
       m.set(p.userId, list)
