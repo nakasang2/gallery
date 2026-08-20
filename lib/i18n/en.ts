@@ -488,6 +488,7 @@ export const en = {
     bakeUpdate: 'Update the display',
     bakeUpdating: 'Updating…',
     bakeKeepOpen: 'Keep this tab open',
+    bakeStaleShort: 'You can update the 3D view',
     bakeFresh: 'Your show’s display is up to date.',
     bakeSkipped: 'The display update could not be saved (not enough storage left). Your show is published.',
     bakeFailed: 'The display update could not be saved. Your show is published.',
