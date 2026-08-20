@@ -486,6 +486,8 @@ export const en = {
     bakeStale: 'You can update how your show is displayed.',
     bakeStaleNote: 'Running this once after editing delivers a higher-quality show to your visitors.',
     bakeUpdate: 'Update the display',
+    bakeUpdating: 'Updating…',
+    bakeKeepOpen: 'Keep this tab open',
     bakeFresh: 'Your show’s display is up to date.',
     bakeSkipped: 'The display update could not be saved (not enough storage left). Your show is published.',
     bakeFailed: 'The display update could not be saved. Your show is published.',

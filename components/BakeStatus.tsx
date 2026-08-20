@@ -37,6 +37,9 @@ const ShadowBakeRunner = dynamic(() => import('@/components/gallery/ShadowBakeRu
 
 export type BakePhase = 'unknown' | 'fresh' | 'stale' | 'baking' | 'saved' | 'skipped' | 'failed'
 
+/** 焼き込みの状態と入口。パネルと保存ボタンの両方が同じこれを受け取る。 */
+export type BakeControls = { phase: BakePhase; progress: BakeProgress; start: () => void }
+
 /**
  * 焼き込みの状態を1つだけ持ち、焼く実体をぶら下げる。**部屋の高さで1回だけ呼ぶ。**
  *
@@ -57,7 +60,7 @@ export function useBakeFreshness({
    *  部屋を触ったあと「古くなっています」がすぐ出るために要る。下書きの変化そのものを
    *  見張ると打鍵ごとに問い合わせてしまうので、**保存が終わった合図**に乗る。 */
   busy: boolean
-}): { phase: BakePhase; progress: BakeProgress; start: () => void; runner: ReactNode } {
+}): BakeControls & { runner: ReactNode } {
   const [phase, setPhase] = useState<BakePhase>('unknown')
   const [progress, setProgress] = useState<BakeProgress>({ done: 0, total: 0 })
   const [target, setTarget] = useState<PublicExhibition | null>(null)

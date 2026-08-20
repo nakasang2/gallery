@@ -124,14 +124,19 @@
 }
 .me-save-all.is-dirty:hover { filter: brightness(1.08); }
 /* 「表示を更新する」に化けたとき。**未保存の金地(.is-dirty)とは別物に見せる** ──
-   同じ見た目にすると「保存されていないのかもしれない」と読めてしまう。こちらは
-   保存は済んでいて、来場者に届く表示を焼き直すだけなので、枠だけの金にする。 */
+   同じ見た目にすると「保存されていないのかもしれない」と読めてしまう。
+   赤の塗り（ユーザー指定 2026-08-19。枠だけの金では弱かった）。色は題箋の番号と同じ
+   #b3402e ── 削除系に使っている赤（.hako-danger の #c96a5a 系）とは別の、この製品が
+   既に使っている美術館の赤にする。**壊す操作の赤と同じにしない。**
+   焼いている間もこの色のまま（`:disabled` の不透明度で「働いている」に見える）── 途中で
+   灰色に戻ると、押せたことが取り消されたように見える。 */
 .me-save-all.is-bake {
-  color: var(--gold);
-  border-color: var(--gold);
-  background: transparent;
+  color: #f7efe6;
+  background: #b3402e;
+  border-color: #b3402e;
+  font-weight: 600;
 }
-.me-save-all.is-bake:hover { background: rgba(212, 162, 78, 0.12); }
+.me-save-all.is-bake:hover:not(:disabled) { filter: brightness(1.12); }
 .me-save-all:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 /* 未保存の点。文字だけだと「保存」と「保存済み」の区別が一瞬で読めない */
 .me-save-dot {
