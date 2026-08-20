@@ -558,22 +558,25 @@ function FramedImage({ src, ratio, position, rotationY = 0, w = 1.5, maxH }: { s
           WITH the map. Toggling map from null→texture on a live material doesn't
           recompile the shader (no USE_MAP), which would leave the image invisible;
           the `key` forces a fresh material per source instead. */}
-      {/* **絵の面だけ露出を落とす**（2026-08-20）── スポット110・環境光・露出1.3 は
-          すべて**生成アートの明るさ**に合わせて決めた値で、写真や絵画の複製のように
-          平均アルベドが2〜3倍あるものを入れると ACES のショルダーに押し込まれ、
-          **白く飛んで彩度まで抜ける**（`PanelImage` に同じ診断が書いてある。板の文字も
-          地が `#efeade` のほぼ白で 130 では飛んだので 34 まで落としている）。
-          `color` は `map` に**乗算**されるので、これは「この1枚ぶんの露出」だけを下げる
-          ── スポットを弱めるとマットと額まで暗くなり、部屋の照明が落ちたように見える。
-          **色を偏らせないよう無彩色**にしてある（線形で約0.6倍＝およそ -0.7 段）。
-          `roughness` を上げるのは、0.55 では**鏡面ハイライトが絵の中央に白い塊として
-          乗る**ため。生成アートの模様の上では紛れるが、写真や絵画の上では「中央だけ
-          霞んだ」ように見える。実物のマットな油彩はマットの面（0.92）に近い。
+      {/* **絵の面は ACES を迂回する**（2026-08-20・2度目の修正）。1度目は `color="#cccccc"`
+          （線形で約0.6倍・-0.7段）で albedo を落としただけだったが、**ユーザー実機で
+          「どこも同じくらい白い」まま残った** ── 入口(スポット110)と大部屋(340/240)は
+          光量が3倍近く違うのに一様に飛んでいたことが手がかりで、**シーンの光量に応じて
+          飛び方が変わらない＝そもそも `meshStandardMaterial` で光を受けている限り、
+          係数をどれだけ動かしても「ちょうどよく収まる1点」に当たる保証がない**
+          （ACES のショルダーは光源側の値と albedo の積でどこまでも押し上げられる。
+          -0.7段は生成アートとの差を「2〜3倍」と見積もった当てずっぽうで、実際の差を
+          測っていなかった）。**係数の調整をもう一段強めるのではなく、`PanelImage` が
+          既に踏んでいる解に合わせる** ── `meshBasicMaterial` ＋ `toneMapped={false}`。
+          ACES にもスポットにも一切触れないので、**シーンの明るさに関係なく画像そのものの
+          色がそのまま出る**（板の文字と同じ理屈。板のコメント参照）。
+          代わりに絵はスポットで陰影が付かなくなる（マットと額は引き続き付く）が、
+          その代償は `PanelImage` が既に払っている既知のものなので新しいリスクではない。
           生成アートの `Framed` は従来のままにしてある（あちらは飛んでいない）。 */}
       {tex && (
         <mesh key={src} position={[0, 0, 0.03]}>
           <planeGeometry args={[fw, h]} />
-          <meshStandardMaterial map={tex} color="#cccccc" roughness={0.88} />
+          <meshBasicMaterial map={tex} toneMapped={false} />
         </mesh>
       )}
     </group>
