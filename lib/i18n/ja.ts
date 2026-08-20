@@ -456,6 +456,8 @@ export const ja: Dictionary = {
     bakeStale: '展示の表示を更新できます。',
     bakeStaleNote: '編集したあとに一度実行すると、より高品質な状態で来場者にお届けできます。',
     bakeUpdate: '表示を更新する',
+    bakeUpdating: '更新中…',
+    bakeKeepOpen: 'このタブは開いたままで',
     bakeFresh: '展示の表示は最新です。',
     bakeSkipped: '表示の更新を保存できませんでした（容量の空きが足りません）。展示は公開されています。',
     bakeFailed: '表示の更新に失敗しました。展示は公開されています。',

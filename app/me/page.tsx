@@ -69,7 +69,7 @@ import {
   type GalleryRow,
 } from '@/lib/galleries'
 import { getProfile, saveProfile, setUsername, isPlaceholderTitle, USERNAME_RE } from '@/lib/publish'
-import BakeStatus, { useBakeFreshness } from '@/components/BakeStatus'
+import BakeStatus, { useBakeFreshness, type BakeControls } from '@/components/BakeStatus'
 import { SNS_PLATFORMS, normalizeSnsValue, snsDisplayValue, snsMismatch, type CustomLink } from '@/lib/sns'
 import { BRAND_ICONS, GlobeIcon } from '@/components/BrandIcons'
 import {
@@ -740,9 +740,6 @@ function GalleryCard({
     isPublic: isMyRoom && row.is_public,
     busy,
   })
-  /** 保存ボタンを「表示を更新する」に切り替えるか。**押せるのは古いときだけ**で、
-   *  未保存があるときは保存が優先される（→ 保存の入口が消える瞬間を作らない）。 */
-  const bakeStale = bake.phase === 'stale'
   // この部屋が属する展示（合同展示の部屋のときだけ）。会期・題名を「公開」ステージで
   // 出すため。通常展示の部屋では常に null。
   const [expo, setExpo] = useState<Expo | null>(null)
@@ -1738,16 +1735,18 @@ function GalleryCard({
         出しても押せば必ず失敗する ── 押せるのに失敗するボタンは出さない。 */}
     {isMyRoom && (
       <div className="me-save-slot">
-        {dirty && <span className="me-save-note">{t('me.unsavedNote')}</span>}
-        <SaveAllButton
-          bakeStale={bakeStale}
-          onBake={() => {
-            // 進捗と「ほかのタブに移ると止まります」は公開ステージの1行が持っている。
-            // ボタンから始めたときはそこへ連れて行く（同じ表示を2か所に作らない）。
-            setStage('publish')
-            bake.start()
-          }}
-        />
+        {/* 未保存の断り書きと、焼いている間の「待って」は同じ場所に出す（同時には起きない
+            ── 焼けるのは保存が済んでいるときだけ）。**焼き込みはタブを移しても止まらない
+            が、ブラウザのタブを裏に回すと描画ごと止まる**ので、その断り書きだけはここに
+            出しておく（ユーザー指摘 2026-08-19: 公開タブへ飛ばす挙動は要らない）。
+            **文言は短い方（`bakeKeepOpen`）を使う** ── 公開タブのパネルにある長文
+            （`bakeWait`）をここに入れると、実測でボタンを画面の外へ押し出した。 */}
+        {dirty ? (
+          <span className="me-save-note">{t('me.unsavedNote')}</span>
+        ) : bake.phase === 'baking' ? (
+          <span className="me-save-note">{t('me.bakeKeepOpen')}</span>
+        ) : null}
+        <SaveAllButton bake={bake} />
       </div>
     )}
     </div>
@@ -2995,7 +2994,7 @@ function useLeaveGuard() {
  *  （同じ位置のボタンの意味が変わるので、指が止まる時間を作る）。 */
 const BAKE_MORPH_HOLD_MS = 3400
 
-function SaveAllButton({ bakeStale = false, onBake }: { bakeStale?: boolean; onBake?: () => void }) {
+function SaveAllButton({ bake }: { bake?: BakeControls }) {
   const t = useT()
   const dirty = useHasPending()
   const saving = usePending((s) => s.saving)
@@ -3022,26 +3021,47 @@ function SaveAllButton({ bakeStale = false, onBake }: { bakeStale?: boolean; onB
   /** 「表示を更新する」に化けるか。**未保存があるときは絶対に化けない** ── 保存の入口が
    *  消える瞬間を作らないため。文字だけの修正では焼き込みの指紋が変わらないので
    *  （`components/gallery/bakePlan.ts` の key に文字は入っていない）ここは反応しない。 */
-  const showBake = !!onBake && bakeStale && !dirty && !saving && !holding
+  const showBake = bake?.phase === 'stale' && !dirty && !saving && !holding
+  /** その場で焼いている間。**タブは移さず、進捗はこのボタンの文言に出す**
+   *  （ユーザー指摘 2026-08-19）。押せなくして二重起動を防ぐ。 */
+  const baking = bake?.phase === 'baking'
 
+  // **焼いている間は「保存しました」より進捗を優先する。** 公開トグルをONにすると
+  // 自動で焼き始めるが、その直前に保存していると `justSaved`（2600ms）が勝って、
+  // 走っているのに何も動いていないように見えた。
   const label = saving
     ? t('common.saving')
-    : justSaved && !dirty
-      ? t('common.saved')
-      : showBake
-        ? t('me.bakeUpdate')
-        : t('me.saveAll')
+    : baking
+      ? // 数字は訳の要らない部分なので文言に足すだけにする（1枚目が焼けるまでは総数だけ
+        // 出しても「0 / 10 で固まっている」ように見えるので、数字は done>0 から出す）
+        // i18n-ok: 数字と区切り
+        `${t('me.bakeUpdating')}${bake.progress.done > 0 ? ` ${bake.progress.done} / ${bake.progress.total}` : ''}`
+      : justSaved && !dirty
+        ? t('common.saved')
+        : showBake
+          ? t('me.bakeUpdate')
+          : t('me.saveAll')
   return (
     <button
       type="button"
-      className={`me-save-all${dirty ? ' is-dirty' : ''}${showBake ? ' is-bake' : ''}`}
-      disabled={showBake ? false : !dirty || saving}
+      className={`me-save-all${dirty ? ' is-dirty' : ''}${showBake || baking ? ' is-bake' : ''}`}
+      disabled={baking ? true : showBake ? false : !dirty || saving}
+      /* 読み上げ用の名前。**`aria-live` はここに付けない** ── 進捗は公開ステージのパネルが
+         `role="status"` で読み上げており、両方に付けると二重に読まれ、しかも目盛りが
+         進むたびに割り込む。 */
       aria-label={
-        showBake ? t('me.bakeUpdate') : dirty ? `${t('me.saveAll')}（${t('me.unsavedMark')}）` : t('me.saveAll')
+        baking
+          ? t('me.bakeUpdating')
+          : showBake
+            ? t('me.bakeUpdate')
+            : dirty
+              ? `${t('me.saveAll')}（${t('me.unsavedMark')}）`
+              : t('me.saveAll')
       }
       onClick={() => {
         if (showBake) {
-          onBake?.()
+          // その場で焼く。タブは移さない（進捗はこのボタンの文言に出る）
+          bake?.start()
           return
         }
         void (async () => {
