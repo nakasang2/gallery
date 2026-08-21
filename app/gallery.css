@@ -51,11 +51,27 @@ body:not(.gallery-mode) {
 #loading.done { opacity: 0; visibility: hidden; }
 .loading-inner { text-align: center; }
 .loading-logo {
-  font-family: var(--serif);
-  font-size: 1.4rem;
-  letter-spacing: 0.55em;
-  text-indent: 0.55em;
   margin-bottom: 1.6rem;
+}
+/* margin-inline:auto, not display:inline-block — see .footer-logo. */
+.loading-logo svg { height: 2.1rem; width: auto; display: block; margin-inline: auto; }
+
+/* Each bar breathes independently — a quiet equalizer rather than a spinner, in the
+   same restrained register as .loading-in's fade (ease timing, no bounce). transform-box
+   makes each path scale from its OWN bottom edge, not the icon's shared origin, so the
+   bars stay planted rather than scaling from a single point. Delay is set inline per bar
+   (components/BrandLogo.tsx) so the six paths need no nth-child bookkeeping here. */
+.brand-logo-bar {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: brand-bar-breathe 1.8s ease-in-out infinite;
+}
+@keyframes brand-bar-breathe {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.58); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo-bar { animation: none; }
 }
 .loading-bar {
   width: 180px;
@@ -187,14 +203,17 @@ body:not(.gallery-mode) {
 }
 .hud-back {
   pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
   color: var(--ink);
   text-decoration: none;
   font-family: var(--serif);
   font-size: 0.95rem;
-  letter-spacing: 0.18em;
   opacity: 0.85;
   transition: opacity 0.2s;
 }
+.hud-back svg { height: 1.1rem; width: auto; display: block; }
 .hud-back:hover { opacity: 1; color: var(--gold); }
 .hud-title { text-align: right; }
 .hud-title-main {
@@ -220,8 +239,13 @@ body:not(.gallery-mode) {
   min-width: 0;
   margin-right: 1rem;
 }
+/* Two callers: the visitor HUD (the logo) and the owner HUD ("<- Dashboard" text,
+   components/gallery/Hud.tsx). The type rules are inert on the SVG but are what the
+   second caller needs, so they stay. */
 .hud-identity-home {
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
   font-family: var(--sans);
   font-size: 0.58rem;
   letter-spacing: 0.26em;
@@ -231,6 +255,7 @@ body:not(.gallery-mode) {
   margin-bottom: 0.3rem;
   transition: opacity 0.2s, color 0.2s;
 }
+.hud-identity-home svg { height: 0.85rem; width: auto; display: block; }
 .hud-identity-home:hover { opacity: 1; color: var(--gold); }
 .hud-identity-main {
   display: block;
@@ -745,8 +770,8 @@ body:not(.gallery-mode) {
 .panel-buy:active { transform: translateY(0) scale(0.98); }
 
 @media (max-width: 480px) {
-  /* コンパクトヘッダー: 戻るリンクの折返しとタイトル衝突を防ぐ */
-  .hud-back { white-space: nowrap; }
+  /* コンパクトヘッダー: タイトル衝突を防ぐ。戻るリンクはSVGマークになったので
+     white-space の指定は不要（折り返す文字がない）。 */
   .hud-title-main {
     max-width: 52vw;
     overflow: hidden;
@@ -1982,7 +2007,10 @@ body:not(.gallery-mode) {
   .hud-identity-home,
   .hud-back {
     position: relative;
-    display: inline-block;
+    /* inline-flex, not inline-block: hud-back is now an arrow plus an SVG, and
+       inline-block drops the gap and stacks them on two lines on touch. */
+    display: inline-flex;
+    align-items: center;
   }
   .hud-identity-home::after,
   .hud-back::after {

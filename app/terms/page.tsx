@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
+import BrandLogo from '@/components/BrandLogo'
 
 export const metadata: Metadata = { title: 'Terms of Service — Xibit360' }
 
@@ -9,7 +10,7 @@ export default function TermsPage() {
     <main className="legal-page">
       <div className="me-inner">
         <div className="me-top">
-          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
+          <LocaleLink href="/" className="auth-logo" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
         </div>
         <h1 className="me-h1">Terms of Service</h1>
         <div className="legal-body">

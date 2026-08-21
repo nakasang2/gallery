@@ -19,6 +19,7 @@ import GhostSpeedEditor from '@/components/GhostSpeedEditor'
 import AuthShell from '@/components/auth/AuthShell'
 import TopActions from '@/components/TopActions'
 import { LegalLink, LocaleLink, useT } from '@/components/I18nProvider'
+import BrandLogo from '@/components/BrandLogo'
 
 export default function AdminPage() {
   const t = useT()
@@ -83,7 +84,7 @@ export default function AdminPage() {
     <main className="me-page">
       <div className="me-inner">
         <div className="me-top">
-          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
+          <LocaleLink href="/" className="auth-logo" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
           <TopActions>
             <Link className="btn-line" href="/me">{t('common.dashboard')}</Link>
             <button className="btn-line" onClick={() => void load()} disabled={loading}>

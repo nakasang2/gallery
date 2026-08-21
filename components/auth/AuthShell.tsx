@@ -3,12 +3,13 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { LegalLink, LocaleLink, useT } from '@/components/I18nProvider'
+import BrandLogo from '@/components/BrandLogo'
 
 export default function AuthShell({ title, children }: { title: string; children: ReactNode }) {
   const t = useT()
   return (
     <main className="auth-page">
-      <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
+      <LocaleLink href="/" className="auth-logo" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
       <section className="auth-card">
         <h1 className="auth-title">{title}</h1>
         {children}

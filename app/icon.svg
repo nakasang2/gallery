@@ -1,16 +1,17 @@
-<svg viewBox="-24 -24 448 448" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg">
   <style>
-    /* The mark is pure black, so a dark tab strip would swallow it. This rule is the only
-       lever available, and it does NOT cover every browser: a favicon is rasterised with no
-       embedding document, so there is no scheme for the query to match unless the browser
-       supplies one. Firefox does; Chrome and Edge render this SVG but leave the mark black,
-       and favicon.ico cannot rescue them because ICO holds no dark variant and they are not
-       reading it anyway. Accepted rather than solved — the alternative is baking an opaque
-       tile behind the mark, which changes the brand mark itself. Revisit if Chromium ships
-       favicon colour-scheme support. (favicon.ico stays regardless: SVG-blind clients need
-       it, and crawlers, feed readers and Windows pinned sites request it by convention.) */
-    #mark { fill: #000000; }
-    @media (prefers-color-scheme: dark) { #mark { fill: #FFFFFF; } }
+    /* The mark is a single tone, so a dark tab strip would swallow a black mark. Firefox
+       resolves this query for an SVG favicon; Chrome/Edge render the SVG but do not
+       currently resolve prefers-color-scheme in that context (favicon.ico is the
+       fallback there, and being ICO it cannot carry a dark variant of its own either —
+       accepted, not solved, same limitation noted when this mark was first built). */
+    .bar { fill: #0B0A09; }
+    @media (prefers-color-scheme: dark) { .bar { fill: #ECE7DE; } }
   </style>
-  <path id="mark" d="M370 100C386.569 100 400 113.431 400 130V370C400 386.569 386.569 400 370 400H130C113.431 400 100 386.569 100 370V300H270C286.569 300 300 286.569 300 270V100H370ZM270 0C286.569 3.86556e-06 300 13.4315 300 30V100H130C113.431 100 100 113.431 100 130V300H30C13.4315 300 2.41612e-07 286.569 0 270V30C3.8658e-06 13.4315 13.4315 2.41598e-07 30 0H270Z"/>
+  <path class="bar" d="M34 152.5L28 151V23.8838L21 25.5V20.5L34 17.5V152.5Z"/>
+  <path class="bar" d="M52 132.5L46 131V43.8838L39 45.5V40.5L52 37.5V132.5Z"/>
+  <path class="bar" d="M70 112.5L64 111V63.8838L57 65.5V60.5L70 57.5V112.5Z"/>
+  <path class="bar" d="M100 112.5L106 111V63.8838L113 65.5V60.5L100 57.5V112.5Z"/>
+  <path class="bar" d="M118 132.5L124 131V43.8838L131 45.5V40.5L118 37.5V132.5Z"/>
+  <path class="bar" d="M136 152.5L142 151V23.8838L149 25.5V20.5L136 17.5V152.5Z"/>
 </svg>

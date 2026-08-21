@@ -23,6 +23,7 @@ import OwnerPreview from '@/components/gallery/OwnerPreview'
 import SnsLinks from '@/components/SnsLinks'
 import JsonLd from '@/components/JsonLd'
 import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
+import BrandLogo from '@/components/BrandLogo'
 import { getServerT } from '@/lib/i18n/server'
 import { COVER_SIZES } from '@/components/FeedCard'
 
@@ -132,7 +133,7 @@ export default async function ArtistPage({
     <main className="artist-page">
       <div className="me-inner">
         <div className="me-top">
-          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
+          <LocaleLink href="/" className="auth-logo" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
           <LocaleLink href="/explore" className="btn-line">{t('footer.explore')}</LocaleLink>
         </div>
 

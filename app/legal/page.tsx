@@ -14,6 +14,7 @@ import { PRICE_SLOT, PRICE_ROOM, PRICE_VIDEO_PASS, paidIdsFor, priceRangeLabel, 
 import { MAX_WORKS_PER_ROOM } from '@/lib/limits'
 import { EXPO_GRACE_DAYS } from '@/lib/expos'
 import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
+import BrandLogo from '@/components/BrandLogo'
 import { getServerT } from '@/lib/i18n/server'
 import { siteUrl } from '@/lib/publicUrl'
 
@@ -43,7 +44,7 @@ export default async function LegalPage() {
     <main className="legal-page">
       <div className="me-inner">
         <div className="me-top">
-          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
+          <LocaleLink href="/" className="auth-logo" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
         </div>
         <h1 className="me-h1">{t('legal.heading')}</h1>
         <div className="legal-body">

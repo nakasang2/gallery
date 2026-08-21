@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import BrandLogo from '@/components/BrandLogo'
 import Link from 'next/link'
 import LandingEffects from '@/components/landing/LandingEffects'
 import HeroCanvas from '@/components/landing/HeroCanvas'
@@ -35,7 +36,7 @@ export default async function LandingPage() {
       <LandingEffects />
 
       <nav className="nav" id="nav">
-        <LocaleLink className="nav-logo" href="/">XIBIT360</LocaleLink>
+        <LocaleLink className="nav-logo" href="/" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
         {/* 並びはページの並びと同じにする（features は3Dの廊下なのでヒーローの
             直後に来る）。逆にしていた頃は「コンセプト」を押すと、まだ見ていない
             features を飛び越して下へ跳んでいた */}
@@ -64,7 +65,7 @@ export default async function LandingPage() {
 
         {/* 入口のミニマルなクローム(ナビはスクロールで初めて現れる) */}
         <div className="hero-chrome">
-          <LocaleLink className="hero-mark" href="/">XIBIT360</LocaleLink>
+          <LocaleLink className="hero-mark" href="/" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
           <LocaleLink className="hero-enter" href="/demo">{t('lp.heroCtaArrow')}</LocaleLink>
         </div>
 
@@ -339,7 +340,7 @@ export default async function LandingPage() {
 
       {/* ============ FOOTER ============ */}
       <footer className="footer">
-        <div className="footer-logo">XIBIT360</div>
+        <div className="footer-logo"><BrandLogo /></div>
         <p>{t('lp.footerTagline')}</p>
         <nav className="footer-links" aria-label={t('lp.footerNav')}>
           <a href="#features">{t('lp.navFeatures')}</a>
