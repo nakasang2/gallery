@@ -1,6 +1,7 @@
 'use client'
 // Top HUD (back/title), bottom-right actions (guided tour / edit space / ambience), and control hints
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import BrandLogo from '@/components/BrandLogo'
 import Link from 'next/link'
 import { useGallery } from '@/lib/store'
 import { isPlaceholderTitle } from '@/lib/publish'
@@ -62,7 +63,7 @@ export function HudTop() {
     return (
       <header className="hud-top">
         <div className="hud-identity">
-          <LocaleLink className="hud-identity-home" href="/">XIBIT360</LocaleLink>
+          <LocaleLink className="hud-identity-home" href="/" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
           <span className="hud-identity-main">{untitled ? visitor.ownerName : visitor.title}</span>
           {!untitled && <span className="hud-identity-sub">{visitor.ownerName}</span>}
           <SnsLinks sns={by.sns} className="hud-identity-sns" />
@@ -108,7 +109,7 @@ export function HudTop() {
 
   return (
     <header className="hud-top">
-      <LocaleLink className="hud-back" href="/">← XIBIT360</LocaleLink>
+      <LocaleLink className="hud-back" href="/" aria-label="XIBIT360"><span aria-hidden="true">←</span><BrandLogo /></LocaleLink>
       <div className="hud-title">
         <span className="hud-title-main">{t('hud.houseTitle')}</span>
         <span className="hud-title-sub">{t('hud.houseSub')}</span>

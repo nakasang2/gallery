@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import ConsentReset from '@/components/ConsentReset'
 import { LanguageSwitcher, LocaleLink } from '@/components/I18nProvider'
+import BrandLogo from '@/components/BrandLogo'
 
 export const metadata: Metadata = { title: 'Privacy Policy — Xibit360' }
 
@@ -10,7 +11,7 @@ export default function PrivacyPage() {
     <main className="legal-page">
       <div className="me-inner">
         <div className="me-top">
-          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
+          <LocaleLink href="/" className="auth-logo" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
         </div>
         <h1 className="me-h1">Privacy Policy</h1>
         <div className="legal-body">

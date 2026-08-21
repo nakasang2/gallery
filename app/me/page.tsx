@@ -5,6 +5,7 @@
 // rest of this screen is editing; one room means it renders as a single static label,
 // so nothing about the single-room screen changes until a second room exists.
 import { createContext, useCallback, useContext, useDeferredValue, useEffect, useRef, useState , type ReactNode } from 'react'
+import BrandLogo from '@/components/BrandLogo'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
@@ -3826,7 +3827,7 @@ export default function MePage() {
       )}
       <div className="me-inner">
         <div className="me-top">
-          <LocaleLink href="/" className="auth-logo" onClick={guardLeave}>XIBIT360</LocaleLink>
+          <LocaleLink href="/" className="auth-logo" onClick={guardLeave} aria-label="XIBIT360"><BrandLogo /></LocaleLink>
           <TopActions before={<NotificationBell />}>
             <LocaleLink className="btn-line" href="/explore" onClick={guardLeave}>{t('me.explore')}</LocaleLink>
             <button className="btn-line" onClick={() => setHelpOpen(true)}>{t('help.title')}</button>

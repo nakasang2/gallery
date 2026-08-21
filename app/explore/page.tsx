@@ -7,6 +7,7 @@ import { fetchSpotlight } from '@/lib/siteConfig'
 import ExploreFeed from '@/components/ExploreFeed'
 import FeedCard from '@/components/FeedCard'
 import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
+import BrandLogo from '@/components/BrandLogo'
 import { getServerT } from '@/lib/i18n/server'
 import { localeAlternates } from '@/lib/i18n/metadata'
 
@@ -38,7 +39,7 @@ export default async function ExplorePage() {
     <main className="artist-page">
       <div className="me-inner">
         <div className="me-top">
-          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
+          <LocaleLink href="/" className="auth-logo" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
           <Link href="/signup" className="btn-line">{t('common.startFree')}</Link>
         </div>
 

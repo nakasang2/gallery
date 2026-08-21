@@ -8,6 +8,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import HelpContent from '@/components/HelpContent'
 import { LanguageSwitcher, LegalLink, LocaleLink } from '@/components/I18nProvider'
+import BrandLogo from '@/components/BrandLogo'
 import { getServerT } from '@/lib/i18n/server'
 import { localeAlternates } from '@/lib/i18n/metadata'
 
@@ -29,7 +30,7 @@ export default async function HelpPage() {
     <main className="help-page">
       <div className="me-inner">
         <div className="me-top">
-          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
+          <LocaleLink href="/" className="auth-logo" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
           <Link href="/signup" className="btn-line">{t('common.startFree')}</Link>
         </div>
 

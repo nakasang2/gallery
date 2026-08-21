@@ -16,13 +16,14 @@
   color: var(--ink);
 }
 
+/* Used on twelve pages — the page headers and the shared auth shell. */
 .auth-logo {
-  font-family: var(--serif);
-  font-size: 1.05rem;
-  letter-spacing: 0.42em;
+  display: inline-flex;
+  align-items: center;
   color: var(--ink);
   text-decoration: none;
 }
+.auth-logo svg { height: 1.7rem; width: auto; display: block; }
 .auth-logo:hover { color: var(--gold); }
 
 .auth-card {

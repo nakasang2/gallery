@@ -3,6 +3,7 @@
 // gallery greets you with THAT artist's card — avatar, exhibition title, name —
 // so the wait is part of arriving at their show, not a generic spinner.
 import { isPlaceholderTitle } from '@/lib/publish'
+import BrandLogo from '@/components/BrandLogo'
 import { useT } from '@/components/I18nProvider'
 
 export interface LoadingExhibition {
@@ -60,7 +61,7 @@ export default function LoadingScreen({
   return (
     <div id="loading" className={done ? 'done' : ''}>
       <div className="loading-inner">
-        <div className="loading-logo">XIBIT360</div>
+        <div className="loading-logo"><BrandLogo animate /></div>
         <Bar progress={progress} />
         <div className="loading-text">{t('loading.preparing')}</div>
       </div>

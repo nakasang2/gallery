@@ -20,7 +20,7 @@
   justify-content: space-between;
   margin-bottom: 2.6rem;
 }
-.me-top .auth-logo { font-size: 0.95rem; }
+.me-top .auth-logo svg { height: 1.5rem; }
 .me-top-nav { position: relative; display: flex; align-items: center; }
 /* PCでも常にハンバーガーに畳む（2026-08-10、ユーザー指摘: 右上に並ぶボタン列を廃止） */
 .me-top-burger {

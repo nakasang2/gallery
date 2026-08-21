@@ -9,6 +9,7 @@ import { renderMarkdown } from '@/lib/markdown'
 import { getServerT } from '@/lib/i18n/server'
 import { singleLanguageAlternates } from '@/lib/i18n/metadata'
 import { LocaleLink } from '@/components/I18nProvider'
+import BrandLogo from '@/components/BrandLogo'
 import ArticleSidebar from '@/components/ArticleSidebar'
 import JsonLd from '@/components/JsonLd'
 import { articleJsonLd, getArticle } from '@/lib/seo'
@@ -77,7 +78,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         {/* ロゴを左に置く。検索から本文へ直接来た人にとって、ここが最初の
             「何のサイトか」の手がかりになる（以前は「← Guides」だけだった）。 */}
         <div className="me-top">
-          <LocaleLink href="/" className="auth-logo">XIBIT360</LocaleLink>
+          <LocaleLink href="/" className="auth-logo" aria-label="XIBIT360"><BrandLogo /></LocaleLink>
           <Link href="/signup" className="btn-line btn-gold">{t('common.startFree')}</Link>
         </div>
 
