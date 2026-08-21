@@ -1155,12 +1155,19 @@ export async function fetchSpotlightGalleries(refs: { username: string; slug: st
   if (!supabase || refs.length === 0) return []
   try {
     const usernames = [...new Set(refs.map((r) => r.username.toLowerCase()))]
+    // Also narrow by slug (リリース前監査 #50・2026-08-21) — without it, this
+    // fetched EVERY public room a curated artist owns just to keep the one or
+    // two the spotlight actually names. Slugs aren't unique across users, so
+    // this is a prefilter, not the final match: the exact (username, slug)
+    // pairing below still decides what's kept and in what order.
+    const slugs = [...new Set(refs.map((r) => r.slug))]
     // !inner so we can filter on the embedded profile's username
     const { data, error } = await supabase
       .from('galleries')
       .select('id, slug, title, cover_artwork_id, profiles!inner (username, display_name, avatar_url)')
       .eq('is_public', true)
       .in('profiles.username', usernames)
+      .in('slug', slugs)
     if (error || !data) return []
 
     const rows = (data as unknown as FeedGalleryRow[]).filter((g) => g.profiles?.username)

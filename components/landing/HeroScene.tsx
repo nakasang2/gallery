@@ -278,6 +278,28 @@ function makePanelTexture(p: { n: string; h: string; b: string }): THREE.CanvasT
   return tex
 }
 
+/** LP画像の読み込み失敗時のフォールバック（リリース前監査 #42・2026-08-21・
+ *  ユーザー決定: ブロードンレシブな背景にフォールバックする）。壁と同じ暗い
+ *  トーンの対角グラデーションだけ ── 「何も出さない」だと空の枠がその場所に
+ *  作品があったことすら示せないが、失敗した1枚に注意を引く装飾も要らない。
+ *  1枚だけ作って共有する（失敗した全パネルが同じ絵で足りる。個別の画像ではない）。 */
+let sharedFallbackTex: THREE.CanvasTexture | null = null
+function fallbackGradientTexture(): THREE.CanvasTexture {
+  if (sharedFallbackTex) return sharedFallbackTex
+  const c = document.createElement('canvas')
+  c.width = 64
+  c.height = 64
+  const ctx = c.getContext('2d')!
+  const g = ctx.createLinearGradient(0, 0, 64, 64)
+  g.addColorStop(0, '#141210')
+  g.addColorStop(1, '#0b0a09') // landing.css の --bg と揃える
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 64, 64)
+  sharedFallbackTex = new THREE.CanvasTexture(c)
+  sharedFallbackTex.colorSpace = THREE.SRGBColorSpace
+  return sharedFallbackTex
+}
+
 // ---- スポットライトの共有プール ----
 //
 // **three.js は前方レンダリングなので、シーンに置いた照明はすべて、画面の全ピクセルの
@@ -598,9 +620,15 @@ function PanelImage({ src, ratio, z }: { src: string; ratio: [number, number]; z
   // mesh が**破棄済みのテクスチャを掴んだまま**新しい画像の読み込み完了まで残る
   // （別視点レビュー 2026-08-17）。state なら null に戻した時点で必ず描き直る。
   const [tex, setTex] = useState<THREE.Texture | null>(null)
+  // 読み込み中（false/false）と、読み込み失敗（true）を区別する。失敗時は
+  // `fallbackGradientTexture()` を出す（リリース前監査 #42・2026-08-21・
+  // ユーザー決定）── まだ読み込み中の一瞬を「失敗した」と誤って描かないため、
+  // `tex`（成功時のみ立つ）と分けて持つ。
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     let alive = true
     setTex(null)
+    setFailed(false)
     const loader = new THREE.TextureLoader()
     loader.setCrossOrigin('anonymous')
     let loaded: THREE.Texture | null = null
@@ -618,7 +646,7 @@ function PanelImage({ src, ratio, z }: { src: string; ratio: [number, number]; z
       },
       undefined,
       () => {
-        /* load/CORS failure — 何も出さない（額が無いので「空の枠」も残らない） */
+        if (alive) setFailed(true)
       }
     )
     return () => {
@@ -631,12 +659,12 @@ function PanelImage({ src, ratio, z }: { src: string; ratio: [number, number]; z
   const fit = Math.min(PANEL_IMG_W / rw, PANEL_IMG_H / rh)
   const w = rw * fit
   const h = rh * fit
-  if (!tex) return null
+  if (!tex && !failed) return null // まだ読み込み中 — 空の枠より何も出さないほうが自然
   return (
     <group>
       <mesh key={src} position={[-WALL_X + 0.08, ITEM_Y, z]} rotation-y={Math.PI / 2}>
         <planeGeometry args={[w, h]} />
-        <meshBasicMaterial map={tex} toneMapped={false} />
+        <meshBasicMaterial map={tex ?? fallbackGradientTexture()} toneMapped={false} />
       </mesh>
       {/* **光は写真ではなく壁に当てている**（ユーザー選択 2026-08-17）。写真の材質は
           `meshBasicMaterial` なので、このスポットは写真の見え方を1ミリも変えない ──

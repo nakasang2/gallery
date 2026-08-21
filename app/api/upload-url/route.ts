@@ -88,6 +88,12 @@ interface Rule {
    *  never materialises is no longer a way to store bytes for free — the quota
    *  measures R2, not the table (see reserveQuota). */
   owns?: 'galleries' | 'artworks'
+  /** True when the key does NOT live under the caller's own `{uid}/` prefix —
+   *  the "harmless because it's your own folder" reasoning below no longer
+   *  applies once a purpose writes into a namespace every admin (or, absent this
+   *  flag, any signed-in caller) shares, so the route checks `is_admin()`
+   *  itself instead (リリース前監査 #41・2026-08-21). */
+  requiresAdmin?: boolean
 }
 
 function uuid(id: string): string {
@@ -100,8 +106,15 @@ function uuid(id: string): string {
 // purpose would mean excluding its key from that listing, which is a pattern-match
 // against key shapes that quietly breaks the day a key layout changes. One rule
 // instead: nobody stores more than PLAN.storageBytes under their own prefix, full
-// stop. Avatars (~50KB), logos (~30KB) and LP images (~150KB) are rounding errors
-// against 300MB, so this costs a real user nothing.
+// stop. Avatars (~50KB) and logos (~30KB) are rounding errors against 300MB, so
+// this costs a real user nothing.
+//
+// `lp-image` is the one purpose that no longer fits this rule at all: its key
+// lives under `_shared/lp/...`, not `{uid}/`, so `prefixBytes('{uid}/')` never
+// sees it and it never lands in anyone's permanent quota figure (only the
+// transient `reserve_storage` hold during the upload itself, which is fine —
+// リリース前監査 #41・2026-08-21 moved it out of any one account's folder on
+// purpose, and it is admin-only and ~150KB, so this is intentional, not a gap).
 const RULES: Record<Purpose, Rule> = {
   'artwork-display': { key: (u, id) => `${u}/${uuid(id)}/display.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg },
   'artwork-card': { key: (u, id) => `${u}/${uuid(id)}/card.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg },
@@ -110,30 +123,39 @@ const RULES: Record<Purpose, Rule> = {
   avatar: { key: (u) => `${u}/avatar.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg },
   'gallery-bgm': { key: (u, id) => `${u}/${uuid(id)}/bgm`, maxBytes: GALLERY_BGM_MAX_BYTES, accepts: audio, owns: 'galleries' },
   'gallery-logo': { key: (u, id) => `${u}/${uuid(id)}-logo.jpg`, maxBytes: IMAGE_MAX_BYTES, accepts: jpeg, owns: 'galleries' },
-  // The LP hero is admin-only UI, but a presigned URL into the caller's own
-  // folder is harmless on its own — writing the resulting URL into site_config
-  // is what needs admin rights, and RLS still guards that. The slot is bounded,
-  // so this cannot be used to create unbounded objects.
+  // The LP hero is a SITE-WIDE asset, not any one admin's — it used to live
+  // under the uploading admin's own `{uid}/lp/` folder (reasoning: harmless
+  // because it's your own folder, and cheap against your own quota), but that
+  // meant deleting THAT admin's account broke LP images for every visitor
+  // (リリース前監査 #41・2026-08-21・ユーザー決定: 並べ替えを実施する). Moving it
+  // to a fixed, no-uid prefix means it survives any admin's account deletion,
+  // but also means the "your own folder" harmlessness argument no longer holds —
+  // `requiresAdmin` below makes the route check `is_admin()` itself.
   'lp-image': {
-    key: (u, id, slot) => {
+    key: (_u, id, slot) => {
       // The LP's 3D museum has 23 frames across five faces, and lib/siteConfig
       // gives each face its own band of ten slot numbers (hero 0-, panels 10-,
       // approach 20-, hall front 30-, hall sides 40-). 49 is that last band's end;
       // raise it here AND add the band in lib/siteConfig if a sixth face appears.
       if (!Number.isInteger(slot) || slot < 0 || slot > 49) throw new Error('Invalid slot.')
       // `id` carries a nonce (lib/cloud.ts uploadLpImage sends crypto.randomUUID()),
-      // NOT a row id — a stable `{u}/lp/{slot}.jpg` used to mean a fresh upload
-      // overwrote the file the currently-published site_config still pointed at,
-      // so an admin who uploaded and left without pressing Save silently changed
-      // the live LP once the CDN's edge cache expired (リリース前監査 #20). A
-      // client-supplied string lands in an R2 key, so it is validated here rather
-      // than trusted — the same UUID shape every other purpose's `id` already
-      // requires (see `uuid()` above), not a hand-rolled format for this one case.
+      // NOT a row id — a stable `_shared/lp/{slot}.jpg` used to mean a fresh
+      // upload overwrote the file the currently-published site_config still
+      // pointed at, so an admin who uploaded and left without pressing Save
+      // silently changed the live LP once the CDN's edge cache expired
+      // (リリース前監査 #20). A client-supplied string lands in an R2 key, so
+      // it is validated here rather than trusted — the same UUID shape every
+      // other purpose's `id` already requires (see `uuid()` above), not a
+      // hand-rolled format for this one case.
       const nonce = UUID.test(id) ? id : randomUUID()
-      return `${u}/lp/${slot}-${nonce}.jpg`
+      // `_shared/` can never collide with a uid folder (uids are UUIDs; `_shared`
+      // isn't one), and nothing else scans or deletes by that literal prefix —
+      // account deletion only ever touches `{uid}/` (app/api/account/delete).
+      return `_shared/lp/${slot}-${nonce}.jpg`
     },
     maxBytes: IMAGE_MAX_BYTES,
     accepts: jpeg,
+    requiresAdmin: true,
   },
 }
 
@@ -243,6 +265,10 @@ export async function POST(req: NextRequest) {
 
   // Validate every entry before signing anything, so a partly-bad batch signs nothing.
   const planned: { key: string; contentType: string; size: number }[] = []
+  // Resolved at most once per request, regardless of how many files in the
+  // batch require it — `is_admin()` is a round-trip, and a batch can hold up
+  // to MAX_FILES_PER_REQUEST entries of the same admin-only purpose.
+  let isAdmin: boolean | null = null
   try {
     for (const f of files) {
       // `files` is only cast, never parsed, so guard the shape here — a null entry
@@ -253,6 +279,21 @@ export async function POST(req: NextRequest) {
       }
       const rule = Object.prototype.hasOwnProperty.call(RULES, f.purpose) ? RULES[f.purpose] : undefined
       if (!rule) return NextResponse.json({ error: 'Unknown upload purpose.' }, { status: 400 })
+
+      if (rule.requiresAdmin) {
+        if (isAdmin === null) {
+          const { data, error: adminErr } = await auth.db.rpc('is_admin')
+          // A failed RPC call (migration not applied, transient PostgREST error)
+          // is NOT the same as a confirmed "not an admin" — collapsing the two
+          // was exactly リリース前監査 #45's bug for /admin's own access wall;
+          // reintroducing it here would give a genuine admin a misleading
+          // "Forbidden" instead of the "try again" the outer catch already
+          // gives every other pre-flight failure below.
+          if (adminErr) throw new Error(`is_admin check failed: ${adminErr.message}`)
+          isAdmin = data === true
+        }
+        if (!isAdmin) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
+      }
 
       const size = typeof f.size === 'number' && Number.isFinite(f.size) ? Math.floor(f.size) : -1
       if (size <= 0 || size > rule.maxBytes) {

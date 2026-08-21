@@ -241,29 +241,47 @@ export async function adminTakedownArtwork(
   }
 }
 
-/** Whether the signed-in user is an admin (rpc is_admin, added in 0017).
- *  Any failure — migration not applied, offline, signed out — resolves false. */
-export function useIsAdmin(userId: string | null): boolean {
-  const [isAdmin, setIsAdmin] = useState(false)
+/** `'loading'` while the `is_admin` RPC is in flight, `'signed-out'` when there
+ *  is no user to check, `'admin'`/`'denied'` once it answers, and `'error'`
+ *  when the RPC itself failed (network, migration not applied) — that last
+ *  case is NOT the same as `'denied'`: collapsing it into a boolean meant a
+ *  transient RPC failure locked an actual admin out with no way to tell the
+ *  two apart from a genuine "not an admin" (リリース前監査 #45・2026-08-21). */
+export type AdminCheck = 'loading' | 'signed-out' | 'admin' | 'denied' | 'error'
+
+export function useIsAdminCheck(userId: string | null): AdminCheck {
+  const [state, setState] = useState<AdminCheck>('loading')
   useEffect(() => {
     if (!supabase || !userId) {
-      setIsAdmin(false)
+      setState('signed-out')
       return
     }
     let alive = true
+    setState('loading')
     ;(async () => {
       try {
         const { data, error } = await supabase!.rpc('is_admin')
-        if (alive) setIsAdmin(!error && data === true)
+        if (!alive) return
+        if (error) setState('error')
+        else setState(data === true ? 'admin' : 'denied')
       } catch {
-        if (alive) setIsAdmin(false) // network reject (vs {error}) — stay non-admin, no unhandled rejection
+        if (alive) setState('error') // network reject (vs {error}) — same "couldn't verify" bucket
       }
     })()
     return () => {
       alive = false
     }
   }, [userId])
-  return isAdmin
+  return state
+}
+
+/** Boolean convenience for call sites that only ever meant "is admin, else treat
+ *  as not" — kept so existing UI-gating call sites (not security boundaries;
+ *  RLS is) don't all need the tri-state. New call sites that must tell
+ *  "still checking" / "RPC failed" apart from "confirmed not admin" — like the
+ *  admin console's own access wall — should use `useIsAdminCheck` directly. */
+export function useIsAdmin(userId: string | null): boolean {
+  return useIsAdminCheck(userId) === 'admin'
 }
 
 type ProfileRow = { id: string; username: string | null; display_name: string | null; expo_slug?: string | null }

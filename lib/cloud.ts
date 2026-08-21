@@ -621,9 +621,12 @@ export async function uploadLogo(ownerId: string, galleryId: string, file: File)
 
 /** Upload a landing-page hero image and return its URL + resized dimensions. Like
  *  uploadLogo it only touches storage; the admin LP editor saves the URL into
- *  site_config. Only admins reach this UI, and the signed key is the caller's own
- *  folder, so a non-admin gains nothing from reaching the route — writing the URL
- *  into site_config is what needs admin rights, and RLS still guards that.
+ *  site_config. The key is now a fixed, shared `_shared/lp/...` prefix, not the
+ *  caller's own folder (リリース前監査 #41・2026-08-21 — the old per-account
+ *  location broke every visitor's LP images if that admin's account was ever
+ *  deleted), so `app/api/upload-url/route.ts`'s `lp-image` rule checks
+ *  `is_admin()` itself before signing. `ownerId` below is accepted but no
+ *  longer part of the key — the route ignores it.
  *
  *  The key carries a nonce (`id`, below) rather than being fixed per slot. It used
  *  to be `{uid}/lp/{slot}.jpg`, which meant uploading a replacement immediately

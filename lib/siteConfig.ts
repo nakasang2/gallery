@@ -76,8 +76,10 @@ export const LP_HALL_SIDE_SLOT_LABEL_KEYS = [
 ] as const
 
 /**
- * `lp-image` のアップロードは口座ごとに `{uid}/lp/{slot}-{nonce}.jpg` へ書く
- * （app/api/upload-url の 'lp-image'。枠番号の上限はそこで決まる。nonceの理由は
+ * `lp-image` のアップロードは共有の `_shared/lp/{slot}-{nonce}.jpg` へ書く
+ * （app/api/upload-url の 'lp-image'。口座ごとではない ── リリース前監査 #41・
+ * 2026-08-21で、アップロードした管理者の退会に連動して切れないよう口座の外に
+ * 移した。枠番号の上限はそこで決まる。nonceの理由は
  * リリース前監査 #20 — 固定パスへの上書きだと、保存前でもCDNキャッシュが切れた
  * 時点で本番LPの画像が差し替わっていた）。**面ごとに10の帯を使い、同じ枠番号を
  * 取り合わないようにする** ── 帯の中で枠数が増えても隣の面にぶつからない。
