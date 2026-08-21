@@ -1748,6 +1748,24 @@
 .report-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.7rem; }
 .btn-line.danger { border-color: rgba(240, 132, 124, 0.5); color: #f0847c; }
 
+/* 通報カードから開く、その部屋の作品一覧（作品単位の削除。リリース前監査 #10） */
+.artwork-takedown-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0 0;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.artwork-takedown-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+
 /* 芳名帳は公開ステージの中の一区画（上に罫線で仕切る） */
 .gb-group { margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid var(--hairline); }
 /* 芳名帳の開閉（作家が閉じられる） */

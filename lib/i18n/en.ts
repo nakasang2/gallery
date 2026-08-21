@@ -278,6 +278,7 @@ export const en = {
     thanksBody:
       'Your report has been received. We review reports and take down content that violates the terms.',
     failed: 'Could not send the report — please try again later.',
+    rateLimited: 'Too many reports have been sent from your network recently. Please try again in a while.',
     unavailable: 'Reporting is not available (Supabase is not configured).',
   },
 
@@ -730,6 +731,12 @@ export const en = {
     takeDown: 'Take down',
     takeDownWhy: 'Why is this being taken down? (kept on the report)',
     restore: 'Restore',
+    viewArtworks: 'View artworks',
+    hideArtworks: 'Hide artworks',
+    noArtworksInRoom: 'No artworks in this room.',
+    deleteFile: 'Delete file',
+    deleteFileConfirm:
+      "Permanently delete this artwork's row and its image/video file from storage? This cannot be undone.",
     dismiss: 'Dismiss',
     markHandled: 'Mark handled',
     reopen: 'Reopen',

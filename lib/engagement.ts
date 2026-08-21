@@ -132,34 +132,33 @@ export interface ReportInput {
   sworn: boolean
 }
 
-/** 列が無い＝migration 0056 が未適用。**エラーコードだけで判定する** —
- *  表名や 'column' のような語で見分けると、正常に存在する表の別の失敗まで
- *  「未適用」に流れ込む（docs/LESSONS 2026-08-09「縮退の入口は広く採らない」）。 */
-const MISSING_COLUMN = new Set(['42703', 'PGRST204'])
+/** Thrown by submitReport when the server says to slow down (HTTP 429), so the
+ *  form can show a specific message instead of the generic failure one. */
+export class ReportRateLimitedError extends Error {}
 
+/**
+ * Submits via the server (`/api/report`), not a direct table insert — the RLS
+ * policy that used to allow anonymous inserts is gone (migration 0072), because
+ * that was also the hole that let anyone flood the reports table and take the
+ * admin console down with it. The server route rate-limits by IP and still
+ * requires no sign-in, so a genuine anonymous notice still goes through.
+ */
 export async function submitReport(input: ReportInput): Promise<void> {
-  const about = input.about.trim().slice(0, 200)
-  const contact = input.contact.trim().slice(0, 200)
-  const reason = input.reason.trim().slice(0, 1000)
-  const claimant = input.claimant.trim().slice(0, 200)
-  const workIdentified = input.workIdentified.trim().slice(0, 1000)
-
-  const { error } = await supabase!
-    .from('reports')
-    .insert({ about, reason, contact, kind: input.kind, claimant, work_identified: workIdentified, sworn: input.sworn })
-  if (!error) return
-
-  // 0056 を本番に貼る前にこのコードが出ても、通報だけは必ず届くようにする
-  // （通報の入口が落ちるのは、法令上要る仕組みが止まるのと同じ）。**法的に意味の
-  // あるところ（署名・特定・宣誓）は本文の先頭に畳んで残す** — 末尾に足すと
-  // 1000字の切り詰めでちょうどそこが消える。
-  if (!MISSING_COLUMN.has(error.code)) throw error
-  const header =
-    input.kind === 'copyright'
-      ? `[copyright] signed: ${claimant} / work: ${workIdentified} / sworn: ${input.sworn ? 'yes' : 'NO'}\n`
-      : `[${input.kind}]\n`
-  const retry = await supabase!
-    .from('reports')
-    .insert({ about, contact, reason: `${header}${reason}`.slice(0, 1000) })
-  if (retry.error) throw retry.error
+  const res = await fetch('/api/report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      about: input.about,
+      reason: input.reason,
+      contact: input.contact,
+      kind: input.kind,
+      claimant: input.claimant,
+      workIdentified: input.workIdentified,
+      sworn: input.sworn,
+    }),
+  })
+  if (res.ok) return
+  const detail = (await res.json().catch(() => null)) as { error?: string } | null
+  if (res.status === 429) throw new ReportRateLimitedError(detail?.error ?? 'Too many reports.')
+  throw new Error(detail?.error ?? `Report failed (${res.status}).`)
 }

@@ -160,8 +160,10 @@ select count(*)=1 from public.notifications
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = '62000000-0000-0000-0000-000000000002';
+-- storage_path は {owner_id}/{id} の形が必須（0074 の artworks_guard_storage_path）。
 insert into public.artworks (id, owner_id, title, width, height, storage_path, gallery_id) values
-  ('62c00000-0000-0000-0000-000000000001', '62000000-0000-0000-0000-000000000002', 'EW62-1', 100, 100, '62/ew1',
+  ('62c00000-0000-0000-0000-000000000001', '62000000-0000-0000-0000-000000000002', 'EW62-1', 100, 100,
+   '62000000-0000-0000-0000-000000000002/62c00000-0000-0000-0000-000000000001',
    (select id from artist_room62));
 
 \echo -n '17 作品は作家自身の部屋に紐づいて入っている: '

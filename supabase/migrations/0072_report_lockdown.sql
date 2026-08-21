@@ -1,0 +1,25 @@
+-- 通報フォームの匿名DoSを塞ぐ（リリース前監査 #11・2026-08-21）
+--
+-- 何が問題だったか: `reports_insert_any`（0010）は `with check (true)` で、
+-- サインイン不要・件数無制限にinsertできた。`/admin` は reports を1000件ずつ
+-- 全件取得するため、大量投稿されると本物のDMCA通知が埋もれるだけでなく
+-- `/admin` 自体が開かなくなる（監査#11）。
+--
+-- ユーザー決定（2026-08-21）: サインイン必須化ではなく「サーバー経路化＋IPレート
+-- 制限」を選んだ ── 権利者・被害者が**アカウント無しで**通報できる状態を保ったまま
+-- DoSだけを塞ぐため。レート制限そのものは0071の `check_rate_limit()` を使って
+-- 新設の `/api/report`（Next.jsのAPI route・service_role）が呼ぶ。
+--
+-- ここが直接効かせる守りは1点だけ: **anon/authenticatedからの直接insertを塞ぐ**。
+-- `/api/report` を経由するレート制限は、reports に直接書けるanonキー
+-- （ブラウザに公開されている）で誰でも回避できてしまう ── Next.jsのAPI routeを
+-- 通さずSupabaseのRESTを直接叩けば同じanonキーで素通りするため。書き込みを
+-- service_role（`/api/report` だけが持つ）に絞ることで、レート制限を必ず通す
+-- 経路しか残らないようにする。
+--
+-- 適用方法: SQL Editor に貼り付けて Run(再実行安全)
+
+drop policy if exists "reports_insert_any" on public.reports;
+-- 新しいinsertポリシーは作らない。RLSは既定拒否なので、以降
+-- authenticated/anonからのinsertはすべて弾かれ、service_role
+-- （RLSをバイパスする。`/api/report` が使う）だけが書ける。

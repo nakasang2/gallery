@@ -26,8 +26,8 @@ const MAX_CHARS = 1000
 export async function POST(req: NextRequest) {
   const openaiKey = process.env.OPENAI_API_KEY
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!openaiKey || !supabaseUrl || !serviceKey || !r2Configured) {
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!openaiKey || !supabaseUrl || !anonKey || !r2Configured) {
     // Not configured — the client falls back to browser speech synthesis.
     return NextResponse.json({ error: 'TTS is not configured.' }, { status: 501 })
   }
@@ -42,15 +42,22 @@ export async function POST(req: NextRequest) {
   const voice = typeof body.voice === 'string' && ALLOWED_VOICES.has(body.voice) ? body.voice : DEFAULT_VOICE
   if (!workId) return NextResponse.json({ error: 'Missing workId.' }, { status: 400 })
 
-  const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
-
   // The ONLY text we synthesize is a real caption we look up server-side (never
   // client-supplied), so this can't be abused to voice arbitrary text.
   // Bundled demo works (/demo — ids like "a01") are checked first: they aren't in
   // the DB, and their ids aren't uuids, so querying the DB for them would error.
   let text = (ARTWORKS.find((a) => a.id === workId)?.desc ?? '').trim()
   if (!text) {
-    const { data: art, error: readErr } = await db
+    // This route has no Authorization header to check (visitors call it while
+    // signed out, mid-tour), so it cannot tell an owner from a stranger. Reading
+    // with the ANON key instead of service-role means Postgres RLS
+    // (`artworks_select_in_public_gallery`, migration 0001) decides visibility for
+    // us: a workId that isn't hung in a public gallery simply returns no row,
+    // same as "no caption" (リリース前監査 #30 — the service-role client used to
+    // bypass RLS entirely and voice/return unpublished captions to anyone who
+    // guessed a workId).
+    const anon = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } })
+    const { data: art, error: readErr } = await anon
       .from('artworks')
       .select('description')
       .eq('id', workId)

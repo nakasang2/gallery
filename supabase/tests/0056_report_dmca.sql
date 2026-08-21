@@ -3,7 +3,14 @@
 \set ON_ERROR_STOP on
 
 -- **自己完結**。reports は auth.users を参照しないので利用者は要らない。
--- 「誰でも通報できる（未ログインの来場者を含む）」ことが要件なので anon で流す。
+--
+-- **2026-08-21 追記（migration 0072）**: このファイルは元々 anon で直接 insert して
+-- DMCA要件を確かめていたが、0072 が `reports_insert_any`（誰でもinsertできるRLS
+-- ポリシー）を外し、書き込みを service_role（`/api/report` だけが持つ）に絞った
+-- （リリース前監査 #11 の匿名DoS対策）。「anonからの直接insertが拒否される」こと
+-- 自体は 0072_report_lockdown.sql が検査するので、ここでは重複させない。
+-- このファイルの本題（§512(c)(3)のCHECK制約）はロールに関係なく効くので、
+-- 経路だけを新しい実態（service_role）に合わせる。
 
 \set ON_ERROR_STOP off
 begin;
@@ -20,15 +27,15 @@ exception when others then
 end $$;
 
 \echo '--- 既存の経路（種別なし）は壊れていない ---'
-set local role anon;
+set local role service_role;
 insert into public.reports (about, reason) values ('@someone/show', '嫌がらせを受けています');
 reset role;
-\echo -n '01 anonが従来の形で通報できる: '
+\echo -n '01 service_role（/api/reportの書き込み経路）で従来の形の通報が通る: '
 select coalesce(bool_and(kind = 'other' and not sworn), false)
   from public.reports where about='@someone/show';
 
 \echo '--- 著作権以外は宣誓を要求しない ---'
-set local role anon;
+set local role service_role;
 insert into public.reports (about, reason, kind) values ('@x/harass', 'ひどい言葉が書かれています', 'harassment');
 insert into public.reports (about, reason, kind) values ('@x/illegal', '違法な内容です', 'illegal');
 reset role;
@@ -37,8 +44,8 @@ select coalesce(bool_and(kind='harassment'), false) from public.reports where ab
 \echo -n '03 illegal は宣誓なしで通る: '
 select coalesce(bool_and(kind='illegal'), false) from public.reports where about='@x/illegal';
 
-\echo '--- 著作権は法定要件が揃っていないと拒否される（§512(c)(3)） ---'
-set local role anon;
+\echo '--- 著作権は法定要件が揃っていないと拒否される（§512(c)(3)。CHECK制約はロールに関係なく効く） ---'
+set local role service_role;
 savepoint s4;
 \echo -n '04 宣誓なしの著作権通報は拒否される（ERRORが出るのが正しい）: '
 select public.__t0056_state($q$insert into public.reports (about, reason, kind, claimant, work_identified)
@@ -63,7 +70,7 @@ select coalesce(bool_and(kind='copyright' and sworn and claimant='Yamada Taro'),
   from public.reports where about='@x/copy4';
 
 \echo '--- 種別の許可リスト ---'
-set local role anon;
+set local role service_role;
 savepoint s8;
 \echo -n '08 知らない種別は拒否される: '
 select public.__t0056_state($q$insert into public.reports (about, reason, kind) values ('@x/bogus', 'test', 'whatever');$q$) = '23514';

@@ -6,7 +6,7 @@
 
 ### かんたん(推奨): 一発適用
 
-**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0070 が
+**`supabase/schema.sql` 1ファイルを丸ごと貼り付けて Run** すれば、下の 0001〜0074 が
 一括で適用されます(再実行しても安全)。個別に順番を追う必要はありません。
 
 **未適用ぶんだけを1枚に束ねたいとき**は `npm run sql:pending -- <開始番号>`
@@ -102,6 +102,10 @@ authenticated・service_role の3ロール)を最小限スタブした素のPost
    - `0068_guard_theme_layout.sql` — **有料テーマ/レイアウトを購入なしで設定できる穴を塞ぐ**（別視点レビュー 2026-08-20・リリース前監査で発見）。`galleries_owner_all`（0001）は`owner_id`しか見ておらず、`theme`/`layout`列の値を検査していなかったため、ログイン済みユーザーが直接`update`を送るだけで有料テーマ/レイアウトを無料設定できた。`work_cap`（0036）等と同じ形の列専用ガードトリガ（`galleries_guard_theme_layout`）を追加。購入済み、または**新規作成(INSERT)に限り**自分の別の部屋に既にその値がある（2室目以降はメイン部屋の見た目をコピーする設計のため）場合のみ許可する（UPDATEにも効かせると未購入の値を全部屋へ複製できてしまうため限定した）。
    - `0069_purchases_retain_on_delete.sql` — **アカウント削除で購入履歴が消えるのを止める**（別視点レビュー 2026-08-20・リリース前監査で発見）。`purchases.user_id`が`on delete cascade`だったため退会すると決済記録が全消去され、`/privacy`の保持ポリシーと矛盾していた。`artworks.gallery_id`（0062）と同じ形で`on delete set null`に変更し、行（金額・SKU等）は残したまま個人識別子だけを外す（匿名化）。保持期間そのものは要弁護士確認。
    - `0070_capacity_purchase_delta.sql` — **容量購入がクランプされて一部しか反映されなくても'applied'を返していた穴を塞ぐ**（リリース前監査で発見・2026-08-20）。`record_capacity_purchase`は「行が更新されたか」しか見ておらず、部屋が15枠の上限近くでほぼ同時に2件の容量購入が届くと、2件目は実増分0でも成功扱いになっていた。更新前のwork_capを`for update`で行ロックしながら読み、実際の増分が要求量に届かない場合は新しい戻り値`'partial'`を返す（webhook側はこれをログして手動突き合わせに回す）。
+   - `0071_rate_limits.sql` — **汎用のレート制限カウンタ**（リリース前監査 #11・#31・ユーザー決定 2026-08-21）。外部サービス（Redis等）を新たに契約せず、既存の`reserve_storage`（0030）と同じ「Postgresの関数+テーブルで数える」作法に揃える。`rate_limit_counters`（bucket, key, window_start ごとに件数を数える固定窓方式）はRLS有効・ポリシー無しで直接の読み書きを塞ぎ、唯一の入口`check_rate_limit()`（security definer）は`authenticated`と`service_role`だけが呼べる。
+   - `0072_report_lockdown.sql` — **通報フォームの匿名DoSを塞ぐ**（リリース前監査 #11・ユーザー決定 2026-08-21）。`reports_insert_any`（0010）は`with check (true)`でサインイン不要・件数無制限にinsertできた。サインイン必須化ではなく「サーバー経路化＋IPレート制限」を選び、insertポリシーを削除して書き込みを`service_role`（新設の`/api/report`だけが持つ）に絞る。anonキーでSupabaseのRESTを直接叩いてレート制限を回避できないようにするのが狙い。
+   - `0073_admin_artwork_takedown.sql` — **管理者が作品単位で削除できるようにする**（リリース前監査 #10・ユーザー決定 2026-08-21）。従来`admin_set_gallery_public`（0033）で部屋ごとisPublicを落とすことしかできず、R2上の実ファイルは消えず合同展示の無関係な参加作家も巻き添えになっていた。`admin_list_gallery_artworks`（非公開化後の部屋も管理者が中身を見られる）・`admin_get_artwork_location`（削除せずowner_id/storage_pathだけ見る）・`admin_takedown_artwork`（作品を完全に削除。R2側の実ファイルはこのRPCの前に`app/api/admin/artwork-takedown`がservice-role権限で削除する）の3つのRPCを追加。**R2削除→DB行削除の順序が重要**（別視点レビューで発見）: 逆順だとR2削除が途中で失敗したときDB行だけ消えてowner_id/storage_pathを取り直す手段が無くなり、この機能が塞ごうとしているDMCA不備そのものが起きる。
+   - `0074_guard_artwork_storage_path.sql` — **作品のstorage_pathがなりすませる穴を塞ぐ**（リリース前監査 #32・2026-08-21）。`artworks_owner_all`（0001）は`owner_id`しか見ておらず`storage_path`の値を検査していなかったため、細工したクライアントが自分のowner_idのまま他人のuuidフォルダを`storage_path`に指定してinsertでき、他人の画像を自分の作品として表示できた（なりすまし帰属）。`theme`/`layout`（0068）と同型の列専用ガードトリガ（`artworks_guard_storage_path`）で、`storage_path`を常に`{owner_id}/{id}`のみに限定する。
 3. 「Success. No rows returned」が出れば完了
 
 **番号順に流すこと**が前提です。後の番号が前の番号を上書きする箇所があります —

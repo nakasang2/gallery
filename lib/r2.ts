@@ -9,6 +9,7 @@ import {
   S3Client,
   ListObjectsV2Command,
   DeleteObjectsCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3'
 import { publicUrlConfigured } from './publicUrl'
 
@@ -111,4 +112,37 @@ export async function deletePrefix(prefix: string): Promise<number> {
   } while (token)
 
   return removed
+}
+
+/**
+ * Delete exact object keys (not a prefix). Used where the caller already knows
+ * the precise keys and a prefix delete would be one list-call more than needed —
+ * currently just the upload-confirm route removing a file whose magic bytes
+ * didn't match its declared type.
+ */
+export async function deleteObjects(keys: string[]): Promise<void> {
+  if (!r2 || !keys.length) return
+  await r2.send(
+    new DeleteObjectsCommand({ Bucket: R2_BUCKET, Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true } })
+  )
+}
+
+/**
+ * The first `length` bytes of an object, or null if it doesn't exist / can't be
+ * read. Used to check magic bytes against the declared content-type — the actual
+ * upload is a direct browser→R2 PUT (see /api/upload-url), so nothing server-side
+ * ever saw the bytes until now.
+ */
+export async function readObjectHead(key: string, length = 16): Promise<Buffer | null> {
+  if (!r2) return null
+  try {
+    const res = await r2.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key, Range: `bytes=0-${length - 1}` }))
+    const body = res.Body
+    if (!body) return null
+    const chunks: Uint8Array[] = []
+    for await (const chunk of body as AsyncIterable<Uint8Array>) chunks.push(chunk)
+    return Buffer.concat(chunks)
+  } catch {
+    return null
+  }
 }

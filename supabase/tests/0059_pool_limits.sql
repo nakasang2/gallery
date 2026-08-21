@@ -56,17 +56,20 @@ select public.work_slot_pool('00000000-0000-0000-0000-0000000000ff') = 5;
 \echo '--- 作品の点数（上限5） ---'
 set local role authenticated;
 set local "request.jwt.claim.sub" = '79000000-0000-0000-0000-000000000001';
+-- storage_path は {owner_id}/{id} の形が必須（0074 の artworks_guard_storage_path）。
 \echo -n '03 5点までは上げられる: '
 select public.__t59_state($q$
   insert into public.artworks (id, owner_id, title, width, height, storage_path)
   select ('79000000-0000-0000-0000-0000000000' || to_char(g, 'FM00'))::uuid,
-         '79000000-0000-0000-0000-000000000001', 'W'||g, 1, 1, 'p/'||g
+         '79000000-0000-0000-0000-000000000001', 'W'||g, 1, 1,
+         '79000000-0000-0000-0000-000000000001/79000000-0000-0000-0000-0000000000' || to_char(g, 'FM00')
     from generate_series(1,5) g
 $q$) = 'no-error';
 \echo -n '04 6点目は拒否される（ブラウザを通さない直接の insert でも）: '
 select public.__t59_state($q$
   insert into public.artworks (id, owner_id, title, width, height, storage_path) values
-    ('79000000-0000-0000-0000-0000000000d6', '79000000-0000-0000-0000-000000000001', 'W6', 1, 1, 'p/6')
+    ('79000000-0000-0000-0000-0000000000d6', '79000000-0000-0000-0000-000000000001', 'W6', 1, 1,
+     '79000000-0000-0000-0000-000000000001/79000000-0000-0000-0000-0000000000d6')
 $q$) like '%work slot pool exceeded: 6 works for a pool of 5%';
 \echo -n '05 拒否された行は入っていない: '
 select (select count(*) from public.artworks where owner_id='79000000-0000-0000-0000-000000000001') = 5;
@@ -79,7 +82,8 @@ set local "request.jwt.claim.sub" = '79000000-0000-0000-0000-000000000001';
 \echo -n '06 枠を8にすると6点目が通る: '
 select public.__t59_state($q$
   insert into public.artworks (id, owner_id, title, width, height, storage_path) values
-    ('79000000-0000-0000-0000-0000000000d6', '79000000-0000-0000-0000-000000000001', 'W6', 1, 1, 'p/6')
+    ('79000000-0000-0000-0000-0000000000d6', '79000000-0000-0000-0000-000000000001', 'W6', 1, 1,
+     '79000000-0000-0000-0000-000000000001/79000000-0000-0000-0000-0000000000d6')
 $q$) = 'no-error';
 
 \echo '--- 配置の点数（口座全体で数える） ---'
