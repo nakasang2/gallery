@@ -91,7 +91,7 @@ import {
   type EngagementSummary,
   type GuestbookEntry,
 } from '@/lib/engagement'
-import { track } from '@/lib/analytics'
+import { track, trackPurchase } from '@/lib/analytics'
 import { loadImage } from '@/lib/upload'
 import type { ArtworkData, CropAlign, PurchaseLink } from '@/lib/artworks'
 import AuthShell from '@/components/auth/AuthShell'
@@ -3478,16 +3478,50 @@ export default function MePage() {
   useEffect(() => {
     hydrate() // frameOverrides etc. from this browser feed placement rebuilds
     initAuth()
-    supabase?.auth.getSession().then(() => setChecked(true))
+    const session = supabase?.auth.getSession()
+    session?.then(() => setChecked(true))
     // Checkout return: show the banner once and strip the param so a reload
     // doesn't re-announce an old purchase
     const params = new URLSearchParams(window.location.search)
     const purchase = params.get('purchase')
+    const sessionId = params.get('session_id')
     if (purchase === 'success' || purchase === 'cancelled') {
       setPurchaseReturn(purchase)
       // Closes the funnel opened by checkout_modal_open → checkout_redirect.
       // `purchases` only ever records the successes; this also sees the give-ups.
       track('checkout_return', { result: purchase })
+      // A real GA4 `purchase` event with value/SKU/transaction id, not just a
+      // boolean result (リリース前監査 #18). Stripe is the only source of the
+      // actual amount charged, so this reads it back via a signed-in fetch —
+      // best-effort: a tab closed before this resolves just means one measurement
+      // is missed, never a broken purchase (the `purchases` row is already written
+      // server-side by the webhook regardless of whether this fires).
+      if (purchase === 'success' && sessionId) {
+        void (async () => {
+          try {
+            // sessionStorage, not a ref: the whole point is to survive this
+            // effect running again (a second tab/window restored onto the same
+            // still-unstripped URL before this one's replaceState below lands),
+            // which a component-local guard cannot do.
+            const reportedKey = `xibit360.ga4.purchase.${sessionId}`
+            if (sessionStorage.getItem(reportedKey)) return
+            const token = (await session)?.data.session?.access_token
+            if (!token) return
+            const res = await fetch(`/api/checkout/verify-session?session_id=${encodeURIComponent(sessionId)}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            if (!res.ok) return
+            const detail = (await res.json()) as Partial<Parameters<typeof trackPurchase>[0]>
+            if (!detail || typeof detail.transactionId !== 'string' || typeof detail.value !== 'number' || !Array.isArray(detail.items)) {
+              return // shape drifted from what verify-session promises — don't hand gtag a guess
+            }
+            sessionStorage.setItem(reportedKey, '1')
+            trackPurchase({ transactionId: detail.transactionId, value: detail.value, currency: detail.currency ?? 'USD', items: detail.items })
+          } catch {
+            /* GA4 measurement must never interrupt the dashboard */
+          }
+        })()
+      }
       window.history.replaceState(null, '', '/me')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

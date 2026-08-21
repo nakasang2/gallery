@@ -1187,6 +1187,8 @@ export const ja: Dictionary = {
     saved: '保存しました',
     uploadFailed: 'アップロードできませんでした：{msg}',
     saveFailed: '保存できませんでした：{msg}',
+    lpLoadFailed: '一部の枠を読み込めませんでした。このまま保存すると消えてしまいます。編集の前にもう一度お試しください。',
+    lpRetryDiscardsEdit: 'すでに変更した枠のある帯を読み込み直します。その変更は失われますが、よろしいですか？',
 
     ghostSpeed: '来場者の歩く速さ',
     resetDefault: '既定に戻す',

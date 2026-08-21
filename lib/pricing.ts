@@ -95,6 +95,17 @@ export function expoPriceRangeLabel(rangeFormat = '{min}–{max}'): string {
 const ZERO_DECIMAL = new Set(['bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf'])
 
 /**
+ * Stripe's smallest-unit integer (`amount_total` etc.) → the actual currency
+ * value. Exported so every reader of a Stripe amount — not just `money()` —
+ * shares the same zero-decimal-currency rule instead of re-deriving it (a
+ * naive `/100` under-reports JPY/KRW by 100x — this bit an earlier GA4
+ * purchase-value read, see app/api/checkout/verify-session/route.ts).
+ */
+export function toMajorUnits(amount: number, currency: string): number {
+  return ZERO_DECIMAL.has((currency || 'usd').toLowerCase()) ? amount : amount / 100
+}
+
+/**
  * Format a recorded charge. Unlike `usd()` this takes the currency Stripe
  * actually billed in (purchases.currency, migration 0031) — a ledger row is
  * only meaningful together with its currency, and ¥500 must never be rendered
@@ -102,7 +113,7 @@ const ZERO_DECIMAL = new Set(['bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', '
  */
 export function money(amount: number, currency: string): string {
   const code = (currency || 'usd').toLowerCase()
-  const value = ZERO_DECIMAL.has(code) ? amount : amount / 100
+  const value = toMajorUnits(amount, code)
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',

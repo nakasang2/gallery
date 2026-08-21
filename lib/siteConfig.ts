@@ -76,11 +76,11 @@ export const LP_HALL_SIDE_SLOT_LABEL_KEYS = [
 ] as const
 
 /**
- * `lp-image` のアップロードは口座ごとに `{uid}/lp/{slot}.jpg` を上書きする
- * （app/api/upload-url の 'lp-image'。枠番号の上限はそこで決まる）。**面ごとに10の帯を
- * 使い、同じファイルを取り合わないようにする** ── 帯の中で枠数が増えても隣の面に
- * ぶつからない。枠番号を変えると、既に上がっている画像は前の番号のファイルに残る
- * （site_config が指すURLはそのままなので表示は壊れないが、上書きの相手が変わる）。
+ * `lp-image` のアップロードは口座ごとに `{uid}/lp/{slot}-{nonce}.jpg` へ書く
+ * （app/api/upload-url の 'lp-image'。枠番号の上限はそこで決まる。nonceの理由は
+ * リリース前監査 #20 — 固定パスへの上書きだと、保存前でもCDNキャッシュが切れた
+ * 時点で本番LPの画像が差し替わっていた）。**面ごとに10の帯を使い、同じ枠番号を
+ * 取り合わないようにする** ── 帯の中で枠数が増えても隣の面にぶつからない。
  */
 export const LP_PANEL_SLOT_OFFSET = 10
 export const LP_APPROACH_SLOT_OFFSET = 20
@@ -105,18 +105,35 @@ function normalize(value: unknown, count: number): LpHeroSlot[] {
   return out
 }
 
-async function fetchSlots(key: string, count: number): Promise<LpHeroSlot[]> {
-  if (!supabase) return normalize(null, count)
+/** Distinguishes "this band has nothing set yet" from "the fetch itself failed" —
+ *  the admin editor (リリース前監査 #19) must not let a save go through on the
+ *  latter, or it upserts `normalize(null, count)` and wipes every slot in the
+ *  band that a transient network error merely failed to READ. `LpFaces`/
+ *  `fetchLpFaces` (the public LP side) does not need this distinction: silently
+ *  falling back to demo art on a failed read is exactly the degrade a visitor
+ *  should get. */
+export interface SlotsFetch {
+  slots: LpHeroSlot[]
+  /** false only for a genuine fetch failure (network, RLS, missing migration) —
+   *  never for "no row yet", which is a legitimate empty state. */
+  ok: boolean
+}
+
+async function fetchSlots(key: string, count: number): Promise<SlotsFetch> {
+  if (!supabase) return { slots: normalize(null, count), ok: true } // not configured — nothing to distinguish from
   try {
     const { data, error } = await supabase
       .from('site_config')
       .select('value')
       .eq('key', key)
       .maybeSingle()
-    if (error || !data) return normalize(null, count) // 0018 not applied / unset — demo defaults
-    return normalize(data.value, count)
+    // `maybeSingle()` returns `{data: null, error: null}` for zero rows — that is
+    // the legitimate "unset" case (0018 not applied yet, or never saved). `error`
+    // set is a real failure and must NOT be folded into the same "empty" result.
+    if (error) return { slots: normalize(null, count), ok: false }
+    return { slots: normalize(data?.value ?? null, count), ok: true }
   } catch {
-    return normalize(null, count)
+    return { slots: normalize(null, count), ok: false }
   }
 }
 
@@ -127,15 +144,15 @@ async function saveSlots(key: string, slots: LpHeroSlot[]): Promise<void> {
   if (error) throw error
 }
 
-export const fetchLpHero = (): Promise<LpHeroSlot[]> => fetchSlots('lp_hero', LP_HERO_SLOTS)
+export const fetchLpHero = (): Promise<SlotsFetch> => fetchSlots('lp_hero', LP_HERO_SLOTS)
 export const saveLpHero = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_hero', slots)
-export const fetchLpPanels = (): Promise<LpHeroSlot[]> => fetchSlots('lp_panels', LP_PANEL_SLOTS)
+export const fetchLpPanels = (): Promise<SlotsFetch> => fetchSlots('lp_panels', LP_PANEL_SLOTS)
 export const saveLpPanels = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_panels', slots)
-export const fetchLpApproach = (): Promise<LpHeroSlot[]> => fetchSlots('lp_approach', LP_APPROACH_SLOTS)
+export const fetchLpApproach = (): Promise<SlotsFetch> => fetchSlots('lp_approach', LP_APPROACH_SLOTS)
 export const saveLpApproach = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_approach', slots)
-export const fetchLpHallFront = (): Promise<LpHeroSlot[]> => fetchSlots('lp_hall_front', LP_HALL_FRONT_SLOTS)
+export const fetchLpHallFront = (): Promise<SlotsFetch> => fetchSlots('lp_hall_front', LP_HALL_FRONT_SLOTS)
 export const saveLpHallFront = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_hall_front', slots)
-export const fetchLpHallSides = (): Promise<LpHeroSlot[]> => fetchSlots('lp_hall_sides', LP_HALL_SIDE_SLOTS)
+export const fetchLpHallSides = (): Promise<SlotsFetch> => fetchSlots('lp_hall_sides', LP_HALL_SIDE_SLOTS)
 export const saveLpHallSides = (slots: LpHeroSlot[]): Promise<void> => saveSlots('lp_hall_sides', slots)
 
 /** LPの3Dが必要な5面ぶんをまとめたもの */

@@ -1220,6 +1220,8 @@ export const en = {
     saved: 'Saved',
     uploadFailed: 'Upload failed: {msg}',
     saveFailed: 'Could not save: {msg}',
+    lpLoadFailed: "Some slots couldn't be loaded — saving now could clear them. Try again before editing.",
+    lpRetryDiscardsEdit: 'This will re-load a section where you already changed something, and discard that change. Continue?',
 
     ghostSpeed: 'Ghost walk speed',
     resetDefault: 'Reset to default',

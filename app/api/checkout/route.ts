@@ -252,7 +252,12 @@ export async function POST(req: NextRequest) {
         // wording itself lives in lib/i18n (`purchase.agreeNote`) and the Terms.
         consent: 'terms-accepted', // i18n-ok: 対人文言ではなくStripeの記録用の識別子
       },
-      success_url: `${origin}/me?purchase=success`,
+      // `{CHECKOUT_SESSION_ID}` is a literal Stripe placeholder — it substitutes the
+      // real id into the redirect URL. Without it, /me had no way to know WHICH
+      // purchase completed, so the GA4 event it fired carried no value/SKU/
+      // transaction id at all (リリース前監査 #18). /api/checkout/verify-session
+      // reads this back server-side (Stripe is the only source of the real amount).
+      success_url: `${origin}/me?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/me?purchase=cancelled`,
     })
     if (!session.url) return NextResponse.json({ error: 'Stripe returned no checkout URL.' }, { status: 502 })
