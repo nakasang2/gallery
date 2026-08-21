@@ -21,7 +21,7 @@
 // 来場者側が指紋で必ず捨てる（＝間違った影は出ない。結果は「焼き込みが無い状態」に
 // 戻るだけ）。自動でOFFにすると、額を一つ変えただけで展示が閉まり、作家が気づかない
 // うちに公開URLが404になる。
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import { useT } from '@/components/I18nProvider'
 import { fetchPublicExhibition, type PublicExhibition } from '@/lib/publish'
@@ -36,6 +36,34 @@ import type { BakeProgress } from '@/components/gallery/ShadowBakeRunner'
 const ShadowBakeRunner = dynamic(() => import('@/components/gallery/ShadowBakeRunner'), { ssr: false })
 
 export type BakePhase = 'unknown' | 'fresh' | 'stale' | 'baking' | 'saved' | 'skipped' | 'failed'
+
+/** 進捗が動かないまま許す時間。`phase` が `baking` から抜ける唯一の道は `onFinished`
+ *  で、焼き込み用Canvasがコンテキストを取得できない等の理由でそれが一度も呼ばれないと、
+ *  保存ボタンが「更新中」のまま永久に固まりリロードしか逃げ道が無い
+ *  （リリース前監査 #8・2026-08-21）。進捗（`onProgress`の`done`更新）がこの時間
+ *  動かなければ止まっていると判断し、`onFinished` 相当の失敗扱いへ落として
+ *  押し直す入口を戻す。 */
+const BAKE_STALL_TIMEOUT_MS = 60_000
+
+/** レンダー中の例外（`ShadowBakeRunner`のマウント時にWebGLコンテキスト取得が失敗する
+ *  等）を捕まえ、`onFinished` の失敗と同じ扱いにする。これが無いと React のエラー
+ *  境界の既定動作（最も近い `error.tsx`）に流れ、ダッシュボード全体が落ちて
+ *  上の「更新中」固まりと同じく押し直す入口が無くなる（リリース前監査 #8）。 */
+class BakeErrorBoundary extends Component<
+  { onError: (message: string) => void; children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  componentDidCatch(error: unknown) {
+    this.props.onError(error instanceof Error ? error.message : 'bake-render-error')
+  }
+  render() {
+    return this.state.hasError ? null : this.props.children
+  }
+}
 
 /** 焼き込みの状態と入口。パネルと保存ボタンの両方が同じこれを受け取る。 */
 export type BakeControls = { phase: BakePhase; progress: BakeProgress; start: () => void }
@@ -147,6 +175,24 @@ export function useBakeFreshness({
     })()
   }, [check])
 
+  // 見張り番。`progress.done` か `phase` が動くたびに基準時刻を更新し、`baking` の
+  // まま `BAKE_STALL_TIMEOUT_MS` 経っても動かなければタイムアウト扱いにする。
+  const lastProgressAt = useRef(Date.now())
+  useEffect(() => {
+    lastProgressAt.current = Date.now()
+  }, [progress.done, phase])
+  useEffect(() => {
+    if (phase !== 'baking') return
+    const id = setInterval(() => {
+      if (Date.now() - lastProgressAt.current >= BAKE_STALL_TIMEOUT_MS) {
+        savedWhileBaking.current = false
+        setTarget(null)
+        setPhase('failed')
+      }
+    }, 5000)
+    return () => clearInterval(id)
+  }, [phase])
+
   const onFinished = useCallback((r: SaveShadowBakeResult) => {
     setTarget(null)
     const staleWhileBaking = savedWhileBaking.current
@@ -171,7 +217,9 @@ export function useBakeFreshness({
     progress,
     start,
     runner: target ? (
-      <ShadowBakeRunner exhibition={target} onProgress={setProgress} onFinished={onFinished} />
+      <BakeErrorBoundary onError={(reason) => onFinished({ ok: false, skipped: false, reason })}>
+        <ShadowBakeRunner exhibition={target} onProgress={setProgress} onFinished={onFinished} />
+      </BakeErrorBoundary>
     ) : null,
   }
 }
