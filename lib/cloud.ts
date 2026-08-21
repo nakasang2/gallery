@@ -125,6 +125,22 @@ async function putFiles(specs: UploadSpec[]): Promise<string[]> {
     })
   )
 
+  // The PUT above only proves R2 accepted the declared Content-Type — nothing
+  // server-side has looked at the actual bytes yet, since they went straight from
+  // the browser to R2 (see this function's file header). Confirm the magic bytes
+  // match what the key shape claims before treating the upload as done, so our own
+  // CDN domain can't be made to serve an arbitrary file behind an artwork's URL
+  // (リリース前監査 #29). A failure here deletes the bad object server-side.
+  const confirm = await fetch('/api/upload-confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ keys: uploads.map((u) => u.key) }),
+  })
+  if (!confirm.ok) {
+    const detail = (await confirm.json().catch(() => null)) as { error?: string } | null
+    throw new Error(detail?.error ?? `Upload could not be verified (${confirm.status}).`)
+  }
+
   return uploads.map((u) => u.key)
 }
 
@@ -433,13 +449,12 @@ export async function uploadArtwork(params: {
   const card = await encodeJpeg(img, CARD_MAX_SIDE, CARD_QUALITY)
   const thumb = await encodeJpeg(img, THUMB_MAX_SIDE, THUMB_QUALITY)
 
-  await putFiles([
-    { purpose: 'artwork-display', id, body: display.blob, contentType: 'image/jpeg' },
-    { purpose: 'artwork-card', id, body: card.blob, contentType: 'image/jpeg' },
-    { purpose: 'artwork-thumb', id, body: thumb.blob, contentType: 'image/jpeg' },
-  ])
-
   try {
+    await putFiles([
+      { purpose: 'artwork-display', id, body: display.blob, contentType: 'image/jpeg' },
+      { purpose: 'artwork-card', id, body: card.blob, contentType: 'image/jpeg' },
+      { purpose: 'artwork-thumb', id, body: thumb.blob, contentType: 'image/jpeg' },
+    ])
     await insertArtworkRow({
       id,
       owner_id: params.ownerId,
@@ -452,7 +467,11 @@ export async function uploadArtwork(params: {
       gallery_id: params.galleryId ?? null,
     })
   } catch (error) {
-    // If metadata insertion fails, don't leave the images behind
+    // Covers both failure points, not just the row insert: putFiles() can now also
+    // reject a batch AFTER some files already landed in R2 (the /api/upload-confirm
+    // step added for リリース前監査 #29 rejects one bad file but leaves the others
+    // it already checked), so a failure there must clean up too, not just a failed
+    // insertArtworkRow.
     await deleteArtworkFiles(id)
     throw error
   }
@@ -475,12 +494,11 @@ export async function uploadVideoArtwork(params: {
   const thumb = await encodeUpload(params.posterDataUrl, THUMB_MAX_SIDE, THUMB_QUALITY)
   const contentType = params.file.type || 'video/mp4'
 
-  await putFiles([
-    { purpose: 'artwork-video', id, body: params.file, contentType },
-    { purpose: 'artwork-thumb', id, body: thumb.blob, contentType: 'image/jpeg' },
-  ])
-
   try {
+    await putFiles([
+      { purpose: 'artwork-video', id, body: params.file, contentType },
+      { purpose: 'artwork-thumb', id, body: thumb.blob, contentType: 'image/jpeg' },
+    ])
     await insertArtworkRow({
       id,
       owner_id: params.ownerId,
@@ -493,6 +511,8 @@ export async function uploadVideoArtwork(params: {
       gallery_id: params.galleryId ?? null,
     })
   } catch (error) {
+    // See uploadArtwork's identical catch for why putFiles() is inside this
+    // try too (リリース前監査 #29's upload-confirm step).
     await deleteArtworkFiles(id)
     throw error
   }

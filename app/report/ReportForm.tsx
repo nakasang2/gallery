@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { submitReport, type ReportKind } from '@/lib/engagement'
+import { submitReport, ReportRateLimitedError, type ReportKind } from '@/lib/engagement'
 import AuthShell from '@/components/auth/AuthShell'
 import { LocaleLink, useT } from '@/components/I18nProvider'
 
@@ -92,7 +92,7 @@ export default function ReportForm({ about }: { about: string }) {
       setDone(true)
     } catch (err) {
       console.error('report submit failed (is 0010_reports.sql applied?):', err)
-      setError(t('report.failed'))
+      setError(err instanceof ReportRateLimitedError ? t('report.rateLimited') : t('report.failed'))
     } finally {
       setBusy(false)
     }

@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0070 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0074 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -6470,3 +6470,161 @@ revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, in
 revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) from anon;
 revoke all on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) from authenticated;
 grant execute on function public.record_capacity_purchase(text, uuid, uuid, int, int, text) to service_role;
+
+-- # 0071_rate_limits.sql — 汎用のレート制限カウンタ(リリース前監査 #11・#31・2026-08-21)
+-- 外部サービス(Redis等)を新たに契約せず、既存のreserve_storage(0030)と同じ
+-- 「Postgresの関数+テーブルで数える」作法に揃える。固定窓方式。直接この表を
+-- 読み書きできる者はいない(RLS有効・ポリシーなし)。唯一の入口はcheck_rate_limit()
+-- (security definer)で、authenticatedとservice_roleだけが呼べる。
+
+create table if not exists public.rate_limit_counters (
+  bucket text not null,
+  key text not null,
+  window_start timestamptz not null,
+  count integer not null default 0,
+  primary key (bucket, key, window_start)
+);
+
+alter table public.rate_limit_counters enable row level security;
+
+create or replace function public.check_rate_limit(
+  p_bucket text,
+  p_key text,
+  p_max integer,
+  p_window_seconds integer
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_window timestamptz;
+  v_count integer;
+begin
+  v_window := to_timestamp(floor(extract(epoch from now()) / p_window_seconds) * p_window_seconds);
+
+  insert into public.rate_limit_counters (bucket, key, window_start, count)
+  values (p_bucket, p_key, v_window, 1)
+  on conflict (bucket, key, window_start)
+    do update set count = public.rate_limit_counters.count + 1
+  returning count into v_count;
+
+  delete from public.rate_limit_counters where window_start < now() - interval '1 day';
+
+  return v_count <= p_max;
+end;
+$$;
+
+revoke all on function public.check_rate_limit(text, text, integer, integer) from public;
+grant execute on function public.check_rate_limit(text, text, integer, integer) to authenticated, service_role;
+
+-- # 0072_report_lockdown.sql — 通報フォームの匿名DoSを塞ぐ(リリース前監査 #11・2026-08-21)
+-- reports_insert_any(0010)はwith check(true)でサインイン不要・件数無制限だった。
+-- サインイン必須化ではなく「サーバー経路化+IPレート制限」を選び(ユーザー決定
+-- 2026-08-21)、書き込みをservice_role(新設の/api/reportだけが持つ)に絞ることで、
+-- anonキーでSupabaseのRESTを直叩きしてレート制限を回避できないようにする。
+
+drop policy if exists "reports_insert_any" on public.reports;
+
+-- # 0073_admin_artwork_takedown.sql — 管理者が作品単位で削除できるようにする(リリース前監査 #10・2026-08-21)
+-- 従来はadmin_set_gallery_public(0033)で部屋ごとisPublicを落とすことしかできず、
+-- R2上の実ファイルは消えず合同展示の無関係な参加作家も巻き添えになっていた。
+-- admin_list_gallery_artworksで非公開化後の部屋も覗けるようにし、
+-- admin_get_artwork_locationで削除せずowner_id/storage_pathだけ見て
+-- (実際のR2削除はapp/api/admin/artwork-takedownがservice-role権限で行う)、
+-- R2側が消えたのを確認してからadmin_takedown_artworkでDB行を削除する
+-- (逆順だとR2削除の失敗時にDB行だけ消えて修復不能になるため)。
+
+create or replace function public.admin_list_gallery_artworks(p_gallery uuid)
+returns table(id uuid, title text, storage_path text, kind text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'admin_list_gallery_artworks: not authorised';
+  end if;
+
+  return query
+  select a.id, a.title, a.storage_path, coalesce(a.kind, 'image')
+    from public.artworks a
+    join public.placements p on p.artwork_id = a.id
+   where p.gallery_id = p_gallery
+   order by p.slot_index;
+end;
+$$;
+
+revoke all on function public.admin_list_gallery_artworks(uuid) from public;
+grant execute on function public.admin_list_gallery_artworks(uuid) to authenticated;
+
+create or replace function public.admin_get_artwork_location(p_artwork uuid)
+returns table(owner_id uuid, storage_path text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'admin_get_artwork_location: not authorised';
+  end if;
+
+  return query
+  select a.owner_id, a.storage_path from public.artworks a where a.id = p_artwork;
+end;
+$$;
+
+revoke all on function public.admin_get_artwork_location(uuid) from public;
+grant execute on function public.admin_get_artwork_location(uuid) to authenticated;
+
+create or replace function public.admin_takedown_artwork(p_artwork uuid)
+returns table(owner_id uuid, storage_path text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'admin_takedown_artwork: not authorised';
+  end if;
+
+  return query
+  delete from public.artworks a
+   where a.id = p_artwork
+  returning a.owner_id, a.storage_path;
+end;
+$$;
+
+revoke all on function public.admin_takedown_artwork(uuid) from public;
+grant execute on function public.admin_takedown_artwork(uuid) to authenticated;
+
+-- # 0074_guard_artwork_storage_path.sql — 作品のstorage_pathがなりすませる穴を塞ぐ(リリース前監査 #32・2026-08-21)
+-- artworks_owner_all(0001)はowner_id=auth.uid()しか見ておらず、storage_pathの値を
+-- 検査しない。theme/layout(0068)と同型の列専用ガードトリガで、storage_pathを
+-- 常に{owner_id}/{id}のみに限定する。
+
+create or replace function public.guard_artwork_storage_path()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if current_user not in ('authenticated', 'anon') then
+    return new;
+  end if;
+
+  if new.storage_path is distinct from (new.owner_id::text || '/' || new.id::text) then
+    raise exception 'storage_path must be the owner''s own folder'
+      using errcode = 'check_violation';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists artworks_guard_storage_path on public.artworks;
+create trigger artworks_guard_storage_path
+  before insert or update of storage_path, owner_id on public.artworks
+  for each row execute function public.guard_artwork_storage_path();

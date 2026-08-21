@@ -186,6 +186,51 @@ export async function setGalleryPublic(galleryId: string, isPublic: boolean): Pr
   if (error) throw error
 }
 
+export interface AdminArtworkRow {
+  id: string
+  title: string
+  storagePath: string
+  kind: 'image' | 'video'
+}
+
+/** Admin: list the artworks placed in a room, INCLUDING a non-public one — taking
+ *  a room down (setGalleryPublic) is often the first step of handling a report,
+ *  and `artworks_select_in_public_gallery` (0001) would otherwise make its
+ *  contents invisible to everyone but the owner from that point on. Migration
+ *  0073's RPC is admin-gated (`is_admin()`), same shape as admin_set_gallery_public. */
+export async function adminListGalleryArtworks(galleryId: string): Promise<AdminArtworkRow[]> {
+  const { data, error } = await supabase!.rpc('admin_list_gallery_artworks', { p_gallery: galleryId })
+  if (error) throw error
+  return ((data ?? []) as { id: string; title: string; storage_path: string; kind: string }[]).map((r) => ({
+    id: r.id,
+    title: r.title,
+    storagePath: r.storage_path,
+    kind: r.kind === 'video' ? 'video' : 'image',
+  }))
+}
+
+/** Admin: permanently remove one artwork — both its DB row (migration 0073's
+ *  `admin_takedown_artwork`, which cascades placements) and its files in R2
+ *  (this hits the server route because deleting from R2 needs service-role
+ *  credentials, same reason /api/storage/delete exists for an owner's own
+ *  deletes). This is the "作品単位" takedown from the pre-release audit (#10):
+ *  admin_set_gallery_public only ever hid a whole room, leaving the underlying
+ *  file publicly reachable and taking down uninvolved co-exhibitors with it. */
+export async function adminTakedownArtwork(artworkId: string): Promise<void> {
+  const { data } = await supabase!.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) throw new Error('Please sign in again.')
+  const res = await fetch('/api/admin/artwork-takedown', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ artworkId }),
+  })
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(detail?.error ?? `Takedown failed (${res.status}).`)
+  }
+}
+
 /** Whether the signed-in user is an admin (rpc is_admin, added in 0017).
  *  Any failure — migration not applied, offline, signed out — resolves false. */
 export function useIsAdmin(userId: string | null): boolean {
@@ -276,6 +321,32 @@ type PurchaseRaw = {
   created_at: string
 }
 
+const REPORTS_LIMIT = 2000
+const REPORTS_COLUMNS = 'id, about, reason, contact, status, handled_note, created_at'
+
+/**
+ * The reports worth showing: EVERY open one (unbounded — a real moderation
+ * backlog stays small, and hiding part of it is worse than a slow query) plus
+ * the most recent 2000 overall for history. See the call site for why this
+ * replaces fetchAll's full pagination.
+ *
+ * Two queries rather than one bounded one: a single `limit(2000)` ordered by
+ * newest-first would silently drop OLD open reports once enough newer rows (even
+ * harmless ones, now that 0072/0071 rate-limit new submissions) accumulate past
+ * that cap — an unhandled report going invisible with no error is worse than the
+ * flood this bound was added to survive.
+ */
+async function fetchRecentReports(): Promise<ReportRaw[]> {
+  const [open, recent] = await Promise.all([
+    supabase!.from('reports').select(REPORTS_COLUMNS).eq('status', 'open'),
+    supabase!.from('reports').select(REPORTS_COLUMNS).order('created_at', { ascending: false }).limit(REPORTS_LIMIT),
+  ])
+  const byId = new Map<string, ReportRaw>()
+  for (const r of (recent.data ?? []) as unknown as ReportRaw[]) byId.set(r.id, r)
+  for (const r of (open.data ?? []) as unknown as ReportRaw[]) byId.set(r.id, r)
+  return [...byId.values()]
+}
+
 /** Pull the whole platform picture for the admin console. Admin RLS (0017) is what
  *  lets these anon-key reads return every user's rows; a non-admin gets empty sets.
  *  Each table is fully paged (fetchAll), so totals/tallies don't silently cap at 1000. */
@@ -302,7 +373,14 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
     fetchAll<{ gallery_id: string }>('visits', 'gallery_id'),
     // 0017 has granted admins SELECT on reports all along; the console just never
     // asked for anything but a row count.
-    fetchAll<ReportRaw>('reports', 'id, about, reason, contact, status, handled_note, created_at'),
+    //
+    // NOT fetchAll(): that pages through EVERY row, which is exactly what an
+    // anonymous flood used to be able to blow up before migration 0072 locked
+    // insert down to service_role (see /api/report). Bounding to the most recent
+    // 2000 keeps this call cheap regardless of how big the table ever gets — real
+    // moderation queues are open items, and 2000 is far more than anyone is
+    // working through by hand.
+    fetchRecentReports(),
   ])
 
   // Tallies keyed by id

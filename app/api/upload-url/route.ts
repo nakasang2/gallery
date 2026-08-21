@@ -30,6 +30,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { r2, r2Configured, R2_BUCKET, prefixBytes } from '@/lib/r2'
 import { authenticate } from '@/lib/apiAuth'
+import { checkRateLimit } from '@/lib/rateLimit'
 import { PLAN, GALLERY_BGM_MAX_BYTES, IMAGE_MAX_BYTES } from '@/lib/limits'
 
 export const runtime = 'nodejs'
@@ -206,6 +207,18 @@ export async function POST(req: NextRequest) {
 
   const auth = await authenticate(req)
   if (!auth) return NextResponse.json({ error: 'Sign in required.' }, { status: 401 })
+
+  // Bound how often one account can ask for upload URLs at all (リリース前監査
+  // #31 — no storage route had any rate limit, so a signed-in account could hammer
+  // R2 PUT/List with no cost beyond its own request budget). 60 requests / 10 min
+  // is generous for a real upload session (each can batch up to
+  // MAX_FILES_PER_REQUEST files) and only bites a script. checkRateLimit fails
+  // OPEN on a missing migration — same precedent as reserveQuota below for a
+  // missing reserve_storage.
+  const withinLimit = await checkRateLimit(auth.db, { bucket: 'upload_url', key: auth.uid, max: 60, windowSeconds: 600 })
+  if (!withinLimit) {
+    return NextResponse.json({ error: 'Too many upload requests. Wait a few minutes and try again.' }, { status: 429 })
+  }
 
   let body: { files?: unknown }
   try {

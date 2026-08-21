@@ -41,8 +41,11 @@ select id as rid from public.galleries
  where expo_id='64e00000-0000-0000-0000-000000000001'
    and owner_id='64000000-0000-0000-0000-000000000002' \gset
 
+-- storage_path は {owner_id}/{id} の形が必須（0074 の artworks_guard_storage_path。
+-- このテストの本題ではないが、authenticated として書く以上は満たす必要がある）。
 insert into public.artworks (id, owner_id, title, width, height, storage_path, gallery_id) values
-  ('64a00000-0000-0000-0000-000000000001', '64000000-0000-0000-0000-000000000002', 'W64', 100, 100, '64/w1',
+  ('64a00000-0000-0000-0000-000000000001', '64000000-0000-0000-0000-000000000002', 'W64', 100, 100,
+   '64000000-0000-0000-0000-000000000002/64a00000-0000-0000-0000-000000000001',
    :'rid');
 insert into public.placements (gallery_id, artwork_id, slot_index) values
   (:'rid', '64a00000-0000-0000-0000-000000000001', 0);

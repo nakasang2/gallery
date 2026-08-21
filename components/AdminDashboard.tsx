@@ -8,12 +8,15 @@ import { THEMES, LAYOUTS, FRAMES } from '@/lib/presets'
 import { paidThemeIds, paidLayoutIds, paidFrameIds } from '@/lib/entitlements'
 import {
   adminAddRoom,
+  adminListGalleryArtworks,
+  adminTakedownArtwork,
   grantEntitlement,
   revokeEntitlement,
   setExpoSlug,
   setReportStatus,
   setGalleryPublic,
   sumByCurrency,
+  type AdminArtworkRow,
   type AdminOverview,
 } from '@/lib/admin'
 import { useT } from '@/components/I18nProvider'
@@ -81,6 +84,11 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
   const [grantProduct, setGrantProduct] = useState(() => (products[0] ? productKey(products[0].kind, products[0].itemKey) : ''))
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // Per-report artwork panel (リリース前監査 #10): 'loading' while fetching,
+  // an array once loaded, or absent/collapsed. Keyed by galleryId since that is
+  // what admin_list_gallery_artworks takes.
+  const [artworkPanels, setArtworkPanels] = useState<Record<string, AdminArtworkRow[] | 'loading'>>({})
+  const [artworkErr, setArtworkErr] = useState<Record<string, string>>({})
 
   // Purchases grouped by user, so each user's chips carry the exact kind/item_key to revoke
   const purchasesByUser = useMemo(() => {
@@ -112,6 +120,46 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
     setErr('')
     try {
       await fn()
+      await onReload?.()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function toggleArtworks(galleryId: string) {
+    if (artworkPanels[galleryId]) {
+      setArtworkPanels((prev) => {
+        const { [galleryId]: _removed, ...rest } = prev
+        return rest
+      })
+      return
+    }
+    setArtworkPanels((prev) => ({ ...prev, [galleryId]: 'loading' }))
+    setArtworkErr((prev) => ({ ...prev, [galleryId]: '' }))
+    try {
+      const rows = await adminListGalleryArtworks(galleryId)
+      setArtworkPanels((prev) => ({ ...prev, [galleryId]: rows }))
+    } catch (e) {
+      setArtworkPanels((prev) => {
+        const { [galleryId]: _removed, ...rest } = prev
+        return rest
+      })
+      setArtworkErr((prev) => ({ ...prev, [galleryId]: e instanceof Error ? e.message : String(e) }))
+    }
+  }
+
+  async function takedownArtwork(galleryId: string, artworkId: string) {
+    if (!window.confirm(t('admin.deleteFileConfirm'))) return
+    setBusy(true)
+    setErr('')
+    try {
+      await adminTakedownArtwork(artworkId)
+      setArtworkPanels((prev) => {
+        const list = prev[galleryId]
+        return Array.isArray(list) ? { ...prev, [galleryId]: list.filter((a) => a.id !== artworkId) } : prev
+      })
       await onReload?.()
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
@@ -196,6 +244,18 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                         {t('admin.restore')}
                       </button>
                     )}
+                    {/* 部屋単位の非公開化だけでは、実ファイルは消えず合同展示の
+                        無関係な参加作家も巻き添えになる（リリース前監査 #10）。
+                        報告された1点だけをここから完全に削除できるようにする。 */}
+                    {r.match && (
+                      <button
+                        className="btn-line"
+                        disabled={busy}
+                        onClick={() => void toggleArtworks(r.match!.galleryId)}
+                      >
+                        {artworkPanels[r.match.galleryId] ? t('admin.hideArtworks') : t('admin.viewArtworks')}
+                      </button>
+                    )}
                     {r.status === 'open' ? (
                       <>
                         <button
@@ -223,6 +283,32 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                       </button>
                     )}
                   </div>
+                  {r.match && artworkErr[r.match.galleryId] && (
+                    <p className="me-error" style={{ marginTop: '0.4rem' }}>{artworkErr[r.match.galleryId]}</p>
+                  )}
+                  {r.match && artworkPanels[r.match.galleryId] === 'loading' && (
+                    <p className="me-note" style={{ marginTop: '0.4rem' }}>{t('adminUi.loading')}</p>
+                  )}
+                  {r.match && Array.isArray(artworkPanels[r.match.galleryId]) && (
+                    <ul className="artwork-takedown-list">
+                      {(artworkPanels[r.match.galleryId] as AdminArtworkRow[]).length === 0 ? (
+                        <li className="me-note">{t('admin.noArtworksInRoom')}</li>
+                      ) : (
+                        (artworkPanels[r.match.galleryId] as AdminArtworkRow[]).map((a) => (
+                          <li key={a.id}>
+                            <span>{a.title || t('admin.noTarget')}</span>
+                            <button
+                              className="btn-line danger"
+                              disabled={busy}
+                              onClick={() => void takedownArtwork(r.match!.galleryId, a.id)}
+                            >
+                              {t('admin.deleteFile')}
+                            </button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
                 </article>
               ))}
             </div>
