@@ -48,6 +48,9 @@ export interface AdminPurchaseRow {
 
 export interface AdminReportRow {
   id: string
+  /** 通報の種別（0056）。著作権かどうかで、取り下げが常習侵害者の記録
+   *  （copyright_strikes・リリース前監査 #47）の対象になるかが決まる。 */
+  kind: 'copyright' | 'harassment' | 'illegal' | 'other'
   /** Free text from the reporter — a URL or @handle, not a resolved gallery id. */
   about: string
   reason: string
@@ -216,14 +219,21 @@ export async function adminListGalleryArtworks(galleryId: string): Promise<Admin
  *  deletes). This is the "作品単位" takedown from the pre-release audit (#10):
  *  admin_set_gallery_public only ever hid a whole room, leaving the underlying
  *  file publicly reachable and taking down uninvolved co-exhibitors with it. */
-export async function adminTakedownArtwork(artworkId: string): Promise<void> {
+export async function adminTakedownArtwork(
+  artworkId: string,
+  /** 著作権の通報が理由の削除なら true。`copyright_strikes`（0075・リリース前監査 #47）
+   *  へ記録が残り、常習侵害者ポリシー（terms/page.tsx §4・§7）を運用できるようにする。 */
+  copyright = false,
+  /** 記録に残す作品名（無ければ空文字。作品自体は削除されるので、後から引けない）。 */
+  title = ''
+): Promise<void> {
   const { data } = await supabase!.auth.getSession()
   const token = data.session?.access_token
   if (!token) throw new Error('Please sign in again.')
   const res = await fetch('/api/admin/artwork-takedown', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ artworkId }),
+    body: JSON.stringify({ artworkId, copyright, title }),
   })
   if (!res.ok) {
     const detail = (await res.json().catch(() => null)) as { error?: string } | null
@@ -303,6 +313,7 @@ async function fetchAll<T>(table: string, columns: string, fallbackColumns?: str
 
 type ReportRaw = {
   id: string
+  kind?: string | null
   about: string
   reason: string
   contact: string
@@ -322,7 +333,7 @@ type PurchaseRaw = {
 }
 
 const REPORTS_LIMIT = 2000
-const REPORTS_COLUMNS = 'id, about, reason, contact, status, handled_note, created_at'
+const REPORTS_COLUMNS = 'id, kind, about, reason, contact, status, handled_note, created_at'
 
 /**
  * The reports worth showing: EVERY open one (unbounded — a real moderation
@@ -488,6 +499,11 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
       const owner = g ? nameById.get(g.owner_id) : undefined
       return {
         id: r.id,
+        kind: (r.kind === 'copyright' || r.kind === 'harassment' || r.kind === 'illegal' ? r.kind : 'other') as
+          | 'copyright'
+          | 'harassment'
+          | 'illegal'
+          | 'other',
         about: r.about,
         reason: r.reason,
         contact: r.contact,

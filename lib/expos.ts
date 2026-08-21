@@ -7,6 +7,7 @@
 // `record_expo_purchase` を呼ぶときにだけ起きる（0044）。クライアントから会期を始める
 // 経路が無いのが設計で、ここに publish を足したくなったらそれは設計を壊している合図。
 import { supabase } from './supabase'
+import { MAX_WORKS_PER_ROOM } from './limits'
 
 /** 会期の状態。**日付から導出**する（DBに旗を持たない）。 */
 export type ExpoPhase =
@@ -211,7 +212,7 @@ export async function addExpoRoom(
       title: input.title,
       // 場所代に含まれるので物理上限まで使える（0044 は expo の部屋を勘定外にするので、
       // ここは番人に通る）。
-      work_cap: 15,
+      work_cap: MAX_WORKS_PER_ROOM,
       slots_included: true,
     })
     .select('id')

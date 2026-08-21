@@ -50,7 +50,13 @@ export interface BakeSpec {
 
 /** One work's tile, in pixels. Also the atlas grid's cell size. */
 const TILE = 256
-const SHADOW_MAP_SIZE = 2048
+/** Default shadow-map resolution — the ceiling, used for the publish-time bake
+ *  (`ShadowBakeRunner`). That result is SAVED and served to every future
+ *  visitor, so it must not be held back by the artist's OWN device tier
+ *  (リリース前監査 #25・2026-08-21). Only the live, per-visitor fallback bake
+ *  in `GalleryScene` (used when no saved atlas matches) passes a smaller
+ *  value for mid tier — that one never leaves the visitor's own browser. */
+const DEFAULT_SHADOW_MAP_SIZE = 2048
 
 /** Where one work's tile sits inside the atlas, in texture coordinates. Exhibit
  *  writes these straight into the shadow plane's uv attribute. */
@@ -199,6 +205,7 @@ export default function WallShadowBaker({
   bakeKey,
   onBaked,
   onAllBaked,
+  shadowMapSize = DEFAULT_SHADOW_MAP_SIZE,
 }: {
   specs: BakeSpec[]
   /** Composition fingerprint — a change restarts the bake from scratch */
@@ -211,6 +218,10 @@ export default function WallShadowBaker({
    *  would match, so visitors would trust it, and the room would show shadows on
    *  some works and none on others (DECISIONS 2026-08-18). */
   onAllBaked?: (atlas: THREE.WebGLRenderTarget, cols: number, rows: number, tilePx: number) => void
+  /** Shadow-map resolution for the roaming bake light. Defaults to the ceiling
+   *  (`DEFAULT_SHADOW_MAP_SIZE`) — pass a smaller value only for a bake whose
+   *  result stays in the current browser (see the constant's comment). */
+  shadowMapSize?: number
 }) {
   const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
@@ -223,10 +234,10 @@ export default function WallShadowBaker({
     l.decay = 0
     l.penumbra = 0.7
     l.distance = 14 // = shadow camera far (tight bound keeps depth precision high)
-    l.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE)
+    l.shadow.mapSize.set(shadowMapSize, shadowMapSize)
     l.shadow.camera.near = 0.5
     return l
-  }, [])
+  }, [shadowMapSize])
 
   const bake = useMemo(() => {
     const scene = new THREE.Scene()
@@ -247,7 +258,7 @@ export default function WallShadowBaker({
         uBias: { value: 0.0008 },
         // Blocker-distance threshold for contact hardening (~6cm at room scale)
         uGap: { value: 0.004 },
-        uRadius: { value: 5.5 / SHADOW_MAP_SIZE },
+        uRadius: { value: 5.5 / shadowMapSize },
         uLightPos: { value: new THREE.Vector3() },
         uSpotDir: { value: new THREE.Vector3() },
         uCosOuter: { value: 0 },
@@ -262,7 +273,7 @@ export default function WallShadowBaker({
     scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat))
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
     return { scene, mat, camera }
-  }, [])
+  }, [shadowMapSize])
 
   // One atlas for the whole room. Re-created only when the grid changes size (a
   // work added or removed); a re-bake of the same composition rewrites its tiles
@@ -341,7 +352,7 @@ export default function WallShadowBaker({
     // The DEPTH attachment (compareFunction=LessEqual): sampled with sampler2DShadow
     u.uShadowMap.value = light.shadow.map.depthTexture
     u.uShadowMatrix.value.copy(light.shadow.matrix)
-    u.uRadius.value = spec.softPx / SHADOW_MAP_SIZE
+    u.uRadius.value = spec.softPx / shadowMapSize
     u.uAmbient.value = spec.ambient
     // Patch corners in world space (mirrors the display plane in Exhibit local space)
     const tangent = new THREE.Vector3(Math.cos(spec.rotY), 0, -Math.sin(spec.rotY))

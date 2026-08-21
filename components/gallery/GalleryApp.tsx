@@ -512,6 +512,12 @@ export default function GalleryApp({ onShellReady, demoTheme, demo = false }: { 
     ;(window as unknown as Record<string, unknown>).__xibit360 = { store: useGallery, walkRef }
     useGallery.getState().initAuth()
     onShellReady?.() // our own LoadingScreen has taken over from any outer fallback
+    return () => {
+      // このcomponentが本当にunmountしたあとも window.__xibit360 が store/walkRef を
+      // 握ったまま残っていた（リリース前監査 #28）。initAuth／onShellReadyは1回だけの
+      // 副作用なので巻き戻さない — ここで消すのはグローバル参照だけ。
+      delete (window as unknown as Record<string, unknown>).__xibit360
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

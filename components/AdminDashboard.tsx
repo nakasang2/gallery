@@ -150,12 +150,12 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
     }
   }
 
-  async function takedownArtwork(galleryId: string, artworkId: string) {
+  async function takedownArtwork(galleryId: string, artworkId: string, title: string, copyright: boolean) {
     if (!window.confirm(t('admin.deleteFileConfirm'))) return
     setBusy(true)
     setErr('')
     try {
-      await adminTakedownArtwork(artworkId)
+      await adminTakedownArtwork(artworkId, copyright, title)
       setArtworkPanels((prev) => {
         const list = prev[galleryId]
         return Array.isArray(list) ? { ...prev, [galleryId]: list.filter((a) => a.id !== artworkId) } : prev
@@ -300,7 +300,7 @@ export default function AdminDashboard({ data, onReload }: { data: AdminOverview
                             <button
                               className="btn-line danger"
                               disabled={busy}
-                              onClick={() => void takedownArtwork(r.match!.galleryId, a.id)}
+                              onClick={() => void takedownArtwork(r.match!.galleryId, a.id, a.title, r.kind === 'copyright')}
                             >
                               {t('admin.deleteFile')}
                             </button>
