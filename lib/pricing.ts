@@ -94,15 +94,25 @@ export function expoPriceRangeLabel(rangeFormat = '{min}–{max}'): string {
 // reports amounts for these as whole yen/won, not hundredths.
 const ZERO_DECIMAL = new Set(['bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf'])
 
+// Currencies whose smallest unit is a THOUSANDTH, not a hundredth — Stripe
+// reports amounts for these in mills (リリース前監査 #23・2026-08-21). Treating
+// them like every other currency (÷100) over-reports by 10x: a real 1.500 KWD
+// charge arrives as the integer 1500, and ÷100 + 2 decimal places renders it
+// as "KWD 15.00".
+const THREE_DECIMAL = new Set(['bhd', 'jod', 'kwd', 'omr', 'tnd'])
+
 /**
  * Stripe's smallest-unit integer (`amount_total` etc.) → the actual currency
  * value. Exported so every reader of a Stripe amount — not just `money()` —
- * shares the same zero-decimal-currency rule instead of re-deriving it (a
- * naive `/100` under-reports JPY/KRW by 100x — this bit an earlier GA4
- * purchase-value read, see app/api/checkout/verify-session/route.ts).
+ * shares the same decimal-place rule instead of re-deriving it (a naive
+ * `/100` under-reports JPY/KRW by 100x and over-reports KWD/BHD/JOD/OMR/TND
+ * by 10x — see app/api/checkout/verify-session/route.ts).
  */
 export function toMajorUnits(amount: number, currency: string): number {
-  return ZERO_DECIMAL.has((currency || 'usd').toLowerCase()) ? amount : amount / 100
+  const code = (currency || 'usd').toLowerCase()
+  if (ZERO_DECIMAL.has(code)) return amount
+  if (THREE_DECIMAL.has(code)) return amount / 1000
+  return amount / 100
 }
 
 /**
@@ -118,7 +128,7 @@ export function money(amount: number, currency: string): string {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: code.toUpperCase(),
-      maximumFractionDigits: ZERO_DECIMAL.has(code) ? 0 : 2,
+      maximumFractionDigits: ZERO_DECIMAL.has(code) ? 0 : THREE_DECIMAL.has(code) ? 3 : 2,
     }).format(value)
   } catch {
     // Unknown/invalid code — show the number with the raw code rather than lie

@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const auth = await authenticate(req)
   if (!auth) return NextResponse.json({ error: 'Sign in required.' }, { status: 401 })
 
-  let body: { artworkId?: unknown }
+  let body: { artworkId?: unknown; copyright?: unknown; title?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
   }
   const artworkId = typeof body.artworkId === 'string' ? body.artworkId : ''
   if (!UUID.test(artworkId)) return NextResponse.json({ error: 'Bad request.' }, { status: 400 })
+  const isCopyright = body.copyright === true
+  const title = typeof body.title === 'string' ? body.title : ''
 
   // `auth.db` carries the caller's own session, so `is_admin()` inside the RPCs
   // sees the real caller — a non-admin gets the RPC's exception, not a silent no-op.
@@ -68,6 +70,20 @@ export async function POST(req: NextRequest) {
       { error: 'Files were removed, but the database row could not be deleted. Please retry.' },
       { status: 500 }
     )
+  }
+  // 常習侵害者の記録（migration 0075・リリース前監査 #47）。takedown 自体は理由を
+  // 問わない汎用の削除経路なので、著作権の通報が理由のときだけここで記録する。
+  // 記録に失敗しても takedown 自体はもう完了しているので、ロールバックはしない
+  // （ログだけ残し、必要ならSQL Editorから手で入れ直せる）。
+  if (isCopyright) {
+    const strike = await auth.db.rpc('admin_record_copyright_strike', {
+      p_user: row.owner_id,
+      p_artwork: artworkId,
+      p_title: title,
+    })
+    if (strike.error) {
+      console.error('artwork-takedown: copyright strike not recorded', artworkId, row.owner_id, strike.error.message)
+    }
   }
   return NextResponse.json({ removed, purged })
 }

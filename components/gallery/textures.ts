@@ -332,16 +332,44 @@ export function getConcreteMaps(size = 1024) {
 
 const texLoader = new THREE.TextureLoader()
 const artTexCache = new Map<string, THREE.Texture>()
+// 無制限に増え続けない上限（リリース前監査 #27）。長い1セッションでExploreから
+// 多くのギャラリーを渡り歩くと積み上がる。**Mapの挿入順＝古い順**を使い、触った
+// ものを末尾へ動かして最古のものだけ`dispose()`する。まだ画面上にある1枚を
+// 追い出しても、three.jsは次にそのテクスチャを描くときに`.image`から黒くならず
+// 静かに再アップロードするだけ（GPU側資源が無ければ作り直す）なので壊れない。
+const ART_TEX_CACHE_MAX = 150
+
+function touchArtTexCache(key: string, tex: THREE.Texture) {
+  artTexCache.delete(key)
+  artTexCache.set(key, tex)
+  while (artTexCache.size > ART_TEX_CACHE_MAX) {
+    const oldestKey = artTexCache.keys().next().value
+    if (oldestKey === undefined) break
+    artTexCache.get(oldestKey)?.dispose()
+    artTexCache.delete(oldestKey)
+  }
+}
 
 export function getArtTexture(art: ArtworkData): THREE.Texture {
   const key = art.src || art.id
   const cached = artTexCache.get(key)
-  if (cached) return cached
-  const tex = art.src ? texLoader.load(art.src) : new THREE.CanvasTexture(renderArtworkCanvas(art, 1024))
+  if (cached) {
+    touchArtTexCache(key, cached)
+    return cached
+  }
+  const tex = art.src
+    ? texLoader.load(art.src, undefined, undefined, () => {
+        // R2の一時障害等で読めなかったら、来場者には黒い矩形ではなく、ゲスト
+        // モードと同じ生成アートで埋める（リリース前監査 #27）。次の入場で
+        // 直ることを前提にキャッシュから外さない（0068以前の焼き込みと同じ判断）。
+        tex.image = renderArtworkCanvas(art, 1024)
+        tex.needsUpdate = true
+      })
+    : new THREE.CanvasTexture(renderArtworkCanvas(art, 1024))
   tex.colorSpace = THREE.SRGBColorSpace
   // 16 keeps the paint crisp at grazing view angles (the renderer clamps to the GPU max)
   tex.anisotropy = 16
-  artTexCache.set(key, tex)
+  touchArtTexCache(key, tex)
   return tex
 }
 

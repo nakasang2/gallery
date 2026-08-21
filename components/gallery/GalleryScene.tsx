@@ -138,8 +138,14 @@ export default function GalleryScene() {
         })
         setBakedShadows(next)
       },
-      // 読めなかったら何もしない = 影なしのまま。焼き直しに落とさないのは、
+      undefined, // onProgress — 焼き込み済み1枚のPNGなので進捗を見せる意味が無い
+      // onError: 読めなかったら何もしない = 影なしのまま。焼き直しに落とさないのは、
       // 「一致しているのに読めない」は一時的な事故（CDN・回線）で、次の入場で直るため。
+      // **三引数目（`onProgress`）にこの空関数を渡していたのを直した**（リリース前
+      // 監査 #26・2026-08-21）。three.jsは`onError`が無いと既定でも何もしない
+      // （`console.error`さえ出さない）ので挙動は変わらないが、直しておかないと
+      // 「エラー処理が実装済み」と誤読して、本物のエラー処理をここに足そうとした
+      // 人がonProgressイベントを受け取る羽目になる。
       () => {}
     )
     // **上下を反転させない。** ここが焼き込みで一番間違いやすい。焼いた画像は
@@ -228,6 +234,10 @@ export default function GalleryScene() {
           specs={bakeSpecs}
           bakeKey={bakeKey}
           onBaked={(id, baked) => setBakedShadows((prev) => ({ ...prev, [id]: baked }))}
+          // このバケは来場者自身のブラウザに留まる（保存されない）ので、Exhibit.tsx の
+          // 実照明の影と同じ基準で端末に合わせて縮める（リリース前監査 #25）。
+          // 出展時に保存する側（ShadowBakeRunner）はデフォルト(2048)のまま渡さない。
+          shadowMapSize={QUALITY === 'high' ? 2048 : 1024}
         />
       )}
       <TitleWall theme={theme} layout={layout} />

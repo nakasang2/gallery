@@ -12,6 +12,10 @@
 body.gallery-mode {
   height: 100%;
   overflow: hidden;
+  /* overflow:hidden だけでは、ロード中の下向きスワイプがネイティブのプルトゥ
+     リフレッシュを誘発しうる（リリース前監査 #40）。それが起きるとロードが
+     やり直しになる。 */
+  overscroll-behavior: none;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
@@ -850,6 +854,10 @@ body:not(.gallery-mode) {
   text-transform: uppercase;
   padding: 0;
   transition: max-width 0.28s ease, opacity 0.18s ease, padding 0.28s ease;
+  /* 長い言語（独語等）が展開幅(12rem)を超えると、これが無いと単語の途中で
+     ハードクリップされる（リリース前監査 #39）。white-space:nowrap は
+     .hud-action から継承済み。 */
+  text-overflow: ellipsis;
 }
 .hud-action.active { border-color: var(--gold); color: var(--gold); }
 /* Desktop only: hover/focus expands the circle into a capsule showing its label */
@@ -940,6 +948,8 @@ body:not(.gallery-mode) {
   border-radius: 50%;
   cursor: pointer;
   transition: color 0.2s, background 0.2s;
+  /* 連打すると誤ってダブルタップ拡大が発動しうる（リリース前監査 #38） */
+  touch-action: manipulation;
 }
 .step-btn:hover { color: var(--gold); background: rgba(212, 162, 78, 0.12); }
 .step-count {
@@ -1483,6 +1493,8 @@ body:not(.gallery-mode) {
   border-radius: 50%;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
+  /* 連打すると誤ってダブルタップ拡大が発動しうる（リリース前監査 #38） */
+  touch-action: manipulation;
 }
 .purchase-stepper button:hover:not(:disabled) { color: var(--gold); background: rgba(212, 162, 78, 0.12); }
 .purchase-stepper button:disabled { opacity: 0.35; cursor: not-allowed; }

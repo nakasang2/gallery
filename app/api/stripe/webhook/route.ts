@@ -60,6 +60,118 @@ export async function POST(req: NextRequest) {
     console.error('webhook: async payment failed', failed.id, failed.metadata?.sku)
     return NextResponse.json({ received: true })
   }
+
+  // 返金・チャージバック後も購入権限が残っていた穴（リリース前監査 #21・2026-08-21）。
+  // `purchases` は 'room' 以外の単発SKUに Stripe の決済IDを一切持っていない（migration
+  // 0016〜。理由は無い ── 単に台帳が「何を」しか記録せず「どの決済で」を追わなかった）。
+  // 新しい列を増やして過去分を埋め直す代わりに、Checkout Session を
+  // `payment_intent` で逆引きすれば、その session.metadata に元の付与ロジックと
+  // **同じ** user_id/sku/item_key が載っている（Stripeが決済IDから辿れる形で
+  // 保持している）ので、それを使う。
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object as Stripe.Charge
+    const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id
+    if (!paymentIntentId) {
+      console.error('webhook: charge.refunded without payment_intent', charge.id)
+      return NextResponse.json({ received: true })
+    }
+    const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
+    try {
+      const sessions = await stripe.checkout.sessions.list({ payment_intent: paymentIntentId, limit: 1 })
+      const refundedSession = sessions.data[0]
+      if (!refundedSession) {
+        console.error('webhook: charge.refunded — no checkout session for payment_intent', paymentIntentId, charge.id)
+        return NextResponse.json({ received: true })
+      }
+      const meta = refundedSession.metadata ?? {}
+      const userId = meta.user_id ?? refundedSession.client_reference_id ?? ''
+      const sku = meta.sku as Sku | undefined
+      if (!userId || !sku) {
+        console.error('webhook: charge.refunded — session without user_id/sku metadata', refundedSession.id)
+        return NextResponse.json({ received: true })
+      }
+      // **`charge.refunded`（イベント名）は部分返金でも飛ぶ。** `charge.refunded`
+      // （フィールド名・同じ綴りで紛らわしい）は**全額返金のときだけ true**（Stripeの
+      // 型定義: "If the charge is only partially refunded, this attribute will still
+      // be false"）。ここを見ずに自動剥奪すると、$25の部屋に$5だけ謝罪返金しただけで
+      // 部屋の権利を丸ごと消すことになる（別視点レビューで発見・2026-08-21）。
+      if (!charge.refunded) {
+        console.error('webhook: charge.refunded — partial refund, needs manual review', charge.id, sku, userId, charge.amount_refunded, '/', charge.amount)
+        return NextResponse.json({ received: true })
+      }
+      // **1件の購入行 = 1つの権利、と機械的に言える種類だけ自動で剥奪する。**
+      // 合同展示（公開中の展示を落とす）・容量追加（`work_cap` を対称に減らす別処理が
+      // 要る）・テーマコレクション（個別購入と見分けがつかず、コレクション経由で
+      // 付与された行だけを選んで消せない）は、誤って巻き込む方が実害が大きいので
+      // ログのみ残し運営者の判断に委ねる（ユーザー決定 2026-08-21）。
+      let revoked: { kind: string; itemKey: string } | null = null
+      switch (sku) {
+        case 'single_item': {
+          const kind = meta.item_kind === 'layout' || meta.item_kind === 'frame' ? meta.item_kind : 'theme'
+          const itemKey = meta.item_key ?? ''
+          if (!itemKey) break
+          if (kind === 'theme') {
+            // テーマコレクション（0016〜）はこの行を「重複」として黙って素通りする
+            // insert なので、個別購入とコレクション経由の付与が同じ行に収束し得る
+            // （別視点レビューで発見・2026-08-21）。コレクションを持っているなら、
+            // この個別購入の返金だけを理由にテーマの行ごと消してよいとは言えない。
+            const { data: hasCollection } = await db
+              .from('purchases')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('kind', 'theme_collection')
+              .limit(1)
+              .maybeSingle()
+            if (hasCollection) {
+              console.error('webhook: charge.refunded — theme also granted via collection, needs manual review', userId, itemKey, refundedSession.id)
+              break
+            }
+          }
+          revoked = { kind, itemKey }
+          break
+        }
+        case 'design_tools':
+          // 現在は誰でも無料（`lib/pricing.ts`）で checkout から作れないSKUだが、
+          // 有料だった頃の古い購入が返金されることはあり得るので分岐は残す。
+        case 'video_pass':
+          revoked = { kind: sku, itemKey: '' }
+          break
+        case 'room':
+          // item_key は購入行を作った session.id そのもの（webhook 側の insert 参照）。
+          // 複数回買えるので、これで**この1回分だけ**を狙って消せる。
+          revoked = { kind: 'room', itemKey: refundedSession.id }
+          break
+        default:
+          console.error('webhook: charge.refunded — needs manual review (not auto-revocable)', sku, userId, refundedSession.id)
+      }
+      if (revoked) {
+        const { error, count } = await db
+          .from('purchases')
+          .delete({ count: 'exact' })
+          .eq('user_id', userId)
+          .eq('kind', revoked.kind)
+          .eq('item_key', revoked.itemKey)
+        if (error) {
+          console.error('webhook: charge.refunded — revoke failed', charge.id, revoked, error.message)
+          return NextResponse.json({ error: 'Could not revoke entitlement.' }, { status: 500 })
+        }
+        console.error('webhook: charge.refunded — revoked', charge.id, userId, revoked, `rows=${count ?? 0}`)
+      }
+    } catch (e) {
+      console.error('webhook: charge.refunded processing failed', charge.id, e)
+      return NextResponse.json({ error: 'Processing failed.' }, { status: 500 })
+    }
+    return NextResponse.json({ received: true })
+  }
+  if (event.type === 'charge.dispute.created') {
+    // 争議は成立前（カード会社の審査中）で、この時点で権利を剥奪すると正当な利用者を
+    // 誤って罰する可能性がある。自動化せず、運営者がStripeダッシュボードで判断する
+    // ための記録だけ残す（ユーザー決定 2026-08-21）。
+    const dispute = event.data.object as Stripe.Dispute
+    console.error('webhook: charge.dispute.created — needs manual review', dispute.id, dispute.charge, dispute.reason)
+    return NextResponse.json({ received: true })
+  }
+
   if (event.type !== 'checkout.session.completed' && event.type !== 'checkout.session.async_payment_succeeded') {
     return NextResponse.json({ received: true })
   }

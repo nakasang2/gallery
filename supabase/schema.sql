@@ -2,7 +2,7 @@
 -- Xibit360 — 全スキーマ統合ファイル(schema.sql)
 -- ============================================================================
 -- これ1枚を Supabase の SQL Editor に貼り付けて Run すれば、必要なテーブル・
--- RLS・関数・Storage が一括で作成されます(migrations 0001〜0074 を統合)。
+-- RLS・関数・Storage が一括で作成されます(migrations 0001〜0075 を統合)。
 --
 -- ・再実行しても安全(if not exists / create or replace / drop ... if exists でガード)
 -- ・番号順に並べてあり、依存関係(テーブル→ポリシー→admin横断read など)を満たします
@@ -6628,3 +6628,42 @@ drop trigger if exists artworks_guard_storage_path on public.artworks;
 create trigger artworks_guard_storage_path
   before insert or update of storage_path, owner_id on public.artworks
   for each row execute function public.guard_artwork_storage_path();
+
+
+-- # 0075_copyright_strikes.sql — 反復侵害者の記録を残す(リリース前監査 #47・2026-08-21)
+-- DMCAセーフハーバー適格要件(§512(i))は常習侵害者の利用停止方針を運用できることを
+-- 求める(terms/page.tsxの規約文言はPR #69で追加済み)。admin_takedown_artwork(0073)の
+-- 削除は理由を問わないので、著作権の通報経由の削除だけをここに記録する。
+
+create table if not exists public.copyright_strikes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  artwork_id uuid not null,
+  artwork_title text not null default '',
+  created_at timestamptz not null default now()
+);
+
+alter table public.copyright_strikes enable row level security;
+
+drop policy if exists "copyright_strikes_select_admin" on public.copyright_strikes;
+create policy "copyright_strikes_select_admin" on public.copyright_strikes
+  for select using (public.is_admin());
+
+create or replace function public.admin_record_copyright_strike(p_user uuid, p_artwork uuid, p_title text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'admin_record_copyright_strike: not authorised';
+  end if;
+
+  insert into public.copyright_strikes (user_id, artwork_id, artwork_title)
+  values (p_user, p_artwork, coalesce(p_title, ''));
+end;
+$$;
+
+revoke all on function public.admin_record_copyright_strike(uuid, uuid, text) from public;
+grant execute on function public.admin_record_copyright_strike(uuid, uuid, text) to authenticated;

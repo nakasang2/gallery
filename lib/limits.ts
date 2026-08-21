@@ -34,7 +34,14 @@ export const IMAGE_MAX_BYTES = 20 * 1024 * 1024
 /** Physical ceiling on works per room. Every layout offers exactly this many
  *  slots (docs/DECISIONS 2026-07-24), so capacity is layout-independent: the
  *  free tier shows `worksPerGallery`, and slots are bought (by quantity) up to
- *  this max. The checkout clamps purchases so work_cap never exceeds it. */
+ *  this max. The checkout clamps purchases so work_cap never exceeds it.
+ *  **SQL can't import this constant.** The same value (15) is also hardcoded,
+ *  literally, in ~25 places across `supabase/schema.sql` (every `work_cap`
+ *  ceiling check and every "create at the paid tier" insert — the comments
+ *  there already say "15はMAX_WORKS_PER_ROOMと同じ値"). If you change this
+ *  number, `git grep -n "work_cap.*15\|, 15)" supabase/schema.sql` first and
+ *  write a new migration that redefines every function it finds — editing an
+ *  already-applied migration file is not safe (リリース前監査 #24・2026-08-21）。 */
 export const MAX_WORKS_PER_ROOM = 15
 
 /** Effective number of usable slots for a layout. `cap` is the OWNING gallery's own
