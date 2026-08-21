@@ -28,6 +28,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { randomUUID } from 'node:crypto'
 import { r2, r2Configured, R2_BUCKET, prefixBytes } from '@/lib/r2'
 import { authenticate } from '@/lib/apiAuth'
 import { checkRateLimit } from '@/lib/rateLimit'
@@ -114,13 +115,22 @@ const RULES: Record<Purpose, Rule> = {
   // is what needs admin rights, and RLS still guards that. The slot is bounded,
   // so this cannot be used to create unbounded objects.
   'lp-image': {
-    key: (u, _id, slot) => {
+    key: (u, id, slot) => {
       // The LP's 3D museum has 23 frames across five faces, and lib/siteConfig
       // gives each face its own band of ten slot numbers (hero 0-, panels 10-,
       // approach 20-, hall front 30-, hall sides 40-). 49 is that last band's end;
       // raise it here AND add the band in lib/siteConfig if a sixth face appears.
       if (!Number.isInteger(slot) || slot < 0 || slot > 49) throw new Error('Invalid slot.')
-      return `${u}/lp/${slot}.jpg`
+      // `id` carries a nonce (lib/cloud.ts uploadLpImage sends crypto.randomUUID()),
+      // NOT a row id — a stable `{u}/lp/{slot}.jpg` used to mean a fresh upload
+      // overwrote the file the currently-published site_config still pointed at,
+      // so an admin who uploaded and left without pressing Save silently changed
+      // the live LP once the CDN's edge cache expired (リリース前監査 #20). A
+      // client-supplied string lands in an R2 key, so it is validated here rather
+      // than trusted — the same UUID shape every other purpose's `id` already
+      // requires (see `uuid()` above), not a hand-rolled format for this one case.
+      const nonce = UUID.test(id) ? id : randomUUID()
+      return `${u}/lp/${slot}-${nonce}.jpg`
     },
     maxBytes: IMAGE_MAX_BYTES,
     accepts: jpeg,

@@ -30,32 +30,16 @@ import {
   exhibitionJsonLd,
   exhibitionTitle,
   exhibitionUrl,
-  getExhibition,
-  getExpoExhibition,
-  getProfile,
+  resolveExpoLobby,
 } from '@/lib/seo'
-import { getUsernameForExpoSlug } from '@/lib/expoResolve'
 
 export const dynamic = 'force-dynamic'
 
-/** slug → 会期中の合同展示のロビー、無ければアカウント別名の玄関の部屋、無ければ null。 */
+/** slug → 会期中の合同展示のロビー、無ければアカウント別名の玄関の部屋、無ければ null。
+ *  `resolveExpoLobby`（lib/seo.ts）は `opengraph-image.tsx` とも共有する。 */
 async function resolve(params: Promise<{ slug: string }>) {
   const { slug } = await params
-
-  // ① 合同展示。**会期中（＋猶予）の行しか返らない** — 下書きも期限切れもここで null に
-  //    なる（0044 `expos_select_live` / 0045）。判定はアプリ側に無い。
-  const joint = await getExpoExhibition(slug)
-  if (joint) return joint
-
-  // ② アカウントの別名。中身は `/@ハンドル` が答える問いと同じなので、同じ fetch を使う。
-  const username = await getUsernameForExpoSlug(slug)
-  if (!username) return null
-  const p = await getProfile(username)
-  if (!p) return null
-  const front = p.galleries.find((g) => g.isMain) ?? p.galleries[0]
-  if (!front) return null
-  const ex = await getExhibition(username, front.slug)
-  return ex ?? null
+  return resolveExpoLobby(slug)
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

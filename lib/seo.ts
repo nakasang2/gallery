@@ -37,6 +37,7 @@ import { LOCALE_META, localePath } from './i18n'
 import { siteUrl } from './publicUrl'
 import { expoHostsEnabled, expoPath, expoUrl } from './expoHost'
 import { publicExhibitionWorks, roomExhibitor } from './roomPlan'
+import { getUsernameForExpoSlug } from './expoResolve'
 import type { ArtworkData } from './artworks'
 
 /** Per-request memoised reads. `generateMetadata` and the page body both need the
@@ -49,6 +50,36 @@ export const getProfile = cache(fetchPublicProfile)
 export const getExpoExhibition = cache(fetchExpoExhibition)
 /** Same deal for a guide: `generateMetadata` and the page body both read it. */
 export const getArticle = cache(fetchArticle)
+
+/**
+ * slug → 会期中の合同展示のロビー、無ければアカウント別名の玄関の部屋、無ければ null。
+ *
+ * `app/expo/[slug]/page.tsx` と、同じ判定を必要とする `opengraph-image.tsx`
+ * （リリース前監査 #17 で新設）の両方が使う ── 解決ロジックを2箇所に書かない
+ * （見落としスイープ・別視点レビューで指摘された「同じ処理の重複」を避ける）。
+ */
+export async function resolveExpoLobby(slug: string): Promise<PublicExhibition | null> {
+  // ① 合同展示。**会期中（＋猶予）の行しか返らない**（0044 `expos_select_live` / 0045）。
+  const joint = await getExpoExhibition(slug)
+  if (joint) return joint
+  // ② アカウントの別名。中身は `/@ハンドル` と同じなので、同じ fetch を使う。
+  const username = await getUsernameForExpoSlug(slug)
+  if (!username) return null
+  const p = await getProfile(username)
+  if (!p) return null
+  const front = p.galleries.find((g) => g.isMain) ?? p.galleries[0]
+  if (!front) return null
+  return (await getExhibition(username, front.slug)) ?? null
+}
+
+/** 合同展示の1室版（`/expo/{slug}/{room}`）。`resolveExpoLobby` と同じ理由で共有する。 */
+export async function resolveExpoRoom(slug: string, room: string): Promise<PublicExhibition | null> {
+  const joint = await getExpoExhibition(slug, room)
+  if (joint) return joint
+  const username = await getUsernameForExpoSlug(slug)
+  if (!username) return null
+  return (await getExhibition(username, room)) ?? null
+}
 
 /* ---------------------------------- URLs ---------------------------------- */
 
@@ -108,8 +139,11 @@ export function artistUrl(p: { username: string; expoSlug?: string | null }): st
 
 /** Keep relative media out of the structured data: an unconfigured CDN base makes
  *  `publicUrl()` return a site-relative path, and a relative `image` is worse than
- *  no `image` (the crawler resolves it against the wrong origin). */
-function absoluteMedia(url: string | null | undefined): string | undefined {
+ *  no `image` (the crawler resolves it against the wrong origin). Exported so the
+ *  `opengraph-image.tsx` routes can apply the same guard to `<img src>` — an
+ *  ImageResponse can't resolve a relative URL either, and throws instead of
+ *  degrading, which used to take the whole OG card down (リリース前監査 #16). */
+export function absoluteMedia(url: string | null | undefined): string | undefined {
   return url && /^https?:\/\//i.test(url) ? url : undefined
 }
 

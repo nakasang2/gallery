@@ -10,25 +10,15 @@ import {
   exhibitionJsonLd,
   exhibitionTitle,
   exhibitionUrl,
-  getExhibition,
-  getExpoExhibition,
+  resolveExpoRoom,
 } from '@/lib/seo'
-import { getUsernameForExpoSlug } from '@/lib/expoResolve'
 
 export const dynamic = 'force-dynamic'
 
+/** `resolveExpoRoom`（lib/seo.ts）は `opengraph-image.tsx` とも共有する。 */
 async function resolve(params: Promise<{ slug: string; room: string }>) {
   const { slug, room } = await params
-
-  // ① 合同展示の1室。`room` はその展示の部屋の slug（`expo_id` で引くので、他の作家の
-  //    部屋や主催者の通常の部屋には当たらない）。
-  const joint = await getExpoExhibition(slug, room)
-  if (joint) return joint
-
-  // ② アカウントの別名なら、`room` はその作家の公開部屋の slug。
-  const username = await getUsernameForExpoSlug(slug)
-  if (!username) return null
-  return (await getExhibition(username, room)) ?? null
+  return resolveExpoRoom(slug, room)
 }
 
 export async function generateMetadata({

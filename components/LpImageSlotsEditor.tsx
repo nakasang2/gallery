@@ -12,10 +12,10 @@
 // ── 廊下なら「訴求パネルの隣の絵」と「通路の額入り作品」。帯にすると、節の見出しで
 // 場所が分かり、帯の見出しでその中の役割が分かる。**保存は帯ごとに独立**（1帯＝
 // site_config の1行）で、ボタンは節に1つ ── 押すと変更のあった帯だけを書く。
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useGallery } from '@/lib/store'
 import { uploadLpImage } from '@/lib/cloud'
-import type { LpHeroSlot } from '@/lib/siteConfig'
+import type { LpHeroSlot, SlotsFetch } from '@/lib/siteConfig'
 import { useT } from '@/components/I18nProvider'
 
 export interface LpImageBand {
@@ -27,10 +27,10 @@ export interface LpImageBand {
   /** 枠が空のときの控えの言い方。ヒーロー・通路・大部屋は内蔵のデモ作品で埋まるが、
    *  訴求パネルは何も掛からない ── 面によって「空」の意味が違うので呼び手が決める */
   emptyLabelKey: string
-  /** アップロード先 `{uid}/lp/{slot}.jpg` の枠番号の起点。帯どうしでファイルを
+  /** アップロード先 `{uid}/lp/{slot}-{nonce}.jpg` の枠番号の起点。帯どうしでファイルを
    *  取り合わないよう、帯ごとに別の帯番号を使う（lib/siteConfig に理由） */
   slotOffset: number
-  fetchSlots: () => Promise<LpHeroSlot[]>
+  fetchSlots: () => Promise<SlotsFetch>
   saveSlots: (slots: LpHeroSlot[]) => Promise<void>
 }
 
@@ -47,6 +47,10 @@ export default function LpImageSlotsEditor({ headingKey, noteKey, applyNoteKey, 
   const user = useGallery((s) => s.user)
   const [slots, setSlots] = useState<LpHeroSlot[][]>(() => bands.map((b) => Array<LpHeroSlot>(b.count).fill(null)))
   const [loaded, setLoaded] = useState(false)
+  /** 帯ごとの読み込み結果。false は「未設定」ではなく本物の失敗（リリース前監査
+   *  #19）── この状態のまま保存すると、読めなかっただけの既存の枠を空で上書きする。 */
+  const [bandOk, setBandOk] = useState<boolean[]>(() => bands.map(() => true))
+  const anyBandFailed = bandOk.some((ok) => !ok)
   /** いま上げている枠（`帯:枠`）。保存中は別の旗で持つ ── 以前は保存を `-1` で
    *  表していたが、帯が増えて枠の識別に2つの数が要るようになった */
   const [busy, setBusy] = useState<string | null>(null)
@@ -59,19 +63,52 @@ export default function LpImageSlotsEditor({ headingKey, noteKey, applyNoteKey, 
   const alive = useRef(true)
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  /** Fetches only the given band indices and writes results back at those exact
+   *  positions — NOT a blanket "refetch everything". A retry that reloaded every
+   *  band would also overwrite bands that loaded fine on the first try, silently
+   *  discarding any edit the admin already made there while waiting for the
+   *  failed band's retry (別視点レビューで発見・2026-08-21: the first version of
+   *  this retry button did exactly that). */
+  const loadBands = useCallback(
+    (indices: number[]) => {
+      Promise.all(
+        indices.map((b) => bands[b].fetchSlots().catch((): SlotsFetch => ({ slots: Array<LpHeroSlot>(bands[b].count).fill(null), ok: false })))
+      )
+        .then((results) => {
+          if (!alive.current) return
+          setSlots((prev) => prev.map((row, bi) => results[indices.indexOf(bi)]?.slots ?? row))
+          setBandOk((prev) => prev.map((ok, bi) => results[indices.indexOf(bi)]?.ok ?? ok))
+          setLoaded(true)
+        })
+        .catch(() => {
+          if (!alive.current) return
+          setBandOk((prev) => prev.map((ok, bi) => (indices.includes(bi) ? false : ok)))
+          setLoaded(true)
+        })
+    },
+    [bands]
+  )
+
+  /** Re-tries only the bands that failed. Warns first if any of them already has
+   *  an unsaved edit — that band's Save is blocked while it's `!ok` anyway (see
+   *  the button below), so the only way to reach this state is uploading into a
+   *  slot before noticing the load-failure banner. */
+  function retryFailedBands() {
+    const failed = bandOk.flatMap((ok, b) => (ok ? [] : [b]))
+    if (!failed.length) return
+    if (failed.some((b) => dirty[b]) && !window.confirm(t('adminUi.lpRetryDiscardsEdit'))) return
+    loadBands(failed)
+  }
+
   useEffect(() => {
     alive.current = true
-    Promise.all(bands.map((b) => b.fetchSlots().catch(() => Array<LpHeroSlot>(b.count).fill(null))))
-      .then((all) => {
-        if (!alive.current) return
-        setSlots(all)
-        setLoaded(true)
-      })
-      .catch(() => alive.current && setLoaded(true))
+    setLoaded(false)
+    loadBands(bands.map((_, i) => i))
     return () => {
       alive.current = false
       if (savedTimer.current) clearTimeout(savedTimer.current)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bands])
 
   function put(b: number, i: number, value: LpHeroSlot) {
@@ -119,6 +156,14 @@ export default function LpImageSlotsEditor({ headingKey, noteKey, applyNoteKey, 
         <p className="me-note" style={{ marginTop: 0 }}>
           {t(noteKey)}
         </p>
+        {anyBandFailed && (
+          <p className="me-error">
+            {t('adminUi.lpLoadFailed')}{' '}
+            <button className="btn-line" type="button" onClick={retryFailedBands}>
+              {t('common.retry')}
+            </button>
+          </p>
+        )}
         {bands.map((band, b) => (
           <div key={b} style={{ marginTop: b === 0 ? 0 : '1.4rem' }}>
             {band.titleKey && (
@@ -162,7 +207,7 @@ export default function LpImageSlotsEditor({ headingKey, noteKey, applyNoteKey, 
                           type="file"
                           accept="image/*"
                           hidden
-                          disabled={locked}
+                          disabled={locked || !bandOk[b]}
                           onChange={(e) => {
                             void onFile(b, i, e.target.files?.[0])
                             e.target.value = ''
@@ -170,7 +215,7 @@ export default function LpImageSlotsEditor({ headingKey, noteKey, applyNoteKey, 
                         />
                       </label>
                       {s && (
-                        <button className="btn-line" disabled={locked} onClick={() => put(b, i, null)}>
+                        <button className="btn-line" disabled={locked || !bandOk[b]} onClick={() => put(b, i, null)}>
                           {t('adminUi.clear')}
                         </button>
                       )}
@@ -182,7 +227,7 @@ export default function LpImageSlotsEditor({ headingKey, noteKey, applyNoteKey, 
           </div>
         ))}
         <div className="hako-actions" style={{ marginTop: '1rem' }}>
-          <button className="btn-line btn-gold" disabled={!loaded || locked || !anyDirty} onClick={() => void save()}>
+          <button className="btn-line btn-gold" disabled={!loaded || locked || !anyDirty || anyBandFailed} onClick={() => void save()}>
             {saved ? t('adminUi.saved') : saving ? t('adminUi.saving') : t('common.save')}
           </button>
         </div>

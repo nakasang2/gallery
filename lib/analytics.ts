@@ -96,6 +96,39 @@ export function trackPageView(path: string): void {
   })
 }
 
+export interface PurchaseItem {
+  item_id: string
+  item_name: string
+  price?: number
+  quantity?: number
+}
+
+/**
+ * GA4's recommended ecommerce `purchase` event. Separate from `track()` because
+ * its `items` parameter is an ARRAY of objects — `track()`'s `clean()` only
+ * handles flat scalars, and stringifying/dropping `items` would defeat the point
+ * (リリース前監査 #18: the previous signal, `checkout_return`, carried no value,
+ * SKU, or transaction id at all).
+ */
+export function trackPurchase(payload: {
+  transactionId: string
+  value: number
+  currency: string
+  items: PurchaseItem[]
+}): void {
+  if (!gaConfigured || typeof window === 'undefined') return
+  try {
+    gtag('event', 'purchase', {
+      transaction_id: payload.transactionId,
+      value: payload.value,
+      currency: payload.currency,
+      items: payload.items,
+    })
+  } catch {
+    /* analytics must never interrupt the product */
+  }
+}
+
 /* ================= Consent ================= */
 
 /** Where the visitor's own choice is remembered. Read synchronously by the

@@ -624,13 +624,26 @@ export async function uploadLogo(ownerId: string, galleryId: string, file: File)
  *  site_config. Only admins reach this UI, and the signed key is the caller's own
  *  folder, so a non-admin gains nothing from reaching the route — writing the URL
  *  into site_config is what needs admin rights, and RLS still guards that.
- *  The path is FIXED per slot ({uid}/lp/{slot}.jpg) so replacing a slot overwrites
- *  the old file instead of orphaning it; the URL is cache-busted so the new image
- *  shows immediately despite the stable path. */
+ *
+ *  The key carries a nonce (`id`, below) rather than being fixed per slot. It used
+ *  to be `{uid}/lp/{slot}.jpg`, which meant uploading a replacement immediately
+ *  overwrote the file the currently-published site_config still pointed at —
+ *  leaving without pressing Save still changed the live LP once the CDN's edge
+ *  cache for that stable URL expired (リリース前監査 #20). The URL is unique per
+ *  upload now, so it needs no separate cache-busting query param, and the OLD
+ *  file stays intact (and live) until `site_config`'s reference to it is
+ *  actually replaced by Save. The trade is an orphaned object in R2 if the admin
+ *  uploads and never saves — a storage cost, not a correctness problem (same
+ *  trade already accepted for artwork/video uploads elsewhere in this file).
+ *  The nonce is a uuid, same as every other purpose's `id` here — not a
+ *  timestamp, which a millisecond-scale race between two uploads to the same
+ *  slot could collide on. */
 export async function uploadLpImage(ownerId: string, slot: number, file: File): Promise<{ url: string; w: number; h: number }> {
   const { blob, w, h } = await encodeUpload(file, 1280)
-  const [key] = await putFiles([{ purpose: 'lp-image', slot, body: blob, contentType: 'image/jpeg' }])
-  return { url: `${publicUrl(key)}?v=${Date.now()}`, w, h }
+  const [key] = await putFiles([
+    { purpose: 'lp-image', id: crypto.randomUUID(), slot, body: blob, contentType: 'image/jpeg' },
+  ])
+  return { url: publicUrl(key), w, h }
 }
 
 /** How many placements (public walls) an artwork hangs on — used for delete warnings */
