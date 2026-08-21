@@ -41,6 +41,10 @@ export async function POST(req: NextRequest) {
     // those without knowing every timestamp ever issued. Deleted rows are gone by
     // now, so those URLs are unreachable from the app either way; this is for
     // whoever kept the direct link.
+    // **LP hero/panel images are deliberately NOT under this prefix**
+    // (`_shared/lp/...` — app/api/upload-url/route.ts). They are a site-wide
+    // asset, not this account's, so deleting an admin must not break them for
+    // every visitor (リリース前監査 #41・2026-08-21).
     if (filesRemoved > 0) await purgeCachePrefix(`${auth.uid}/`)
     return NextResponse.json({ deleted: true, filesRemoved })
   } catch (e) {

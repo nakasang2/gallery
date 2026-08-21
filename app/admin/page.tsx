@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useGallery } from '@/lib/store'
-import { useIsAdmin, fetchAdminOverview, type AdminOverview } from '@/lib/admin'
+import { useIsAdminCheck, fetchAdminOverview, type AdminOverview } from '@/lib/admin'
 import AdminDashboard from '@/components/AdminDashboard'
 import LpHeroEditor from '@/components/LpHeroEditor'
 import LpCorridorEditor from '@/components/LpCorridorEditor'
@@ -25,7 +25,8 @@ export default function AdminPage() {
   const user = useGallery((s) => s.user)
   const initAuth = useGallery((s) => s.initAuth)
   const signOut = useGallery((s) => s.signOut)
-  const isAdmin = useIsAdmin(user?.id ?? null)
+  const adminCheck = useIsAdminCheck(user?.id ?? null)
+  const isAdmin = adminCheck === 'admin'
 
   const [checked, setChecked] = useState(false)
   const [data, setData] = useState<AdminOverview | null>(null)
@@ -51,8 +52,8 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => {
-    if (isAdmin) void load()
-  }, [isAdmin, load])
+    if (adminCheck === 'admin') void load()
+  }, [adminCheck, load])
 
   if (!supabase) {
     return (
@@ -62,8 +63,42 @@ export default function AdminPage() {
     )
   }
 
-  // Signed out, or signed in but not an admin — never hint at what's behind the wall
-  if (checked && !isAdmin) {
+  // Session check still in flight — wait rather than flashing "no access" for
+  // what may turn out to be a signed-in admin (リリース前監査 #45).
+  if (!checked) return null
+
+  // The `is_admin` RPC itself failed (network, migration not applied) — this is
+  // NOT the same as a confirmed "not an admin", so it gets its own retry state
+  // instead of the permanent wall below (リリース前監査 #45・2026-08-21).
+  if (user && adminCheck === 'error') {
+    return (
+      <AuthShell title={t('adminUi.shellTitle')}>
+        <p className="auth-note">{t('adminUi.checkFailed')}</p>
+        <p className="auth-links">
+          <button className="btn-line" onClick={() => window.location.reload()}>{t('adminUi.retry')}</button>
+          <LocaleLink href="/">{t('me.backHome')}</LocaleLink>
+        </p>
+      </AuthShell>
+    )
+  }
+
+  // Still waiting on the RPC's answer. Covers `'loading'` and also the one
+  // render tick where `user` has just resolved but `useIsAdminCheck`'s effect
+  // (keyed on `user.id`) hasn't fired yet, so `adminCheck` still holds its
+  // previous `'signed-out'` value — treating that as "waiting" rather than
+  // falling through avoids a one-frame flash of the dashboard shell before we
+  // actually know the caller is an admin.
+  if (user && adminCheck !== 'admin' && adminCheck !== 'denied' && adminCheck !== 'error') {
+    return (
+      <AuthShell title={t('adminUi.shellTitle')}>
+        <p className="auth-note">{t('adminUi.loading')}</p>
+      </AuthShell>
+    )
+  }
+
+  // Signed out, or signed in but confirmed not an admin — never hint at what's
+  // behind the wall.
+  if (!user || adminCheck === 'denied') {
     return (
       <AuthShell title={t('adminUi.shellTitle')}>
         {user ? (

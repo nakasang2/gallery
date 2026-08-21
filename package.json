@@ -1,6 +1,7 @@
 {
   "name": "xibit360",
   "private": true,
+  "license": "UNLICENSED",
   "version": "0.3.0",
   "scripts": {
     "dev": "next dev",

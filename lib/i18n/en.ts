@@ -1157,6 +1157,8 @@ export const en = {
     noAccess: 'This account doesn’t have admin access.',
     signInPrompt: 'Sign in with an admin account to continue.',
     loading: 'Loading…',
+    checkFailed: 'Couldn’t verify admin access. Check your connection and try again.',
+    retry: 'Try again',
 
     guides: 'Guides',
     shownAt: 'Articles shown at',

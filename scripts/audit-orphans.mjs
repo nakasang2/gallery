@@ -34,11 +34,23 @@ const mb = (n) => `${(n / 1024 / 1024).toFixed(1)}MB`
  *
  * @param liveFolders  `{uid}/{id}` の集合（作品の `storage_path` と部屋）
  * @param liveSiblings `{uid}/{部屋id}-` の集合（部屋のロゴはフォルダの兄弟）
+ * @param liveLpKeys   `_shared/lp/...` の生きている鍵の集合（site_config の
+ *                     保存済みURLから逆算。リリース前監査 #44・2026-08-21）
  */
-export function makeClassifier({ liveFolders, liveSiblings }) {
+export function makeClassifier({ liveFolders, liveSiblings, liveLpKeys = null }) {
   return (key) => {
     // 作家の枠に載らないもの。static は同梱資産、tts はサーバ側の音声キャッシュ。
     if (key.startsWith('static/') || key.startsWith('tts/')) return { kind: 'system' }
+
+    // LP画像は#41（2026-08-21）で口座の外（`_shared/lp/`）へ移した。口座を持たない
+    // ので孤児判定を`account`として素通りさせる理由が無くなり、site_config の
+    // 現在値と比較できる（枠の差し替え・クリアで残ったファイルを実際に検出する）。
+    // `liveLpKeys` が無い（比較材料が無い）ときは、消してよいかもと言えないので
+    // `unknown` に倒す — 判定できないものを orphan と言うのが最も危ない誤り。
+    if (key.startsWith('_shared/lp/')) {
+      if (!liveLpKeys) return { kind: 'unknown' }
+      return { kind: liveLpKeys.has(key) ? 'live' : 'orphan', why: 'lp' }
+    }
 
     const slash = key.indexOf('/')
     if (slash < 0) return { kind: 'unknown' }
@@ -47,6 +59,9 @@ export function makeClassifier({ liveFolders, liveSiblings }) {
     if (!UUID.test(uid)) return { kind: 'unknown' }
 
     // 口座そのものに紐づくもの。行から辿る対象ではないので孤児判定にかけない。
+    // **旧レイアウト（#41移行前）の名残だけがここに来る** — 新規のLP画像は
+    // 上の`_shared/lp/`分岐で判定される。`scripts/migrate-lp-images-to-shared.mjs`
+    // で移行が済めば、ここに残るのは移行し忘れた分だけになる。
     if (rest === 'avatar.jpg' || rest.startsWith('lp/')) return { kind: 'account', uid }
 
     // `{uid}/{id}/…` ── 作品のファイル、部屋のBGM、焼き込みアトラス。
@@ -78,9 +93,12 @@ function selfTest() {
   const ART = 'aaaaaaaa-0000-0000-0000-00000000000a' // 生きている作品
   const ROOM = 'bbbbbbbb-0000-0000-0000-00000000000b' // 生きている部屋
   const DEAD = 'cccccccc-0000-0000-0000-00000000000c' // 消えた部屋
+  const LP_LIVE = '_shared/lp/0-dddddddd-0000-0000-0000-00000000000d.jpg'
+  const LP_DEAD = '_shared/lp/0-eeeeeeee-0000-0000-0000-00000000000e.jpg'
   const classify = makeClassifier({
     liveFolders: new Set([`${U}/${ART}`, `${U}/${ROOM}`]),
     liveSiblings: new Set([`${U}/${ROOM}-`]),
+    liveLpKeys: new Set([LP_LIVE]),
   })
 
   const cases = [
@@ -95,7 +113,9 @@ function selfTest() {
     [`${V}/${ART}/display.jpg`, 'orphan', '同じidでも別の作家の下なら辿れない'],
     [`${V}/${ROOM}-logo.jpg`, 'orphan', 'ロゴも作家ごとに見る'],
     [`${U}/avatar.jpg`, 'account', 'アバターは行から辿る対象ではない'],
-    [`${U}/lp/0.jpg`, 'account', 'LP画像も同じ'],
+    [`${U}/lp/0.jpg`, 'account', '旧レイアウトのLP画像（#41移行前の名残）も同じ'],
+    [LP_LIVE, 'live', '新レイアウトのLP画像・site_configが指す現在の1枚'],
+    [LP_DEAD, 'orphan', '新レイアウトのLP画像・枠の差し替えで参照が外れたもの'],
     ['static/v1/models/visitor.glb', 'system', '同梱資産'],
     ['tts/abc123.mp3', 'system', '音声キャッシュ'],
     [`${U}/${ROOM}`, 'unknown', 'フォルダでも兄弟でもない裸のid'],
@@ -144,12 +164,16 @@ const r2 = new S3Client({
 })
 
 /** 行を全部引く。PostgREST の既定は1000件で黙って切れるので、明示的にページングする
- *  ── ここで切れると**生きている作品が孤児に見える**（最も危ない誤り）。 */
-async function all(table, cols) {
+ *  ── ここで切れると**生きている作品が孤児に見える**（最も危ない誤り）。
+ *  **`order` を指定しないページングは順序が保証されない**（リリース前監査 #43・
+ *  2026-08-21）── ページの間に別のリクエストが行を書き換えると、Postgresは
+ *  同じ並びを返す義理が無く、境界をまたぐ行が二重に来たり1件も来ないことがある。
+ *  `id` は全テーブルの主キーで一意なので、これで安定した順序が決まる。 */
+async function all(table, cols, orderCol = 'id') {
   const PAGE = 1000
   const out = []
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await db.from(table).select(cols).range(from, from + PAGE - 1)
+    const { data, error } = await db.from(table).select(cols).order(orderCol, { ascending: true }).range(from, from + PAGE - 1)
     if (error) throw new Error(`${table} の読み出しに失敗: ${error.message}`)
     out.push(...data)
     if (data.length < PAGE) return out
@@ -180,7 +204,43 @@ const liveFolders = new Set([
 ])
 const liveSiblings = new Set(galleries.map((g) => `${g.owner_id}/${g.id}-`))
 const knownUsers = new Set(profiles.map((p) => p.id))
-const classify = makeClassifier({ liveFolders, liveSiblings })
+
+// 生きているLP画像（`_shared/lp/...`）は、テーブルの行ではなく site_config の
+// 保存済みURLだけが「これが今表示されている」と言える（リリース前監査 #44）。
+const LP_BANDS = ['lp_hero', 'lp_panels', 'lp_approach', 'lp_hall_front', 'lp_hall_sides']
+const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_BASE ?? '').replace(/\/+$/, '')
+let liveLpKeys = null
+if (publicBase) {
+  liveLpKeys = new Set()
+  let sawAnySlot = false
+  const siteConfig = await all('site_config', 'key, value', 'key')
+  for (const row of siteConfig) {
+    if (!LP_BANDS.includes(row.key)) continue
+    for (const slot of row.value?.slots ?? []) {
+      if (!slot?.url) continue
+      sawAnySlot = true
+      if (slot.url.startsWith(publicBase)) liveLpKeys.add(slot.url.slice(publicBase.length).replace(/^\/+/, ''))
+    }
+  }
+  // `startsWith` は NEXT_PUBLIC_R2_PUBLIC_BASE が保存済みURLの基点と一字一句
+  // 揃っていることに賭けている（別視点レビューで発見・2026-08-21）。CDNの別名・
+  // http/https・レガシーなカスタムドメイン等でズレていると、埋まっている枠が
+  // あるのに1件もマッチせず liveLpKeys が空になり、**それに気づかず** 全ての
+  // `_shared/lp/*` を「孤児」と自信満々に報告してしまう ── このスクリプトが
+  // 最も避けたい誤り（生きているものを孤児と呼ぶ）そのもの。埋まっている枠が
+  // 1つでもあるのに1つもマッチしなければ、比較材料が信用できないと判断して
+  // unknown に倒す。
+  if (sawAnySlot && liveLpKeys.size === 0) {
+    console.warn(
+      'LPの枠は埋まっているのに、どの保存済みURLもNEXT_PUBLIC_R2_PUBLIC_BASEと一致しませんでした。' +
+        '基点がズレている疑いがあるため、LP画像（_shared/lp/）は孤児と判定せず unknown 扱いにします。'
+    )
+    liveLpKeys = null
+  }
+} else {
+  console.warn('NEXT_PUBLIC_R2_PUBLIC_BASE が無いので、LP画像（_shared/lp/）は unknown 扱いになります。')
+}
+const classify = makeClassifier({ liveFolders, liveSiblings, liveLpKeys })
 
 const tally = new Map() // uid → { live, orphan, account, unknown, keys[] }
 const bytes = { live: 0, orphan: 0, account: 0, system: 0, unknown: 0 }

@@ -1125,6 +1125,8 @@ export const ja: Dictionary = {
     noAccess: 'このアカウントには管理者権限がありません。',
     signInPrompt: '管理者アカウントでサインインしてください。',
     loading: '読み込んでいます…',
+    checkFailed: '管理者権限の確認に失敗しました。通信状況を確認して、もう一度お試しください。',
+    retry: 'もう一度試す',
 
     guides: 'ガイド記事',
     shownAt: '記事の公開先',

@@ -27,8 +27,8 @@ export interface LpImageBand {
   /** 枠が空のときの控えの言い方。ヒーロー・通路・大部屋は内蔵のデモ作品で埋まるが、
    *  訴求パネルは何も掛からない ── 面によって「空」の意味が違うので呼び手が決める */
   emptyLabelKey: string
-  /** アップロード先 `{uid}/lp/{slot}-{nonce}.jpg` の枠番号の起点。帯どうしでファイルを
-   *  取り合わないよう、帯ごとに別の帯番号を使う（lib/siteConfig に理由） */
+  /** アップロード先 `_shared/lp/{slot}-{nonce}.jpg` の枠番号の起点。帯どうしで
+   *  ファイルを取り合わないよう、帯ごとに別の帯番号を使う（lib/siteConfig に理由） */
   slotOffset: number
   fetchSlots: () => Promise<SlotsFetch>
   saveSlots: (slots: LpHeroSlot[]) => Promise<void>
