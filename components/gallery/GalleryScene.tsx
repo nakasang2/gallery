@@ -1,6 +1,6 @@
 'use client'
 // Assembles the whole scene (applies theme/layout/exhibit list and bakes static shadows)
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
 import { getNeutralEnvTexture } from './textures'
@@ -9,6 +9,7 @@ import { frameDefFor, HANGINGS, CAPTIONS, resolveLayout, resolveTheme, applyMat 
 import { usePlacement, frameKeyFor, matKeyFor, hangingKeyFor, captionKeyFor, lightModeFor } from '@/lib/exhibition'
 import { useGallery, useSettings } from '@/lib/store'
 import { bakeMatches } from '@/lib/shadowBake'
+import { track } from '@/lib/analytics'
 import { LOW_POWER, QUALITY } from '@/lib/controller'
 import { PERF } from '@/lib/perfFlags'
 import Room from './Room'
@@ -81,6 +82,7 @@ export default function GalleryScene() {
   // 来場者は焼かずにこの1枚を読むだけ** ── 入場が速くなり、焼けない端末（`QUALITY === 'low'`）
   // にも初めて本物の影が出る（DECISIONS 2026-08-18 ①）。一致しなければ今までどおり焼く。
   const savedBake = useGallery((s) => s.visitor?.shadowBake ?? null)
+  const galleryId = useGallery((s) => s.visitor?.galleryId ?? null)
   const useSaved = useMemo(
     () => bakeMatches(savedBake, bakeKey, bakeSpecs.map((sp) => sp.id)),
     [savedBake, bakeKey, bakeSpecs]
@@ -94,6 +96,13 @@ export default function GalleryScene() {
     [theme, layout, door, settings, list, slots]
   )
   const [lightmap, setLightmap] = useState<LightAtlas | null>(null)
+  // 焼けなかったことを検知できるようにする（リリース前監査 #9）。失敗しても部屋は
+  // 壊れず地明かりだけの25%の明るさに固定されるだけなので、これを計測しないと
+  // 「なんとなく暗い部屋」が誰にも報告されない。
+  const onLightmapFailed = useCallback(
+    (reason: string) => track('gallery_lightmap_bake_failed', { gallery_id: galleryId, reason }),
+    [galleryId]
+  )
   // 焼き直しの合図。**古い1枚を貼ったままにしない** ── 構成が変わると面の詰め方も変わるので、
   // 前の区画を読み続けると壁に別の壁の光が乗る（画面は壊れないので気づけない）。
   const shownLightKey = useRef(lightPlan.key)
@@ -196,7 +205,7 @@ export default function GalleryScene() {
     // （テーマプレビュー用の逃げ道がそのまま効いてしまい、照明が減らない）。
     <SpotPoolProvider>
       <Room theme={theme} layout={layout} lightmap={lightmap} />
-      <LightmapBaker plan={lightPlan} onBaked={setLightmap} />
+      <LightmapBaker plan={lightPlan} onBaked={setLightmap} onFailed={onLightmapFailed} />
       {list.map((art, i) => (
         <Exhibit
           key={art.id}

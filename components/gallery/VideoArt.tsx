@@ -23,6 +23,36 @@ function getMediaSource(video: HTMLVideoElement, ctx: AudioContext): MediaElemen
   return node
 }
 
+/** Disposes `resource` one tick after it stops being current, unless a
+ *  same-identity remount cancels it first. React Strict Mode simulates an
+ *  unmount immediately followed by a remount that reuses the SAME `video`/
+ *  `VideoTexture` instance (useMemo isn't re-run) — disposing on that first,
+ *  synchronous cleanup would tear down a resource the very next mount is
+ *  about to reuse. A real unmount, or `art.src` actually changing to a new
+ *  video, is never followed by a same-identity remount, so the deferred
+ *  disposal is left to fire (リリース前監査 #7・2026-08-21). */
+function useDeferredDispose<T>(resource: T | null, dispose: (r: T) => void) {
+  // A ref, not a dependency, so passing a fresh arrow function each render
+  // doesn't retrigger the schedule/cancel dance below.
+  const disposeRef = useRef(dispose)
+  disposeRef.current = dispose
+  const pending = useRef<{ resource: T; timer: ReturnType<typeof setTimeout> } | null>(null)
+  useEffect(() => {
+    if (!resource) return
+    if (pending.current?.resource === resource) {
+      clearTimeout(pending.current.timer)
+      pending.current = null
+    }
+    return () => {
+      const timer = setTimeout(() => {
+        disposeRef.current(resource)
+        pending.current = null
+      }, 0)
+      pending.current = { resource, timer }
+    }
+  }, [resource])
+}
+
 export function useVideoArt(art: ArtworkData, worldPos: THREE.Vector3) {
   const isVideo = art.kind === 'video' && !!art.src
   const [playing, setPlaying] = useState(false)
@@ -67,10 +97,11 @@ export function useVideoArt(art: ArtworkData, worldPos: THREE.Vector3) {
     return a
   }, [video])
 
-  // Register with the playback manager and clean up
-  // Note: React Strict Mode simulates an unmount right after mount, so here we only do
-  // operations that can be reverted (no clearing src or dispose, which are irreversible;
-  // leave the actual cleanup to the browser's GC and texture version management)
+  // Register with the playback manager and clean up. React Strict Mode simulates
+  // an unmount right after mount reusing the SAME `video`, so this cleanup only
+  // does operations that can be reverted (pause, not dispose). The irreversible
+  // teardown (freeing the decoder/GPU texture) is handled by useDeferredDispose
+  // below, which tells a real replacement/unmount apart from Strict Mode's replay.
   useEffect(() => {
     if (!video) return
     const onPlaying = () => setPlaying(true)
@@ -83,6 +114,14 @@ export function useVideoArt(art: ArtworkData, worldPos: THREE.Vector3) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video])
+
+  useDeferredDispose(video, (v) => {
+    v.removeAttribute('src')
+    v.load()
+  })
+  useDeferredDispose(videoTex, (t) => t.dispose())
+  useDeferredDispose(posterTex, (t) => t.dispose())
+  useDeferredDispose(audio, (a) => a.disconnect())
 
   if (!isVideo) return { texture: null, audio: null }
   // Show the poster until the first frame arrives (avoids a black panel)

@@ -87,12 +87,31 @@ const frag = /* glsl */ `
 export default function LightmapBaker({
   plan,
   onBaked,
+  onFailed,
 }: {
   plan: LightPlan
   /** 焼き上がった瞬間に1回だけ呼ばれる。 */
   onBaked: (atlas: LightAtlas) => void
+  /** 諦めた（必要な拡張が無い、または`MAX_ATTEMPTS`回失敗）ときに1回だけ呼ばれる。
+   *  **呼ばなくても部屋は壊れない** ── 焼けなかった壁は地明かりだけの25%の明るさに
+   *  固定されるだけで、来場者には「なんとなく暗い部屋」としか見えず、これが無いと
+   *  誰にも報告されず検知できない（リリース前監査 #9・2026-08-21）。 */
+  onFailed?: (reason: string) => void
 }) {
   const gl = useThree((s) => s.gl)
+
+  // GLSL3（`in`/`out`）を使っている以上WebGL2必須で、そのWebGL2で`HalfFloatType`の
+  // レンダーターゲットに描くにはどちらかの拡張が要る（three.js の
+  // `WebGLCapabilities.halfFloatSupportedByExt` と同じOR条件 ── 片方だけしか
+  // 実装していないドライバもあるので、`EXT_color_buffer_half_float` だけを見ると
+  // 焼けるはずの端末まで誤って諦めさせる）。無い環境で焼こうとすると three.js は
+  // 例外を投げずに `console.error` だけ出してフレームバッファへの書き込みを黒の
+  // まま諦める ── 下のリトライ／例外捕捉では検知できない失敗モードなので、ここで
+  // 先に弾く。
+  const halfFloatOk = useMemo(
+    () => gl.extensions.has('EXT_color_buffer_half_float') || gl.extensions.has('EXT_color_buffer_float'),
+    [gl]
+  )
 
   const layout = useMemo(() => packLightAtlas(plan.surfaces), [plan.surfaces])
 
@@ -165,12 +184,27 @@ export default function LightmapBaker({
   // ── 毎フレーム重い描画を投げ続けるほうが害が大きい。
   const done = useRef('')
   const attempts = useRef({ key: '', n: 0 })
+  const reported = useRef('')
   const MAX_ATTEMPTS = 3
 
   useFrame(() => {
     if (done.current === plan.key) return
+    if (!halfFloatOk) {
+      done.current = plan.key
+      if (reported.current !== plan.key) {
+        reported.current = plan.key
+        onFailed?.('no-half-float-ext')
+      }
+      return
+    }
     if (attempts.current.key !== plan.key) attempts.current = { key: plan.key, n: 0 }
-    if (attempts.current.n >= MAX_ATTEMPTS) return
+    if (attempts.current.n >= MAX_ATTEMPTS) {
+      if (reported.current !== plan.key) {
+        reported.current = plan.key
+        onFailed?.('max-attempts')
+      }
+      return
+    }
     attempts.current.n++
 
     const u = bake.mat.uniforms
@@ -225,6 +259,14 @@ export default function LightmapBaker({
         gl.setRenderTarget(target)
         gl.render(bake.scene, bake.camera)
       }
+    } catch (e) {
+      // 珍しいドライバでのシェーダー失敗・面の途中でのコンテキスト消失。ここで
+      // 握って次のフレームで（`MAX_ATTEMPTS`まで）やり直す ── 投げっぱなしにすると、
+      // R3F のフレームループはこの呼び出しを try/catch で囲っていないため、この
+      // フレームに限って後続のsubscriber（影の焼き込み・徒歩移動 等）が丸ごと
+      // 動かなくなる（three.jsのソースで確認・実際には起きていないはずのフレーム落ち）。
+      console.warn('lightmap bake failed, will retry', e)
+      return
     } finally {
       gl.setRenderTarget(prevRT)
       gl.autoClear = prevAutoClear
