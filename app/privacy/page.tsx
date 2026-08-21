@@ -67,6 +67,7 @@ export default function PrivacyPage() {
 
           <h2>10. Reporting content</h2>
           <p>To report a gallery — for copyright, harassment or illegal content — use the <Link href="/report">report page</Link>. Include enough detail for us to find the work and understand the problem. We review every report and will remove content that breaks the <Link href="/terms">Terms</Link>.</p>
+          <p>For a copyright report, we keep the name and contact details you give us for as long as needed to act on the report and to defend that action if it is disputed, which can be indefinitely. If we remove content because of your report, we may share your name and the contents of your report with the person whose content was removed, so they can respond to it.</p>
         </div>
         <footer className="artist-footer">
           <LanguageSwitcher />

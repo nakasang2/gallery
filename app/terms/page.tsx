@@ -32,6 +32,7 @@ export default function TermsPage() {
 
           <h2>4. Acceptable use</h2>
           <p>Do not upload content that is illegal, infringes others&apos; rights, or is intended to harass. We may remove content or suspend accounts that violate this. Anyone can report a gallery from the <Link href="/report">report page</Link>, and we review every report. If we remove your content we will tell you why and you can reply to contest it.</p>
+          <p><strong>Repeat infringers.</strong> If your account is the subject of repeated valid copyright complaints, we will terminate it under section 7, regardless of whether we are able to give you advance notice first.</p>
 
           <h2>5. Paid upgrades, and refunds</h2>
           <p>Publishing is free. Optional upgrades — extra work slots, layouts and themes — are <strong>one-time purchases</strong>. There is no subscription, nothing renews, and nothing is charged again. Payments are handled by Stripe; we never see your card details.</p>
@@ -48,7 +49,7 @@ export default function TermsPage() {
           <p>Upgrades are one-time purchases, so &quot;keep forever&quot; depends on this service continuing to run. If we ever decide to close it, we will say so on the site and by email <strong>at least 90 days</strong> before it closes, and we will keep your published galleries reachable and your files downloadable for the whole of that period, so you can take everything with you. If you bought a one-time upgrade in the <strong>12 months</strong> before that announcement, write to us during the notice period and we will refund it. This section is about closing the service for everyone; it does not apply to an individual account we suspend or terminate under section 7, and it does not cover a joint exhibition whose run has already finished.</p>
 
           <h2>7. Your account, and ending it</h2>
-          <p>You are responsible for your account credentials. You can delete your account at any time from the dashboard, which removes your profile, galleries and uploaded works. We may suspend or terminate accounts that violate these terms; where we can, we will tell you first.</p>
+          <p>You are responsible for your account credentials. You can delete your account at any time from the dashboard, which removes your profile, galleries and uploaded works. We may suspend or terminate accounts that violate these terms; where we can, we will tell you first — except for the repeat-infringer terminations described in section 4, which we may carry out without prior notice.</p>
 
           <h2>8. Our responsibility to you</h2>
           <p>We provide the service with reasonable care and skill. Nothing in these terms limits our liability for death or personal injury caused by negligence, for fraud, or for anything else that cannot be limited under the law that applies to you — including the consumer protections in your own country, which these terms do not take away. Subject to that, we are not liable for indirect or consequential loss, and our total liability to you is limited to the greater of the amount you have paid us in the previous twelve months or JPY 5,000.</p>
