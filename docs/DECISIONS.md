@@ -1,5 +1,14 @@
 # DECISIONS
 
+## 2026-08-21 リリース前総合監査 ── #15 Google Fontsの自己ホスト化
+
+- **発端**: docs/AUDIT-2026-08-20.md #15。`app/layout.tsx` が `fonts.googleapis.com` のCSS2 APIを実行時`<link>`で読み込んでおり、EEA/UKを含む全訪問者のIPが同意バナーより前・無条件にGoogleへ送られていた（LG München I, 2022, 3 O 17493/20 が同型実装をGDPR違反と認定）。
+- **決定（分割方式・ユーザー選択「Googleと同じ仕組みを自前で再現」）**: フォントファイルを単純に丸ごと自己ホストする案（実装最小）・常用漢字中心に絞る案（中間）ではなく、**Googleが既に配っている`unicode-range`の境界（頻度データでチューニング済み）をそのまま読み取り、同じ境界で自前ホストに分割する**案を選んだ。理由: 2026-08-18〜19に行ったLPの高速化努力と矛盾させないため——日本語フォント（Zen Old Mincho・Zen Kaku Gothic New）は素の状態で数MBあり、丸ごと1ファイルにすると「日本語を1文字も使わないページ」の訪問者にもまとめて配ることになり、逆に「常用漢字中心に絞る」案は稀な漢字（人名等）を作品タイトルに使うと文字化けするリスクが残る。
+- **実装**: Google Fonts本体（GitHubの`google/fonts`リポジトリ、SIL OFLライセンス）からTTF実体を取得し、fonttools（Python、venvに隔離）で①可変フォントの静的ウェイトへのインスタンス化②Googleの実際のCSS2 API応答から`unicode-range`の境界を読み取り、同じ境界でWOFF2へsubset、の2段階で`public/fonts/site/`配下に72個のフォントファイル＋`public/fonts/site-fonts.css`を生成。再現手順は`scripts/rebuild-self-hosted-fonts.py`に記録（自動実行はしない一回限りのツール）。各ファミリーのライセンス全文（OFL.txt）も同梱。
+- **ダウンロード前にユーザー確認を取った**: Zen Old Mincho（約5.4MB）は#16対応時に確認済み。今回追加でVollkorn・Zen Kaku Gothic New・Geist・Geist Monoの実体ファイル（合計約11MB）を取得する前には、フォント分割方針そのものをA/B/Cで確認した上で着手した。
+- **確認済み**: ブラウザで実際に日本語（Zen Old Mincho/Zen Kaku Gothic New）・英語（Vollkorn/Geist）ページを開き、フォントファイルがすべて自ドメインから配信され`fonts.googleapis.com`への通信が0件であること、`document.fonts`が想定どおりの書体名・ウェイトで登録されること（3Dキャンバスの題箋焼き込みが依存する`lib/fonts.ts`の`document.fonts.check/load`が引き続き機能する）を確認。
+- **別視点レビュー（medium）で見つけて直したこと**: 実体ファイルが無いウェイトを黙ってスキップしたままCSSを書き出していた穴／再現手順が自己ホスト化で消えたクエリ文字列を参照していた穴／単一ファイルしかないラテン系フォントに意味のない`unicode-range`が付いていた無駄（約6.3KB）／未使用import。
+
 ## 2026-08-21 リリース前総合監査 ── UGCカテゴリ6件（#10・#11・#29・#30・#31・#32）の対応方針
 
 - **発端**: docs/AUDIT-2026-08-20.md のUGC/セキュリティ観点の指摘。High 2件（#10 モデレーション後もR2ファイルが公開され続ける／#11 通報フォームが匿名無制限で管理画面をDoSできる）とMedium 4件（#29 アップロードのマジックバイト検証なし／#30 `/api/tts`が未認証で非公開作品も読める／#31 全ストレージ経路にレート制限なし／#32 `storage_path`のなりすまし帰属）。
